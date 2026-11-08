@@ -13,7 +13,7 @@ export const ELENCO = ".mango-elenco.json"
 const CREATI_DAL_SERVER = ["animazioni/dist", "animazioni/dist.lock", "animazioni/dist.nuova", "animazioni/dist.vecchia"]
 
 const CARTELLE_ESCLUSE = ["node_modules", "__pycache__", ".pytest_cache"]
-const PERCORSI_ESCLUSI = ["motore/prove", "server/test","animazioni/test", "animazioni/foto"]
+const PERCORSI_ESCLUSI = ["motore/prove", "server/test", "animazioni/test", "animazioni/foto", "docs/images"]
 
 /** Un percorso del repo (relativo, con `/`) che non va nell'installatore. */
 export function escluso(percorso: string): boolean {

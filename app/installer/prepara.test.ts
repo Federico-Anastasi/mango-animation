@@ -82,5 +82,7 @@ describe("il codice che l'installatore porta", () => {
     expect(escluso("server/src/test-utili.ts")).toBe(false)
     expect(escluso("motore/proveniente.py")).toBe(false)
     expect(escluso("motore/monta.pyc")).toBe(true)
+    expect(escluso("docs/images/banner.png")).toBe(true)
+    expect(escluso("docs/guida/english.md")).toBe(false)
   })
 })
