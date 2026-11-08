@@ -1,0 +1,225 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 78rem;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.testata {
+  position: sticky;
+  top: -1.25rem;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  padding: 0.5rem 0;
+  background: var(--carta);
+}
+
+.testata h1 {
+  margin: 0;
+}
+
+.salva {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ok {
+  color: var(--verde);
+  font-size: 0.9rem;
+}
+
+.problemi,
+.errore {
+  margin: 0;
+  padding: 0.6rem 0.9rem 0.6rem 1.8rem;
+  border: 1px solid var(--rosso);
+  border-radius: 6px;
+  color: var(--rosso);
+  font-size: 0.9rem;
+}
+
+.errore {
+  padding-left: 0.9rem;
+}
+
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.sezione h2 {
+  margin: 0;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--filo);
+}
+
+.nota {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--grigio);
+}
+
+.quadri {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 1.2rem;
+  align-items: start;
+}
+
+.quadro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.dettagli {
+  width: 100%;
+  font-size: 0.88rem;
+}
+
+.dettagli summary {
+  cursor: pointer;
+}
+
+.misure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+}
+
+.strato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.strato h3,
+.gruppo h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.numeri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+
+.scelta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--grigio);
+}
+
+.scelta select {
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font-size: 0.9rem;
+}
+
+.colori {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.colori li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.colori input {
+  width: 2.4rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.colori code {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--grigio);
+}
+
+.gruppo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.prove {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.prove figure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.prove figcaption {
+  font-size: 0.8rem;
+  color: var(--grigio);
+}
+
+.cornicina {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16rem;
+  padding: 1.2rem 1rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta-scura);
+}
+
+.cartello,
+.titolo {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.spunte {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.spunte input {
+  accent-color: var(--inchiostro);
+}

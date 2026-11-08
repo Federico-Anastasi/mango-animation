@@ -1,0 +1,29 @@
+.pieno,
+.vuoto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--inchiostro);
+  font-family: var(--font-testo);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.pieno {
+  background: var(--inchiostro);
+  color: var(--carta);
+}
+
+.vuoto {
+  background: none;
+  color: var(--inchiostro);
+}
+
+.pieno:disabled,
+.vuoto:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

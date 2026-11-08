@@ -1,0 +1,104 @@
+.tendina {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 100%;
+  left: 0.8rem;
+  z-index: 4;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  max-height: min(18rem, 50dvh);
+  border: 1px solid var(--inchiostro);
+  border-radius: 8px;
+  background: var(--carta);
+  overflow: hidden;
+}
+
+.elenco {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.voce {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem 0.75rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.voce:hover,
+.voce[data-attiva="true"] {
+  background: var(--carta-scura);
+}
+
+.voce[data-attiva="true"] {
+  box-shadow: inset 2px 0 0 var(--inchiostro);
+}
+
+.nome {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.argomenti {
+  color: var(--grigio);
+}
+
+.descrizione {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--grigio);
+  font-size: 0.8rem;
+}
+
+/* Nello spazio stretto la descrizione va sotto il nome, sempre su una riga. */
+@container (max-width: 30rem) {
+  .voce {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.05rem;
+  }
+
+  .nome {
+    max-width: none;
+  }
+
+  .descrizione {
+    flex: 0 0 auto;
+  }
+}
+
+.nota {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.35rem 0.8rem;
+  border-top: 1px solid var(--filo);
+  color: var(--grigio);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.riprova {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

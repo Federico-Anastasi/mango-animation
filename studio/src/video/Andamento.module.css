@@ -1,0 +1,44 @@
+.figura {
+  margin: 0;
+  max-width: 36rem;
+}
+
+.figura svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.asse {
+  stroke: var(--grigio);
+  stroke-width: 1;
+}
+
+.guida {
+  stroke: var(--filo);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.testo {
+  fill: var(--grigio);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--grigio);
+}
+
+.segno {
+  display: inline-block;
+  width: 0.9rem;
+  height: 3px;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}

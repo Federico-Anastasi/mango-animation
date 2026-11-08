@@ -1,0 +1,196 @@
+:root {
+  --display: "Archivo", "Arial Narrow", sans-serif;
+  --testo: "Instrument Sans", "Segoe UI", sans-serif;
+  --mono: "Chivo Mono", "Consolas", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#radice {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--carta-scura);
+  color: var(--inchiostro);
+  font-family: var(--testo);
+  overflow: hidden;
+}
+
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sep {
+  display: inline-block;
+  width: 0.34em;
+  text-align: center;
+  font: normal 1em var(--testo);
+}
+
+.pagina {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.pagina[data-registra] {
+  cursor: none;
+}
+
+.pagina[data-registra] .area {
+  background: var(--carta);
+}
+
+.cornice {
+  flex: none;
+  overflow: hidden;
+}
+
+.palco {
+  position: relative;
+  overflow: hidden;
+  transform-origin: top left;
+  background: var(--carta);
+  color: var(--inchiostro);
+}
+
+.an-campo {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.an-vuoto {
+  padding: 80px;
+  font-size: 48px;
+  color: var(--grigio);
+}
+
+.an-barra {
+  flex: none;
+  background: var(--carta);
+  border-top: 1.5px solid var(--inchiostro);
+  font-size: 15px;
+}
+
+.an-riga {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+}
+
+.an-riga + .an-riga {
+  border-top: 1.5px solid var(--filo);
+}
+
+.an-barra button,
+.an-barra a {
+  padding: 4px 12px;
+  background: var(--carta);
+  border: 1.5px solid var(--inchiostro);
+  color: var(--inchiostro);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.an-barra a[aria-current] {
+  background: var(--inchiostro);
+  color: var(--carta);
+}
+
+.an-barra .num {
+  margin-left: auto;
+}
+
+.an-display {
+  font-family: var(--display);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+
+.an-testo {
+  font-family: var(--testo);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.an-etichetta {
+  font-family: var(--testo);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--grigio);
+}
+
+.an-num {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* La virgola dei numeri in mono sta in un altro font: senza questo alza la riga e i numeri affiancati non stanno più sulla stessa base. */
+.an-num .sep {
+  line-height: 1;
+}
+
+/* ---------- la mappa per registrare ---------- */
+
+.mappa {
+  width: 1920px;
+  height: 1080px;
+  padding: 50px 80px 40px;
+  display: flex;
+  flex-direction: column;
+  background: var(--carta);
+}
+
+.mappa-titolo {
+  font-size: 40px;
+  padding-bottom: 14px;
+}
+
+.mappa-riga {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 110px repeat(3, 1fr);
+  column-gap: 40px;
+  align-items: center;
+  border-top: 3px solid var(--filo);
+}
+
+.mappa-numero {
+  font-size: 96px;
+  color: var(--rosso);
+}
+
+.mappa-parola {
+  font-size: 54px;
+  line-height: 1.12;
+}
+
+.mappa-parola small {
+  display: block;
+  margin-top: 6px;
+  font-size: 34px;
+}

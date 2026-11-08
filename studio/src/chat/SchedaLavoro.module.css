@@ -1,0 +1,122 @@
+.scheda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0.25rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--filo);
+  border-left: 3px solid var(--blu);
+  border-radius: 6px;
+  background: var(--carta);
+  font-size: 0.86rem;
+}
+
+.scheda[data-stato="fallito"],
+.scheda[data-stato="interrotto"] {
+  border-left-color: var(--rosso);
+}
+
+.scheda[data-stato="riuscito"],
+.scheda[data-stato="fermato"],
+.scheda[data-stato="finito"] {
+  border-left-color: var(--verde);
+}
+
+.scheda[data-stato="fermato"],
+.scheda[data-stato="in coda"] {
+  border-left-color: var(--grigio);
+}
+
+.testa {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.punto {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--grigio);
+}
+
+.scheda[data-stato="in corso"] .punto {
+  background: var(--rosso);
+  animation: pulsa 1.4s ease-in-out infinite;
+}
+
+.scheda[data-stato="riuscito"] .punto,
+.scheda[data-stato="finito"] .punto {
+  background: var(--verde);
+}
+
+.scheda[data-stato="fallito"] .punto,
+.scheda[data-stato="interrotto"] .punto {
+  background: var(--rosso);
+}
+
+@keyframes pulsa {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ferma {
+  flex: 0 0 auto;
+  height: 1.7rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--inchiostro);
+  border-radius: 6px;
+  background: none;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.ferma:hover {
+  background: var(--carta-scura);
+}
+
+.riga {
+  margin: 0;
+  color: var(--grigio);
+  overflow-wrap: anywhere;
+}
+
+.barra {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--carta-scura);
+  overflow: hidden;
+}
+
+.barra span {
+  display: block;
+  height: 100%;
+  background: var(--blu);
+  transition: width 0.9s linear;
+}
+
+.righe {
+  margin: 0;
+  max-height: 4.5rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--grigio);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+}

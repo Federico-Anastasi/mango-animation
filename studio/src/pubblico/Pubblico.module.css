@@ -1,0 +1,243 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 78rem;
+  margin: 0 auto;
+}
+
+.pagina h1,
+.pagina h2 {
+  margin: 0 0 0.5rem;
+}
+
+.testata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+
+.sotto {
+  margin: 0.4rem 0 0;
+  color: var(--grigio);
+  font-size: 0.85rem;
+}
+
+.numeri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+}
+
+.numero {
+  display: flex;
+  flex-direction: column;
+}
+
+.valore {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  line-height: 1.1;
+}
+
+.nome {
+  color: var(--grigio);
+  font-size: 0.8rem;
+}
+
+.avviso {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--filo);
+  border-left: 3px solid var(--rosso);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.avviso summary {
+  cursor: pointer;
+}
+
+.avviso ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--grigio);
+}
+
+.scorri {
+  overflow-x: auto;
+}
+
+.tabella {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.tabella th,
+.tabella td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--filo);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tabella th {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--grigio);
+}
+
+.tabella tbody tr {
+  cursor: pointer;
+}
+
+.tabella tbody tr:hover,
+.scelta {
+  background: var(--carta-scura);
+}
+
+.tabella .immagine {
+  width: 3.2rem;
+  padding-right: 0;
+}
+
+.immagine img,
+.immagine span {
+  display: block;
+  width: 2.7rem;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--carta-scura);
+}
+
+.tabella .titolo {
+  white-space: normal;
+  min-width: 14rem;
+  font-weight: 600;
+}
+
+.tabella .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.piu {
+  color: var(--blu);
+  font-size: 0.8rem;
+}
+
+.tabella tbody tr.medie {
+  cursor: default;
+}
+
+.tabella tbody tr.medie:hover {
+  background: none;
+}
+
+.medie td {
+  border-bottom: 2px solid var(--inchiostro);
+  font-weight: 600;
+}
+
+.medie td:first-child {
+  white-space: normal;
+}
+
+.ordinaColonna {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ordinaColonna:hover {
+  color: var(--inchiostro);
+  text-decoration: underline;
+}
+
+.dueColonne {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 2rem;
+}
+
+.commenti,
+.conversazioni {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.commento,
+.conversazione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.risposta {
+  margin-left: 1.5rem;
+}
+
+.mio {
+  border-left: 3px solid var(--inchiostro);
+}
+
+.autore {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.quando {
+  color: var(--grigio);
+  font-weight: 400;
+  font-size: 0.78rem;
+}
+
+.nuovo {
+  color: var(--rosso);
+  font-size: 0.75rem;
+}
+
+.nota,
+.riassunto {
+  color: var(--grigio);
+  white-space: pre-line;
+}
+
+.suoMessaggio,
+.mioMessaggio {
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: var(--carta-scura);
+  max-width: 90%;
+}
+
+.mioMessaggio {
+  align-self: flex-end;
+  background: none;
+  border: 1px solid var(--filo);
+}
+
+@media (max-width: 900px) {
+  .dueColonne {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

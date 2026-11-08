@@ -1,0 +1,72 @@
+.figura {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0;
+  width: 11rem;
+}
+
+.figura svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--inchiostro);
+}
+
+.figura figcaption {
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.fondo {
+  stroke: none;
+}
+
+.figura text {
+  font-family: var(--font-testo);
+  font-size: 68px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: var(--inchiostro);
+  stroke: var(--carta);
+  stroke-width: 12;
+  paint-order: stroke;
+}
+
+.animazione rect {
+  fill: var(--blu);
+  fill-opacity: 0.18;
+  stroke: var(--blu);
+  stroke-width: 6;
+  stroke-dasharray: 24 14;
+}
+
+.girato rect {
+  fill: var(--inchiostro);
+  fill-opacity: 0.14;
+  stroke: var(--inchiostro);
+  stroke-width: 6;
+}
+
+.sagoma rect {
+  fill: var(--rosso);
+  fill-opacity: 0.2;
+  stroke: var(--rosso);
+  stroke-width: 6;
+}
+
+.riquadro rect,
+.inserto rect {
+  fill: var(--verde);
+  fill-opacity: 0.2;
+  stroke: var(--verde);
+  stroke-width: 6;
+}
+
+.testo rect {
+  fill: none;
+  stroke: var(--inchiostro);
+  stroke-width: 6;
+  stroke-dasharray: 10 10;
+}

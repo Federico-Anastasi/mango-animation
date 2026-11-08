@@ -1,0 +1,82 @@
+/* Due colonne e la maniglia in mezzo, che fa anche da spazio. Le larghezze le scrive il componente
+   (`Colonne.tsx`); una colonna sola le mette una sotto l'altra. */
+.colonne {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.colonne[data-allinea="inizio"] {
+  grid-template-rows: auto;
+  align-items: start;
+}
+
+.colonne[data-una-sola="true"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  row-gap: 1rem;
+}
+
+/* Con una colonna sola visibile, questa riempie l'altezza che c'è. */
+.colonne[data-una-sola="true"]:not([data-sotto="impila"]) {
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.colonna {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.colonna[hidden] {
+  display: none;
+}
+
+/* Una riga sottile che si accende sotto il puntatore, a fuoco e durante il trascinamento; l'area
+   da afferrare è larga quanto la maniglia. */
+.maniglia {
+  position: relative;
+  min-height: 0;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.maniglia::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--filo);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.maniglia:hover::before,
+.maniglia:focus-visible::before,
+.colonne[data-in-movimento="true"] .maniglia::before {
+  opacity: 1;
+}
+
+.maniglia:focus-visible::before,
+.colonne[data-in-movimento="true"] .maniglia::before {
+  background: var(--inchiostro);
+}
+
+.colonne[data-in-movimento="true"] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maniglia::before {
+    transition: none;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "mango-animation",
+  "displayName": "Mango Animation",
+  "description": "The method for making a creator's videos: the skills for every step and the «video» tools of the archive and the editing bench.",
+  "author": { "name": "Federico Anastasi" },
+  "homepage": "https://github.com/Federico-Anastasi/mango-animation",
+  "repository": "https://github.com/Federico-Anastasi/mango-animation",
+  "license": "AGPL-3.0-or-later",
+  "skills": ["./.claude/skills/"],
+  "hooks": "./plugin/hooks.json",
+  "mcpServers": {
+    "video": {
+      "command": "bun",
+      "args": ["run", "${CLAUDE_PLUGIN_ROOT}/plugin/mcp.ts"]
+    }
+  }
+}

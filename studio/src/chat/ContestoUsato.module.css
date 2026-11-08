@@ -1,0 +1,40 @@
+.contesto {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--grigio);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.barra {
+  display: inline-block;
+  width: 2.2rem;
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: 0.15rem;
+  background: var(--filo);
+}
+
+.pieno {
+  display: block;
+  height: 100%;
+  background: var(--grigio);
+}
+
+.contesto[data-livello="alto"] {
+  color: var(--inchiostro);
+}
+
+.contesto[data-livello="alto"] .pieno {
+  background: var(--inchiostro);
+}
+
+.contesto[data-livello="pieno"] {
+  color: var(--rosso);
+}
+
+.contesto[data-livello="pieno"] .pieno {
+  background: var(--rosso);
+}

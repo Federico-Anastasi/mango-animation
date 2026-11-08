@@ -1,0 +1,140 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 96rem;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+/* La Prova prende tutta l'altezza che resta sotto le schede: il video è grande quanto lo schermo lo permette. */
+.piena {
+  min-height: 100%;
+}
+
+.piena .contenuto {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.testata {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.indietro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  font-size: 0.85rem;
+  color: var(--grigio);
+  text-decoration: none;
+}
+
+.indietro:hover {
+  color: var(--inchiostro);
+}
+
+.titolo {
+  width: 100%;
+  padding: 0.1rem 0.4rem;
+  margin-left: -0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  line-height: 1.3;
+  resize: none;
+  field-sizing: content;
+  overflow: hidden;
+}
+
+.titolo:hover,
+.titolo:focus {
+  border-color: var(--filo);
+}
+
+.riga {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 0.9rem;
+  min-width: 0;
+}
+
+.stato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--grigio);
+}
+
+.stato select {
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font-size: 0.9rem;
+}
+
+.conferma {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--rosso);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+  font-size: 0.9rem;
+}
+
+.schede {
+  display: flex;
+  gap: 0.2rem;
+  border-bottom: 1px solid var(--filo);
+  overflow-x: auto;
+}
+
+.scheda {
+  padding: 0.45rem 0.8rem;
+  border-bottom: 2px solid transparent;
+  color: var(--grigio);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.scheda:hover {
+  color: var(--inchiostro);
+}
+
+.scheda[aria-current="page"] {
+  border-bottom-color: var(--inchiostro);
+  color: var(--inchiostro);
+  font-weight: 600;
+}
+
+.contenuto {
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .scheda {
+    padding: 0.45rem 0.4rem;
+    font-size: 0.85rem;
+  }
+}

@@ -1,0 +1,4 @@
+https://commons.wikimedia.org/wiki/File:Claude_AI_symbol.svg
+Claude, simbolo di Anthropic. Commons: CC0 1.0, marchio di Anthropic.
+Usato come riferimento al modello, quando il video lo nomina. Scaricato il 3 novembre 2026.
+Il tracciato è quello di Commons; tolti gli attributi che il file porta da una pagina web (`class`, colore in hsl) e il colore scritto in esadecimale (#D97757), lo stesso.

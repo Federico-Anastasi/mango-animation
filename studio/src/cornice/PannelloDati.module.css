@@ -1,0 +1,12 @@
+.blocco {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.percorso {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

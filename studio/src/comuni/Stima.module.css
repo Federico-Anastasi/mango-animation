@@ -1,0 +1,8 @@
+.stima {
+  padding: 0 0.25em;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--blu) 14%, transparent);
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

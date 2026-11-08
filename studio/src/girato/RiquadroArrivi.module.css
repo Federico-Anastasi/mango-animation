@@ -1,0 +1,100 @@
+.riquadro {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.testo {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.testo h2 {
+  font-size: 1.05rem;
+}
+
+.testo p {
+  margin: 0 0 0.4rem;
+}
+
+.indirizzo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.spento,
+.errore {
+  color: var(--rosso);
+}
+
+.tenue {
+  font-size: 0.85rem;
+  color: var(--grigio);
+}
+
+.ultimi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+}
+
+.ultimi li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.qr {
+  width: 8rem;
+  height: 8rem;
+  padding: 0.4rem;
+  border: 1px solid var(--filo);
+  border-radius: 4px;
+  /* Il codice si legge solo su fondo bianco, anche nel tema scuro. */
+  background: #fff;
+}
+
+.azioni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+}
+
+.strada {
+  align-items: flex-start;
+  max-width: 24rem;
+}
+
+.titoloStrada {
+  font-weight: 600;
+  color: var(--inchiostro);
+}
+
+.codici {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.codice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--grigio);
+}

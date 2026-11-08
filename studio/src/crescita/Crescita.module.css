@@ -1,0 +1,384 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+.pagina h1 {
+  margin: 0 0 0.5rem;
+}
+
+.sotto {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--grigio);
+  font-size: 0.9rem;
+}
+
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+  padding-top: 1rem;
+  border-top: 2px solid var(--inchiostro);
+}
+
+.sezione h2 {
+  margin: 0;
+}
+
+.paragrafo {
+  margin: 0;
+  max-width: 75ch;
+}
+
+.barra {
+  height: 8px;
+  background: var(--carta-scura);
+}
+
+.barra span {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--blu);
+}
+
+.giorni {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.giorni li {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--filo);
+}
+
+.giorno {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--grigio);
+}
+
+.controllo {
+  background: var(--carta-scura);
+}
+
+.controllo .giorno {
+  color: var(--inchiostro);
+  font-weight: 600;
+}
+
+.grafico {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 260px;
+}
+
+.grafico svg {
+  display: block;
+}
+
+.asse {
+  stroke: var(--grigio);
+  stroke-width: 1;
+}
+
+.guida {
+  stroke: var(--filo);
+  stroke-width: 1;
+}
+
+.scritta {
+  fill: var(--grigio);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.etichetta {
+  fill: var(--inchiostro);
+  font-family: var(--font-testo);
+  font-size: 12px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--carta);
+  stroke-width: 3px;
+}
+
+.fascia {
+  fill: var(--carta-scura);
+}
+
+.vera polyline,
+.obiettivo polyline {
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.vera polyline {
+  stroke: var(--inchiostro);
+}
+
+.vera circle {
+  fill: var(--inchiostro);
+  stroke: var(--carta);
+  stroke-width: 2;
+}
+
+.obiettivo polyline {
+  stroke: var(--blu);
+}
+
+.obiettivo circle {
+  fill: var(--blu);
+}
+
+.cursore line {
+  stroke: var(--grigio);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.cursore circle {
+  fill: none;
+  stroke: var(--inchiostro);
+  stroke-width: 2;
+}
+
+.suggerimento {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.suggerimento strong {
+  font-family: var(--font-testo);
+}
+
+.fasciaSuggerimento {
+  color: var(--grigio);
+}
+
+.tabella,
+.tipi {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.tabella caption {
+  padding-bottom: 0.4rem;
+  color: var(--grigio);
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.tabella th,
+.tabella td,
+.tipi th,
+.tipi td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--filo);
+  text-align: right;
+  vertical-align: top;
+}
+
+.tabella th:first-child,
+.tipi th:first-child {
+  text-align: left;
+}
+
+.tabella thead th,
+.tipi thead th {
+  color: var(--grigio);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tabella small,
+.tipi small {
+  display: block;
+  color: var(--grigio);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tabella td,
+.tipi td {
+  font-variant-numeric: tabular-nums;
+}
+
+.scelta {
+  background: var(--carta-scura);
+  font-weight: 600;
+}
+
+.tipi tbody th {
+  font-weight: 600;
+}
+
+.misura {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.pista {
+  display: block;
+  width: 8rem;
+}
+
+.asta {
+  display: block;
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: var(--blu);
+}
+
+.tipi .soloStretto {
+  display: none;
+}
+
+.consigli {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.consigli article {
+  min-width: 0;
+}
+
+.consigli h3 {
+  margin: 0 0 0.25rem;
+}
+
+.consigli p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.gruppo h3 {
+  margin: 0.5rem 0 0.3rem;
+  color: var(--grigio);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.novita {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.novita li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--filo);
+  font-size: 0.92rem;
+}
+
+.nomeNovita {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.cosa {
+  color: var(--grigio);
+}
+
+.novita a {
+  align-self: flex-start;
+  font-size: 0.8rem;
+}
+
+.come {
+  padding: 1rem 1.1rem;
+  background: var(--carta-scura);
+  color: var(--grigio);
+  font-size: 0.88rem;
+}
+
+.come h2 {
+  margin: 0 0 0.5rem;
+  color: var(--inchiostro);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.come p {
+  margin: 0.25rem 0 0;
+  max-width: 75ch;
+}
+
+@media (max-width: 760px) {
+  .giorni li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tipi thead {
+    display: none;
+  }
+
+  .tipi tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.2rem 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--filo);
+  }
+
+  .tipi tbody th,
+  .tipi td:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .tipi th,
+  .tipi td {
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+
+  .misura {
+    justify-content: flex-start;
+  }
+
+  .tipi .soloStretto {
+    display: inline;
+    font-size: inherit;
+  }
+
+  .pista {
+    width: 5rem;
+  }
+}

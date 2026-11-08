@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mango Animation",
+  "version": "0.1.0",
+  "identifier": "dev.mango.animation",
+  "build": {
+    "frontendDist": "./ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1MzlCREFFQzUzNjU3ODEKUldTQlZ6YkZycjA1MVZUYmo2eEtnTllibk1zTk5KUlBYanRmaUt2RTljUmR5Q3F0Vm9pRyttVlgK",
+      "endpoints": ["https://github.com/Federico-Anastasi/mango-animation/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"]
+  }
+}

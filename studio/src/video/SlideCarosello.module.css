@@ -1,0 +1,140 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.corpo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.vuoto {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 36rem;
+}
+
+.lato {
+  flex: 1 1 18rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rendi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+}
+
+.stato {
+  margin: 0;
+  color: var(--grigio);
+  font-size: 0.9rem;
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+  font-size: 0.9rem;
+}
+
+.avvisi h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.quando {
+  color: var(--grigio);
+  font-weight: normal;
+}
+
+.avvisi ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.avvisi li {
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--rosso);
+  overflow-wrap: anywhere;
+}
+
+.avviso {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blu);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lettore {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(100%, 24rem);
+}
+
+.grande {
+  display: block;
+  width: 100%;
+  max-height: 75vh;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta-scura);
+}
+
+.comandi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.miniature {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.6rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.miniatura {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.miniatura[aria-current="true"] {
+  border-color: var(--rosso);
+}
+
+.miniatura img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 4px;
+}

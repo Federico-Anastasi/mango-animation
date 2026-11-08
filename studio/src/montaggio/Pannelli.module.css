@@ -1,0 +1,150 @@
+.pannello {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.pannello h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.pannello h3 {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+}
+
+.blocco {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.etichetta {
+  font-size: 0.78rem;
+  color: var(--grigio);
+}
+
+.campo select,
+.campo input:not([type="checkbox"]) {
+  width: 100%;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+}
+
+.campo select:focus,
+.campo input:focus {
+  border-color: var(--inchiostro);
+}
+
+.coppia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+
+.azioni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.nota {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--grigio);
+}
+
+.frase {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.avviso {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--inchiostro);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.avviso p {
+  margin: 0;
+}
+
+.avvisi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.86rem;
+}
+
+.avvisi li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.2rem 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--filo);
+}
+
+.vai {
+  border: 0;
+  background: none;
+  color: var(--blu);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cursore {
+  width: 100%;
+  accent-color: var(--inchiostro);
+}
+
+.spunta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.spunta input {
+  accent-color: var(--inchiostro);
+}
+
+.pieno {
+  height: 2rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--inchiostro);
+  border-radius: 6px;
+  background: var(--inchiostro);
+  color: var(--carta);
+  cursor: pointer;
+}
+
+.pieno:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -1,0 +1,163 @@
+.compositore {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0.8rem 0.7rem;
+  border-top: 1px solid var(--filo);
+  background: var(--carta);
+}
+
+.allegati {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.allegato {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.25rem 0.3rem 0.25rem 0.3rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta-scura);
+  font-size: 0.78rem;
+}
+
+.allegato img {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.allegato[data-stato="sale"] {
+  opacity: 0.7;
+}
+
+.allegato[data-stato="errore"] {
+  border-color: var(--rosso);
+  color: var(--rosso);
+}
+
+.nomeAllegato {
+  min-width: 0;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.allegato[data-stato="errore"] .nomeAllegato {
+  max-width: 16rem;
+  white-space: normal;
+}
+
+.allegato button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.allegato button:hover {
+  background: var(--filo);
+}
+
+.riga {
+  display: flex;
+}
+
+.campo {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 11rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--filo);
+  border-radius: 8px;
+  background: var(--carta);
+  line-height: 1.45;
+  resize: none;
+}
+
+.campo:focus {
+  border-color: var(--inchiostro);
+  outline: none;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.aiuto {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--grigio);
+  font-size: 0.76rem;
+}
+
+.icona,
+.invia,
+.ferma {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2rem;
+  border: 1px solid var(--inchiostro);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.icona {
+  width: 2rem;
+  border-color: var(--filo);
+  background: none;
+}
+
+.icona:hover {
+  border-color: var(--inchiostro);
+}
+
+.invia {
+  width: 2.4rem;
+  background: var(--inchiostro);
+  color: var(--carta);
+}
+
+.invia:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ferma {
+  padding: 0 0.8rem;
+  border-color: var(--rosso);
+  background: none;
+  color: var(--rosso);
+  font-size: 0.86rem;
+}
+
+.ferma:hover {
+  background: var(--carta-scura);
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+  font-size: 0.84rem;
+}

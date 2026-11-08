@@ -1,0 +1,117 @@
+.microfono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.microfono:hover {
+  border-color: var(--inchiostro);
+}
+
+.microfono:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.microfono[data-acceso="true"] {
+  border-color: var(--rosso);
+  background: var(--rosso);
+  color: var(--carta);
+  animation: respiro 1.4s ease-out infinite;
+}
+
+@keyframes respiro {
+  from {
+    box-shadow: 0 0 0 0 var(--rosso);
+  }
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+.striscia {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--filo);
+  border-radius: 8px;
+  background: var(--carta-scura);
+  font-size: 0.84rem;
+}
+
+.striscia[data-fase="ascolta"] {
+  border-color: var(--rosso);
+}
+
+.testa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+}
+
+.punto {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--grigio);
+}
+
+.striscia[data-fase="ascolta"] .punto {
+  background: var(--rosso);
+  animation: lampeggia 1.2s ease-in-out infinite;
+}
+
+@keyframes lampeggia {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.tempo {
+  font-variant-numeric: tabular-nums;
+}
+
+.livello {
+  flex: 0 0 5rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--filo);
+  overflow: hidden;
+}
+
+.livello > span {
+  display: block;
+  height: 100%;
+  background: var(--rosso);
+  transition: width 0.1s linear;
+}
+
+.come {
+  color: var(--grigio);
+  font-size: 0.76rem;
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .microfono[data-acceso="true"],
+  .striscia[data-fase="ascolta"] .punto {
+    animation: none;
+  }
+
+  .livello > span {
+    transition: none;
+  }
+}

@@ -1,0 +1,218 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+.pagina h1 {
+  margin: 0 0 0.5rem;
+}
+
+.sotto {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--grigio);
+  font-size: 0.9rem;
+}
+
+.mio {
+  position: sticky;
+  /* Resta attaccata al bordo della pagina, senza la striscia del margine in cui passerebbero le righe. */
+  top: calc(-1 * var(--margine-alto));
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1.5rem;
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--inchiostro);
+  background: var(--carta);
+}
+
+.mioNome {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--rosso);
+}
+
+.mioNumeri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.5rem;
+  margin: 0;
+}
+
+.mioNumeri dt,
+.numeri dt {
+  color: var(--grigio);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mioNumeri dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.mioNumeri small {
+  color: var(--grigio);
+  font-size: 0.75rem;
+}
+
+.accesa dt {
+  color: var(--inchiostro);
+  font-weight: 600;
+}
+
+.accesa dd {
+  color: var(--rosso);
+}
+
+.ordina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ordina > span {
+  margin-right: 0.25rem;
+  color: var(--grigio);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ordina button {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--filo);
+  background: transparent;
+  color: var(--inchiostro);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.ordina button:hover {
+  border-color: var(--inchiostro);
+}
+
+.ordina button[aria-pressed="true"] {
+  border-color: var(--inchiostro);
+  background: var(--inchiostro);
+  color: var(--carta);
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--inchiostro);
+  list-style: none;
+}
+
+.lista li {
+  display: grid;
+  grid-template-columns: 2.6em minmax(0, 1fr) auto;
+  gap: 0.25rem 1rem;
+  align-items: baseline;
+  padding: 0.7rem 0.6rem;
+  border-bottom: 1px solid var(--filo);
+}
+
+.io {
+  background: var(--carta-scura);
+}
+
+.posto {
+  font-family: var(--font-mono);
+  color: var(--grigio);
+}
+
+.lista li:nth-child(-n + 3) .posto {
+  color: var(--rosso);
+}
+
+.chi {
+  min-width: 0;
+}
+
+.chi a {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--inchiostro);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.chi a:hover {
+  color: var(--blu);
+  text-decoration: underline;
+}
+
+.io .chi a {
+  color: var(--rosso);
+}
+
+.chi p {
+  margin: 0.15rem 0 0;
+  color: var(--grigio);
+  font-size: 0.9rem;
+}
+
+.numeri {
+  display: grid;
+  grid-template-columns: 5.5em 6.5em 8em 5.5em;
+  gap: 0.75rem;
+  margin: 0;
+  text-align: right;
+}
+
+.numeri dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.come {
+  padding: 1rem 1.1rem;
+  background: var(--carta-scura);
+  color: var(--grigio);
+  font-size: 0.88rem;
+}
+
+.come h2 {
+  margin: 0 0 0.5rem;
+  color: var(--inchiostro);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.come p {
+  margin: 0.25rem 0 0;
+  max-width: 75ch;
+}
+
+@media (max-width: 760px) {
+  .lista li {
+    grid-template-columns: 2.2em minmax(0, 1fr);
+  }
+
+  .numeri {
+    grid-column: 2;
+    grid-template-columns: repeat(4, auto);
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    text-align: left;
+  }
+
+  .numeri dt {
+    font-size: 0.62rem;
+  }
+}

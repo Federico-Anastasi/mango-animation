@@ -1,0 +1,52 @@
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.etichetta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--grigio);
+}
+
+.campo textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  line-height: 1.45;
+  resize: none;
+  overflow: hidden;
+}
+
+.campo textarea:focus {
+  border-color: var(--inchiostro);
+}
+
+.aiuto {
+  font-size: 0.78rem;
+  color: var(--grigio);
+}
+
+.errore {
+  font-size: 0.85rem;
+  color: var(--rosso);
+}
+
+.riga {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  line-height: 1.45;
+}
+
+.riga:focus {
+  border-color: var(--inchiostro);
+}

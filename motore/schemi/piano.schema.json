@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Il piano di un video",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "base": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "lingua": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+    "quadro": { "type": "string", "minLength": 1 },
+    "sorgenti": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/sorgente" }
+    },
+    "scene": { "type": "array", "items": { "$ref": "#/$defs/scena" } },
+    "sottotitoli": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "modo": { "enum": ["parola per parola", "a battute", "nessuno"] },
+        "scrittura": { "enum": ["minuscola", "come trascritta"] },
+        "traduzione": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["it", "en"],
+            "properties": { "it": { "type": "string", "minLength": 1 }, "en": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "nomi": { "type": "array", "items": { "type": "string" } },
+        "rilievo": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "correzioni": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sentite", "giuste"],
+            "properties": {
+              "sorgente": { "type": "string" },
+              "sentite": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "giuste": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] }
+            }
+          }
+        },
+        "ritocchi": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sorgente", "minuto", "sentito", "detto"],
+            "properties": {
+              "sorgente": { "type": "string" },
+              "minuto": { "$ref": "#/$defs/minuto" },
+              "sentito": { "type": "string" },
+              "detto": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "titolo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["testo"],
+      "properties": {
+        "testo": { "type": "string", "minLength": 1 },
+        "parte": { "type": "string", "minLength": 1 },
+        "da": { "type": "number", "minimum": 0 },
+        "a": { "type": "number", "minimum": 0 }
+      }
+    },
+    "suoni": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "t", "picco"],
+        "oneOf": [{ "required": ["sorgente"] }, { "required": ["scena"] }],
+        "properties": {
+          "file": { "type": "string" },
+          "sorgente": { "type": "string" },
+          "scena": { "type": "string" },
+          "t": { "type": "number", "minimum": 0 },
+          "picco": { "type": "number", "maximum": 0 }
+        }
+      }
+    },
+    "coda": { "type": "number", "minimum": 0 },
+    "copertina": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disegno"],
+      "properties": {
+        "disegno": { "type": "string", "minLength": 1 },
+        "istante": { "type": "number", "minimum": 0 },
+        "sagoma": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sorgente", "istante"],
+          "properties": { "sorgente": { "type": "string", "minLength": 1 }, "istante": { "type": "number", "minimum": 0 } }
+        },
+        "righe": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  },
+  "anyOf": [{ "required": ["base"] }, { "required": ["quadro", "sorgenti", "scene"] }],
+  "$defs": {
+    "minuto": { "type": "string", "pattern": "^[0-9]{1,3}:[0-5][0-9]$" },
+    "rettangolo": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number", "minimum": 0 } },
+    "sorgente": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "sfasamento": { "type": "number" },
+        "immagine": { "enum": ["continua"] },
+        "viso": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sorgente"],
+          "properties": {
+            "sorgente": { "type": "string", "minLength": 1 },
+            "scarto": { "type": "number" }
+          }
+        },
+        "riquadri": { "type": "object", "additionalProperties": { "$ref": "#/$defs/rettangolo" } },
+        "viste": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["taglio"],
+            "properties": {
+              "taglio": { "$ref": "#/$defs/rettangolo" },
+              "inserto": { "$ref": "#/$defs/rettangolo" },
+              "segui": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "zoom": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scala": { "type": "number", "minimum": 1, "maximum": 4 },
+        "da": { "type": "number", "minimum": 1, "maximum": 4 },
+        "a": { "type": "number", "minimum": 1, "maximum": 4 },
+        "centro": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+      },
+      "oneOf": [{ "required": ["scala"] }, { "required": ["da", "a"] }]
+    },
+    "pezzo": {
+      "type": "object",
+      "additionalProperties": false,
+      "oneOf": [{ "required": ["sorgente"], "not": { "required": ["durata"] } }, { "required": ["durata"], "maxProperties": 1 }],
+      "properties": {
+        "sorgente": { "type": "string" },
+        "durata": { "type": "number", "exclusiveMinimum": 0 },
+        "da": { "type": "number", "minimum": 0 },
+        "a": { "type": "number", "minimum": 0 },
+        "via": {
+          "type": "array",
+          "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0 } }
+        },
+        "pausa": { "type": "number", "minimum": 0 },
+        "minuto": { "$ref": "#/$defs/minuto" },
+        "dice": { "type": "string", "minLength": 1 },
+        "sottotitoli_tradotti": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dalla", "testo"],
+            "properties": { "dalla": { "type": "string", "minLength": 1 }, "testo": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "rifila": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "vista": { "type": "string" },
+        "zoom": { "$ref": "#/$defs/zoom" },
+        "evidenzia": { "$ref": "#/$defs/rettangolo" },
+        "sagoma": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sorgente", "scarto"],
+          "properties": { "sorgente": { "type": "string" }, "scarto": { "type": "number" } }
+        },
+        "girato": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sorgente"],
+          "oneOf": [{ "required": ["fermo"] }, { "required": ["da"] }],
+          "dependentRequired": { "a": ["da"] },
+          "properties": {
+            "sorgente": { "type": "string" },
+            "fermo": { "type": "number", "minimum": 0 },
+            "da": { "type": "number", "minimum": 0 },
+            "a": { "type": "number", "minimum": 0 }
+          }
+        }
+      },
+      "dependentRequired": { "minuto": ["dice"], "dice": ["minuto"], "rifila": ["dice"] },
+      "not": { "anyOf": [{ "required": ["dice", "da"] }, { "required": ["dice", "a"] }, { "required": ["dice", "via"] }] }
+    },
+    "scena": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nome", "pezzi"],
+      "properties": {
+        "nome": { "type": "string", "minLength": 1 },
+        "quadro": { "type": "string" },
+        "animazione": { "type": "string" },
+        "vista": { "type": "string" },
+        "capitolo": { "type": "string", "minLength": 1 },
+        "pezzi": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pezzo" } },
+        "ancore": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [{ "type": "string" }, { "type": "number", "minimum": 0 }, { "type": "number", "minimum": 0 }]
+          }
+        },
+        "parole": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "prefixItems": [{ "type": "string" }, { "type": "number", "minimum": 0 }]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Mango Animation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="stile.css">
+</head>
+<body>
+  <main id="schermo">
+    <div class="corpo">
+      <div id="giro" class="giro" aria-hidden="true"></div>
+      <h1 id="titolo"></h1>
+      <p id="dettaglio"></p>
+      <pre id="log" hidden></pre>
+      <pre id="comando" hidden></pre>
+      <p id="guida" hidden><a id="guida-link" href="https://code.claude.com/docs/en/setup" target="_blank"></a></p>
+      <section id="computer" hidden>
+        <p id="macchina" class="macchina"></p>
+        <div id="funzioni-gruppo" class="gruppo">
+          <h2 id="funzioni-titolo" class="sezione"></h2>
+          <div id="funzioni" class="funzioni" role="group" aria-labelledby="funzioni-titolo"></div>
+        </div>
+        <div id="comuni-gruppo" class="gruppo" hidden>
+          <h2 id="comuni-titolo" class="sezione"></h2>
+          <ul id="comuni" class="comuni" aria-labelledby="comuni-titolo"></ul>
+        </div>
+        <ul id="avvisi" class="avvisi"></ul>
+        <pre id="errore-computer" hidden></pre>
+        <details id="dettagli">
+          <summary id="dettagli-titolo"></summary>
+          <table id="voci"></table>
+          <p id="nota" class="nota"></p>
+        </details>
+      </section>
+      <progress id="avanzamento" hidden></progress>
+      <div class="azioni">
+        <div id="riepilogo" class="riepilogo" hidden>
+          <div>
+            <span id="totale-etichetta" class="etichetta"></span>
+            <strong id="totale"></strong>
+          </div>
+          <div class="destra">
+            <span id="spazio"></span>
+            <progress id="avanzamento-computer" hidden></progress>
+          </div>
+        </div>
+        <div class="bottoni">
+          <button id="riprova" type="button" hidden></button>
+          <button id="ricrea" type="button" hidden></button>
+          <button id="scegli" type="button" hidden></button>
+          <button id="copia" type="button" class="secondario" hidden></button>
+          <button id="accedi" type="button" hidden></button>
+          <button id="ricontrolla" type="button" class="secondario" hidden></button>
+          <button id="senza" type="button" class="secondario" hidden></button>
+          <button id="prepara" type="button" hidden></button>
+          <button id="aggiorna" type="button" hidden></button>
+          <button id="dopo" type="button" class="secondario" hidden></button>
+          <button id="annulla" type="button" class="secondario" hidden></button>
+          <button id="avanti" type="button" class="secondario" hidden></button>
+        </div>
+      </div>
+      <button id="segnala" type="button" class="secondario"></button>
+      <section id="segnalazione" hidden aria-labelledby="segnalazione-titolo">
+        <h2 id="segnalazione-titolo" class="sezione"></h2>
+        <label for="segnala-nota" id="segnala-nota-etichetta"></label>
+        <textarea id="segnala-nota" rows="3"></textarea>
+        <label id="segnala-schermata-riga" class="funzione" hidden>
+          <input id="segnala-schermata" type="checkbox" checked>
+          <span id="segnala-schermata-nome" class="nome"></span>
+          <span id="segnala-schermata-cosa" class="cosa"></span>
+        </label>
+        <p id="segnala-registri" class="nota"></p>
+        <p id="segnala-esito" role="status"></p>
+        <div class="bottoni">
+          <button id="segnala-invia" type="button"></button>
+          <button id="segnala-chiudi" type="button" class="secondario"></button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

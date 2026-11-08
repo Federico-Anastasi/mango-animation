@@ -1,0 +1,13 @@
+.etichetta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  color: var(--grigio);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.etichetta svg {
+  color: var(--grigio);
+}

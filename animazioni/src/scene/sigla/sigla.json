@@ -1,0 +1,18 @@
+{
+  "fonte": "Scelte di regia della sigla: i tempi, in secondi, che legge l'animazione.",
+  "cade": 0.1,
+  "atterra": 0.62,
+  "lettere": 0.64,
+  "passoLettera": 0.065,
+  "sale": 0.24,
+  "salto": 0.86,
+  "posa": 1.1,
+  "animation": 1.12,
+  "passoAnimation": 0.022,
+  "luce": 1.45,
+  "passa": 0.85,
+  "spegne": 2.55,
+  "nero": 2.9,
+  "fine": 3.0,
+  "coda": { "entra": 0.4, "resta": 1.5 }
+}

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Il profilo del creator (profilo.json, nella cartella di lavoro)",
+  "type": "object",
+  "properties": {
+    "versione": { "const": 1 },
+    "creator": {
+      "type": "object",
+      "required": ["nome"],
+      "properties": {
+        "nome": { "type": "string", "minLength": 1 },
+        "lingua": { "type": "string", "pattern": "^[a-z]{2}$" }
+      }
+    },
+    "pubblico": {
+      "type": "object",
+      "properties": {
+        "livello": { "type": "string", "minLength": 1 },
+        "lingua": { "type": "string", "pattern": "^[a-z]{2}$" },
+        "testate": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1 } }] }
+      }
+    },
+    "canali": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["piattaforma"],
+        "properties": {
+          "piattaforma": { "enum": ["tiktok", "youtube", "x"] },
+          "nome": { "type": "string", "minLength": 1 },
+          "formato": { "enum": ["verticale", "orizzontale"] }
+        }
+      }
+    },
+    "non_si_dice": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "fonti_delle_idee": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["percorso"],
+        "properties": {
+          "percorso": { "type": "string", "minLength": 1 },
+          "principali": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "esclusi": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "macchina": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scheda_video": { "type": ["integer", "null"], "minimum": 0 },
+        "scheda_registrazione": { "type": ["integer", "null"], "minimum": 0 },
+        "profilo_chrome": { "type": "string", "minLength": 1 },
+        "disco_quasi_pieno": { "type": "boolean" }
+      }
+    },
+    "motori": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trascrizione": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "attiva": { "type": "boolean" },
+            "dove": { "$ref": "#/$defs/dove" },
+            "modello": { "enum": ["large-v3", "large-v3-turbo", "small"] },
+            "calcolo": { "enum": ["float16", "int8_float16", "int8", "float32"] }
+          }
+        },
+        "allineamento": { "$ref": "#/$defs/funzione" },
+        "sagoma": { "$ref": "#/$defs/funzione" },
+        "segui": { "$ref": "#/$defs/funzione" },
+        "dettatura": { "$ref": "#/$defs/funzione" },
+        "pulizia_voce": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "attiva": { "type": "boolean" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "dove": { "enum": ["scheda", "processore"] },
+    "funzione": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "attiva": { "type": "boolean" },
+        "dove": { "$ref": "#/$defs/dove" }
+      }
+    }
+  }
+}

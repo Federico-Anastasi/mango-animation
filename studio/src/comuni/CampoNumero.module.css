@@ -1,0 +1,47 @@
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.etichetta {
+  font-size: 0.78rem;
+  color: var(--grigio);
+}
+
+.riga {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.campo input {
+  width: 100%;
+  min-width: 0;
+  max-width: 7rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  text-align: right;
+}
+
+.campo input:focus {
+  border-color: var(--inchiostro);
+}
+
+.campo input[aria-invalid="true"] {
+  border-color: var(--rosso);
+}
+
+.unita {
+  font-size: 0.82rem;
+  color: var(--grigio);
+}
+
+.errore {
+  font-size: 0.78rem;
+  color: var(--rosso);
+}

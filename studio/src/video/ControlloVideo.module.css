@@ -1,0 +1,104 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-width: 56rem;
+}
+
+.testata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.testata h2 {
+  margin: 0;
+}
+
+.testata p {
+  margin: 0.2rem 0 0;
+}
+
+.sezione {
+  min-width: 0;
+}
+
+.sezione h3 {
+  margin-bottom: 0.4rem;
+}
+
+.righe {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.righe li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.2rem 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--filo);
+}
+
+.confronto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1 1 18rem;
+}
+
+.vai {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.tenue {
+  color: var(--grigio);
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+}
+
+.avviso {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--rosso);
+  border-radius: 6px;
+}
+
+.spunta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.spunta input {
+  margin-top: 0.3rem;
+  accent-color: var(--inchiostro);
+}
+
+.fatto {
+  text-decoration: line-through;
+  color: var(--grigio);
+}
+
+.sentito {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

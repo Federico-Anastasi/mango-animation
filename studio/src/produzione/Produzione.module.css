@@ -1,0 +1,225 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+.pagina h1 {
+  margin: 0 0 0.5rem;
+}
+
+.sotto {
+  margin: 0;
+  max-width: 75ch;
+  color: var(--grigio);
+  font-size: 0.88rem;
+}
+
+.avviso {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--filo);
+  border-left: 3px solid var(--rosso);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+  padding-top: 1rem;
+  border-top: 2px solid var(--inchiostro);
+}
+
+.sezione h2,
+.sezione h3 {
+  margin: 0;
+}
+
+.sezione h3 {
+  color: var(--grigio);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scorri {
+  overflow-x: auto;
+}
+
+.tabella {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.tabella th,
+.tabella td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--filo);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tabella thead th {
+  color: var(--grigio);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tabella tbody th {
+  font-weight: 600;
+}
+
+.tabella .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.tabella .titolo {
+  min-width: 12rem;
+  white-space: normal;
+  font-weight: 600;
+}
+
+.tabella small {
+  color: var(--grigio);
+  font-size: 0.75rem;
+}
+
+.ordinaColonna {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ordinaColonna:hover {
+  color: var(--inchiostro);
+  text-decoration: underline;
+}
+
+.misura {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.pista {
+  display: block;
+  width: 5rem;
+}
+
+.asta {
+  display: block;
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: var(--blu);
+}
+
+.dueColonne {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem 2rem;
+}
+
+.estremi {
+  display: flex;
+  flex-direction: column;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.estremi li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--filo);
+  min-width: 0;
+}
+
+.estremi a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.tempo {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+}
+
+.tabella thead th.num {
+  font-family: var(--font-testo);
+}
+
+.valoreMisura {
+  min-width: 6.2rem;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .tabella th,
+  .tabella td {
+    padding: 0.45rem 0.4rem;
+  }
+
+  .pista,
+  .secondaria {
+    display: none;
+  }
+
+  .tabella thead th {
+    white-space: normal;
+  }
+
+  .tabella .titolo {
+    min-width: 6rem;
+  }
+
+  .valoreMisura {
+    min-width: 0;
+  }
+
+  .impilata thead {
+    display: none;
+  }
+
+  .impilata tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem 1rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--filo);
+  }
+
+  .tabella.impilata tbody th,
+  .tabella.impilata tbody td {
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+
+  .impilata tbody th {
+    grid-column: 1 / -1;
+  }
+
+  .impilata tbody td::before {
+    content: attr(data-etichetta);
+    display: block;
+    color: var(--grigio);
+    font-family: var(--font-testo);
+    font-size: 0.72rem;
+  }
+}

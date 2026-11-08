@@ -1,0 +1,26 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+test-results/
+archivio-prova/
+animazioni/dist.lock
+animazioni/dist.nuova/
+animazioni/dist.vecchia/
+
+app/target/
+app/gen/
+
+# i dati stanno fuori dal prodotto, nella cartella di lavoro
+/archivio/
+.claude/memoria/
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+
+.env*
+*.log
+Thumbs.db
+.DS_Store
+.venv/

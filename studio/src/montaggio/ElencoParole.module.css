@@ -1,0 +1,40 @@
+.elenco {
+  position: relative;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  line-height: 1.9;
+}
+
+.parola {
+  margin: 0 1px;
+  padding: 0 0.2rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 3px;
+  background: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.parola:hover {
+  background: var(--carta-scura);
+}
+
+.parola.adesso {
+  border-bottom: 2px solid var(--rosso);
+  border-radius: 3px 3px 0 0;
+}
+
+.scelta,
+.scelta:hover {
+  background: var(--blu);
+  color: var(--carta);
+}
+
+.vuoto {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--grigio);
+}

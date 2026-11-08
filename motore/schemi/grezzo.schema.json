@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "La scheda di un file grezzo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tipo", "origine"],
+  "properties": {
+    "tipo": { "enum": ["ripresa", "diretta", "schermo", "altro"] },
+    "origine": { "enum": ["telefono", "registrazione", "scaricato", "altro"] },
+    "arrivato": { "type": "string" },
+    "durata": { "type": "number", "minimum": 0 },
+    "largo": { "type": "integer", "minimum": 1 },
+    "alto": { "type": "integer", "minimum": 1 },
+    "fps": { "type": "number", "minimum": 0 },
+    "lingua": { "type": "string", "pattern": "^[a-z]{2}$" },
+    "note": { "type": "string" },
+    "url": { "type": "string", "minLength": 1 },
+    "tratto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["da"],
+      "properties": {
+        "da": { "type": "number", "minimum": 0 },
+        "a": { "type": "number", "minimum": 0 }
+      }
+    },
+    "titolo": { "type": "string" },
+    "canale": { "type": "string" }
+  }
+}

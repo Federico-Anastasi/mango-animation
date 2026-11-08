@@ -1,0 +1,194 @@
+/* I caratteri sono impacchettati in src/assets/fonts/ (woff2, latino, licenza OFL): l'interfaccia gira anche senza rete. */
+@font-face {
+  font-family: "Archivo";
+  src: url("./assets/fonts/Archivo-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("./assets/fonts/InstrumentSans-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("./assets/fonts/InstrumentSans-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("./assets/fonts/InstrumentSans-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Chivo Mono";
+  src: url("./assets/fonts/ChivoMono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --carta: #f1f0eb;
+  --carta-scura: #e4e2d9;
+  --inchiostro: #17171b;
+  --rosso: #e03a1e;
+  --blu: #1f4b99;
+  --grigio: #5f5d56;
+  --filo: #cbc8bd;
+  --verde: #1f6f3f;
+  --font-display: "Archivo", sans-serif;
+  --font-testo: "Instrument Sans", sans-serif;
+  --font-mono: "Chivo Mono", monospace;
+}
+
+/* Al buio vale una tavolozza sola, con gli stessi ruoli: i colori di carta e inchiostro non si rovesciano a occhio. */
+:root[data-tema="scuro"] {
+  color-scheme: dark;
+  --carta: #151518;
+  --carta-scura: #26262b;
+  --inchiostro: #eceae3;
+  --rosso: #f06a52;
+  --blu: #86a7e3;
+  --grigio: #a29f96;
+  --filo: #36363c;
+  --verde: #7db88a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="chiaro"]) {
+    color-scheme: dark;
+    --carta: #151518;
+    --carta-scura: #26262b;
+    --inchiostro: #eceae3;
+    --rosso: #f06a52;
+    --blu: #86a7e3;
+    --grigio: #a29f96;
+    --filo: #36363c;
+    --verde: #7db88a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font-family: var(--font-testo);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+[role="alert"] {
+  white-space: pre-line;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+}
+
+a {
+  color: var(--blu);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blu);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--filo) transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--grigio) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--filo);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--grigio);
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

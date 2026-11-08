@@ -1,0 +1,30 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.area {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.corpo {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  --margine-alto: 1.25rem;
+  padding: var(--margine-alto) 1.5rem 2rem;
+}
+
+@media (max-width: 640px) {
+  .corpo {
+    --margine-alto: 1rem;
+    padding: var(--margine-alto) 0.9rem 1.5rem;
+  }
+}

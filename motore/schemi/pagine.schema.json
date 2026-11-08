@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Le pagine vere di un video (materiali/pagine.json)",
+  "type": "object",
+  "minProperties": 1,
+  "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+  "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["url"],
+    "properties": {
+      "url": { "type": "string", "pattern": "^https?://" },
+      "intera": { "type": "boolean" },
+      "filmato": {
+        "description": "Una pagina che si muove: [da, a] in secondi del suo tempo; si filma grande quanto lo schermo del telefono",
+        "type": "array",
+        "prefixItems": [{ "type": "number", "minimum": 0 }, { "type": "number", "exclusiveMinimum": 0 }],
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "frasi": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "prefixItems": [{ "type": "string", "minLength": 1 }, { "type": "integer", "minimum": 1 }],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          ]
+        }
+      },
+      "ritagli": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            { "const": "tutta" },
+            {
+              "type": "array",
+              "prefixItems": [
+                { "type": "integer", "minimum": 0 },
+                { "type": "integer", "minimum": 0 },
+                { "type": "integer", "minimum": 1 },
+                { "type": "integer", "minimum": 1 }
+              ],
+              "minItems": 4,
+              "maxItems": 4
+            }
+          ]
+        }
+      }
+    }
+  }
+}

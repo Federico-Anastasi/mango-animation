@@ -1,0 +1,43 @@
+.muto {
+  color: var(--grigio);
+  font-size: 0.95rem;
+}
+
+.errore {
+  border: 1px solid var(--rosso);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  color: var(--inchiostro);
+  background: color-mix(in srgb, var(--rosso) 6%, var(--carta));
+}
+
+.dettaglio {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.dettaglio summary {
+  cursor: pointer;
+  color: var(--grigio);
+}
+
+.dettaglio ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.riprova {
+  margin-top: 0.5rem;
+  border: 1px solid var(--filo);
+  background: var(--carta);
+  color: var(--inchiostro);
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-testo);
+}
+
+.riprova:hover {
+  border-color: var(--inchiostro);
+}

@@ -1,0 +1,1063 @@
+{
+  "formato": {
+    "largo": 1080,
+    "alto": 1920,
+    "fps": 30
+  },
+  "formati": {
+    "verticale": {
+      "largo": 1080,
+      "alto": 1920,
+      "fps": 30
+    },
+    "orizzontale": {
+      "largo": 1920,
+      "alto": 1080,
+      "fps": 30
+    }
+  },
+  "telefono": {
+    "margine_lati": 54
+  },
+  "carosello": {
+    "largo": 1080,
+    "alto": 1920,
+    "destra": 120,
+    "didascalia": 360,
+    "testo_minimo": 24,
+    "taglio_tolleranza": 0.2,
+    "accavallamento": 0.25,
+    "pieno_minimo": 0.04,
+    "differenza_colore": 24,
+    "colori": {
+      "fondo": "#17171B",
+      "carta": "#F1F0EB",
+      "grigio": "#8C897F",
+      "scuro": "#26262D",
+      "filo": "#3A3A42",
+      "giallo": "#FFD400",
+      "rosso": "#E03A1E",
+      "blu": "#3D6FD1"
+    },
+    "base": {
+      "margine": 90,
+      "margine_destro": 150,
+      "numero_alto": 210,
+      "titolo_alto": 270,
+      "corpo_numero": 34,
+      "corpo_etichetta": 34,
+      "corpo_titolo": 96,
+      "corpo_testo": 46,
+      "corpo_nota": 30
+    }
+  },
+  "colori": {
+    "carta": "#FFFFFF",
+    "carta_scura": "#EFEFEF",
+    "grigio": "#6B6B6B",
+    "filo": "#D0D0D0",
+    "inchiostro": "#111111",
+    "rosso": "#D32F2F",
+    "blu": "#1565C0",
+    "nero": "#000000",
+    "bianco": "#FFFFFF",
+    "giallo": "#FFD400",
+    "verde": "#2E9E4F"
+  },
+  "caratteri": {
+    "titoli": "font/Archivo-700.ttf",
+    "titolo": "font/Metropolis-Medium.ttf"
+  },
+  "voce": {
+    "lufs": -16,
+    "silenzio_db": -39,
+    "margine": 0.04,
+    "limite": 0.8,
+    "taglio_basso": 80,
+    "entra": 0.015,
+    "esce": 0.02,
+    "campioni_audio": 48000,
+    "pulizia": {
+      "attiva": true,
+      "attenuazione_massima": 100
+    }
+  },
+  "taglio": {
+    "a_tempo": {
+      "prima": 0.12,
+      "dopo": 0.22,
+      "pausa": 0.35,
+      "tratto_minimo": 0.3,
+      "parola_prima": 0.35,
+      "parola_dopo": 0.3,
+      "parola_dentro": 0.3,
+      "detta": 0.02
+    },
+    "a_parole": {
+      "pausa": 0.3,
+      "voto_esitazione": 0.3,
+      "stacco": 0.1,
+      "vicine": 3,
+      "minuto_prima": 3,
+      "ricerca": 200,
+      "raggio_vicine": 3,
+      "allinea_prima": 1.0,
+      "allinea_dopo": 1.5,
+      "cerca_prima": 0.5,
+      "cerca_dopo": 0.8,
+      "voto_bordo": 0.5,
+      "silenzio_bordo": 0.25,
+      "rumore_db": 15,
+      "cerca_incerta": 1.5,
+      "voce_tagliata": 0.05,
+      "ascolta_oltre": 0.1,
+      "rincalzo": 0.05,
+      "bordo": 0.03,
+      "parola": 0.02,
+      "vicino": 0.15,
+      "chiusa_senza_silenzio": 0.2,
+      "colpo": 0.2,
+      "fotogrammi_minimi": 2
+    }
+  },
+  "sottotitoli": {
+    "modo": "parola per parola",
+    "carattere": "titoli",
+    "corpo": 58,
+    "corpo_minimo": 38,
+    "caratteri_per_battuta": 20,
+    "stacco": 0.45,
+    "fondo": null,
+    "colore": "bianco",
+    "colore_correzione": "rosso",
+    "bordo": 0,
+    "scrittura": "minuscola",
+    "margine": 22,
+    "margine_alto": 12,
+    "margine_basso": 18,
+    "interlinea": 1.18,
+    "passo_corpo": 4,
+    "anticipo": 0.04,
+    "minimo": 0.25,
+    "resta": 0.5,
+    "contorno": 6,
+    "colore_contorno": "nero",
+    "rilievo": {
+      "corpo": 84,
+      "colore": "giallo",
+      "salto": 36,
+      "salto_durata": 0.36
+    }
+  },
+  "titolo": {
+    "durata": 2,
+    "allinea": "centro",
+    "maiuscolo": false,
+    "parte": {
+      "colore": "giallo",
+      "stacco": 18
+    },
+    "carattere": "titolo",
+    "raggio": 18,
+    "corpo": 64,
+    "fondo": "nero",
+    "colore": "bianco",
+    "margine": 22,
+    "largo": 960,
+    "margine_alto": 12,
+    "margine_basso": 18,
+    "interlinea": 1.18,
+    "passo_corpo": 4,
+    "corpo_minimo": 38
+  },
+  "suoni": {
+    "fondo_db": -20,
+    "accento_db": -14
+  },
+  "anteprima": {
+    "largo": 540,
+    "alto": 960,
+    "margine": 54,
+    "carattere": "titoli",
+    "fondo": "carta",
+    "filo": {
+      "colore": "rosso",
+      "largo": 96,
+      "spessore": 10,
+      "stacco": 36
+    },
+    "titolo": {
+      "colore": "inchiostro",
+      "corpo": 64,
+      "corpo_minimo": 32,
+      "passo_corpo": 4,
+      "interlinea": 1.15
+    },
+    "riga": {
+      "colore": "grigio",
+      "corpo": 30,
+      "corpo_minimo": 24,
+      "passo_corpo": 2,
+      "interlinea": 1.3,
+      "stacco": 32
+    }
+  },
+  "copertina": {
+    "titolo_in_alto": true,
+    "sagoma_del_primo_fotogramma": true,
+    "orizzontale": {
+      "sagoma": {
+        "righe": 1100,
+        "aria": 40,
+        "altezza": 1140,
+        "x": -135,
+        "y": -15,
+        "bordo": 19
+      },
+      "titolo": {
+        "corpo": 156,
+        "altezza_riga": 198,
+        "stacco": 21,
+        "y": 54,
+        "margine_destro": 54,
+        "margine_laterale": 45,
+        "largo": 1200
+      }
+    }
+  },
+  "uscita": {
+    "crf": 18,
+    "audio_kbit": 192,
+    "leggero": {
+      "largo": 720,
+      "alto": 1280,
+      "crf": 23
+    },
+    "leggero_orizzontale": {
+      "largo": 1280,
+      "alto": 720,
+      "crf": 23
+    },
+    "tratti_massimo_mb": 3000,
+    "campione": 5,
+    "crf_tratti": 14,
+    "preset": "slow",
+    "crf_copertina": 15,
+    "anteprima": {
+      "crf": 20,
+      "preset": "veryfast"
+    }
+  },
+  "quadri": {
+    "sagoma-su-animazione": {
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "animazione",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ]
+        },
+        {
+          "tipo": "sagoma",
+          "scala_minima": 0.6,
+          "testa": 905,
+          "x": -70,
+          "aria": 70,
+          "sfuma": 8,
+          "scala_margine": 0.005
+        }
+      ],
+      "sottotitoli": {
+        "x": 520,
+        "y": 1235,
+        "largo": 440,
+        "ancora": "sinistra"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 650,
+        "ancora": "centro"
+      },
+      "fascia_animazione": [
+        90,
+        250,
+        980,
+        850
+      ]
+    },
+    "sagoma-al-centro": {
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "animazione",
+          "area": [
+            54,
+            44,
+            972,
+            1728
+          ]
+        },
+        {
+          "tipo": "sagoma",
+          "scala_minima": 1,
+          "testa": 905,
+          "x": "testa",
+          "aria": 70,
+          "sfuma": 8,
+          "scala_margine": 0.005
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 805,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 580,
+        "ancora": "centro"
+      },
+      "fascia_animazione": [
+        0,
+        170,
+        1080,
+        720
+      ]
+    },
+    "girato-e-sagoma": {
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1080,
+            780
+          ],
+          "al_vivo": true
+        },
+        {
+          "tipo": "sagoma",
+          "scala_minima": 1,
+          "testa": 905,
+          "x": "testa",
+          "aria": 70,
+          "sfuma": 8,
+          "scala_margine": 0.005
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 805,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 580,
+        "ancora": "centro"
+      }
+    },
+    "sagoma-sul-girato": {
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "al_vivo": true
+        },
+        {
+          "tipo": "sagoma",
+          "scala_minima": 1,
+          "testa": 905,
+          "x": "testa",
+          "aria": 70,
+          "sfuma": 8,
+          "scala_margine": 0.005
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 805,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 580,
+        "ancora": "centro"
+      }
+    },
+    "sagoma-sul-girato-con-scena": {
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "al_vivo": true
+        },
+        {
+          "tipo": "sagoma",
+          "scala_minima": 1,
+          "testa": 905,
+          "x": "testa",
+          "aria": 70,
+          "sfuma": 8,
+          "scala_margine": 0.005
+        },
+        {
+          "tipo": "animazione",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ]
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 805,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 580,
+        "ancora": "centro"
+      },
+      "fascia_animazione": [
+        54,
+        120,
+        1026,
+        760
+      ]
+    },
+    "schermo-e-viso": {
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            54,
+            170,
+            972,
+            729
+          ]
+        },
+        {
+          "tipo": "inserto",
+          "largo": 482,
+          "bordo": 16
+        },
+        {
+          "tipo": "riquadro",
+          "nome": "webcam",
+          "y": 1170,
+          "scala": 2,
+          "raggio": 40
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1075,
+        "largo": 440,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "schermo-e-viso-scuro": {
+      "fondo": "inchiostro",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            54,
+            170,
+            972,
+            729
+          ]
+        },
+        {
+          "tipo": "inserto",
+          "largo": 482,
+          "bordo": 16
+        },
+        {
+          "tipo": "riquadro",
+          "nome": "webcam",
+          "y": 1170,
+          "scala": 2,
+          "raggio": 40
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1075,
+        "largo": 440,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "girato-pieno": {
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "centro": [
+            0.5,
+            0.5
+          ],
+          "al_vivo": true
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1320,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "solo-animazione": {
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "animazione",
+          "area": [
+            54,
+            96,
+            972,
+            1728
+          ]
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1380,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "lungo-girato": {
+      "formato": "orizzontale",
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1920,
+            1080
+          ],
+          "centro": [
+            0.5,
+            0.5
+          ]
+        }
+      ],
+      "sottotitoli": {
+        "x": 960,
+        "y": 960,
+        "largo": 1500,
+        "ancora": "centro",
+        "corpo": 64
+      },
+      "titolo": {
+        "x": 960,
+        "y": 90,
+        "ancora": "centro",
+        "largo": 1500
+      }
+    },
+    "lungo-schermo": {
+      "formato": "orizzontale",
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1920,
+            1080
+          ],
+          "adatta": "contieni"
+        },
+        {
+          "tipo": "viso",
+          "nome": "viso",
+          "angolo": "basso-destra",
+          "largo": 420,
+          "margine": 36,
+          "raggio": 28
+        }
+      ],
+      "sottotitoli": {
+        "x": 810,
+        "y": 960,
+        "largo": 1200,
+        "ancora": "centro",
+        "corpo": 64
+      },
+      "titolo": {
+        "x": 960,
+        "y": 90,
+        "ancora": "centro",
+        "largo": 1500
+      }
+    },
+    "lungo-animazione": {
+      "formato": "orizzontale",
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "animazione",
+          "area": [
+            0,
+            0,
+            1920,
+            1080
+          ]
+        }
+      ],
+      "sottotitoli": {
+        "x": 960,
+        "y": 980,
+        "largo": 1500,
+        "ancora": "centro",
+        "corpo": 64
+      },
+      "titolo": {
+        "x": 960,
+        "y": 90,
+        "ancora": "centro",
+        "largo": 1500
+      }
+    },
+    "schermo-con-scheda": {
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "centro": [
+            0.5,
+            0.5
+          ],
+          "al_vivo": true
+        },
+        {
+          "tipo": "animazione",
+          "area": [
+            60,
+            740,
+            960,
+            500
+          ],
+          "ritaglio": [
+            60,
+            740,
+            960,
+            500
+          ]
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1320,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "schermo-pieno": {
+      "fondo": "carta",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            54,
+            250,
+            972,
+            1160
+          ],
+          "adatta": "contieni"
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1500,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "schermo-pieno-scuro": {
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            54,
+            250,
+            972,
+            1160
+          ],
+          "adatta": "contieni"
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1500,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      }
+    },
+    "girato-con-scritte": {
+      "fondo": "nero",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "centro": [
+            0.5,
+            0.5
+          ],
+          "al_vivo": true
+        },
+        {
+          "tipo": "animazione",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ]
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 1320,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 560,
+        "ancora": "centro"
+      },
+      "fascia_animazione": [
+        54,
+        0,
+        1026,
+        1920
+      ]
+    },
+    "girato-con-animazione": {
+      "fondo": "bianco",
+      "strati": [
+        {
+          "tipo": "girato",
+          "area": [
+            0,
+            680,
+            1080,
+            1240
+          ],
+          "centro": [
+            0.5,
+            0.547
+          ],
+          "al_vivo": true
+        },
+        {
+          "tipo": "animazione",
+          "area": [
+            0,
+            0,
+            1080,
+            1920
+          ],
+          "al_vivo": true
+        }
+      ],
+      "sottotitoli": {
+        "x": 540,
+        "y": 740,
+        "largo": 900,
+        "ancora": "centro"
+      },
+      "titolo": {
+        "x": 540,
+        "y": 580,
+        "ancora": "centro"
+      },
+      "fascia_animazione": [
+        0,
+        160,
+        1080,
+        680
+      ]
+    }
+  },
+  "controllo": {
+    "percentile": 95,
+    "calo_db": 28,
+    "tolleranza": 0.12,
+    "voto_minimo": 0.3,
+    "pausa_oltre": 0.02,
+    "scarto_montato": 0.1,
+    "finestra": 60,
+    "bordi": {
+      "muto": 0.3,
+      "rumore": 0.3,
+      "voce_db": -24
+    },
+    "lampo": {
+      "lato": 108,
+      "salto": 8,
+      "ritorno": 0.5
+    },
+    "colpi": {
+      "passo": 0.004,
+      "prima": 0.04,
+      "durata": 0.03,
+      "salto_db": 15,
+      "sotto_voce_db": 35
+    },
+    "zona_alta": {
+      "quadri": [
+        "sagoma-su-animazione",
+        "sagoma-al-centro",
+        "girato-e-sagoma",
+        "girato-con-animazione"
+      ],
+      "lato": 216,
+      "distanza": 0.5,
+      "soglia": 8,
+      "mosso": 0.002,
+      "griglia": [
+        6,
+        3
+      ],
+      "piena": 0.01,
+      "occupata": 0.25,
+      "secondi": 1.0
+    }
+  },
+  "preparati": {
+    "lato_leggero": 720,
+    "crf_leggero": 28,
+    "lato_miniatura": 360,
+    "qualita_miniatura": 90,
+    "lato_foto": 2560,
+    "qualita_foto": 90,
+    "miniatura_al": 0.1,
+    "trascrizione_oltre": 600,
+    "modello_trascrizione": "large-v3",
+    "calcolo_trascrizione": {
+      "cuda": "float16",
+      "cpu": "int8"
+    },
+    "lingua": "it",
+    "fasci_trascrizione": 5,
+    "parola_lunga": 2.0,
+    "tratti_di_voce": {
+      "silenzio_minimo": 0.5,
+      "margine": 0.2,
+      "soglia": 0.4,
+      "dopo_parola": 0.4
+    }
+  },
+  "dettatura": {
+    "lingua": "it",
+    "dispositivi": {
+      "cuda": {"modello": "large-v3-turbo", "calcolo": ["float16", "float32"], "thread": 0},
+      "cpu": {"modello": "small", "calcolo": ["int8"], "thread": 0}
+    },
+    "ogni_parziale": 1.0,
+    "silenzio_fine": 0.8,
+    "massimo_frase": 25,
+    "prima": 0.3,
+    "fasci_parziale": 1,
+    "fasci_definitiva": 5,
+    "vad": {
+      "soglia": 0.5,
+      "voce_minima": 0.2,
+      "pausa_fine": 0.1,
+      "pausa_interna": 0.25,
+      "guardia": 0.3,
+      "margine": 0.2
+    }
+  },
+  "ascolta": {
+    "largo": 1200,
+    "alto": 400
+  },
+  "prova": {
+    "quadro": "sagoma-al-centro",
+    "caratteri_al_secondo": 15,
+    "pausa": 0.35,
+    "colori": {
+      "detta": "inchiostro",
+      "ora": "rosso",
+      "da_dire": "grigio",
+      "spezzone": "inchiostro"
+    },
+    "fondo_frase": "carta",
+    "fondo_senza_scena": "carta_scura",
+    "scritta_senza_scena": "QUI PARLI TU, A TUTTO FOTOGRAMMA",
+    "y_scritta_senza_scena": 300,
+    "corpo_scritta_senza_scena": 44,
+    "secondi_titolo": 2,
+    "copione": {
+      "corpo": 30,
+      "corpo_titolo": 18,
+      "interlinea": 1.4,
+      "distanza": 28,
+      "margine": 20
+    },
+    "crf": 20,
+    "preset": "veryfast"
+  },
+  "zoom": {
+    "sovracampionamento": 2
+  },
+  "evidenzia": {
+    "colore": "rosso",
+    "spessore": 8
+  },
+  "immagine": {
+    "salto": 3.0,
+    "minimo": 1.5,
+    "passo_massimo": 4
+  },
+  "sagoma": {
+    "campioni": 8,
+    "alfa": 128,
+    "riga_minima": 40,
+    "testa_alta": 250,
+    "margine": 1.0,
+    "scontorno": {
+      "soglia_persona": 0.5,
+      "passo_maschera": 4,
+      "memoria_sam": 3,
+      "scala_matting": 0.5,
+      "raggio_trimap": 8,
+      "righe_contesto": 32,
+      "peso_vicini": 0.25,
+      "flusso": "FAST",
+      "fotogrammi_in_memoria": 16
+    },
+    "codifica": {
+      "deadline": "realtime",
+      "cpu_used": 8,
+      "crf": 20,
+      "in_coda": 8
+    }
+  },
+  "segui": {
+    "misure_al_secondo": 5,
+    "lato": 960,
+    "soglia_viso": 0.8,
+    "morbido": 0.5
+  },
+  "pagina": {
+    "larghezza": 432,
+    "densita": 2.5,
+    "finestra": 1400,
+    "sotto_le_frasi": 600,
+    "qualita": 88
+  },
+  "oggetti": {
+    "risultati": 12,
+    "candidati": 40,
+    "colonne": 4,
+    "cella": 300,
+    "corpo_numero": 34,
+    "corpo_licenza": 15,
+    "fondo_provini": "#2B2B2F",
+    "testo_provini": "#E8E8E8",
+    "qualita_provini": 85,
+    "licenze": ["CC0", "Public domain", "CC BY", "CC BY-SA"],
+    "timeout": 30,
+    "attese_429": [5, 20, 60],
+    "lato_scarico": 960,
+    "qualita_jpg": 92,
+    "margine_riquadro": 0.02,
+    "area_minima": 0.01,
+    "soglia_sfondo": 0.5,
+    "raggio_trimap": 12,
+    "soglia_ritaglio": 8,
+    "margine_ritaglio": 4
+  },
+  "scarico": {
+    "altezza_massima": 1080,
+    "codec_video": "avc1",
+    "codec_audio": "mp4a"
+  }
+}

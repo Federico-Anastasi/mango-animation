@@ -1,0 +1,27 @@
+.tessere {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.8rem;
+}
+
+.tessera {
+  display: flex;
+  flex-direction: column;
+  padding: 0.7rem 0.9rem;
+  background: var(--carta-scura);
+}
+
+.valore {
+  font-size: 1.8rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.nome {
+  font-size: 0.85rem;
+}
+
+.nota {
+  color: var(--grigio);
+  font-size: 0.78rem;
+}

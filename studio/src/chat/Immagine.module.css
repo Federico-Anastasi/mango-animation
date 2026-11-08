@@ -1,0 +1,59 @@
+.miniatura {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta-scura);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.miniatura:hover {
+  border-color: var(--inchiostro);
+}
+
+.miniatura img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+}
+
+.velo {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem 1rem;
+  background: color-mix(in srgb, var(--inchiostro) 88%, transparent);
+  cursor: zoom-out;
+}
+
+.velo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: var(--carta);
+  cursor: default;
+}
+
+.chiudi {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  color: var(--inchiostro);
+  cursor: pointer;
+}
