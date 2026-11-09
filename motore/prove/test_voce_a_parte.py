@@ -40,7 +40,7 @@ def scritta_bianca(f):
 def test_una_voce_registrata_a_parte_si_monta_sopra_un_girato_muto_che_scorre(archivio, scrivi_piano, memo_e_muto, finto, tmp_path):
     memo, muto = memo_e_muto
     assert not info(archivio.grezzo(memo))["ha_video"] and not info(archivio.grezzo(muto))["ha_audio"]
-    scrivi_piano("mac", {"quadro": "girato-pieno", "sorgenti": {"voce": {"file": memo}, "muto": {"file": muto}}, "scene": [
+    scrivi_piano("mac", {"quadro": "girato-pieno", "sorgenti": {"voce": {"file": memo}, "muto": {"file": muto}}, "sottotitoli": {"modo": "parola per parola"}, "scene": [
         {"nome": "uno", "pezzi": [{"sorgente": "voce", "minuto": "00:00", "dice": "ciao a tutti", "girato": {"sorgente": "muto", "da": 3.0}}]},
         {"nome": "due", "pezzi": [{"sorgente": "voce", "minuto": "00:00", "dice": "buona sera", "girato": {"sorgente": "muto", "da": 0.0, "a": 8.0}}]}]})
     file, montato = monta_con_animazioni(archivio, "mac", tmp_path)

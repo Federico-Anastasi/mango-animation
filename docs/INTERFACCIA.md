@@ -33,8 +33,8 @@ un avviso) escono nella lingua dello studio (`docs/API.md`, «La lingua delle fr
 e le eccezioni che `docs/API.md` elenca.
 
 **Cartella dei dati** (solo nell'app, `docs/APP.md`): un bottone con la cartella apre un pannello che dice dove stanno i video e il girato, e
-«Sposta la cartella dei dati…» apre la scelta di sistema. La nuova cartella vale dal prossimo avvio e i file non si spostano da soli: il pannello
-dice di copiarli. Se la cartella è fissata all'avvio (`MANGO_ANIMATION_LAVORO`), il pannello dice che da lì non si cambia e non offre di spostarla.
+«Sposta la cartella dei dati…» apre la scelta di sistema. La nuova cartella vale dal prossimo avvio, e all'avvio l'app sposta i file
+prima di accendere il server (con avanzamento e annulla, `docs/APP.md`): il pannello lo dice. Se la cartella è fissata all'avvio (`MANGO_ANIMATION_LAVORO`), il pannello dice che da lì non si cambia e non offre di spostarla.
 
 **Segnala un problema** (solo nell'app, `docs/APP.md`, «Le segnalazioni dei problemi»): un bottone con la bandierina, accanto a lingua e tema, apre un pannello con un campo facoltativo, l'interruttore della schermata e «Invia»; la vista d'errore comune offre lo stesso modulo («Segnala il problema») con il suo messaggio.
 
@@ -46,6 +46,10 @@ si può chiedere nella chat di correggerlo o correggere il file a mano, e sotto 
 Un pannello a destra delle viste (a 1400 e 1000 px), largo 420 px di partenza: si trascina il bordo sinistro (o si usano le frecce sul
 bordo a fuoco; il doppio clic torna alla larghezza di partenza); la larghezza e l'essere aperta si ricordano nel browser. A 430 px la chat
 prende tutto lo schermo, sopra la vista, col bottone «Torna alla vista»; un collegamento a un video scopre la vista. La testata dice il titolo della conversazione e, sotto, come sta («Pronta», «Sta lavorando», «Aspetta una tua risposta»), il tempo di lavoro di Claude in tutta la conversazione, «Sta lavorando · 12:14» (la somma delle risposte: va avanti mentre Claude lavora e resta ferma mentre aspetta il creator, `docs/CHAT.md`, `lavoro`; ogni risposta dice il suo tempo in fondo, «Fatto in 42 s») e quanto è pieno il contesto («Contesto 52%», con una barretta che sopra il 70% diventa arancione e sopra il 90% rossa; senza la misura del modello, «Contesto 146 mila token»; al passaggio, i token esatti e cosa succede quando si riempie). Ha l'elenco delle conversazioni (si riprende una vecchia, anche una aperta da terminale), «Nuova conversazione» e «Chiudi». Solo una conversazione di Mango Code dice con chi si parla: il suo segno e «Mango Code», che lo dice anche l'invito di una conversazione nuova (i motori stanno in `studio/src/chat/motore.ts`). L'assistente di Claude non ha né nome né segno nella chat. Finché una conversazione si sta aprendo, o non si apre, la testata non dice nessun motore e le frasi della chat non ne nominano uno.
+**Il primo giro**: finché il creator non ha un profilo (`GET /api/profilo`, `presente: false`) la chat si apre da sola, più larga, e manda a Claude
+il primo messaggio; Claude comincia la skill `welcome` (`docs/CHAT.md`, «Il primo giro»). Sopra la conversazione sta un «Salta» discreto, che
+ferma Claude e non fa ripartire il giro; dalla chat vuota «Rifai il primo giro» lo rifà quando si vuole. La scelta di saltare o di aver cominciato si ricorda nel browser.
+
 Senza una conversazione la chat si apre su un
 invito (cosa fa: «Lavora sui tuoi file e monta i video, con il Claude Code installato sul computer») e sulle ultime conversazioni. Se una conversazione non si apre (per esempio perché è di Mango Code e Mango Code è spento) la chat dice perché, con «Riprova».
 
@@ -244,6 +248,10 @@ rovescia; i commenti del video scelto, con le risposte e
 quelli nuovi segnati; i messaggi privati. Il titolo di un video porta alla sua scheda. L'interfaccia non
 aggiorna i dati da sé: dice di chiederlo nella chat («aggiorna i dati di TikTok»).
 
+Senza dati la pagina dice in due righe cosa fa e ha un pulsante che apre la chat con la richiesta giusta; lo stesso fanno Classifica e Crescita (`src/comuni/PaginaVuota.tsx`).
+Con i canali del profilo (`GET /api/profilo`, `canali`) il pulsante cambia: senza un canale, «Collega un canale»; con TikTok, «Leggi i dati di TikTok»; con un solo altro
+canale (Instagram, YouTube, X) la pagina dice che la lettura automatica non c'è ancora e propone di far guardare alla chat il profilo pubblico, con il permesso del creator.
+
 ## Classifica — «a che punto sono fra i profili con cui mi confronto?»
 
 I profili della classifica in archivio, dal primo: posto, nome (porta al profilo su TikTok), cosa fa, follower,
@@ -267,6 +275,7 @@ mediane. Poi il mix dei video, i consigli, le novità di TikTok divise fra «da 
 ## Produzione — «quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»
 
 Un video conta come **fatto** quando è pronto o pubblicato; la data è quella della prima uscita, o dell'ultima modifica se non è ancora uscito.
+Senza video fatti la pagina dice cosa mostra e ha il pulsante «Facciamo il primo video», che apre la chat.
 Le sezioni, dall'alto:
 
 - **Quanti video e quanto lavoro.** Tre righe, l'ultima settimana, l'ultimo mese e da sempre: quanti video fatti e, in media per video, il lavoro

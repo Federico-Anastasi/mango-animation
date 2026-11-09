@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react"
 import { useScorciatoiaChat } from "./chat/BottoneChat"
 import { usePannelloChat } from "./chat/pannello"
 import { PannelloChat } from "./chat/PannelloChat"
+import { useAvviaPrimoGiro } from "./chat/primoGiro"
 import { Cornice } from "./cornice/Cornice"
 import { Caricamento } from "./comuni/Stati"
 import { useIndirizzo } from "./indirizzo"
@@ -21,6 +22,7 @@ export function App() {
   const indirizzo = useIndirizzo()
   const chat = usePannelloChat()
   useScorciatoiaChat()
+  useAvviaPrimoGiro()
   return (
     <div className={styles.app}>
       <Cornice vista={indirizzo.vista} />

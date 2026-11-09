@@ -220,6 +220,11 @@ fn gruppi_per(f: &Funzioni, con_cuda: bool) -> (Vec<Gruppo>, u64) {
         // `requests`: faster-whisper 1.1.0 lo importa e non lo dichiara, e huggingface_hub non lo porta più.
         altri.extend(["faster-whisper==1.1.0", "requests==2.34.2"]);
         peso += 120 * MB;
+        if con_cuda && !(f.attiva("allineamento") || f.attiva("sagoma")) {
+            // Sulla scheda faster-whisper cerca da solo la cublas di CUDA 12, che Windows non ha: la porta torch con CUDA (che qui non c'è) o questo pacchetto.
+            altri.push("nvidia-cublas-cu12==12.4.5.8");
+            peso += 380 * MB;
+        }
     }
     if f.attiva("sagoma") {
         altri.extend(["transformers==5.14.1", "opencv-python-headless==5.0.0.93"]);
@@ -623,6 +628,25 @@ pub mod prove {
         let (cpu, peso_cpu) = indice(false);
         assert!(cuda.ends_with("/cu124") && cpu.ends_with("/cpu"));
         assert!(peso_cuda > 3 * peso_cpu);
+    }
+
+    #[test]
+    fn la_trascrizione_sulla_scheda_senza_torch_si_porta_la_cublas_di_cuda_e_con_torch_no() {
+        let con = |profilo: serde_json::Value, con_cuda: bool| {
+            let (gruppi, peso) = gruppi_per(&Funzioni::dal_profilo(&profilo), con_cuda);
+            (gruppi.iter().any(|g| g.pacchetti.iter().any(|p| p == "nvidia-cublas-cu12==12.4.5.8")), peso)
+        };
+        let senza_torch = json!({ "motori": { "allineamento": { "attiva": false }, "sagoma": { "attiva": false } } });
+        // Dettatura e trascrizione sulla scheda: la cublas non viene da nessun'altra parte.
+        let (c, peso_con) = con(senza_torch.clone(), true);
+        assert!(c);
+        assert!(!con(senza_torch.clone(), false).0, "sul processore non serve");
+        assert!(peso_con > con(senza_torch, false).1 + 300 * MB);
+        // Con torch per CUDA la porta lui, e il pacchetto in più sarebbe un'altra copia da mezzo gigabyte.
+        assert!(!con(json!({}), true).0);
+        assert!(!con(json!({ "motori": { "trascrizione": { "attiva": false }, "dettatura": { "attiva": false } } }), true).0, "senza trascrizione né dettatura non c'entra");
+        let una = |f: &str| json!({ "motori": { f: { "attiva": false }, "allineamento": { "attiva": false }, "sagoma": { "attiva": false } } });
+        assert!(con(una("trascrizione"), true).0 && con(una("dettatura"), true).0, "basta una delle due");
     }
 
     #[test]

@@ -4,9 +4,6 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const $ = (id) => document.getElementById(id);
 
-// Come si installa Claude Code (guida di Anthropic): il comando per PowerShell.
-const COMANDO_CLAUDE = "irm https://claude.ai/install.ps1 | iex";
-
 // La lingua la dice l'app con ogni stato (`lingua`); ogni frase si scrive nelle due lingue dove compare: t("italiano", "inglese").
 let lingua = "it";
 const t = (it, en) => (lingua === "en" ? en : it);
@@ -23,13 +20,22 @@ function testiFissi() {
     "None of this is inside the app: each item is downloaded from its own source, with its licence next to it. Every file is checked before it is used.",
   );
   $("guida-link").textContent = t("La guida di Anthropic per installare Claude Code", "Anthropic's guide to installing Claude Code");
+  $("abbonamento-testo").textContent = t(
+    "Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.",
+    "Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.",
+  );
+  $("mango-code").textContent = t("Ho trovato anche Mango Code: potrai usarlo come motore nella chat.", "I also found Mango Code: you will be able to use it as an engine in the chat.");
+  $("piani-link").textContent = t("Guarda i piani", "See the plans");
+  $("alternativa-testo").textContent = t("Se preferisci, incolla questo comando in PowerShell:", "If you prefer, paste this command into PowerShell:");
   $("riprova").textContent = t("Riprova", "Try again");
   $("ricrea").textContent = t("Ricrea in Documenti", "Recreate in Documents");
   $("scegli").textContent = t("Scegli un'altra cartella", "Choose another folder");
+  $("scegli-altra").textContent = t("Scegli un'altra cartella", "Choose another folder");
+  $("usa-cartella").textContent = t("Usa questa cartella", "Use this folder");
+  $("sposta-riprova").textContent = t("Riprova", "Try again");
+  $("cartella-altre-titolo").textContent = t("Altre cartelle", "Other folders");
   $("accedi").textContent = t("Accedi a Claude Code", "Sign in to Claude Code");
   $("ricontrolla").textContent = t("Ricontrolla", "Check again");
-  $("senza").textContent = t("Vai avanti senza Claude Code", "Continue without Claude Code");
-  $("annulla").textContent = t("Ferma", "Stop");
   $("avanti").textContent = t("Non ora", "Not now");
   testiDellaSegnalazione();
 }
@@ -61,8 +67,19 @@ function titoloDi(s) {
     }[s.aggiornamento.fase];
   }
   if (s.fase === "claude") {
-    if (s.claude.trovato) return t("Claude Code non è collegato al tuo account", "Claude Code is not connected to your account");
-    return s.claude.percorso ? t("Claude Code non parte", "Claude Code won't start") : t("Manca Claude Code", "Claude Code is missing");
+    if (s.claude.trovato) return t("Collega Claude Code al tuo account", "Connect Claude Code to your account");
+    return s.claude.percorso ? t("Claude Code non parte", "Claude Code won't start") : t("Per cominciare serve Claude Code", "To get started you need Claude Code");
+  }
+  if (s.fase === "cartella") return t("Dove tengo i tuoi video?", "Where should I keep your videos?");
+  if (s.fase === "spostamento") {
+    return {
+      copia: t("Sposto i tuoi video", "Moving your videos"),
+      verifica: t("Sposto i tuoi video", "Moving your videos"),
+      rimozione: t("Finisco di spostare", "Finishing the move"),
+      errore: t("Lo spostamento non è riuscito", "The move did not work"),
+      annullato: t("Spostamento annullato", "Move cancelled"),
+      avanzi: t("Spostamento finito", "Move finished"),
+    }[s.spostamento.fase];
   }
   if (s.fase === "computer") {
     if (s.computer.fase === "scarico" && soloNecessarie(s.computer)) return t("Preparo l'app", "Getting the app ready");
@@ -82,6 +99,8 @@ function titoloDi(s) {
 function dettaglioDi(s) {
   if (s.fase === "aggiornamento") return dettaglioDiAggiornamento(s.aggiornamento);
   if (s.fase === "claude") return dettaglioDiClaude(s.claude);
+  if (s.fase === "cartella") return dettaglioDellaCartella(s.cartella);
+  if (s.fase === "spostamento") return dettaglioDelloSpostamento(s.spostamento);
   if (s.fase === "computer") return dettaglioDelComputer(s.computer);
   if (s.fase === "mancante") {
     const ricrea = s.predefinita
@@ -113,15 +132,84 @@ function dettaglioDiClaude(c) {
     const trovato = t(`Ho trovato Claude Code ${c.versione}.`, `Found Claude Code ${c.versione}.`);
     return `${trovato} ${frase}`;
   }
-  const reinstalla = t("Si può installare di nuovo con un comando, da PowerShell:", "You can install it again with one command, from PowerShell:");
-  const spiegazione = c.percorso
-    ? `${c.messaggio} ${reinstalla}`
-    : t(
-        "Mango Animation lavora con il Claude Code che hai sul computer, e qui non lo trovo. Si installa con un comando, da PowerShell:",
-        "Mango Animation works with the Claude Code you have on your computer, and I can't find it here. You install it with one command, from PowerShell:",
-      );
-  const dopo = t("Finito, torna qui e premi «Ricontrolla».", "When it is done, come back here and press “Check again”.");
-  return `${spiegazione}\n\n${dopo}`;
+  const riprova = t("Puoi riprovare, o seguire la guida di Anthropic.", "You can try again, or follow Anthropic's guide.");
+  if (c.messaggio) return `${c.messaggio} ${riprova}`;
+  return t(
+    "Mango Animation lavora insieme a Claude. Prima serve Claude Code: lo installo io con un clic.",
+    "Mango Animation works together with Claude. First you need Claude Code: I install it for you with one click.",
+  );
+}
+
+// Una cartella per i video: lo spazio del suo disco, e a chi non ha scelto niente come si fa.
+function dettaglioDellaCartella(c) {
+  const cosa = t("Qui vanno i tuoi video, il girato e tutto il lavoro. Pesano molto: scegli un disco con spazio.", "Your videos, footage and all the work go here. They are big: pick a disk with room.");
+  return c.percorso ? cosa : `${cosa} ${t("Scegli dove tenerli.", "Choose where to keep them.")}`;
+}
+
+function dettaglioDelloSpostamento(m) {
+  const dovEra = t("I tuoi file sono dove erano.", "Your files are where they were.");
+  if (m.fase === "copia") {
+    return t(
+      "Copio tutto nella nuova cartella. Non chiudere l'app: i file di prima restano dove sono finché non ho controllato che sia arrivato tutto.",
+      "I am copying everything to the new folder. Don't close the app: the old files stay where they are until I have checked that everything arrived.",
+    );
+  }
+  if (m.fase === "verifica") return t("Controllo che sia arrivato tutto.", "Checking that everything arrived.");
+  if (m.fase === "rimozione") return t("Tolgo i file dalla cartella di prima.", "Removing the files from the old folder.");
+  if (m.fase === "errore") return `${m.messaggio} ${dovEra}`;
+  if (m.fase === "annullato") return dovEra;
+  const primi = m.primi_rimasti.join("\n");
+  const altri = m.rimasti > m.primi_rimasti.length ? t(`\ne altri ${m.rimasti - m.primi_rimasti.length}`, `\nand ${m.rimasti - m.primi_rimasti.length} more`) : "";
+  return `${t("I tuoi video sono nella nuova cartella.", "Your videos are in the new folder.")} ${t(
+    `${m.rimasti} file della cartella di prima non si sono potuti togliere, forse un altro programma li tiene aperti: puoi toglierli a mano.`,
+    `${m.rimasti} files of the old folder could not be removed, maybe another program has them open: you can remove them by hand.`,
+  )}\n\n${primi}${altri}`;
+}
+
+function mostraSpostamento(m) {
+  $("spostamento-da").textContent = `${t("Da", "From")}: ${m.da}`;
+  $("spostamento-a").textContent = `${t("A", "To")}: ${m.a}`;
+  const inCorso = ["copia", "verifica", "rimozione"].includes(m.fase);
+  $("spostamento-barra").hidden = !inCorso;
+  $("spostamento-conti").hidden = !inCorso;
+  $("spostamento-barra").max = Math.max(m.totale_mb, 1);
+  $("spostamento-barra").value = m.fase === "copia" ? m.fatti_mb : m.totale_mb;
+  $("spostamento-conti").textContent = t(
+    `${grandezza(m.fatti_mb)} / ${grandezza(m.totale_mb)} · ${m.file_fatti} / ${m.file_totali} file`,
+    `${grandezza(m.fatti_mb)} / ${grandezza(m.totale_mb)} · ${m.file_fatti} / ${m.file_totali} files`,
+  );
+  $("sposta-riprova").hidden = !["errore", "annullato"].includes(m.fase);
+  $("sposta-continua").hidden = inCorso;
+  $("sposta-continua").textContent = m.fase === "avanzi" ? t("Continua", "Continue") : t("Continua con la cartella di prima", "Continue with the previous folder");
+}
+
+function mostraCartella(c) {
+  $("cartella-percorso").hidden = !c.percorso;
+  $("cartella-percorso").textContent = c.percorso || "";
+  $("cartella-spazio").hidden = !c.percorso;
+  $("cartella-spazio").textContent = t(`Spazio libero sul disco: ${grandezza(c.libero_mb)}`, `Free space on the disk: ${grandezza(c.libero_mb)}`);
+  $("cartella-onedrive").hidden = !c.onedrive;
+  $("cartella-onedrive").textContent = t(
+    "Questa cartella è dentro OneDrive: i video verrebbero copiati online, e pesano molto. Meglio una cartella fuori da OneDrive.",
+    "This folder is inside OneDrive: your videos would be copied online, and they are big. A folder outside OneDrive is better.",
+  );
+  $("cartella-altre-gruppo").hidden = c.alternative.length === 0;
+  $("cartella-altre").replaceChildren(...c.alternative.map(sceltaRapida));
+  const errore = $("cartella-errore");
+  errore.hidden = !c.messaggio;
+  errore.textContent = c.messaggio || "";
+  $("usa-cartella").disabled = !c.percorso;
+}
+
+// Una cartella da prendere con un clic: dove sta e quanto spazio ha il suo disco.
+function sceltaRapida(a) {
+  const bottone = nodo("button", ["secondario", "scelta"]);
+  bottone.type = "button";
+  bottone.append(nodo("span", "nome", a.percorso), nodo("span", "peso", t(`${grandezza(a.libero_mb)} liberi`, `${grandezza(a.libero_mb)} free`)));
+  bottone.addEventListener("click", () => {
+    invoke("azione", { azione: { cartella: a.percorso } }).catch(() => {});
+  });
+  return bottone;
 }
 
 function dettaglioDelComputer(c) {
@@ -133,7 +221,9 @@ function dettaglioDelComputer(c) {
 // Pesi e spazi in megabyte, scritti come li legge una persona.
 function grandezza(mb) {
   const cifre = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
-  return mb >= 1000 ? `${(mb / 1024).toLocaleString(lingua === "en" ? "en-GB" : "it-IT", cifre)} GB` : `${mb} MB`;
+  const numero = (n) => n.toLocaleString(lingua === "en" ? "en-GB" : "it-IT", cifre);
+  if (mb >= 1024 * 1024) return `${numero(mb / (1024 * 1024))} TB`;
+  return mb >= 1000 ? `${numero(mb / 1024)} GB` : `${mb} MB`;
 }
 
 // Il computer in una riga: quante schede NVIDIA e quanta memoria; i nomi esatti nel suggerimento.
@@ -270,9 +360,11 @@ function mostra(s) {
   const errore = s.fase === "errore";
   const mancante = s.fase === "mancante";
   const claude = s.fase === "claude";
+  const cartella = s.fase === "cartella";
+  const spostamento = s.fase === "spostamento";
   const computer = s.fase === "computer";
   const aggiornamento = s.fase === "aggiornamento";
-  $("giro").hidden = errore || mancante || claude || computer || aggiornamento;
+  $("giro").hidden = errore || mancante || claude || cartella || spostamento || computer || aggiornamento;
   document.querySelector(".corpo").classList.toggle("largo", computer);
   $("titolo").textContent = titoloDi(s);
   $("dettaglio").textContent = dettaglioDi(s);
@@ -285,20 +377,36 @@ function mostra(s) {
   $("scegli").hidden = !mancante;
 
   const daInstallare = claude && !s.claude.trovato;
-  $("comando").hidden = !daInstallare;
-  $("comando").textContent = daInstallare ? COMANDO_CLAUDE : "";
+  $("abbonamento").hidden = !claude;
+  $("mango-code").hidden = !(claude && s.claude.mango_code);
+  $("installa").hidden = !daInstallare;
+  $("installa").textContent = s.claude?.messaggio ? t("Riprova", "Try again") : t("Installa Claude Code", "Install Claude Code");
+  $("alternativa").hidden = !daInstallare;
+  $("comando").textContent = daInstallare ? s.claude.comando : "";
   $("guida").hidden = !daInstallare;
-  $("copia").hidden = !daInstallare;
   if (daInstallare) $("copia").textContent = t("Copia il comando", "Copy the command");
   $("accedi").hidden = !(claude && s.claude.trovato);
   $("ricontrolla").hidden = !claude;
-  $("senza").hidden = !claude;
+
+  $("cartella").hidden = !cartella;
+  $("usa-cartella").hidden = !cartella;
+  $("scegli-altra").hidden = !cartella;
+  if (cartella) mostraCartella(s.cartella);
+
+  $("spostamento").hidden = !spostamento;
+  if (spostamento) mostraSpostamento(s.spostamento);
+  else {
+    $("sposta-riprova").hidden = true;
+    $("sposta-continua").hidden = true;
+  }
 
   $("computer").hidden = !computer;
   $("riepilogo").hidden = !computer;
   $("prepara").hidden = !(computer && s.computer.fase !== "scarico");
   $("avanti").hidden = !(computer && s.computer.fase !== "scarico" && !s.computer.voci.some((v) => v.necessaria));
-  $("annulla").hidden = !(computer && s.computer.fase === "scarico");
+  const spostaInCorso = spostamento && ["copia", "verifica"].includes(s.spostamento.fase);
+  $("annulla").hidden = !((computer && s.computer.fase === "scarico") || spostaInCorso);
+  $("annulla").textContent = spostamento ? t("Annulla lo spostamento", "Cancel the move") : t("Ferma", "Stop");
   if (computer) mostraComputer(s.computer);
 
   const scarico = aggiornamento && s.aggiornamento.fase === "scarico";
@@ -342,7 +450,7 @@ $("riprova").addEventListener("click", () => {
 });
 
 $("copia").addEventListener("click", () => {
-  navigator.clipboard.writeText(COMANDO_CLAUDE).then(
+  navigator.clipboard.writeText($("comando").textContent).then(
     () => ($("copia").textContent = t("Copiato", "Copied")),
     () => ($("copia").textContent = t("Non riesco a copiare: selezionalo e copialo a mano", "I can't copy it: select it and copy it by hand")),
   );
@@ -352,7 +460,14 @@ const vadoAvanti = () => t("Vado avanti", "Continuing");
 const comincio = () => t("Comincio", "Starting");
 $("ricontrolla").addEventListener("click", () => rispondi("ricontrolla", t("Controllo Claude Code", "Checking Claude Code")));
 $("accedi").addEventListener("click", () => rispondi("accedi", t("Aspetto che finisci l'accesso a Claude Code", "Waiting for you to finish signing in to Claude Code")));
-$("senza").addEventListener("click", () => rispondi("continua", vadoAvanti()));
+$("installa").addEventListener("click", () => rispondi("installa", t("Installo Claude Code nella finestra che si è aperta", "Installing Claude Code in the window that just opened")));
+// Scegliere una cartella non cambia la pagina: arriva da sé lo stato nuovo, con la cartella scelta.
+$("scegli-altra").addEventListener("click", () => {
+  invoke("azione", { azione: "scegli_cartella" }).catch(() => {});
+});
+$("sposta-riprova").addEventListener("click", () => rispondi("ricontrolla", t("Riprovo", "Trying again")));
+$("sposta-continua").addEventListener("click", () => rispondi("continua", vadoAvanti()));
+$("usa-cartella").addEventListener("click", () => rispondi("usa_cartella", t("Preparo la cartella", "Preparing the folder")));
 $("aggiorna").addEventListener("click", () => rispondi("aggiorna", dopoUnErrore ? t("Riprovo", "Trying again") : comincio()));
 $("dopo").addEventListener("click", () => rispondi("continua", vadoAvanti()));
 $("prepara").addEventListener("click", () => rispondi("prepara", comincio()));

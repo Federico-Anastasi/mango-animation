@@ -89,13 +89,13 @@ an existing frame is not bent with measures written in the plan.
 
 ## TikTok
 
-Active when TikTok is among the creator's `canali` in the profile: these rules come from how the platform crops vertical videos
-(and, in `.claude/metodo/problemi-gia-visti.md`, from its looping).
+Active when TikTok or Instagram (Reels) is among the creator's `canali` in the profile: these rules come from how the platforms crop
+vertical videos (and, in `.claude/metodo/problemi-gia-visti.md`, from TikTok's looping).
 
-- **The title is never in the top quarter of the frame** in vertical videos: TikTok cuts it there. This holds for the whole banner,
+- **The title is never in the top quarter of the frame** in vertical videos: TikTok and Reels cut it there. This holds for the whole banner,
   even on several rows: a title that wraps grows downward. Its place is in the frame, in `stile.json`; look at a frame before sending
   the video.
-- **Nothing to be read at the sides**: on the longer phones TikTok cuts about 50 px on the right and on the left. Animations, screens,
+- **Nothing to be read at the sides**: on the longer phones the app cuts about 50 px on the right and on the left. Animations, screens,
   title and subtitles stay inside `telefono.margine_lati` of the style; the frames do it.
 
 ## Animations

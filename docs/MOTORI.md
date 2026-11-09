@@ -17,6 +17,8 @@ Le funzioni pesanti del prodotto (trascrizione, allineamento, sagoma, ...) usano
 PyTorch (e con lui `transformers` e OpenCV) serve a `allineamento` e `sagoma`: finché una delle due è accesa si scarica; la scheda NVIDIA lo vuole in versione CUDA (circa 4,7 GB), il processore in versione leggera (circa 0,9 GB).
 `trascrizione`, `segui` e `pulizia_voce` non ne hanno bisogno.
 
+Sulla scheda NVIDIA la trascrizione (e la dettatura) hanno bisogno della cublas di CUDA 12, che Windows non ha se CUDA non è installato a parte. La porta PyTorch per CUDA; dove PyTorch non c'è (`allineamento` e `sagoma` spente) l'app installa il pacchetto `nvidia-cublas-cu12` (circa 380 MB). Il motore la carica per percorso prima di `faster-whisper` (`librerie_cuda` in `motore/dispositivo.py`) e, sulla scheda, prova il modello con mezzo secondo di silenzio prima di dire «pronto»: una libreria che manca è un errore chiaro al caricamento, non una frase persa alla prima parola.
+
 Le animazioni non sono una funzione del profilo: si rendono con Playwright e il suo Chromium (circa 0,7 GB), che l'app scarica se Playwright non ne ha uno. La copertina non ha un motore suo: segue la sagoma.
 
 I modelli non si distribuiscono con l'app: si scaricano dalla loro fonte, ognuno con la sua licenza (`app/src/computer/manifesto.json`).

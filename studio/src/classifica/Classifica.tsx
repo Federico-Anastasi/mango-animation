@@ -1,7 +1,8 @@
 // «A che punto sono fra i profili con cui mi confronto?»: i profili della classifica in archivio, con quello del creator aggiornato all'ultima lettura.
 import { useState } from "react"
 import { api } from "../api"
-import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
+import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
+import { Caricamento, Errore } from "../comuni/Stati"
 import { creaCopia, useCopia } from "../dati"
 import { t } from "../lingua"
 import { data, dataOra, numero } from "../testo"
@@ -49,7 +50,7 @@ export function Classifica() {
   const [ordine, setOrdine] = useState<{ misura: Misura; rovescio: boolean }>({ misura: "punteggio", rovescio: false })
   if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void stato.rileggi()} />
   if (!caricato || !dato) return <Caricamento />
-  if (dato.quando === null || dato.righe.length === 0) return <Vuoto>{t("Non c'è ancora una classifica in archivio. Chiedilo nella chat: «rifai la classifica dei profili di TikTok».", "There is no ranking in the archive yet. Ask in the chat: \"redo the ranking of TikTok profiles\".")}</Vuoto>
+  if (dato.quando === null || dato.righe.length === 0) return <PaginaDiCanaleVuota pagina="classifica" titolo={t("Classifica", "Ranking")} />
 
   const io = dato.righe.find((r) => r.nome === dato.io) ?? null
   const verso = ordine.rovescio ? -1 : 1

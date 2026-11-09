@@ -73,7 +73,7 @@ fn schede_nvidia() -> Vec<SchedaNvidia> {
 }
 
 /// Lo spazio libero del disco su cui sta `cartella` (il disco col punto di montaggio più lungo che la contiene); 0 se non si trova.
-fn libero_sul_disco(cartella: &Path) -> u64 {
+pub(crate) fn libero_sul_disco(cartella: &Path) -> u64 {
     let dischi = sysinfo::Disks::new_with_refreshed_list();
     let intera = cartella.canonicalize().unwrap_or_else(|_| cartella.to_path_buf());
     // `canonicalize` su Windows dà il percorso con un prefisso («\\?\»), che i punti di montaggio dei dischi non hanno.

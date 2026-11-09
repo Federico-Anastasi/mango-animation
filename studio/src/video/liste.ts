@@ -2,6 +2,7 @@ import type { Scheda } from "../tipi"
 
 export const CANALI = [
   { id: "tiktok", nome: "TikTok" },
+  { id: "instagram", nome: "Instagram" },
   { id: "youtube", nome: "YouTube" },
   { id: "x", nome: "X" },
 ] as const

@@ -378,6 +378,7 @@ def test_un_pezzo_in_un_altra_lingua_ha_i_suoi_sottotitoli_tradotti_ancorati_all
     la frase da cui comincia (`dalla`) fino alla riga dopo, e diventano battute come tutti gli altri sottotitoli, parola per parola; una parentesi entra tutta insieme."""
     piano = json.loads(json.dumps(video[1]))
     piano["scene"][1]["pezzi"][0]["sottotitoli_tradotti"] = [{"dalla": "ciao", "testo": "Hello everyone"}, {"dalla": "tutti", "testo": "all of (you here)"}]
+    piano["sottotitoli"]["scrittura"] = "minuscola"
     scrivi_piano("v", piano)
     r = risolvi(archivio, "v", scrivi=False)
     dette = {w["p"]: (w["da"], w["a"]) for w in r["parole"] if r["tratti"][w["tratto"]]["scena"] == 1}

@@ -118,6 +118,6 @@ describe("Crescita", () => {
   it("senza un piano in archivio dice come chiederlo", async () => {
     rete({ quando: null })
     render(<Crescita />)
-    await waitFor(() => expect(screen.getByText(/fammi il piano di crescita/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Qui trovi il piano per far crescere il canale/)).toBeInTheDocument())
   })
 })

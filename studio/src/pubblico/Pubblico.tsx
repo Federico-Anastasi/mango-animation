@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import { api, urlMedia } from "../api"
 import { ascoltaCanale } from "../canale"
+import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
 import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
 import { canaleTiktok, creaCopia, elencoVideo, useCopia } from "../dati"
 import { scriviIndirizzo, vai } from "../indirizzo"
@@ -182,7 +183,7 @@ export function Pubblico({ video }: { video?: string }) {
   const [ordine, setOrdine] = useState<{ campo: CampoOrdine; rovescio: boolean } | null>(null)
   if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void canaleTiktok.rileggi()} />
   if (!caricato || !dato) return <Caricamento />
-  if (!dato.ultima) return <Vuoto>{t("Non c'è ancora nessuna lettura di TikTok in archivio. Chiedilo nella chat: «aggiorna i dati di TikTok».", "There is no TikTok read in the archive yet. Ask in the chat: \"update the TikTok data\".")}</Vuoto>
+  if (!dato.ultima) return <PaginaDiCanaleVuota pagina="pubblico" titolo={t("Pubblico", "Audience")} />
 
   const ultima = dato.letture.find((l) => l.lettura === dato.ultima?.lettura)
   const scelto = dato.video.find((v) => v.id === video) ?? null

@@ -40,15 +40,18 @@ All'avvio l'app passa per alcuni controlli, uno dopo l'altro. Ognuno compare sol
 
 ### La cartella dei dati
 
-L'app non ti chiede niente: crea la cartella **Mango Animation** dentro **Documenti** e se la ricorda. Lì stanno le tue riprese, i tuoi video e il tuo profilo. Per spostarla, dentro lo studio premi il bottone con la cartella nella barra in alto («Cartella dei dati») e poi **«Sposta la cartella dei dati…»**: vale dal prossimo avvio e i file **non si spostano da soli**, li copi tu nella cartella nuova.
+La prima volta l'app ti chiede **«Dove tengo i tuoi video?»**. Ti propone la cartella **Mango Animation** dentro **Documenti**, con lo spazio libero del disco; se un altro disco ha più spazio lo trovi sotto «Altre cartelle». Premi **«Usa questa cartella»**, oppure **«Scegli un'altra cartella»**. Lì stanno le tue riprese, i tuoi video e il tuo profilo, e pesano molto: se la cartella è dentro **OneDrive** la pagina ti avvisa, perché OneDrive li copierebbe online. Per spostarla dopo, dentro lo studio premi il bottone con la cartella nella barra in alto («Cartella dei dati») e poi **«Sposta la cartella dei dati…»**, scegliendo una cartella vuota: alla prossima apertura l'app copia tutto, controlla che sia arrivato tutto e solo allora toglie i file di prima. Se qualcosa non va, i tuoi file restano dove erano.
 
 Se la cartella sparisce (disco staccato, cartella spostata), l'app lo dice e offre **«Ricrea in Documenti»** o **«Scegli un'altra cartella»**.
 
 ### Il collegamento a Claude Code
 
-- **«Manca Claude Code»** o **«Claude Code non parte»**: la pagina mostra il comando di installazione di Anthropic e il link alla loro guida. Premi **«Copia il comando»**, apri **PowerShell** (cercalo nel menu Start), incolla il comando e premi Invio. Finito, torna all'app e premi **«Ricontrolla»**. È l'unico passo tecnico di tutta la guida.
-- **«Claude Code non è collegato al tuo account»**: premi **«Accedi a Claude Code»**. Si apre una finestra nera (è normale) e poi il browser, dove entri con il tuo account Claude. Quando la finestra si chiude, l'app ricontrolla da sola. Se hai fatto l'accesso altrove, premi **«Ricontrolla»**.
-- **«Vai avanti senza Claude Code»** apre lo studio lo stesso, ma la chat non può lavorare finché Claude Code non c'è e non è collegato.
+Per usare l'app serve **un account Claude con un abbonamento** (Pro, Max, Ultra, Team o Enterprise: il piano gratuito non include Claude Code). La pagina ha il link ai piani.
+
+- **«Per cominciare serve Claude Code»** o **«Claude Code non parte»**: premi **«Installa Claude Code»**. Si apre una finestra (è normale) che lo installa e si chiude da sola; poi l'app ricontrolla. Se non riesce lo dice, e puoi premere **«Riprova»**. Se preferisci, sotto trovi il comando di Anthropic da incollare in **PowerShell**, e il link alla loro guida. Se lo hai installato altrove, premi **«Ricontrolla»**.
+- **«Collega Claude Code al tuo account»**: premi **«Accedi a Claude Code»**. Si apre una finestra nera (è normale) e poi il browser, dove entri con il tuo account Claude. Quando la finestra si chiude, l'app ricontrolla da sola. Se hai fatto l'accesso altrove, premi **«Ricontrolla»**.
+
+Senza Claude Code installato e collegato l'app non va avanti. Se in più Mango Code è acceso, la pagina lo dice: lo troverai fra i motori della chat.
 
 Se Claude Code è già installato e collegato, questo passo non compare.
 
@@ -252,7 +255,7 @@ Chiudi la finestra dell'app e riaprila dal menu Start. Chiudendola, l'app ferma 
 | **«Sto preparando tutto»** per più di un minuto | l'app sta accendendo lo studio (aspetta fino a 90 secondi) |
 | **«Il server non parte»** | l'app mostra le ultime righe di ciò che è andato storto e dove sta il registro: **«Riprova»**; se non passa, chiudi e riapri, e se ancora no manda quelle righe a chi ti aiuta |
 | **«La cartella dei dati non va»** o **«non c'è più»** | vedi «La cartella dei dati» nella sezione 2 |
-| **«Manca Claude Code»**, **«non parte»**, **«non è collegato»** | vedi «Il collegamento a Claude Code» nella sezione 2 |
+| **«Per cominciare serve Claude Code»**, **«non parte»**, **«Collega Claude Code al tuo account»** | vedi «Il collegamento a Claude Code» nella sezione 2 |
 | **«Qualcosa non è andato»** nello scarico | la pagina dice quale voce e perché: **«Riprova»** riprende senza riscaricare ciò che è arrivato |
 | la chat dice perché una conversazione non si apre | **«Riprova»**; se è l'accesso a Claude Code, rifallo dalla pagina di avvio |
 | un avviso rosso sulla scheda o sul piano di un video | un file non passa i controlli: chiedi nella chat di sistemarlo; il perché preciso si apre a richiesta |

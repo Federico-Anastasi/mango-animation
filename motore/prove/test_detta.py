@@ -236,18 +236,30 @@ def test_la_dettatura_gira_sulla_scheda_se_c_e_altrimenti_sul_processore(monkeyp
 
 class ModelloFinto:
     visti = []
+    prove = []
+    errore = None
+    errore_alla_prova = None
 
     def __init__(self, nome, **opzioni):
         if ModelloFinto.errore:
             raise ModelloFinto.errore
         ModelloFinto.visti.append((nome, opzioni))
 
-    errore = None
+    def transcribe(self, audio, **opzioni):
+        """Come faster-whisper: il lavoro vero (e il suo errore) arriva leggendo i segmenti, non chiamando `transcribe`."""
+        ModelloFinto.prove.append((audio, opzioni))
+
+        def segmenti():
+            if ModelloFinto.errore_alla_prova:
+                raise ModelloFinto.errore_alla_prova
+            yield from ()
+
+        return segmenti(), None
 
 
 @pytest.fixture
 def modello_finto(monkeypatch):
-    ModelloFinto.visti, ModelloFinto.errore = [], None
+    ModelloFinto.visti, ModelloFinto.prove, ModelloFinto.errore, ModelloFinto.errore_alla_prova = [], [], None, None
     monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=ModelloFinto))
     return ModelloFinto
 
@@ -330,3 +342,57 @@ def test_l_errore_della_dettatura_esce_nella_lingua_di_chi_la_chiede(monkeypatch
     with pytest.raises(SystemExit):
         modulo.detta()
     assert json.loads(stdout.getvalue())["messaggio"] == "Cannot prepare dictation: the model is missing"
+
+
+# ---------------------------------------------------------------- la scheda prima di dire «pronto»
+
+def test_sulla_scheda_prima_di_dire_pronto_si_trascrive_mezzo_secondo_di_silenzio(monkeypatch, modello_finto):
+    finto_ctranslate2(monkeypatch, schede=1)
+    modulo.carica(CFG)
+    (audio, opzioni), = modello_finto.prove
+    assert len(audio) == CAMPIONI // 2 and not audio.any() and audio.dtype == np.float32
+    assert opzioni["language"] == CFG["lingua"] and opzioni["vad_filter"] is False
+
+
+def test_sul_processore_non_c_e_niente_da_provare(monkeypatch, modello_finto):
+    finto_ctranslate2(monkeypatch, schede=0)
+    modulo.carica(CFG)
+    assert modello_finto.prove == []
+
+
+def test_le_librerie_di_cuda_si_rendono_trovabili_prima_di_caricare_il_modello(monkeypatch, modello_finto):
+    finto_ctranslate2(monkeypatch, schede=1)
+    ordine = []
+    monkeypatch.setattr(modulo, "librerie_cuda", lambda: ordine.append("librerie"))
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=lambda *a, **k: ordine.append("modello") or ModelloFinto(*a, **k)))
+    modulo.carica(CFG)
+    assert ordine == ["librerie", "modello"]
+    ordine.clear()
+    finto_ctranslate2(monkeypatch, schede=0)
+    modulo.carica(CFG)
+    assert ordine == ["modello"], "sul processore non servono"
+
+
+def test_una_libreria_di_cuda_che_non_si_carica_e_un_errore_che_dice_cosa_fare_non_un_traceback(monkeypatch, modello_finto):
+    finto_ctranslate2(monkeypatch, schede=1)
+    modello_finto.errore_alla_prova = RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
+    with pytest.raises(Errore, match=r"scheda video.*cublas64_12\.dll.*macchina.scheda_video") as e:
+        modulo.carica(CFG)
+    assert "Traceback" not in str(e.value) and "RuntimeError" not in str(e.value)
+    monkeypatch.setenv("MANGO_ANIMATION_LINGUA", "en")
+    with pytest.raises(Errore, match=r"video card.*cublas64_12\.dll.*macchina.scheda_video"):
+        modulo.carica(CFG)
+
+
+def test_la_scheda_che_non_ha_memoria_per_la_prima_trascrizione_dice_la_frase_della_memoria(monkeypatch, modello_finto):
+    finto_ctranslate2(monkeypatch, schede=1)
+    modello_finto.errore_alla_prova = RuntimeError("CUDA failed with error out of memory")
+    with pytest.raises(Errore, match=r"non ha memoria libera.*macchina.scheda_video"):
+        modulo.carica(CFG)
+
+
+def test_un_errore_della_prova_che_non_conosciamo_non_si_nasconde(monkeypatch, modello_finto):
+    finto_ctranslate2(monkeypatch, schede=1)
+    modello_finto.errore_alla_prova = RuntimeError("un guaio nuovo")
+    with pytest.raises(RuntimeError, match="un guaio nuovo"):
+        modulo.carica(CFG)

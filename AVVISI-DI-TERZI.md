@@ -41,6 +41,7 @@ Installati dall'app in un ambiente suo (`app/src/computer/piano.rs`).
 | faster-whisper | 1.1.0 | MIT | <https://pypi.org/project/faster-whisper/> |
 | huggingface_hub | 1.24.0 | Apache-2.0 | <https://pypi.org/project/huggingface-hub/> |
 | jsonschema | 4.26.0 | MIT | <https://pypi.org/project/jsonschema/> |
+| nvidia-cublas-cu12 | 12.4.5.8 | Licenza proprietaria di NVIDIA (CUDA Toolkit EULA); l'app lo scarica da PyPI sul computer di chi lo usa, solo per la trascrizione sulla scheda NVIDIA senza PyTorch, e non lo ridistribuisce | <https://pypi.org/project/nvidia-cublas-cu12/> |
 | numpy | 2.4.3 | BSD-3-Clause (e le licenze di ciò che porta: 0BSD, MIT, Zlib, CC0-1.0) | <https://pypi.org/project/numpy/> |
 | opencv-python-headless | 5.0.0.93 | Apache-2.0 (la ruota porta librerie a parte, FFmpeg fra queste, con le loro licenze LGPL) | <https://pypi.org/project/opencv-python-headless/> |
 | Pillow | 12.1.1 | MIT-CMU (HPND) | <https://pypi.org/project/pillow/> |

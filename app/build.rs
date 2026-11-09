@@ -16,6 +16,8 @@ fn main() {
     let lingua = InlinedPlugin::new().commands(&["lingua_dello_studio"]).default_permission(DefaultPermissionRule::AllowAllCommands);
     // E per le segnalazioni (src/segnalazione/): «Segnala un problema» e il registro `ui.log` delle pagine, anche quelle remote.
     let segnalazione = InlinedPlugin::new().commands(&["segnala_problema", "scrivi_ui_log", "segnalazione_invio_attivo"]).default_permission(DefaultPermissionRule::AllowAllCommands);
+    // E per lo zoom (src/zoom.rs): la pagina dice all'app la sua scala dopo un Ctrl+ / Ctrl- / Ctrl+0.
+    let zoom = InlinedPlugin::new().commands(&["ricorda_zoom"]).default_permission(DefaultPermissionRule::AllowAllCommands);
     // Le prove che usano l'app finta di Tauri (`tests/`) vogliono il manifesto con i controlli di Windows nuovi, come l'app vera: senza, non partono.
     let manifesto = std::path::Path::new(&std::env::var("CARGO_MANIFEST_DIR").expect("cartella dell'app")).join("prove").join("test.manifest");
     println!("cargo:rerun-if-env-changed=MANGO_ANIMATION_SENTRY_DSN");
@@ -30,7 +32,8 @@ fn main() {
             .plugin("mango-animation-appunti", appunti)
             .plugin("mango-animation-computer", computer)
             .plugin("mango-animation-lingua", lingua)
-            .plugin("mango-animation-segnalazione", segnalazione),
+            .plugin("mango-animation-segnalazione", segnalazione)
+            .plugin("mango-animation-zoom", zoom),
     )
     .expect("tauri-build");
 }

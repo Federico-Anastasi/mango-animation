@@ -6,6 +6,7 @@
 
 pub mod aggiornamento;
 mod appunti;
+mod cartella;
 mod claude;
 mod codice;
 mod computer;
@@ -13,14 +14,17 @@ mod dati;
 mod istanza;
 mod lavoro;
 mod lingua;
+mod mangocode;
 mod preparazione;
 mod radice;
 mod segnalazione;
 mod server;
+mod sposta;
 mod supervisor;
 mod titolo;
 mod trascinamento;
 mod voce;
+mod zoom;
 
 use anyhow::{anyhow, bail, Result};
 use lingua::t;
@@ -47,7 +51,7 @@ static GIOBBE: OnceLock<Giobbe> = OnceLock::new();
 
 #[derive(Clone, Serialize, Default)]
 struct Stato {
-    /// "attesa", "mancante" (la cartella dei dati ricordata non c'è più), "claude" (Claude Code manca o non è collegato), "computer" (manca qualcosa da scaricare per le funzioni accese), "aggiornamento" (c'è una versione nuova) o "errore"
+    /// "attesa", "mancante" (la cartella dei dati ricordata non c'è più), "claude" (Claude Code manca o non è collegato), "cartella" (primo avvio: dove tenere i video), "spostamento" (la cartella dei dati si sposta in un'altra), "computer" (manca qualcosa da scaricare per le funzioni accese), "aggiornamento" (c'è una versione nuova) o "errore"
     fase: String,
     /// Un errore sulla radice non si riprova (serve riavviare l'app con `MANGO_ANIMATION_RADICE`): niente bottone.
     radice: bool,
@@ -62,6 +66,10 @@ struct Stato {
     log: Option<String>,
     /// Con "claude": com'è messo Claude Code, per la pagina che guida il creator.
     claude: Option<claude::StatoClaude>,
+    /// Con "spostamento": come va la copia della cartella dei dati nella nuova, o come è finita.
+    spostamento: Option<sposta::StatoSpostamento>,
+    /// Con "cartella": la cartella proposta per i video, lo spazio libero, l'avviso di OneDrive e le altre scelte.
+    cartella: Option<cartella::StatoCartella>,
     /// Con "computer": cosa c'è, cosa manca e cosa si scarica, per la pagina che prepara il computer.
     computer: Option<computer::StatoComputer>,
     /// Con "aggiornamento": c'è una versione nuova da installare.
@@ -110,8 +118,10 @@ fn avvia_studio(app: AppHandle) {
     }
     let esito = (|| -> Result<Option<String>> {
         let radice = stato.radice.clone().map_err(|e| anyhow!(e))?;
-        let lavoro = match stato.lavoro.lock().unwrap().clone() {
-            Esito::Pronta(cartella) => cartella,
+        // Il primo avvio non ha ancora una cartella dei dati: la sceglie il creator, dopo Claude Code e prima del computer pronto.
+        let (ricordata, proposta) = match stato.lavoro.lock().unwrap().clone() {
+            Esito::Pronta(cartella) => (Some(cartella), None),
+            Esito::DaScegliere(proposta) => (None, proposta),
             Esito::Mancante(motivo) => {
                 imposta_stato(&app, lavoro_mancante(motivo, stato.documenti.as_deref()));
                 return Ok(None);
@@ -119,21 +129,39 @@ fn avvia_studio(app: AppHandle) {
             Esito::Errore(messaggio) => bail!(messaggio),
         };
         let porta = porta_da(std::env::var("MANGO_ANIMATION_PORTA").ok().as_deref())?;
-        imposta_stato(&app, attesa(0, t("Controllo se il server è già acceso", "Checking whether the server is already running")));
-        if decidi(porta, &lavoro) == Decisione::GiaAcceso {
-            return Ok(Some(indirizzo_dello_studio(porta, &lavoro)));
+        if let Some(lavoro) = &ricordata {
+            imposta_stato(&app, attesa(0, t("Controllo se il server è già acceso", "Checking whether the server is already running")));
+            if decidi(porta, lavoro) == Decisione::GiaAcceso {
+                return Ok(Some(indirizzo_dello_studio(porta, lavoro)));
+            }
         }
         preparazione::codice_in_ordine(&app, &radice);
         preparazione::aggiornamento_del_prodotto(&app, &radice);
         imposta_stato(&app, attesa(0, t("Controllo Claude Code", "Checking Claude Code")));
         let claude = preparazione::claude_del_creator(&app).map_err(|e| anyhow!(e))?;
+        let lavoro = match ricordata {
+            Some(cartella) => {
+                let lavoro = preparazione::spostamento_del_creator(&app, cartella.clone(), &stato.impostazioni).map_err(|e| anyhow!(e))?;
+                if lavoro != cartella {
+                    *stato.lavoro.lock().unwrap() = Esito::Pronta(lavoro.clone());
+                    app.state::<voce::Voce>().usa_lavoro(&lavoro);
+                }
+                lavoro
+            }
+            None => {
+                let cartella = preparazione::cartella_del_creator(&app, proposta, &stato.impostazioni).map_err(|e| anyhow!(e))?;
+                *stato.lavoro.lock().unwrap() = Esito::Pronta(cartella.clone());
+                app.state::<voce::Voce>().usa_lavoro(&cartella);
+                cartella
+            }
+        };
         imposta_stato(&app, attesa(0, t("Controllo il computer", "Checking the computer")));
         let preparato = preparazione::computer_del_creator(&app, &radice, &lavoro).map_err(|e| anyhow!(e))?;
         if let Some(python) = &preparato.python {
             app.state::<voce::Voce>().usa_python(python);
         }
         let percorsi = preparato.ambiente.iter().find(|(k, _)| k == "PATH").map(|(_, v)| v.clone()).unwrap_or_default();
-        let ambiente = claude.into_iter().map(|p| (claude::VARIABILE.into(), p.into_os_string())).chain(preparato.ambiente).collect();
+        let ambiente = std::iter::once((claude::VARIABILE.into(), claude.into_os_string())).chain(preparato.ambiente).collect();
         let bun = risolvi_bun(&percorsi)
             .ok_or_else(|| {
                 anyhow!(t(
@@ -318,6 +346,7 @@ fn prepara(app: &tauri::App) -> Result<()> {
     computer::ponte::installa(app)?;
     lingua::installa(app)?;
     segnalazione::installa(app)?;
+    zoom::installa(app)?;
 
     let log = app.path().app_log_dir()?;
     let partenza = std::env::current_exe()?.parent().map(|p| p.to_path_buf()).unwrap_or_default();
@@ -347,7 +376,10 @@ fn prepara(app: &tauri::App) -> Result<()> {
         .inner_size(1500.0, 950.0)
         .min_inner_size(900.0, 560.0)
         .center()
+        // Ctrl+ / Ctrl- / Ctrl+0 e Ctrl con la rotellina: lo zoom del browser, che `zoom.rs` ricorda.
+        .zoom_hotkeys_enabled(true)
         .initialization_script(titolo::SINCRONIA)
+        .initialization_script(zoom::SINCRONIA)
         .initialization_script(voce::PONTE)
         .initialization_script(dati::PONTE)
         .initialization_script(appunti::PONTE)
@@ -372,6 +404,7 @@ fn prepara(app: &tauri::App) -> Result<()> {
         })
         .build()?;
     trascinamento::installa(&finestra);
+    zoom::ripristina(&finestra);
     if let Ok(url) = finestra.url() {
         ricorda_pagina(app.handle(), &url);
     }

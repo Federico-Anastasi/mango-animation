@@ -1,5 +1,6 @@
 // «Quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»: i conti di Claude (`docs/API.md`, «Consumi») accanto ai numeri del canale.
 import { useState } from "react"
+import { ProduzioneVuota } from "../comuni/PaginaVuota"
 import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
 import { canaleTiktok, consumi, elencoVideo, useCopia } from "../dati"
 import { scriviIndirizzo } from "../indirizzo"
@@ -162,6 +163,7 @@ export function Produzione() {
   if (conti.errore && !conti.dato) return <Errore messaggio={conti.errore} onRiprova={() => void consumi.rileggi()} />
 
   const fatti = videoFatti(elenco.dato)
+  if (fatti.length === 0) return <ProduzioneVuota titolo={t("Produzione", "Production")} />
   const adesso = Date.now()
   const consumoPerVideo = conti.dato?.video ?? {}
   const righe = righeDellaProduzione(fatti, consumoPerVideo, canale.dato?.video ?? [])
@@ -175,53 +177,49 @@ export function Produzione() {
         {conti.dato?.pronto === false && <p className={styles.avviso}>{t("Sto ancora leggendo le conversazioni di Claude: i conti sono parziali e cresceranno.", "I am still reading Claude's conversations: the counts are partial and will grow.")}</p>}
       </header>
 
-      {fatti.length === 0 ? (
-        <Vuoto>{t("Non c'è ancora nessun video pronto o pubblicato: quando ce ne sarà uno, qui compaiono i suoi conti.", "There is no ready or published video yet: when there is one, its counts will show here.")}</Vuoto>
-      ) : (
-        <>
-          <section className={styles.sezione} aria-labelledby="quanti">
-            <h2 id="quanti">{t("Quanti video e quanto lavoro", "How many videos and how much work")}</h2>
-            <div className={styles.scorri}>
-              <table className={`${styles.tabella} ${styles.impilata}`} aria-label={t("La media di un video, per periodo", "The average of a video, by period")}>
-                <thead>
-                  <tr>
-                    <th scope="col">{t("Periodo", "Period")}</th>
-                    <th scope="col" className={styles.num}>
-                      {t("Video fatti", "Videos made")}
-                    </th>
-                    <th scope="col" className={styles.num}>
-                      {t("Lavoro di Claude", "Claude's work")}
-                    </th>
-                    <th scope="col" className={styles.num}>
-                      {t("Scritti", "Written")}
-                    </th>
-                    <th scope="col" className={styles.num}>
-                      {t("Letti per la prima volta", "Read for the first time")}
-                    </th>
-                    <th scope="col" className={styles.num}>
-                      {t("Riletti", "Re-read")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {periodi().map((p) => {
-                    const dentro = p.giorni === null ? fatti : negliUltimiGiorni(fatti, p.giorni, adesso)
-                    return <RigaMedie key={p.nome} nome={p.nome} fatti={dentro.length} m={medie(dentro, consumoPerVideo)} />
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className={styles.sotto}>{t("Lavoro e conteggi sono la media di un video, sui video di cui Claude ha un conto. I conteggi sono «token», pezzi di testo grosso modo come sillabe. Il lavoro fatto con Mango Code non è contato.", "Work and counts are the average of one video, over the videos Claude has a count for. The counts are \"tokens\", pieces of text roughly like syllables. Work done with Mango Code is not counted.")}</p>
-          </section>
+      <>
+        <section className={styles.sezione} aria-labelledby="quanti">
+          <h2 id="quanti">{t("Quanti video e quanto lavoro", "How many videos and how much work")}</h2>
+          <div className={styles.scorri}>
+            <table className={`${styles.tabella} ${styles.impilata}`} aria-label={t("La media di un video, per periodo", "The average of a video, by period")}>
+              <thead>
+                <tr>
+                  <th scope="col">{t("Periodo", "Period")}</th>
+                  <th scope="col" className={styles.num}>
+                    {t("Video fatti", "Videos made")}
+                  </th>
+                  <th scope="col" className={styles.num}>
+                    {t("Lavoro di Claude", "Claude's work")}
+                  </th>
+                  <th scope="col" className={styles.num}>
+                    {t("Scritti", "Written")}
+                  </th>
+                  <th scope="col" className={styles.num}>
+                    {t("Letti per la prima volta", "Read for the first time")}
+                  </th>
+                  <th scope="col" className={styles.num}>
+                    {t("Riletti", "Re-read")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {periodi().map((p) => {
+                  const dentro = p.giorni === null ? fatti : negliUltimiGiorni(fatti, p.giorni, adesso)
+                  return <RigaMedie key={p.nome} nome={p.nome} fatti={dentro.length} m={medie(dentro, consumoPerVideo)} />
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className={styles.sotto}>{t("Lavoro e conteggi sono la media di un video, sui video di cui Claude ha un conto. I conteggi sono «token», pezzi di testo grosso modo come sillabe. Il lavoro fatto con Mango Code non è contato.", "Work and counts are the average of one video, over the videos Claude has a count for. The counts are \"tokens\", pieces of text roughly like syllables. Work done with Mango Code is not counted.")}</p>
+        </section>
 
-          {righe.length === 0 ? <Vuoto>{t("Nessuna conversazione di Claude ha lavorato sui video fatti: non ci sono ancora conti da confrontare.", "No Claude conversation has worked on the videos made: there are no counts to compare yet.")}</Vuoto> : (
-            <>
-              <Estremi righe={righe} />
-              <CostoEResa righe={righe} canaleLetto={canale.dato?.ultima != null} />
-            </>
-          )}
-        </>
-      )}
+        {righe.length === 0 ? <Vuoto>{t("Nessuna conversazione di Claude ha lavorato sui video fatti: non ci sono ancora conti da confrontare.", "No Claude conversation has worked on the videos made: there are no counts to compare yet.")}</Vuoto> : (
+          <>
+            <Estremi righe={righe} />
+            <CostoEResa righe={righe} canaleLetto={canale.dato?.ultima != null} />
+          </>
+        )}
+      </>
     </div>
   )
 }

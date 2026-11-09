@@ -1,15 +1,62 @@
+import ctypes
 import os
+import re
 import sys
 from functools import cache
+from importlib.util import find_spec
+from pathlib import Path
+
+import numpy as np
 
 from .errori import Errore, dice
 from .profilo import macchina_di_lavoro, motore
 
+CUBLAS = "cublas64_12.dll"
+# Dove sta la cublas di CUDA 12 fra i pacchetti Python: dentro torch (che l'ha portata con sé) o nel pacchetto nvidia-cublas-cu12 (che l'app installa dove torch non c'è).
+POSTI_DELLA_CUBLAS = (("torch", "lib"), ("nvidia", "cublas", "bin"))
+
+
+def _ctranslate2_vede_una_scheda():
+    import ctranslate2
+
+    return ctranslate2.get_cuda_device_count() > 0
+
 
 def cuda_disponibile():
+    """Se c'è una scheda NVIDIA che il motore può usare. Lo dice torch; dove torch non c'è (l'app lo installa solo con l'allineamento o la sagoma) lo dice ctranslate2, che è ciò che trascrive."""
+    if find_spec("torch") is None:
+        return _ctranslate2_vede_una_scheda()
     import torch
 
     return torch.cuda.is_available()
+
+
+def librerie_cuda():
+    """Rende trovabile la cublas di CUDA 12, che ctranslate2 (faster-whisper) cerca per nome sulla scheda: Windows non la trova da sé se CUDA non è installato a parte, e la trascrizione
+    muore alla prima frase. Si carica per percorso, e da lì in poi la trova per nome; si guarda dove l'hanno portata torch o il pacchetto nvidia-cublas-cu12, senza importare torch (costa secondi e
+    memoria). Va chiamata prima di caricare il modello. Dove non c'è, non fa niente: lo dice `prova_della_scheda` alla prima trascrizione."""
+    for posto in POSTI_DELLA_CUBLAS:
+        for cartella in sys.path:
+            file = Path(cartella, *posto, CUBLAS)
+            if file.is_file():
+                ctypes.CDLL(str(file))
+                return
+
+
+def prova_della_scheda(modello, lingua):
+    """Trascrive mezzo secondo (8000 campioni a 16 kHz) di silenzio: i guai della scheda (una libreria che manca, la memoria che non basta per il primo calcolo) vengono fuori adesso e non alla prima frase di chi parla."""
+    segmenti, _ = modello.transcribe(np.zeros(8000, np.float32), language=lingua, beam_size=1, vad_filter=False, without_timestamps=True)
+    list(segmenti)
+
+
+def errore_di_libreria_cuda(guasto):
+    """L'`Errore` da dire se `guasto` (un RuntimeError di ctranslate2) è una libreria di CUDA che non si carica; `None` per ogni altro guasto."""
+    trovata = re.search(r"[Ll]ibrary (\S+\.dll)", str(guasto))
+    if not trovata:
+        return None
+    libreria = trovata.group(1)
+    return Errore(f"alla scheda video manca la libreria di calcolo {libreria} (CUDA 12): metti null in macchina.scheda_video del profilo per lavorare col processore",
+                  f"the video card is missing the computing library {libreria} (CUDA 12): set null in macchina.scheda_video of the profile to work with the processor")
 
 
 def _vincola_la_scheda(macchina):
@@ -65,16 +112,11 @@ def dispositivo(funzione):
 
 def dispositivo_voce():
     """Dove gira la dettatura: `motori.dettatura.dove` del profilo; senza, la scheda NVIDIA se c'è (quella del profilo, se la indica), altrimenti il processore."""
-    def scheda_c_e():
-        import ctranslate2
-
-        return ctranslate2.get_cuda_device_count() > 0
-
-    scelto = _scelta("dettatura", scheda_c_e)
+    scelto = _scelta("dettatura", _ctranslate2_vede_una_scheda)
     if scelto:
         return scelto
     macchina = macchina_di_lavoro()
     if macchina.get("scheda_video", 0) is None:
         return "cpu"
     _vincola_la_scheda(macchina)
-    return "cuda" if scheda_c_e() else "cpu"
+    return "cuda" if _ctranslate2_vede_una_scheda() else "cpu"

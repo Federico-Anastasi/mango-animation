@@ -1,8 +1,8 @@
 //! La cartella di lavoro: i dati di chi usa Mango Animation (`docs/ARCHITETTURA.md`, «La cartella di lavoro»).
 //!
 //! La indica la variabile `MANGO_ANIMATION_LAVORO`; se non c'è vale quella ricordata in `lavoro.json` nella cartella delle
-//! impostazioni dell'app; se non c'è nemmeno quella, al primo avvio l'app crea `Mango Animation` dentro Documenti e la ricorda.
-//! L'app la passa al server, che la passa al motore e a Claude.
+//! impostazioni dell'app; se non c'è nemmeno quella è il primo avvio, e la cartella la sceglie il creator (`cartella.rs`, `preparazione.rs`): l'app gli propone
+//! `Mango Animation` dentro Documenti. L'app la passa al server, che la passa al motore e a Claude.
 
 use anyhow::{Context, Result};
 use crate::lingua::t;
@@ -13,7 +13,7 @@ use std::process::{Command, Stdio};
 
 pub const VARIABILE: &str = "MANGO_ANIMATION_LAVORO";
 const FILE_SCELTA: &str = "lavoro.json";
-const NOME_PREDEFINITO: &str = "Mango Animation";
+pub(crate) const NOME_PREDEFINITO: &str = "Mango Animation";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -23,18 +23,23 @@ pub enum Esito {
     Mancante(String),
     /// Non si può avere una cartella: si risolve con la variabile e riaprendo l'app.
     Errore(String),
+    /// Primo avvio, nessuna cartella ricordata: la sceglie il creator. Porta quella da proporre (dentro Documenti), se Documenti si trova.
+    DaScegliere(Option<PathBuf>),
 }
 
 #[derive(Serialize, Deserialize)]
 struct Scelta {
     lavoro: PathBuf,
+    /// Dove spostare la cartella dei dati al prossimo avvio, prima di accendere il server (`sposta.rs`): finché non è finito, `lavoro` resta dov'è.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sposta_a: Option<PathBuf>,
 }
 
 /// Cosa mostra la pagina dello studio sulla cartella dei dati.
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct Dati {
     pub attuale: PathBuf,
-    /// La cartella scelta dopo l'avvio, se diversa: vale dal prossimo avvio.
+    /// Dove si sposta la cartella dei dati al prossimo avvio, se il creator l'ha chiesto.
     pub prossima: Option<PathBuf>,
     /// La variabile vince su ogni scelta.
     pub forzata: bool,
@@ -47,12 +52,12 @@ pub fn cartella_predefinita(documenti: &Path) -> PathBuf {
 enum Salvata {
     Assente,
     Illeggibile,
-    Cartella(PathBuf),
+    Cartella(Scelta),
 }
 
 fn scelta_salvata(impostazioni: &Path) -> Salvata {
     let Ok(testo) = std::fs::read_to_string(impostazioni.join(FILE_SCELTA)) else { return Salvata::Assente };
-    serde_json::from_str::<Scelta>(&testo).map_or(Salvata::Illeggibile, |s| Salvata::Cartella(s.lavoro))
+    serde_json::from_str::<Scelta>(&testo).map_or(Salvata::Illeggibile, Salvata::Cartella)
 }
 
 fn variabile_valida(da_ambiente: Option<&str>) -> Option<&str> {
@@ -60,7 +65,7 @@ fn variabile_valida(da_ambiente: Option<&str>) -> Option<&str> {
 }
 
 /// Con `da_ambiente` (`MANGO_ANIMATION_LAVORO`) vale quella cartella; altrimenti quella ricordata in `impostazioni`;
-/// altrimenti, al primo avvio, si crea quella predefinita dentro `documenti` e la si ricorda.
+/// altrimenti è il primo avvio: non si crea niente, si propone quella predefinita dentro `documenti`.
 pub fn trova_lavoro(da_ambiente: Option<&str>, impostazioni: &Path, documenti: Option<&Path>) -> Esito {
     if let Some(indicata) = variabile_valida(da_ambiente) {
         let cartella = PathBuf::from(indicata);
@@ -74,38 +79,51 @@ pub fn trova_lavoro(da_ambiente: Option<&str>, impostazioni: &Path, documenti: O
         };
     }
     match scelta_salvata(impostazioni) {
-        Salvata::Cartella(cartella) if cartella.is_dir() => Esito::Pronta(cartella),
-        Salvata::Cartella(cartella) => Esito::Mancante(t(format!("La cartella dei dati «{}» non c'è più.", cartella.display()), format!("The data folder “{}” is gone.", cartella.display()))),
+        Salvata::Cartella(Scelta { lavoro, .. }) if lavoro.is_dir() => Esito::Pronta(lavoro),
+        Salvata::Cartella(Scelta { lavoro, .. }) => Esito::Mancante(t(format!("La cartella dei dati «{}» non c'è più.", lavoro.display()), format!("The data folder “{}” is gone.", lavoro.display()))),
         Salvata::Illeggibile => Esito::Mancante(t("La scelta della cartella dei dati non si legge più.", "The saved choice of data folder can no longer be read.")),
-        Salvata::Assente => match documenti {
-            Some(documenti) => match salva_scelta(impostazioni, &cartella_predefinita(documenti)) {
-                Ok(cartella) => Esito::Pronta(cartella),
-                Err(e) => Esito::Errore(format!("{e:#}")),
-            },
-            None => Esito::Errore(t(
-                format!("Non trovo la cartella Documenti: indica dove tenere i dati con la variabile {VARIABILE}."),
-                format!("I can't find the Documents folder: say where to keep the data with the variable {VARIABILE}."),
-            )),
-        },
+        Salvata::Assente => Esito::DaScegliere(documenti.map(cartella_predefinita)),
     }
 }
 
-/// Ciò che la pagina sa della cartella dei dati: quella in uso, e quella che vale dal prossimo avvio se è stata cambiata.
+/// Ciò che la pagina sa della cartella dei dati: quella in uso, e dove va al prossimo avvio se il creator ha chiesto di spostarla.
 pub fn dati_correnti(da_ambiente: Option<&str>, attuale: &Path, impostazioni: &Path) -> Dati {
     let forzata = variabile_valida(da_ambiente).is_some();
-    let prossima = match scelta_salvata(impostazioni) {
-        Salvata::Cartella(scelta) if !forzata && scelta != attuale => Some(scelta),
-        _ => None,
-    };
+    let prossima = if forzata { None } else { spostamento_in_attesa(impostazioni) };
     Dati { attuale: attuale.to_path_buf(), prossima, forzata }
+}
+
+/// Dove il creator ha chiesto di spostare la cartella dei dati, se non è ancora successo.
+pub fn spostamento_in_attesa(impostazioni: &Path) -> Option<PathBuf> {
+    match scelta_salvata(impostazioni) {
+        Salvata::Cartella(s) => s.sposta_a,
+        _ => None,
+    }
+}
+
+fn scrivi_scelta(impostazioni: &Path, scelta: &Scelta) -> Result<()> {
+    std::fs::create_dir_all(impostazioni).with_context(|| t(format!("non riesco a creare la cartella delle impostazioni {}", impostazioni.display()), format!("I can't create the settings folder {}", impostazioni.display())))?;
+    std::fs::write(impostazioni.join(FILE_SCELTA), serde_json::to_string_pretty(scelta)?).with_context(|| t("non riesco a ricordare la scelta", "I can't remember the choice"))
+}
+
+/// Ricorda che al prossimo avvio la cartella dei dati va spostata in `destinazione` (che non si crea adesso). La cartella in uso resta quella di prima, fino a spostamento finito.
+pub fn programma_spostamento(impostazioni: &Path, destinazione: &Path) -> Result<()> {
+    let Salvata::Cartella(scelta) = scelta_salvata(impostazioni) else { anyhow::bail!(t("La cartella dei dati in uso non è ricordata: non si può spostare.", "The data folder in use is not remembered: it can't be moved.")) };
+    scrivi_scelta(impostazioni, &Scelta { sposta_a: Some(destinazione.to_path_buf()), ..scelta })
+}
+
+/// Il creator ci ripensa, o lo spostamento non è andato e si continua con la cartella di prima: non si sposta più niente.
+pub fn annulla_spostamento(impostazioni: &Path) -> Result<()> {
+    match scelta_salvata(impostazioni) {
+        Salvata::Cartella(scelta) => scrivi_scelta(impostazioni, &Scelta { sposta_a: None, ..scelta }),
+        _ => Ok(()),
+    }
 }
 
 /// Ricorda la cartella e ci prepara l'`archivio/` (creandola se serve); restituisce la cartella com'è. I file già in altre cartelle non si spostano.
 pub fn salva_scelta(impostazioni: &Path, cartella: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(cartella.join("archivio")).with_context(|| t(format!("non riesco a preparare l'archivio in {}", cartella.display()), format!("I can't prepare the archive in {}", cartella.display())))?;
-    std::fs::create_dir_all(impostazioni).with_context(|| t(format!("non riesco a creare la cartella delle impostazioni {}", impostazioni.display()), format!("I can't create the settings folder {}", impostazioni.display())))?;
-    let testo = serde_json::to_string_pretty(&Scelta { lavoro: cartella.to_path_buf() })?;
-    std::fs::write(impostazioni.join(FILE_SCELTA), testo).with_context(|| t("non riesco a ricordare la scelta", "I can't remember the choice"))?;
+    scrivi_scelta(impostazioni, &Scelta { lavoro: cartella.to_path_buf(), sposta_a: None })?;
     Ok(cartella.to_path_buf())
 }
 
@@ -174,15 +192,25 @@ mod prove {
     }
 
     #[test]
-    fn al_primo_avvio_la_cartella_si_crea_in_documenti_e_si_ricorda() {
+    fn al_primo_avvio_non_si_crea_niente_e_si_propone_la_cartella_in_documenti() {
         let impostazioni = tempfile::tempdir().unwrap();
         let documenti = tempfile::tempdir().unwrap();
-        let attesa = documenti.path().join("Mango Animation");
-        assert_eq!(trova(None, impostazioni.path(), documenti.path()), Esito::Pronta(attesa.clone()));
-        assert!(attesa.join("archivio").is_dir());
+        let proposta = documenti.path().join("Mango Animation");
+        assert_eq!(trova(None, impostazioni.path(), documenti.path()), Esito::DaScegliere(Some(proposta.clone())));
+        assert_eq!(trova(Some(""), impostazioni.path(), documenti.path()), Esito::DaScegliere(Some(proposta.clone())));
+        assert!(!proposta.exists() && !impostazioni.path().join(FILE_SCELTA).exists());
+    }
+
+    #[test]
+    fn la_cartella_scelta_al_primo_avvio_si_ricorda_e_dal_secondo_non_si_chiede_piu() {
+        let impostazioni = tempfile::tempdir().unwrap();
+        let documenti = tempfile::tempdir().unwrap();
+        let scelta = tempfile::tempdir().unwrap();
+        assert!(matches!(trova(None, impostazioni.path(), documenti.path()), Esito::DaScegliere(_)));
+        salva_scelta(impostazioni.path(), scelta.path()).unwrap();
         // la seconda volta vale la scelta salvata, anche se Documenti è altrove
         let altrove = tempfile::tempdir().unwrap();
-        assert_eq!(trova(Some(""), impostazioni.path(), altrove.path()), Esito::Pronta(attesa));
+        assert_eq!(trova(None, impostazioni.path(), altrove.path()), Esito::Pronta(scelta.path().to_path_buf()));
         assert!(!altrove.path().join("Mango Animation").exists());
     }
 
@@ -193,15 +221,14 @@ mod prove {
         let archivio = documenti.path().join("Mango Animation").join("archivio");
         std::fs::create_dir_all(&archivio).unwrap();
         std::fs::write(archivio.join("dato.txt"), "x").unwrap();
-        assert!(matches!(trova(None, impostazioni.path(), documenti.path()), Esito::Pronta(_)));
+        assert!(matches!(trova(None, impostazioni.path(), documenti.path()), Esito::DaScegliere(_)));
         assert!(archivio.join("dato.txt").is_file());
     }
 
     #[test]
-    fn senza_documenti_e_senza_scelta_lo_dice() {
+    fn senza_documenti_e_senza_scelta_non_c_e_niente_da_proporre_e_la_sceglie_il_creator() {
         let impostazioni = tempfile::tempdir().unwrap();
-        let Esito::Errore(e) = trova_lavoro(None, impostazioni.path(), None) else { panic!("doveva essere un errore") };
-        assert!(e.contains("Documenti") && e.contains("MANGO_ANIMATION_LAVORO"), "{e}");
+        assert_eq!(trova_lavoro(None, impostazioni.path(), None), Esito::DaScegliere(None));
     }
 
     #[test]
@@ -246,27 +273,64 @@ mod prove {
     }
 
     #[test]
-    fn la_nuova_scelta_vale_dal_riavvio_e_i_file_restano_dove_sono() {
+    fn lo_spostamento_chiesto_si_ricorda_e_la_cartella_in_uso_non_cambia_finche_non_e_finito() {
         let impostazioni = tempfile::tempdir().unwrap();
         let attuale = tempfile::tempdir().unwrap();
-        let nuova = tempfile::tempdir().unwrap();
+        let nuova = tempfile::tempdir().unwrap().path().join("Video");
         salva_scelta(impostazioni.path(), attuale.path()).unwrap();
         std::fs::write(attuale.path().join("archivio").join("dato.txt"), "x").unwrap();
-        let prima = dati_correnti(None, attuale.path(), impostazioni.path());
-        assert_eq!(prima, Dati { attuale: attuale.path().to_path_buf(), prossima: None, forzata: false });
-        salva_scelta(impostazioni.path(), nuova.path()).unwrap();
-        let dopo = dati_correnti(None, attuale.path(), impostazioni.path());
-        assert_eq!(dopo.prossima, Some(nuova.path().to_path_buf()));
-        assert!(attuale.path().join("archivio").join("dato.txt").is_file());
-        assert!(!nuova.path().join("archivio").join("dato.txt").exists());
+        assert_eq!(dati_correnti(None, attuale.path(), impostazioni.path()), Dati { attuale: attuale.path().to_path_buf(), prossima: None, forzata: false });
+        programma_spostamento(impostazioni.path(), &nuova).unwrap();
+        assert_eq!(dati_correnti(None, attuale.path(), impostazioni.path()).prossima, Some(nuova.clone()));
+        assert_eq!(spostamento_in_attesa(impostazioni.path()), Some(nuova.clone()));
+        // a riavvio la cartella è ancora quella di prima, e la nuova non esiste: l'ha da fare lo spostamento
+        assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(attuale.path().to_path_buf()));
+        assert!(!nuova.exists() && attuale.path().join("archivio").join("dato.txt").is_file());
     }
 
     #[test]
-    fn con_la_variabile_la_scelta_non_conta() {
+    fn finito_lo_spostamento_la_cartella_nuova_vale_e_non_c_e_piu_niente_da_spostare() {
+        let impostazioni = tempfile::tempdir().unwrap();
+        let (attuale, nuova) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        salva_scelta(impostazioni.path(), attuale.path()).unwrap();
+        programma_spostamento(impostazioni.path(), nuova.path()).unwrap();
+        salva_scelta(impostazioni.path(), nuova.path()).unwrap();
+        assert_eq!(spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(nuova.path().to_path_buf()));
+        assert!(nuova.path().join("archivio").is_dir());
+    }
+
+    #[test]
+    fn un_ripensamento_o_uno_spostamento_lasciato_cancella_la_richiesta_e_la_cartella_resta() {
+        let impostazioni = tempfile::tempdir().unwrap();
+        let (attuale, nuova) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        salva_scelta(impostazioni.path(), attuale.path()).unwrap();
+        programma_spostamento(impostazioni.path(), nuova.path()).unwrap();
+        annulla_spostamento(impostazioni.path()).unwrap();
+        assert_eq!(spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(attuale.path().to_path_buf()));
+        // senza niente di ricordato non c'è niente da cancellare né da spostare
+        let nuove = tempfile::tempdir().unwrap();
+        annulla_spostamento(nuove.path()).unwrap();
+        assert!(programma_spostamento(nuove.path(), attuale.path()).is_err());
+    }
+
+    #[test]
+    fn la_scelta_salvata_prima_dello_spostamento_si_legge_ancora() {
         let impostazioni = tempfile::tempdir().unwrap();
         let attuale = tempfile::tempdir().unwrap();
-        let altra = tempfile::tempdir().unwrap();
-        salva_scelta(impostazioni.path(), altra.path()).unwrap();
+        let vecchia = serde_json::json!({ "lavoro": attuale.path() });
+        std::fs::write(impostazioni.path().join(FILE_SCELTA), vecchia.to_string()).unwrap();
+        assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(attuale.path().to_path_buf()));
+        assert_eq!(spostamento_in_attesa(impostazioni.path()), None);
+    }
+
+    #[test]
+    fn con_la_variabile_lo_spostamento_non_conta() {
+        let impostazioni = tempfile::tempdir().unwrap();
+        let (attuale, altra) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        salva_scelta(impostazioni.path(), attuale.path()).unwrap();
+        programma_spostamento(impostazioni.path(), altra.path()).unwrap();
         let d = dati_correnti(Some(attuale.path().to_str().unwrap()), attuale.path(), impostazioni.path());
         assert!(d.forzata && d.prossima.is_none());
     }
@@ -295,9 +359,6 @@ mod prove {
             std::fs::write(impostazioni.path().join(FILE_SCELTA), "non è json").unwrap();
             let Esito::Mancante(m) = trova(None, impostazioni.path(), documenti.path()) else { panic!("doveva mancare") };
             assert_eq!(m, "The saved choice of data folder can no longer be read.");
-
-            let Esito::Errore(e) = trova_lavoro(None, &tempfile::tempdir().unwrap().path().join("vuoto"), None) else { panic!("senza Documenti doveva essere un errore") };
-            assert!(e.contains("I can't find the Documents folder"), "{e}");
         });
     }
 

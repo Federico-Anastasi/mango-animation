@@ -30,14 +30,14 @@
     "pieno_minimo": 0.04,
     "differenza_colore": 24,
     "colori": {
-      "fondo": "#17171B",
-      "carta": "#F1F0EB",
-      "grigio": "#8C897F",
-      "scuro": "#26262D",
-      "filo": "#3A3A42",
-      "giallo": "#FFD400",
-      "rosso": "#E03A1E",
-      "blu": "#3D6FD1"
+      "fondo": "#1C1C1E",
+      "carta": "#F4F4F2",
+      "grigio": "#8E8E93",
+      "scuro": "#2C2C2E",
+      "filo": "#3F3F43",
+      "giallo": "#E8B923",
+      "rosso": "#C94A3A",
+      "blu": "#3B6EC4"
     },
     "base": {
       "margine": 90,
@@ -53,16 +53,16 @@
   },
   "colori": {
     "carta": "#FFFFFF",
-    "carta_scura": "#EFEFEF",
-    "grigio": "#6B6B6B",
-    "filo": "#D0D0D0",
-    "inchiostro": "#111111",
-    "rosso": "#D32F2F",
-    "blu": "#1565C0",
+    "carta_scura": "#F0F0EE",
+    "grigio": "#6E6E73",
+    "filo": "#D4D4D2",
+    "inchiostro": "#1C1C1E",
+    "rosso": "#C0392B",
+    "blu": "#2F5FA8",
     "nero": "#000000",
     "bianco": "#FFFFFF",
-    "giallo": "#FFD400",
-    "verde": "#2E9E4F"
+    "giallo": "#E8B923",
+    "verde": "#2E7D5B"
   },
   "caratteri": {
     "titoli": "font/Archivo-700.ttf",
@@ -121,17 +121,17 @@
     }
   },
   "sottotitoli": {
-    "modo": "parola per parola",
+    "modo": "a battute",
     "carattere": "titoli",
     "corpo": 58,
     "corpo_minimo": 38,
-    "caratteri_per_battuta": 20,
+    "caratteri_per_battuta": 28,
     "stacco": 0.45,
     "fondo": null,
     "colore": "bianco",
     "colore_correzione": "rosso",
     "bordo": 0,
-    "scrittura": "minuscola",
+    "scrittura": "come trascritta",
     "margine": 22,
     "margine_alto": 12,
     "margine_basso": 18,
@@ -181,7 +181,7 @@
     "carattere": "titoli",
     "fondo": "carta",
     "filo": {
-      "colore": "rosso",
+      "colore": "blu",
       "largo": 96,
       "spessore": 10,
       "stacco": 36
@@ -970,7 +970,7 @@
     },
     "fondo_frase": "carta",
     "fondo_senza_scena": "carta_scura",
-    "scritta_senza_scena": "QUI PARLI TU, A TUTTO FOTOGRAMMA",
+    "scritta_senza_scena": "QUI PARLI TU",
     "y_scritta_senza_scena": 300,
     "corpo_scritta_senza_scena": 44,
     "secondi_titolo": 2,

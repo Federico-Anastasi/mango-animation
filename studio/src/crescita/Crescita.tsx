@@ -1,6 +1,7 @@
 // «Dove sono, dove devo arrivare, e come?»: la strategia del canale scritta in archivio, messa accanto alle letture vere.
 import { api } from "../api"
-import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
+import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
+import { Caricamento, Errore } from "../comuni/Stati"
 import { Tessera, Tessere } from "../comuni/Tessere"
 import { canaleTiktok, creaCopia, elencoVideo, useCopia } from "../dati"
 import { t } from "../lingua"
@@ -229,7 +230,7 @@ export function Crescita() {
   const stato = useCopia(canaleTiktok).dato
   if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void crescita.rileggi()} />
   if (!caricato || !dato) return <Caricamento />
-  if (dato.quando === null) return <Vuoto>{t("Non c'è ancora una strategia del canale in archivio. Chiedilo nella chat: «fammi il piano di crescita di TikTok».", "There is no channel strategy in the archive yet. Ask in the chat: \"make me the TikTok growth plan\".")}</Vuoto>
+  if (dato.quando === null) return <PaginaDiCanaleVuota pagina="crescita" titolo={t("Crescita", "Growth")} />
 
   const vere = serie(punti)
   return (

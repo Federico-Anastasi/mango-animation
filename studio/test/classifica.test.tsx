@@ -73,9 +73,10 @@ describe("Classifica", () => {
   })
 
   it("senza classifica in archivio dice cosa fare", async () => {
-    installaRete({ "GET /api/canale/tiktok/classifica": classifica({ quando: null, io: null, quando_io: null, come: [], righe: [] }) })
+    installaRete({ "GET /api/profilo": { valido: true, presente: true, canali: [], problemi: [] }, "GET /api/canale/tiktok/classifica": classifica({ quando: null, io: null, quando_io: null, come: [], righe: [] }) })
     render(<Classifica />)
-    expect(await screen.findByText(/Non c'è ancora una classifica in archivio/)).toBeInTheDocument()
+    expect(await screen.findByText(/Qui ti confronti con altri profili/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Collega un canale" })).toBeInTheDocument()
   })
 
   it("la barra in alto porta alla classifica", async () => {

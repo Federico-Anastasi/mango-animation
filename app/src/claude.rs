@@ -9,18 +9,23 @@ use std::ffi::OsStr;
 use std::io::Read;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 /// La variabile che vince su tutto (prove, chi sviluppa): il percorso del programma `claude`. È anche quella che l'app passa al server.
 pub const VARIABILE: &str = "MANGO_ANIMATION_CLAUDE";
 
+/// Il comando con cui Anthropic installa Claude Code su Windows, da PowerShell (code.claude.com/docs/en/setup).
+pub const COMANDO_DI_INSTALLAZIONE: &str = "irm https://claude.ai/install.ps1 | iex";
+
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
 const ATTESA_DEI_CONTROLLI: Duration = Duration::from_secs(20);
 /// Il tempo che si dà al creator per finire l'accesso nel browser.
 const ATTESA_DELL_ACCESSO: Duration = Duration::from_secs(10 * 60);
+/// Il tempo che si dà all'installatore di Anthropic: scarica il programma, e con una rete lenta ci mette.
+const ATTESA_DELL_INSTALLAZIONE: Duration = Duration::from_secs(15 * 60);
 
 /// Com'è messo Claude Code, per la pagina che guida il creator.
 #[derive(Clone, Serialize, Default, Debug, PartialEq)]
@@ -34,6 +39,10 @@ pub struct StatoClaude {
     pub abbonamento: Option<String>,
     /// Perché non va, in una frase per il creator.
     pub messaggio: Option<String>,
+    /// Con Claude Code assente: il comando che lo installa, da dare a chi preferisce incollarlo da sé.
+    pub comando: Option<String>,
+    /// Mango Code è acceso e risponde: la pagina lo dice in una riga, perché lo troverà fra i motori della chat. Non sostituisce Claude Code.
+    pub mango_code: bool,
 }
 
 impl StatoClaude {
@@ -173,27 +182,73 @@ fn ultima_riga(primo: &str, secondo: &str) -> String {
     [primo, secondo].iter().flat_map(|t| t.lines().rev()).map(str::trim).find(|r| !r.is_empty()).map_or_else(|| t("nessuna risposta", "no answer"), str::to_owned)
 }
 
-/// L'accesso lo fa `claude` stesso (`claude auth login`: apre il browser dell'account), in una finestra di terminale che il creator vede, perché se serve un
-/// passo in più è lì che lo legge. Torna quando la finestra si chiude.
-pub fn accedi(programma: &Path) -> Result<(), String> {
-    let mut figlio = Command::new(programma)
-        .args(["auth", "login"])
-        .creation_flags(CREATE_NEW_CONSOLE)
-        .spawn()
-        .map_err(|e| t(format!("Non riesco ad avviare l'accesso di Claude Code: {e}"), format!("I can't start the Claude Code sign-in: {e}")))?;
+/// Aspetta che `figlio` (una finestra di terminale che il creator vede) si chiuda. Oltre `massimo` lo ferma (per il suo PID: l'ha avviato questa funzione) e dice `scaduto`.
+fn aspetta_la_finestra(mut figlio: Child, massimo: Duration, scaduto: String, seguirla: impl Fn(std::io::Error) -> String) -> Result<(), String> {
     let inizio = Instant::now();
     loop {
         match figlio.try_wait() {
             Ok(Some(_)) => return Ok(()),
-            Ok(None) if inizio.elapsed() >= ATTESA_DELL_ACCESSO => {
+            Ok(None) if inizio.elapsed() >= massimo => {
                 let _ = figlio.kill();
                 let _ = figlio.wait();
-                return Err(t("L'accesso a Claude Code non è finito entro dieci minuti: riprova.", "Signing in to Claude Code did not finish within ten minutes: try again."));
+                return Err(scaduto);
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(250)),
-            Err(e) => return Err(t(format!("Non riesco a seguire l'accesso di Claude Code: {e}"), format!("I can't follow the Claude Code sign-in: {e}"))),
+            Err(e) => return Err(seguirla(e)),
         }
     }
+}
+
+/// L'accesso lo fa `claude` stesso (`claude auth login`: apre il browser dell'account), in una finestra di terminale che il creator vede, perché se serve un
+/// passo in più è lì che lo legge. Torna quando la finestra si chiude.
+pub fn accedi(programma: &Path) -> Result<(), String> {
+    let figlio = Command::new(programma)
+        .args(["auth", "login"])
+        .creation_flags(CREATE_NEW_CONSOLE)
+        .spawn()
+        .map_err(|e| t(format!("Non riesco ad avviare l'accesso di Claude Code: {e}"), format!("I can't start the Claude Code sign-in: {e}")))?;
+    aspetta_la_finestra(
+        figlio,
+        ATTESA_DELL_ACCESSO,
+        t("L'accesso a Claude Code non è finito entro dieci minuti: riprova.", "Signing in to Claude Code did not finish within ten minutes: try again."),
+        |e| t(format!("Non riesco a seguire l'accesso di Claude Code: {e}"), format!("I can't follow the Claude Code sign-in: {e}")),
+    )
+}
+
+fn fra_apici_di_powershell(frase: &str) -> String {
+    format!("'{}'", frase.replace('\'', "''"))
+}
+
+/// Cosa esegue la finestra di PowerShell: il comando di Anthropic. Se va storto la finestra resta aperta con l'errore, perché il creator lo legga; se va bene si chiude da sola.
+fn script_di_installazione() -> String {
+    let intro = t("Installo Claude Code. Questa finestra si chiude da sola quando ha finito.", "Installing Claude Code. This window closes by itself when it is done.");
+    let errore = t("Qualcosa non è andato. Premi Invio per chiudere.", "Something went wrong. Press Enter to close.");
+    format!(
+        "$ErrorActionPreference = 'Stop'; Write-Host {intro}; try {{ {COMANDO_DI_INSTALLAZIONE} }} catch {{ Write-Host ''; Write-Host $_.Exception.Message; Write-Host ''; Read-Host {errore} | Out-Null; exit 1 }}",
+        intro = fra_apici_di_powershell(&intro),
+        errore = fra_apici_di_powershell(&errore),
+    )
+}
+
+/// Installa Claude Code con l'installatore di Anthropic, in una finestra di PowerShell che il creator vede. Torna quando la finestra si chiude: se Claude Code ora c'è lo dice
+/// chi richiama (`trova`), non la finestra.
+pub fn installa() -> Result<(), String> {
+    let figlio = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script_di_installazione()])
+        .creation_flags(CREATE_NEW_CONSOLE)
+        .spawn()
+        .map_err(|e| t(format!("Non riesco ad avviare l'installazione di Claude Code: {e}"), format!("I can't start the Claude Code installation: {e}")))?;
+    aspetta_la_finestra(
+        figlio,
+        ATTESA_DELL_INSTALLAZIONE,
+        t("L'installazione di Claude Code non è finita entro quindici minuti.", "The Claude Code installation did not finish within fifteen minutes."),
+        |e| t(format!("Non riesco a seguire l'installazione di Claude Code: {e}"), format!("I can't follow the Claude Code installation: {e}")),
+    )
+}
+
+/// Dopo l'installazione Claude Code ancora non c'è o non parte: la frase per il creator.
+pub fn installazione_non_riuscita() -> String {
+    t("L'installazione di Claude Code non è andata a buon fine.", "The Claude Code installation did not succeed.")
 }
 
 #[cfg(test)]
@@ -347,6 +402,30 @@ mod prove {
         let stato = esamina(&programma);
         eprintln!("{} -> {stato:?}", programma.display());
         assert!(stato.trovato && stato.versione.is_some(), "{stato:?}");
+    }
+
+    #[test]
+    fn la_finestra_dell_installazione_esegue_il_comando_di_anthropic_e_resta_aperta_solo_se_va_storto() {
+        let script = script_di_installazione();
+        assert!(script.contains("try { irm https://claude.ai/install.ps1 | iex }"), "{script}");
+        // Se il comando riesce lo script finisce e la finestra si chiude; se no, aspetta Invio dopo aver scritto l'errore.
+        assert!(script.contains("catch {") && script.contains("Read-Host 'Qualcosa non è andato. Premi Invio per chiudere.'") && script.ends_with("exit 1 }"), "{script}");
+        assert_eq!(fra_apici_di_powershell("L'accesso"), "'L''accesso'");
+        crate::lingua::con(crate::lingua::Lingua::En, || assert!(script_di_installazione().contains("Press Enter to close.")));
+    }
+
+    fn figlio_che_dura(secondi: u32) -> Child {
+        Command::new("ping").args(["-n", &secondi.to_string(), "127.0.0.1"]).stdout(Stdio::null()).creation_flags(CREATE_NO_WINDOW).spawn().unwrap()
+    }
+
+    #[test]
+    fn la_finestra_chiusa_in_tempo_non_e_un_errore_e_una_che_non_si_chiude_si_ferma() {
+        let finita = Command::new("cmd").args(["/c", "exit", "0"]).creation_flags(CREATE_NO_WINDOW).spawn().unwrap();
+        assert_eq!(aspetta_la_finestra(finita, Duration::from_secs(10), "scaduto".into(), |e| e.to_string()), Ok(()));
+        let inizio = Instant::now();
+        let eterna = figlio_che_dura(30);
+        assert_eq!(aspetta_la_finestra(eterna, Duration::from_millis(600), "scaduto".into(), |e| e.to_string()), Err("scaduto".to_owned()));
+        assert!(inizio.elapsed() < Duration::from_secs(10));
     }
 
     #[test]

@@ -281,6 +281,14 @@ impl Motore {
         }
     }
 
+    /// La cartella dei dati si è scelta dopo l'accensione dell'app (il primo avvio): il motore la legge da qui, dalla prossima accensione.
+    pub fn usa_lavoro(&self, lavoro: &Path) {
+        if let Ok(comando) = self.comando.lock().unwrap().as_mut() {
+            comando.ambiente.retain(|(k, _)| k != "MANGO_ANIMATION_LAVORO");
+            comando.ambiente.push(("MANGO_ANIMATION_LAVORO".into(), lavoro.as_os_str().to_owned()));
+        }
+    }
+
     /// Il comando c'è? (Python e il modello si vedono solo accendendolo.)
     pub fn disponibile(&self) -> Result<(), Errore> {
         self.comando_attuale().map(|_| ())

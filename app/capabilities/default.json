@@ -1,10 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "La finestra 'main': prima la pagina d'attesa dell'app, poi lo studio del server (remoto, 127.0.0.1). Il colore della barra del titolo, la dettatura, la cartella dei dati, gli appunti, il computer, la lingua e le segnalazioni arrivano anche dalla pagina remota, quindi i loro comandi stanno in plugin con permessi suoi.",
+  "description": "La finestra 'main': prima la pagina d'attesa dell'app, poi lo studio del server (remoto, 127.0.0.1). Il colore della barra del titolo, la dettatura, la cartella dei dati, gli appunti, il computer, la lingua, le segnalazioni e lo zoom arrivano anche dalla pagina remota, quindi i loro comandi stanno in plugin con permessi suoi.",
   "windows": ["main"],
   "remote": {
     "urls": ["http://127.0.0.1:*", "http://localhost:*"]
   },
-  "permissions": ["core:default", "opener:default", "mango-animation-titolo:default", "mango-animation-voce:default", "mango-animation-dati:default", "mango-animation-appunti:default", "mango-animation-computer:default", "mango-animation-lingua:default", "mango-animation-segnalazione:default"]
+  "permissions": ["core:default", "opener:default", "mango-animation-titolo:default", "mango-animation-voce:default", "mango-animation-dati:default", "mango-animation-appunti:default", "mango-animation-computer:default", "mango-animation-lingua:default", "mango-animation-segnalazione:default", "mango-animation-zoom:default"]
 }

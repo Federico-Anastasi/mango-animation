@@ -22,6 +22,7 @@ import { applicaRitocchi, ErroreRitocco } from "./ritocchi"
 import { COMANDO_SCARICA, ErroreScarico, leggiRichiesta, misureScarico, scarica, type RichiestaScarico } from "./scarica"
 import { montatoDi, pianoDopoIlMontato } from "./montato"
 import { ErroreMotori, macchinaDelProfilo, motoriDelProfilo, salvaMotori } from "./motori"
+import { canaliDelProfilo, haUnCreator } from "./profilo"
 import type { Schemi } from "./schemi"
 import { differenza } from "./stile"
 import { giornoLocale } from "./tempo"
@@ -612,7 +613,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
 
   const leggiMacchina: Gestore = () => risposta(macchinaDelProfilo(indice.profilo.valore))
 
-  const leggiProfilo: Gestore = () => risposta({ valido: indice.profiloProblemi.length === 0, problemi: indice.profiloProblemi })
+  const leggiProfilo: Gestore = () => risposta({ valido: indice.profiloProblemi.length === 0, presente: haUnCreator(indice.profilo.valore) || indice.profiloProblemi.length > 0, canali: canaliDelProfilo(indice.profilo.valore), problemi: indice.profiloProblemi })
 
   const scriviMotori: Gestore = async ({ req }) => {
     const motori = await corpoJson(req)

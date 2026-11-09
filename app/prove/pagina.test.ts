@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 // La pagina d'attesa senza finestra: un finto documento con gli elementi di index.html, e lo script vero.
-type Elemento = { hidden: boolean; disabled: boolean; checked: boolean; className: string; placeholder: string; textContent: string; value: number | string; max: number; focus: () => void; replaceChildren: () => void; title: string; click: () => void; addEventListener: (tipo: string, f: () => void) => void; setAttribute: () => void; removeAttribute: () => void; classList: { toggle: () => void } }
+type Elemento = { hidden: boolean; disabled: boolean; checked: boolean; className: string; placeholder: string; textContent: string; value: number | string; max: number; focus: () => void; replaceChildren: (...figli: Elemento[]) => void; append: (...figli: unknown[]) => void; figli: Elemento[]; type: string; title: string; click: () => void; addEventListener: (tipo: string, f: () => void) => void; setAttribute: () => void; removeAttribute: () => void; classList: { toggle: () => void } }
 
 const elementi = new Map<string, Elemento>()
 const chiamate: { comando: string; argomenti: unknown }[] = []
@@ -11,7 +11,8 @@ let nuovoStato: (payload: unknown) => void = () => {}
 
 const elemento = (): Elemento => {
   const ascoltatori: (() => void)[] = []
-  return { hidden: false, disabled: false, checked: true, className: "", placeholder: "", textContent: "", value: 0, max: 0, focus: () => {}, replaceChildren: () => {}, title: "", click: () => ascoltatori.forEach((f) => f()), addEventListener: (_, f) => void ascoltatori.push(f), setAttribute: () => {}, removeAttribute: () => {}, classList: { toggle: () => {} } }
+  const nuovo: Elemento = { hidden: false, disabled: false, checked: true, className: "", placeholder: "", textContent: "", value: 0, max: 0, focus: () => {}, replaceChildren: (...figli) => void (nuovo.figli = figli), append: () => {}, figli: [], type: "", title: "", click: () => ascoltatori.forEach((f) => f()), addEventListener: (_, f) => void ascoltatori.push(f), setAttribute: () => {}, removeAttribute: () => {}, classList: { toggle: () => {} } }
+  return nuovo
 }
 
 beforeAll(async () => {
@@ -19,7 +20,7 @@ beforeAll(async () => {
   for (const [, id] of html.matchAll(/id="([^"]+)"/g)) elementi.set(id, elemento())
   Object.assign(globalThis, {
     window: globalThis,
-    document: { getElementById: (id: string) => elementi.get(id), documentElement: {}, querySelector: () => elemento() },
+    document: { getElementById: (id: string) => elementi.get(id), createElement: () => elemento(), documentElement: {}, querySelector: () => elemento() },
     requestAnimationFrame: (f: () => void) => void queueMicrotask(f),
     navigator: { clipboard: { writeText: () => Promise.resolve() } },
     __TAURI__: {
@@ -73,6 +74,207 @@ describe("la pagina dell'aggiornamento", () => {
     chiamate.length = 0
     el("aggiorna").click()
     expect(el("dettaglio").textContent).toBe("Comincio…")
+  })
+})
+
+const COMANDO = "irm https://claude.ai/install.ps1 | iex"
+const claude = (c: Record<string, unknown>, lingua = "it") => ({ fase: "claude", lingua, claude: { trovato: false, percorso: null, versione: null, collegato: false, account: null, abbonamento: null, messaggio: null, comando: COMANDO, mango_code: false, ...c } })
+const html = readFileSync(join(import.meta.dir, "..", "ui", "index.html"), "utf8")
+
+describe("la pagina di Claude Code", () => {
+  test("senza Claude Code dice che serve un abbonamento e offre di installarlo con un clic, e non c'è modo di andare avanti senza", () => {
+    nuovoStato(claude({}))
+    expect(el("titolo").textContent).toBe("Per cominciare serve Claude Code")
+    expect([el("installa").hidden, el("installa").textContent, el("accedi").hidden, el("ricontrolla").hidden]).toEqual([false, "Installa Claude Code", true, false])
+    expect(el("abbonamento").hidden).toBe(false)
+    expect(el("abbonamento-testo").textContent).toBe("Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.")
+    expect(el("piani-link").textContent).toBe("Guarda i piani")
+    expect(html).toContain('id="piani-link" href="https://claude.com/pricing"')
+    expect(html).not.toContain('id="senza"')
+    expect(el("giro").hidden).toBe(true)
+  })
+
+  test("il comando di Anthropic resta come alternativa, con la guida ufficiale, e si copia", async () => {
+    nuovoStato(claude({}))
+    expect([el("alternativa").hidden, el("comando").textContent, el("guida").hidden, el("copia").textContent]).toEqual([false, COMANDO, false, "Copia il comando"])
+    expect(html).toContain('id="guida-link" href="https://code.claude.com/docs/en/setup"')
+    const copiati: string[] = []
+    ;(globalThis as unknown as { navigator: { clipboard: { writeText: (t: string) => Promise<void> } } }).navigator.clipboard.writeText = (t) => (copiati.push(t), Promise.resolve())
+    el("copia").click()
+    await aspetta()
+    expect(copiati).toEqual([COMANDO])
+    expect(el("copia").textContent).toBe("Copiato")
+  })
+
+  test("«Installa Claude Code» lo chiede all'app e la pagina aspetta la finestra", () => {
+    nuovoStato(claude({}))
+    chiamate.length = 0
+    el("installa").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "installa" } }])
+    expect(el("dettaglio").textContent).toBe("Installo Claude Code nella finestra che si è aperta…")
+    expect([el("installa").hidden, el("abbonamento").hidden, el("alternativa").hidden]).toEqual([true, true, true])
+  })
+
+  test("se l'installazione non va lo dice e offre «Riprova» e la guida", () => {
+    nuovoStato(claude({ messaggio: "L'installazione di Claude Code non è andata a buon fine." }))
+    expect(el("dettaglio").textContent).toBe("L'installazione di Claude Code non è andata a buon fine. Puoi riprovare, o seguire la guida di Anthropic.")
+    expect([el("installa").hidden, el("installa").textContent, el("guida").hidden]).toEqual([false, "Riprova", false])
+  })
+
+  test("trovato ma non collegato chiede l'accesso, con lo stesso avviso sull'abbonamento e senza il comando", () => {
+    nuovoStato(claude({ trovato: true, percorso: "C:\\claude.exe", versione: "2.1.318", comando: null }))
+    expect(el("titolo").textContent).toBe("Collega Claude Code al tuo account")
+    expect(el("dettaglio").textContent).toBe("Ho trovato Claude Code 2.1.318. Serve l'accesso con il tuo account Claude: si apre una finestra, e poi il browser per entrare.")
+    expect([el("accedi").hidden, el("accedi").textContent, el("installa").hidden, el("alternativa").hidden, el("guida").hidden, el("abbonamento").hidden]).toEqual([false, "Accedi a Claude Code", true, true, true, false])
+    chiamate.length = 0
+    el("accedi").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "accedi" } }])
+  })
+
+  test("in inglese le stesse frasi, con il piano gratuito escluso", () => {
+    nuovoStato(claude({}, "en"))
+    expect(el("titolo").textContent).toBe("To get started you need Claude Code")
+    expect([el("installa").textContent, el("piani-link").textContent, el("alternativa-testo").textContent]).toEqual(["Install Claude Code", "See the plans", "If you prefer, paste this command into PowerShell:"])
+    expect(el("abbonamento-testo").textContent).toBe("Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.")
+  })
+
+  test("con Mango Code acceso lo dice in una riga, e Claude Code resta obbligatorio", () => {
+    nuovoStato(claude({ mango_code: true }))
+    expect([el("mango-code").hidden, el("mango-code").textContent]).toEqual([false, "Ho trovato anche Mango Code: potrai usarlo come motore nella chat."])
+    expect([el("installa").hidden, el("ricontrolla").hidden]).toEqual([false, false])
+    expect(html).not.toContain("usa-mango-code")
+    nuovoStato(claude({ trovato: true, percorso: "C:\claude.exe", versione: "2.1.318", comando: null, mango_code: true }))
+    expect([el("mango-code").hidden, el("accedi").hidden]).toEqual([false, false])
+    nuovoStato(claude({ mango_code: true }, "en"))
+    expect(el("mango-code").textContent).toBe("I also found Mango Code: you will be able to use it as an engine in the chat.")
+  })
+
+  test("senza Mango Code acceso non ce n'è traccia", () => {
+    nuovoStato(claude({ mango_code: false }))
+    expect(el("mango-code").hidden).toBe(true)
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    expect(el("mango-code").hidden).toBe(true)
+  })
+
+  test("le altre pagine non mostrano niente di Claude Code", () => {
+    nuovoStato(claude({}))
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "Accendo il server" })
+    expect([el("installa").hidden, el("accedi").hidden, el("ricontrolla").hidden, el("abbonamento").hidden, el("alternativa").hidden, el("guida").hidden]).toEqual([true, true, true, true, true, true])
+  })
+})
+
+const cartella = (c: Record<string, unknown>, lingua = "it") => ({ fase: "cartella", lingua, cartella: { percorso: "C:\\Users\\Alice\\Documents\\Mango Animation", libero_mb: 412 * 1024, onedrive: false, alternative: [], messaggio: null, ...c } })
+
+describe("la pagina «Dove tengo i tuoi video?»", () => {
+  test("mostra la cartella proposta con lo spazio libero del suo disco, e i due modi di andare avanti", () => {
+    nuovoStato(cartella({}))
+    expect(el("titolo").textContent).toBe("Dove tengo i tuoi video?")
+    expect(el("dettaglio").textContent).toBe("Qui vanno i tuoi video, il girato e tutto il lavoro. Pesano molto: scegli un disco con spazio.")
+    expect([el("cartella").hidden, el("cartella-percorso").textContent, el("cartella-spazio").textContent]).toEqual([false, "C:\\Users\\Alice\\Documents\\Mango Animation", "Spazio libero sul disco: 412,0 GB"])
+    expect([el("usa-cartella").hidden, el("usa-cartella").textContent, el("usa-cartella").disabled, el("scegli-altra").hidden, el("scegli-altra").textContent]).toEqual([false, "Usa questa cartella", false, false, "Scegli un'altra cartella"])
+    expect([el("cartella-onedrive").hidden, el("cartella-altre-gruppo").hidden, el("cartella-errore").hidden, el("giro").hidden, el("ricontrolla").hidden, el("installa").hidden]).toEqual([true, true, true, true, true, true])
+  })
+
+  test("una cartella dentro OneDrive porta l'avviso, e fuori da OneDrive non c'è", () => {
+    nuovoStato(cartella({ onedrive: true }))
+    expect(el("cartella-onedrive").hidden).toBe(false)
+    expect(el("cartella-onedrive").textContent).toBe("Questa cartella è dentro OneDrive: i video verrebbero copiati online, e pesano molto. Meglio una cartella fuori da OneDrive.")
+    nuovoStato(cartella({ onedrive: false }))
+    expect(el("cartella-onedrive").hidden).toBe(true)
+  })
+
+  test("«Usa questa cartella» e «Scegli un'altra cartella» rispondono all'app; scegliere non cambia la pagina", () => {
+    nuovoStato(cartella({}))
+    chiamate.length = 0
+    el("scegli-altra").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "scegli_cartella" } }])
+    expect(el("titolo").textContent).toBe("Dove tengo i tuoi video?")
+    chiamate.length = 0
+    el("usa-cartella").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "usa_cartella" } }])
+    expect(el("dettaglio").textContent).toBe("Preparo la cartella…")
+  })
+
+  test("gli altri dischi sono scelte rapide con il loro spazio libero, e un clic le propone all'app", () => {
+    nuovoStato(cartella({ alternative: [{ percorso: "D:\\Mango Animation", libero_mb: 930 * 1024 }, { percorso: "E:\\Mango Animation", libero_mb: 1500 * 1024 }] }))
+    expect(el("cartella-altre-gruppo").hidden).toBe(false)
+    expect(el("cartella-altre-titolo").textContent).toBe("Altre cartelle")
+    const scelte = el("cartella-altre").figli
+    expect(scelte.length).toBe(2)
+    chiamate.length = 0
+    scelte[0]?.click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: { cartella: "D:\\Mango Animation" } } }])
+  })
+
+  test("senza una cartella da proporre non si può usare niente finché non se ne sceglie una", () => {
+    nuovoStato(cartella({ percorso: null, libero_mb: 0 }))
+    expect([el("cartella-percorso").hidden, el("cartella-spazio").hidden, el("usa-cartella").disabled]).toEqual([true, true, true])
+    expect(el("dettaglio").textContent).toContain("Scegli dove tenerli.")
+  })
+
+  test("se la cartella non si prepara la pagina lo dice", () => {
+    nuovoStato(cartella({ messaggio: "non riesco a preparare l'archivio in Q:\\video" }))
+    expect([el("cartella-errore").hidden, el("cartella-errore").textContent]).toEqual([false, "non riesco a preparare l'archivio in Q:\\video"])
+  })
+
+  test("in inglese le stesse frasi, e lo spazio in terabyte quando è tanto", () => {
+    nuovoStato(cartella({ onedrive: true, libero_mb: 2 * 1024 * 1024 }, "en"))
+    expect([el("titolo").textContent, el("usa-cartella").textContent, el("scegli-altra").textContent, el("cartella-spazio").textContent]).toEqual(["Where should I keep your videos?", "Use this folder", "Choose another folder", "Free space on the disk: 2.0 TB"])
+    expect(el("cartella-onedrive").textContent).toBe("This folder is inside OneDrive: your videos would be copied online, and they are big. A folder outside OneDrive is better.")
+  })
+})
+
+const spostamento = (m: Record<string, unknown>, lingua = "it") => ({ fase: "spostamento", lingua, spostamento: { fase: "copia", da: "C:\\Vecchia", a: "D:\\Nuova", fatti_mb: 12 * 1024, totale_mb: 80 * 1024, file_fatti: 120, file_totali: 540, messaggio: null, rimasti: 0, primi_rimasti: [], ...m } })
+
+describe("la pagina dello spostamento della cartella dei dati", () => {
+  test("durante la copia dice da dove a dove, a che punto è e si può annullare", () => {
+    nuovoStato(spostamento({}))
+    expect(el("titolo").textContent).toBe("Sposto i tuoi video")
+    expect(el("dettaglio").textContent).toContain("Non chiudere l'app")
+    expect([el("spostamento-da").textContent, el("spostamento-a").textContent, el("spostamento-conti").textContent]).toEqual(["Da: C:\\Vecchia", "A: D:\\Nuova", "12,0 GB / 80,0 GB · 120 / 540 file"])
+    expect([el("spostamento-barra").max, el("spostamento-barra").value, el("spostamento-barra").hidden]).toEqual([80 * 1024, 12 * 1024, false])
+    expect([el("annulla").hidden, el("annulla").textContent, el("sposta-riprova").hidden, el("sposta-continua").hidden, el("giro").hidden]).toEqual([false, "Annulla lo spostamento", true, true, true])
+    chiamate.length = 0
+    el("annulla").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "annulla" } }])
+  })
+
+  test("verifica e rimozione dicono cosa fanno; togliendo gli originali non si annulla più", () => {
+    nuovoStato(spostamento({ fase: "verifica", fatti_mb: 80 * 1024 }))
+    expect([el("dettaglio").textContent, el("annulla").hidden]).toEqual(["Controllo che sia arrivato tutto.", false])
+    nuovoStato(spostamento({ fase: "rimozione", fatti_mb: 80 * 1024 }))
+    expect([el("titolo").textContent, el("dettaglio").textContent, el("annulla").hidden]).toEqual(["Finisco di spostare", "Tolgo i file dalla cartella di prima.", true])
+  })
+
+  test("se non riesce lo dice, dice che i file sono dove erano e offre di riprovare o continuare con la cartella di prima", () => {
+    nuovoStato(spostamento({ fase: "errore", messaggio: "Non riesco a copiare ripresa.mp4: il disco è pieno." }))
+    expect(el("titolo").textContent).toBe("Lo spostamento non è riuscito")
+    expect(el("dettaglio").textContent).toBe("Non riesco a copiare ripresa.mp4: il disco è pieno. I tuoi file sono dove erano.")
+    expect([el("sposta-riprova").hidden, el("sposta-riprova").textContent, el("sposta-continua").hidden, el("sposta-continua").textContent, el("annulla").hidden, el("spostamento-barra").hidden]).toEqual([false, "Riprova", false, "Continua con la cartella di prima", true, true])
+    chiamate.length = 0
+    el("sposta-riprova").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "ricontrolla" } }])
+    nuovoStato(spostamento({ fase: "annullato" }))
+    chiamate.length = 0
+    el("sposta-continua").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "continua" } }])
+    nuovoStato(spostamento({ fase: "annullato" }))
+    expect([el("titolo").textContent, el("dettaglio").textContent]).toEqual(["Spostamento annullato", "I tuoi file sono dove erano."])
+  })
+
+  test("finito ma con degli originali rimasti li elenca e basta «Continua»", () => {
+    nuovoStato(spostamento({ fase: "avanzi", rimasti: 7, primi_rimasti: ["C:\\Vecchia\\a.mp4", "C:\\Vecchia\\b.mp4"] }))
+    expect(el("titolo").textContent).toBe("Spostamento finito")
+    expect(el("dettaglio").textContent).toContain("7 file della cartella di prima non si sono potuti togliere")
+    expect(el("dettaglio").textContent).toContain("C:\\Vecchia\\a.mp4\nC:\\Vecchia\\b.mp4\ne altri 5")
+    expect([el("sposta-continua").textContent, el("sposta-riprova").hidden, el("annulla").hidden]).toEqual(["Continua", true, true])
+  })
+
+  test("in inglese le stesse frasi, e le altre pagine non mostrano i bottoni dello spostamento", () => {
+    nuovoStato(spostamento({ fase: "errore", messaggio: "x" }, "en"))
+    expect([el("titolo").textContent, el("dettaglio").textContent, el("sposta-continua").textContent]).toEqual(["The move did not work", "x Your files are where they were.", "Continue with the previous folder"])
+    nuovoStato(claude({}))
+    expect([el("spostamento").hidden, el("sposta-riprova").hidden, el("sposta-continua").hidden]).toEqual([true, true, true])
   })
 })
 

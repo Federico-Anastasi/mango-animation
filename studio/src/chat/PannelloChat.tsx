@@ -10,6 +10,7 @@ import { Impostazioni } from "./Impostazioni"
 import { IconaChat } from "./icone"
 import { motoreDellaChat, motoreDi, type MotoreChat } from "./motore"
 import { negozio, useChat, type StatoNegozio } from "./negozio"
+import { avviaPrimoGiro, saltaPrimoGiro, usePrimoGiroInCorso } from "./primoGiro"
 import { chiudiChat, LARGHEZZA_MINIMA, ripristinaLarghezzaChat, scegliLarghezzaChat, SOGLIA_STRETTA, usePannelloChat } from "./pannello"
 import { useAllegati } from "./useAllegati"
 import styles from "./PannelloChat.module.css"
@@ -110,6 +111,9 @@ function Vuota({ motore, onScelta }: { motore: MotoreChat; onScelta: () => void 
       </p>
       <h3>{t("Riprendi una conversazione", "Pick up a conversation")}</h3>
       <Elenco corrente={null} massimo={5} onScelta={onScelta} />
+      <button type="button" className={styles.ripeti} onClick={() => avviaPrimoGiro(true)}>
+        {t("Rifai il primo giro", "Redo the first round")}
+      </button>
     </div>
   )
 }
@@ -176,6 +180,7 @@ export function PannelloChat() {
     allegati.aggiungi([...e.dataTransfer.files])
   }
 
+  const primoGiro = usePrimoGiroInCorso()
   const motore = motoreDellaChat(chat)
   const vuota = chat.id === null && chat.messaggi.length === 0 && chat.inviati.length === 0
   const nonAperta = chat.id !== null && chat.messaggi.length === 0 && chat.inviati.length === 0 && (!chat.caricato || chat.errore !== null)
@@ -242,6 +247,14 @@ export function PannelloChat() {
             </p>
           )}
         </header>
+        {primoGiro && (
+          <div className={styles.primoGiro}>
+            <span>{t("Primo giro: Claude ti fa qualche domanda.", "First round: Claude asks you a few questions.")}</span>
+            <button type="button" onClick={saltaPrimoGiro} aria-label={t("Salta il primo giro", "Skip the first round")}>
+              {t("Salta", "Skip")}
+            </button>
+          </div>
+        )}
         {lista ? (
           <div className={styles.scorri}>
             <Elenco corrente={chat.id} onScelta={() => setLista(false)} />

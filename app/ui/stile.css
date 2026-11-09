@@ -163,3 +163,27 @@ button:disabled { opacity: 0.45; cursor: default; filter: none; }
 #segnala-esito { min-height: 1.45em; margin: 0 0 12px; font-size: 13px; }
 #segnala-esito.poco { color: var(--accento); }
 #segnalazione .bottoni { justify-content: flex-start; }
+
+#abbonamento { font-size: 14px; }
+.alternativa { margin: 20px 0 0; font-size: 13px; }
+.alternativa p { margin: 0 0 8px; font-size: 13px; }
+.alternativa pre { font-size: 11px; }
+.alternativa button { padding: 4px 12px; font-size: 13px; }
+#guida { margin: 12px 0 0; font-size: 13px; }
+
+.cartella { margin: 0 0 20px; }
+.cartella .percorso {
+  margin: 0 0 6px; padding: 10px 12px; color: var(--testo); font: 13px/1.4 Consolas, "Cascadia Mono", monospace;
+  background: var(--superficie); border: 1px solid var(--filo); border-radius: 8px; word-break: break-all;
+}
+.cartella .spazio { margin: 0 0 12px; font-size: 13px; }
+.cartella .avviso { margin: 0 0 12px; padding: 10px 14px; color: var(--testo); font-size: 13px; text-align: left; border: 1px solid var(--accento); border-radius: 10px; }
+.cartella .gruppo { margin: 16px 0 0; text-align: left; }
+.cartella pre { margin: 12px 0 0; }
+.altre { display: flex; flex-direction: column; gap: 6px; }
+.altre .scelta { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; width: 100%; text-align: left; padding: 8px 12px; }
+.altre .scelta .nome { word-break: break-all; }
+.altre .scelta .peso { color: var(--tenue); font-size: 13px; white-space: nowrap; }
+.nota-mango-code { font-size: 13px; }
+#spostamento-barra { width: 100%; height: 10px; margin: 0 0 8px; accent-color: var(--accento); }
+#spostamento-barra[hidden], #spostamento-conti[hidden] { display: none; }

@@ -14,13 +14,13 @@ def scritte(parole):
 
 
 def test_gli_apostrofi_e_i_trattini_si_riuniscono(archivio):
-    p = parole_pulite(grezze("l", "'altro", "GPT", "-5"), "s", {}, archivio.stile)
+    p = parole_pulite(grezze("l", "'altro", "GPT", "-5"), "s", {"scrittura": "minuscola"}, archivio.stile)
     assert scritte(p) == ["l'altro", "gpt-5"] and p[0]["a"] == 2.5
 
 
 def test_minuscola_tiene_i_nomi_e_come_trascritta_tiene_tutto(archivio):
     r = grezze("Ciao", "Alfa,", "Serve.")
-    assert scritte(parole_pulite(r, "s", {"nomi": ["Alfa"]}, archivio.stile)) == ["ciao", "Alfa,", "serve."]
+    assert scritte(parole_pulite(r, "s", {"nomi": ["Alfa"], "scrittura": "minuscola"}, archivio.stile)) == ["ciao", "Alfa,", "serve."]
     assert scritte(parole_pulite(r, "s", {"scrittura": "come trascritta"}, archivio.stile)) == ["Ciao", "Alfa,", "Serve."]
 
 
@@ -74,7 +74,8 @@ def dette(*parole, passo=0.3, da=0.0):
 
 
 def test_le_battute_si_staccano_alla_punteggiatura_e_a_venti_caratteri(archivio):
-    b = battute(dette("ho", "fatto", "girare", "un", "modello", "distribuito", "qui,", "ecco"), 0.0, 5.0, archivio.stile, "come trascritta")
+    stile = {**archivio.stile, "sottotitoli": {**archivio.stile["sottotitoli"], "caratteri_per_battuta": 20}}
+    b = battute(dette("ho", "fatto", "girare", "un", "modello", "distribuito", "qui,", "ecco"), 0.0, 5.0, stile, "come trascritta")
     assert [x[2] for x in b] == ["ho fatto girare un", "modello distribuito", "qui", "ecco"]
 
 

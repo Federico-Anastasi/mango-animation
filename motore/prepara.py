@@ -9,7 +9,7 @@ from contextlib import suppress
 import numpy as np
 
 from .archivio import leggi_json, scrivi_con, scrivi_json
-from .dispositivo import dispositivo
+from .dispositivo import dispositivo, errore_di_libreria_cuda, librerie_cuda, prova_della_scheda
 from .errori import Errore, dice
 from .foto import e_foto, prepara_foto
 from .media import ffmpeg, info, pcm_16k
@@ -30,15 +30,24 @@ def modello_voce(stile):
     del profilo, se li dice, altrimenti quelli dello stile."""
     dove = dispositivo("trascrizione")
     if dove not in _voci:
-        if dove == "cuda" and any(attiva(f) for f in ("sagoma", "allineamento")):
-            import torch  # noqa: F401  deve caricarsi prima di ctranslate2, o la sua libreria cuDNN prende il posto di quella di torch e lo scontorno cade
+        if dove == "cuda":
+            if any(attiva(f) for f in ("sagoma", "allineamento")):
+                import torch  # noqa: F401  deve caricarsi prima di ctranslate2, o la sua libreria cuDNN prende il posto di quella di torch e lo scontorno cade
 
+            librerie_cuda()
         from faster_whisper import WhisperModel
 
         p, m = stile["preparati"], motore("trascrizione")
         nome, calcolo = m.get("modello", p["modello_trascrizione"]), m.get("calcolo", p["calcolo_trascrizione"][dove])
         try:
-            _voci[dove] = WhisperModel(nome, device=dove, device_index=0, compute_type=calcolo)
+            modello = WhisperModel(nome, device=dove, device_index=0, compute_type=calcolo)
+            if dove == "cuda":
+                prova_della_scheda(modello, p["lingua"])
+            _voci[dove] = modello
+        except RuntimeError as e:
+            if errore := errore_di_libreria_cuda(e):
+                raise errore from e
+            raise
         except ValueError as e:
             raise Errore(f"la trascrizione non può usare il calcolo {calcolo} su {'questa scheda' if dove == 'cuda' else 'questo processore'} ({e}): cambia motori.trascrizione.calcolo nel profilo",
                          f"the transcription cannot use the computation {calcolo} on {'this card' if dove == 'cuda' else 'this processor'} ({e}): change motori.trascrizione.calcolo in the profile") from e

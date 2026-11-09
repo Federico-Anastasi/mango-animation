@@ -157,6 +157,23 @@ def test_la_sigla_che_non_esiste_dice_quali_ci_sono(archivio, scrivi_piano, larg
     assert errori == ["l'animazione «non-esiste» non esiste fra le scene di `animazioni/`: ci sono a1, a2"]
 
 
+class ModelloVuoto:
+    """Un modello di trascrizione finto, che come quello vero fa il lavoro (e dà l'errore) leggendo i segmenti."""
+
+    def __init__(self, errore=None):
+        self.errore, self.provato = errore, []
+
+    def transcribe(self, audio, **opzioni):
+        self.provato.append((len(audio), opzioni))
+
+        def segmenti():
+            if self.errore:
+                raise self.errore
+            yield from ()
+
+        return segmenti(), None
+
+
 def test_torch_si_carica_prima_della_trascrizione(archivio, monkeypatch):
     monkeypatch.setattr(modulo_dispositivo, "cuda_disponibile", lambda: True)
     ordine = []
@@ -168,13 +185,63 @@ def test_torch_si_carica_prima_della_trascrizione(archivio, monkeypatch):
         return vero(nome, *a, **k)
 
     class Finto:
-        WhisperModel = staticmethod(lambda *a, **k: object())
+        WhisperModel = staticmethod(lambda *a, **k: ModelloVuoto())
 
     monkeypatch.setitem(sys.modules, "faster_whisper", Finto)
     monkeypatch.setattr(prepara, "_voci", {})
     monkeypatch.setattr(builtins, "__import__", registra)
     prepara.modello_voce(archivio.stile)
     assert ordine.index("torch") < ordine.index("faster_whisper")
+
+
+def trascrizione_sulla_scheda(archivio, monkeypatch, modello, con_torch):
+    """La trascrizione del girato sulla scheda, con il modello dato; torna l'ordine in cui sono arrivati torch, le librerie di CUDA e il modello."""
+    monkeypatch.setattr(modulo_dispositivo, "cuda_disponibile", lambda: True)
+    monkeypatch.setattr(prepara, "attiva", lambda funzione: con_torch or funzione not in ("sagoma", "allineamento"))
+    ordine = []
+    vero = builtins.__import__
+
+    def registra(nome, *a, **k):
+        if nome == "torch":
+            ordine.append(nome)
+        return vero(nome, *a, **k)
+
+    class Finto:
+        WhisperModel = staticmethod(lambda *a, **k: ordine.append("modello") or modello)
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", Finto)
+    monkeypatch.setattr(prepara, "librerie_cuda", lambda: ordine.append("librerie"))
+    monkeypatch.setattr(prepara, "_voci", {})
+    monkeypatch.setattr(builtins, "__import__", registra)
+    prepara.modello_voce(archivio.stile)
+    return ordine
+
+
+@pytest.mark.parametrize("con_torch, atteso", [(True, ["torch", "librerie", "modello"]), (False, ["librerie", "modello"])])
+def test_le_librerie_di_cuda_si_trovano_prima_del_modello_con_torch_e_senza(archivio, monkeypatch, con_torch, atteso):
+    modello = ModelloVuoto()
+    assert trascrizione_sulla_scheda(archivio, monkeypatch, modello, con_torch) == atteso
+    assert [lunghezza for lunghezza, _ in modello.provato] == [8000], "la scheda si prova con mezzo secondo di silenzio"
+
+
+def test_una_libreria_di_cuda_che_non_si_carica_nella_trascrizione_dice_cosa_fare(archivio, monkeypatch):
+    modello = ModelloVuoto(RuntimeError("Library cublas64_12.dll is not found or cannot be loaded"))
+    with pytest.raises(Errore, match=r"cublas64_12\.dll.*macchina.scheda_video"):
+        trascrizione_sulla_scheda(archivio, monkeypatch, modello, con_torch=False)
+
+
+def test_sul_processore_la_trascrizione_non_prova_niente(archivio, monkeypatch, tmp_path):
+    (tmp_path / "profilo.json").write_text(json.dumps({"macchina": {"scheda_video": None}}), encoding="utf-8")
+    monkeypatch.setenv("MANGO_ANIMATION_LAVORO", str(tmp_path))
+    modello = ModelloVuoto()
+
+    class Finto:
+        WhisperModel = staticmethod(lambda *a, **k: modello)
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", Finto)
+    monkeypatch.setattr(prepara, "_voci", {})
+    prepara.modello_voce(archivio.stile)
+    assert modello.provato == []
 
 
 @pytest.mark.parametrize("scheda, atteso", [(0, "cuda"), (None, "cpu")])
@@ -186,7 +253,7 @@ def test_i_modelli_vanno_sul_processore_se_il_profilo_lo_chiede(archivio, monkey
     chiesti = []
 
     class Finto:
-        WhisperModel = staticmethod(lambda *a, **k: chiesti.append(k) or object())
+        WhisperModel = staticmethod(lambda *a, **k: chiesti.append(k) or ModelloVuoto())
 
     monkeypatch.setitem(sys.modules, "faster_whisper", Finto)
     monkeypatch.setattr(prepara, "_voci", {})

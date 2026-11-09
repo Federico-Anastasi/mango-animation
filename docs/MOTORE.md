@@ -360,7 +360,7 @@ stdout scrive solo il protocollo (ciò che le librerie stampano va su stderr, ch
 **Dove gira.** Sulla scheda NVIDIA se c'è (quella di `macchina.scheda_video`, se il profilo la indica), altrimenti sul processore (`dispositivo_voce`; `scheda_video: null` lo forza); il modello e il
 calcolo sono di `dettatura.dispositivi.cuda` o `.cpu` in `stile.json`, e per il calcolo vale il primo della lista che il dispositivo sa fare
 (una scheda senza `float16`, come le Pascal (GTX 10xx), passa a `float32`). La scelta si legge nell'evento `pronto`; non c'è un ripiego silenzioso:
-una scheda senza memoria libera è un errore, che dice di liberarla o di mettere `null` in `macchina.scheda_video`. Il processo riceve la cartella dei dati (`MANGO_ANIMATION_LAVORO`) dall'app, da cui legge lo stile e il profilo.
+una scheda senza memoria libera, o a cui manca una libreria di CUDA (`docs/MOTORI.md`), è un errore, che dice di liberarla o di mettere `null` in `macchina.scheda_video`. Sulla scheda `carica` trascrive mezzo secondo di silenzio prima di dire `pronto`, così l'errore compare al caricamento e non alla prima frase. Il processo riceve la cartella dei dati (`MANGO_ANIMATION_LAVORO`) dall'app, da cui legge lo stile e il profilo.
 
 **Il protocollo.** Una riga JSON per messaggio.
 

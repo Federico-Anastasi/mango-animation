@@ -13,8 +13,24 @@
       <h1 id="titolo"></h1>
       <p id="dettaglio"></p>
       <pre id="log" hidden></pre>
-      <pre id="comando" hidden></pre>
-      <p id="guida" hidden><a id="guida-link" href="https://code.claude.com/docs/en/setup" target="_blank"></a></p>
+      <p id="abbonamento" hidden><span id="abbonamento-testo"></span> <a id="piani-link" href="https://claude.com/pricing" target="_blank"></a></p>
+      <p id="mango-code" class="nota-mango-code" hidden></p>
+      <section id="cartella" class="cartella" hidden>
+        <p id="cartella-percorso" class="percorso"></p>
+        <p id="cartella-spazio" class="spazio"></p>
+        <p id="cartella-onedrive" class="avviso" hidden></p>
+        <div id="cartella-altre-gruppo" class="gruppo" hidden>
+          <h2 id="cartella-altre-titolo" class="sezione"></h2>
+          <div id="cartella-altre" class="altre" role="group" aria-labelledby="cartella-altre-titolo"></div>
+        </div>
+        <pre id="cartella-errore" hidden></pre>
+      </section>
+      <section id="spostamento" class="cartella" hidden>
+        <p id="spostamento-da" class="percorso"></p>
+        <p id="spostamento-a" class="percorso"></p>
+        <progress id="spostamento-barra"></progress>
+        <p id="spostamento-conti" class="spazio"></p>
+      </section>
       <section id="computer" hidden>
         <p id="macchina" class="macchina"></p>
         <div id="funzioni-gruppo" class="gruppo">
@@ -49,10 +65,13 @@
           <button id="riprova" type="button" hidden></button>
           <button id="ricrea" type="button" hidden></button>
           <button id="scegli" type="button" hidden></button>
-          <button id="copia" type="button" class="secondario" hidden></button>
+          <button id="installa" type="button" hidden></button>
           <button id="accedi" type="button" hidden></button>
+          <button id="sposta-riprova" type="button" hidden></button>
+          <button id="sposta-continua" type="button" class="secondario" hidden></button>
+          <button id="usa-cartella" type="button" hidden></button>
+          <button id="scegli-altra" type="button" class="secondario" hidden></button>
           <button id="ricontrolla" type="button" class="secondario" hidden></button>
-          <button id="senza" type="button" class="secondario" hidden></button>
           <button id="prepara" type="button" hidden></button>
           <button id="aggiorna" type="button" hidden></button>
           <button id="dopo" type="button" class="secondario" hidden></button>
@@ -60,6 +79,12 @@
           <button id="avanti" type="button" class="secondario" hidden></button>
         </div>
       </div>
+      <div id="alternativa" class="alternativa" hidden>
+        <p id="alternativa-testo"></p>
+        <pre id="comando"></pre>
+        <button id="copia" type="button" class="secondario"></button>
+      </div>
+      <p id="guida" hidden><a id="guida-link" href="https://code.claude.com/docs/en/setup" target="_blank"></a></p>
       <button id="segnala" type="button" class="secondario"></button>
       <section id="segnalazione" hidden aria-labelledby="segnalazione-titolo">
         <h2 id="segnalazione-titolo" class="sezione"></h2>

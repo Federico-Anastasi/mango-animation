@@ -331,6 +331,22 @@ di quella cartella (`~/.claude/projects/<cartella di lavoro>`): una aperta da te
 Ogni conversazione parte anche con Claude in Chrome (`extraArgs: { chrome: null }`, come `claude --chrome`): gli strumenti
 `mcp__claude-in-chrome__*` sono fra quelli che Claude ha, e lavorano nel Chrome dell'utente con l'estensione installata.
 
+## Il primo giro
+
+Un creator senza `profilo.json` (con il nome del creator) fa il primo giro nella chat: la skill `welcome` (`.claude/skills/welcome/SKILL.md`, in inglese perché
+è un'istruzione per il modello; Claude parla al creator nella sua lingua). Lo studio la innesca da solo (`studio/src/chat/primoGiro.ts`): se
+`GET /api/profilo` dice `presente: false` e il creator non ha già cominciato o saltato, apre la chat e manda il primo messaggio. Il `CLAUDE.md` del metodo dice a Claude
+la stessa cosa per chi lavora da terminale. Le tappe sono brevi, una per messaggio, nel tono di chi non è tecnico: nome e lingua; per chi fa i video e su quali
+canali (TikTok, Instagram, YouTube, X); cosa non dice; lo stile; infine la scrittura di `profilo.json`, di `stile.json` e del `CLAUDE.md` del creator, ciascuno
+mostrato in parole e confermato prima, e un giro delle parti dell'app con collegamenti (`[Stile](#/stile)`) che le aprono nello studio.
+
+Lo stile ha due strade. Se il creator ha già un profilo con dei video, Claude (con il permesso) li guarda, ne ricava colori, carattere fra i due di `font/`, sottotitoli e titolo, e propone;
+si rifinisce insieme nella pagina Stile finché il creator è contento. Se non ha video, parte da uno dei tre stili di partenza della skill (scuro, caldo, vivace) o da una descrizione
+a parole. Quello che Claude scrive nello `stile.json` del creator sono solo le differenze dallo stile di serie (`docs/PROFILO.md`); anche le animazioni lo seguono, perché leggono i colori dello stile.
+Il profilo TikTok pubblico si guarda solo con il permesso del creator. «Salta» e «Rifai il primo giro» sono nella chat (`docs/INTERFACCIA.md`).
+
+Le pagine che vivono dei dati di un canale (Pubblico, Classifica, Crescita) e Produzione, senza dati, mandano la chat sulla richiesta giusta con un pulsante (`docs/INTERFACCIA.md`).
+
 ## Cosa ha in più del terminale, per i video
 
 - Le immagini degli strumenti (`foto`, `slide`, `scene_foto`) dentro la chat, grandi al clic.

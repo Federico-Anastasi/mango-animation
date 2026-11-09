@@ -12,15 +12,15 @@ funziona qui dentro come ogni altra vista dello studio, senza bisogno di niente 
   le copie per l'installatore (`app/target/codice/`, e `app/target/release/codice/` che lascia la costruzione) non contano. Fuori dal repo si indica con
   `MANGO_ANIMATION_RADICE`. Se non la trova, la finestra lo dice e basta.
 - **La cartella di lavoro** (`docs/ARCHITETTURA.md`): i dati di chi usa l'app, in un'altra cartella dal codice. La indica `MANGO_ANIMATION_LAVORO`, e
-  vince su tutto (prove, chi sviluppa); se manca vale quella ricordata in `%APPDATA%\dev.mango.animation\lavoro.json`. Al primo avvio l'app non
-  chiede niente: crea `Mango Animation` dentro la cartella Documenti dell'utente (quella vera di Windows, anche se spostata o su OneDrive), con un
-  `archivio/` vuoto, la ricorda e accende il server. Se la cartella ricordata non c'è più (disco staccato, cartella spostata) la pagina lo dice e offre
+  vince su tutto (prove, chi sviluppa); se manca vale quella ricordata in `%APPDATA%\dev.mango.animation\lavoro.json`. Se non c'è nemmeno quella è il primo avvio
+  e la sceglie il creator («Dove stanno i video», sotto): l'app non crea niente finché lui non dice «Usa questa cartella». Se la cartella ricordata non c'è più (disco staccato, cartella spostata) la pagina lo dice e offre
   «Ricrea in Documenti» o «Scegli un'altra cartella» (dialogo di sistema); una variabile che indica una cartella che non esiste è un errore, senza
   «Riprova». Per cambiarla quando tutto va: nello studio, il bottone con la cartella nella barra apre «Cartella dei dati» con «Sposta la cartella dei
-  dati…»; la scelta vale dal riavvio e i file non si spostano da soli, vanno copiati. L'app avvia il server dalla cartella del codice e gli passa
+  dati…» (sotto, «Spostare la cartella dei dati»). L'app avvia il server dalla cartella del codice e gli passa
   `MANGO_ANIMATION_LAVORO`.
-- **L'ordine dell'avvio**, quando il server lo accende l'app: una versione nuova (solo l'app installata, «Installer e aggiornamenti»), Claude Code («Il Claude Code del creator»), il computer pronto («Il computer pronto»), il
-  server. Ogni passo che ha qualcosa da dire al creator lo dice nella pagina d'attesa e aspetta; un server già acceso li salta tutti.
+- **L'ordine dell'avvio**, quando il server lo accende l'app: una versione nuova (solo l'app installata, «Installer e aggiornamenti»), Claude Code installato e collegato («Il Claude Code del creator»),
+  la cartella dei video (la scelta del primo avvio, o lo spostamento chiesto dallo studio: «Dove stanno i video»), il computer pronto («Il computer pronto»), il server (e poi lo studio). Ogni passo che ha qualcosa da dire al creator lo dice
+  nella pagina d'attesa e aspetta; un server già acceso li salta tutti.
 - **La lingua delle pagine dell'app** (attesa, errori, scelte dell'avvio, dialogo della cartella, e le frasi che il Rust ci manda): italiano o inglese, decisa da una funzione sola
   (`scegli` in `app/src/lingua.rs`). Vale la lingua che lo studio ha scelto, se l'app la conosce: lo studio la dice a ogni apertura e a ogni cambio, e l'app la ricorda in
   `%APPDATA%\dev.mango.animation\lingua.json`; al primo avvio, e se non la conosce, vale quella dell'interfaccia di Windows (italiano se è in italiano, inglese altrimenti). Ogni
@@ -42,6 +42,9 @@ funziona qui dentro come ogni altra vista dello studio, senza bisogno di niente 
   non servono all'app. Le sole cose che lo studio chiede all'app sono la dettatura (sotto), gli appunti (`window.__MANGO_ANIMATION__.appunti`), la cartella dei dati (`window.__MANGO_ANIMATION__.cartellaDati`) il computer (`window.__MANGO_ANIMATION__.computer`), le segnalazioni (`window.__MANGO_ANIMATION__.segnalazione`) e, da lei, i file trascinati (`window.__MANGO_ANIMATION__.trascinamento`).
 - **La barra del titolo di Windows** prende lo stesso colore della pagina (chiara o scura, dallo sfondo vero,
   non da un tema fisso), e si aggiorna da sola se la pagina cambia tema.
+- **Lo zoom** (`app/src/zoom.rs`): Ctrl+ / Ctrl- / Ctrl+0 e Ctrl con la rotellina zoomano tutta la finestra (i tasti sono quelli del browser: la finestra nasce con `zoom_hotkeys_enabled`). La pagina, anche lo studio (plugin
+  `mango-animation-zoom`, con permessi suoi come gli altri), dice all'app la sua scala 800 ms dopo l'ultimo cambio di misura (`ricorda_zoom`); l'app ne ricava lo zoom (scala della pagina sulla scala dello schermo) e lo tiene
+  in `zoom.txt` nella cartella `%LOCALAPPDATA%\dev.mango.animation\` (al 100% il file sparisce), e al prossimo avvio lo rimette alla finestra. Un file che non è un numero fra 0,25 e 5 si ignora.
 - **Chiusura**: l'app entra in un Job Object di Windows che chiude ogni processo avviato da lei (il server, se
   l'ha acceso lei) quando si chiude, anche se va in crash. Un server già acceso prima non si tocca. I link e la pagina di una
   segnalazione che l'app apre per il creator partono invece fuori dal Job (`supervisor::apri_fuori_dal_giobbe`, `CREATE_BREAKAWAY_FROM_JOB`):
@@ -60,15 +63,49 @@ e per l'accesso lascia fare a lui (`claude auth login`).
 - **Dove lo cerca** (`app/src/claude.rs`): `MANGO_ANIMATION_CLAUDE` (il percorso del programma: vince su tutto, ed è un errore se indica qualcosa che non c'è); poi `claude.exe`
   nelle cartelle del PATH, e un `claude.cmd` di npm con il suo programma accanto (`node_modules\@anthropic-ai\claude-code\bin\claude.exe`); poi dove si installa senza che il PATH
   dell'app lo sappia ancora: `%USERPROFILE%\.local\bin\claude.exe` (l'installatore di Anthropic) e `%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe`.
-- **Cosa fa all'avvio**, solo se il server lo accende lei (con un server già acceso non c'entra): se Claude Code c'è, parte e risulta collegato, passa avanti senza dire niente. Altrimenti la pagina
-  d'attesa lo dice e aspetta il creator (`app/src/preparazione.rs`, `app/ui/`):
-  - **manca o non parte**: il comando di Anthropic per installarlo da PowerShell (`irm https://claude.ai/install.ps1 | iex`, con «Copia il comando») e il link alla loro guida; poi «Ricontrolla»;
+- **Cosa fa all'avvio**, solo se il server lo accende lei (con un server già acceso non c'è passo): se Claude Code c'è, parte e risulta collegato, passa avanti senza dire niente. Altrimenti la pagina
+  d'attesa lo dice e aspetta il creator (`app/src/preparazione.rs`, `app/ui/`): senza Claude Code collegato l'app non serve a niente, e non c'è modo di andare avanti. La pagina dice prima che serve **un account Claude con un
+  abbonamento** (Pro, Max, Ultra, Team o Enterprise; il piano gratuito non include Claude Code: `code.claude.com/docs/en/setup`, «Authenticate»), col link ai piani (`claude.com/pricing`).
+  - **manca o non parte**: «Installa Claude Code» apre una finestra di PowerShell con il comando di Anthropic (`irm https://claude.ai/install.ps1 | iex`) e, quando la finestra si chiude, l'app ricontrolla da sola. Se
+    Claude Code ancora non c'è la pagina dice che l'installazione non è andata a buon fine e offre «Riprova»; se la finestra ha trovato un errore resta aperta, perché il creator lo legga. In piccolo restano il comando da copiare
+    («Copia il comando»: per chi preferisce incollarlo da sé) e il link alla guida di Anthropic; poi «Ricontrolla»;
   - **non è collegato**: «Accedi a Claude Code» apre una finestra di terminale con `claude auth login` (apre il browser dell'account; se serve un passo in più il creator lo legge lì), e quando si chiude
     l'app ricontrolla da sola; «Ricontrolla» per chi ha fatto l'accesso altrove;
-  - «Vai avanti senza Claude Code» lascia partire lo studio: la chat, se Claude Code non c'è o non è collegato, lo dirà con la frase di Claude Code.
+  - **Mango Code**: se è acceso (`service.json` nella cartella dei dati di Mango Code, `MANGO_DATA` o `%LOCALAPPDATA%\MangoCode`, col processo vivo e l'agente che risponde a `/global/health`: lo stesso controllo del server,
+    `app/src/mangocode.rs`) la pagina lo dice in una riga («Ho trovato anche Mango Code: potrai usarlo come motore nella chat»); non sostituisce Claude Code, e se non c'è la pagina non ne parla. Fra i motori della chat lo offre il server.
   Versione e account (`email`, `subscriptionType`) la pagina li legge dal controllo; non si salvano da nessuna parte.
 - **Al server** il percorso arriva in `MANGO_ANIMATION_CLAUDE`; senza (si sviluppa a mano, o si va avanti senza) il server usa la copia dell'SDK se c'è.
 - La prova col `claude` installato nel computer: `cargo test il_claude_vero -- --ignored --nocapture`.
+
+## Dove stanno i video
+
+Al primo avvio (nessuna cartella ricordata e nessuna `MANGO_ANIMATION_LAVORO`), dopo Claude Code, l'app chiede dove tenere i video; il codice è in `app/src/cartella.rs` (cosa dire di una cartella),
+`app/src/lavoro.rs` (la scelta ricordata) e `app/src/preparazione.rs` (il giro della pagina). Chi ha già una cartella ricordata non vede niente di nuovo.
+
+- **La pagina** «Dove tengo i tuoi video?»: la cartella proposta (`Mango Animation` dentro Documenti, quella vera di Windows) con lo spazio libero del suo disco; «Usa questa cartella» la prepara (con `archivio/`) e la ricorda;
+  «Scegli un'altra cartella» apre il dialogo di sistema. Sotto, «Altre cartelle»: i dischi fissi con più spazio libero di quello della cartella in discussione (non quelli rimovibili o di rete), ognuno con `Mango Animation` dentro
+  e il suo spazio libero, che si prendono con un clic. Senza Documenti non c'è proposta: il creator ne sceglie una. Finché non dice «Usa questa cartella» l'app non crea niente.
+- **OneDrive**: una cartella dentro una cartella che OneDrive sincronizza porta l'avviso «i video verrebbero copiati online, e pesano molto». Le cartelle sincronizzate sono quelle delle variabili di Windows (`OneDrive`,
+  `OneDriveConsumer`, `OneDriveCommercial`) e le cartelle `OneDrive` o `OneDrive - <nome>` dentro la cartella dell'utente (un secondo account di lavoro non ha una variabile); il confronto è per cartelle intere e senza distinguere
+  maiuscole e minuscole, così `OneDriveVecchio` o `D:\OneDrive` non danno falsi allarmi. Se Documenti è su OneDrive, la cartella proposta (quella del pulsante grande) è `Mango Animation`
+  nella cartella dell'utente, fuori da OneDrive; l'avviso resta per chi sceglie a mano una cartella sincronizzata.
+- **Il motore della dettatura** riceve la cartella scelta appena è scelta (`Voce::usa_lavoro`): il primo avvio non ha bisogno di riaprire l'app.
+
+### Spostare la cartella dei dati
+
+«Sposta la cartella dei dati…» dello studio (`window.__MANGO_ANIMATION__.cartellaDati.sposta()`, `app/src/dati.rs`) apre il dialogo e ricorda la scelta in `lavoro.json` come `sposta_a`; la cartella in uso non cambia
+(`leggi()` la dà come `prossima`). I file li sposta l'app **al prossimo avvio, prima di accendere il server**, quando nessun file è in uso (`app/src/sposta.rs`, la pagina «Sposto i tuoi video»):
+
+- la destinazione deve essere vuota o nuova, e non dentro la cartella attuale (né l'attuale dentro di lei); il dialogo rifiuta con la frase altrimenti. Scegliere la cartella in uso annulla uno spostamento chiesto. Con
+  `MANGO_ANIMATION_LAVORO` non si sposta: la variabile vince;
+- si guarda prima che nel disco di destinazione ci sia lo spazio (quanto pesa tutto); poi si copia a pezzi di 8 MB, con avanzamento (MB, file) e «Annulla lo spostamento», conservando la data di ogni file; i collegamenti
+  simbolici (i video su un altro disco, `docs/ARCHIVIO.md`) si rifanno uguali, non si seguono;
+- si verifica che nella destinazione ci sia tutto: stesse voci, stesse misure di ogni file e stessi collegamenti. Solo allora la nuova cartella è quella ricordata e si tolgono gli originali, i contenuti prima delle cartelle;
+- se qualcosa non va (un file non si legge, il disco si riempie, la verifica non torna) o il creator annulla, gli originali restano dove erano, ciò che era stato copiato si toglie e la pagina lo dice con «Riprova» e «Continua con la
+  cartella di prima» (che cancella lo spostamento chiesto). Una copia interrotta perché l'app è stata chiusa lascia nella destinazione un segno (`.mango-spostamento`): al tentativo dopo si svuota e si rifà da capo, mentre una
+  cartella con dei file senza il segno non si tocca;
+- se la copia è verificata ma qualche originale non si toglie (un altro programma lo tiene aperto) la nuova cartella vale lo stesso e la pagina elenca i file rimasti, da togliere a mano. Con un server già acceso (anche
+  per un'altra app) lo spostamento aspetta il prossimo avvio vero.
 
 ## Il computer pronto
 
@@ -96,7 +133,7 @@ Al primo avvio (e a ogni avvio in cui manca qualcosa) l'app vede cosa c'è nel c
 
   I modelli **non si distribuiscono con l'app**: si scaricano dalla loro fonte, con la licenza di ciascuno accanto nella pagina. Un modello già nella cache di Hugging Face, di qualunque revisione, non si riscarica.
   I pacchetti Python sono quelli di `piano.rs` (versioni fissate come in `docs/NUOVO-COMPUTER.md`); PyTorch viene dall'indice CUDA 12.4 se c'è una scheda NVIDIA con capacità di calcolo da 5.0, dall'indice del
-  processore altrimenti. Python lo prepara `uv` (`uv python install --no-bin`, `uv venv`, `uv pip install`): non tocca il Python del computer né `~/.local/bin`.
+  processore altrimenti. Con quella scheda e senza PyTorch (allineamento e sagoma spente) si aggiunge `nvidia-cublas-cu12` (circa 380 MB), che porta la cublas di CUDA 12 per trascrizione e dettatura. Python lo prepara `uv` (`uv python install --no-bin`, `uv venv`, `uv pip install`): non tocca il Python del computer né `~/.local/bin`.
   Mentre scarica `uv` scrive righe solo a inizio e fine: la barra di «Python e i suoi pacchetti» è quanto sono cresciute, dall'inizio, `computer\uv-cache\` e `computer\python\` rispetto al peso stimato (si guarda ogni
   secondo, `installa.rs`). Non torna indietro e non arriva in fondo prima che `uv` finisca; con la cache già piena (un'installazione ripresa) resta bassa e si completa alla fine.
 - **Pacchetti e versioni dopo un aggiornamento.** I moduli presenti non dicono la versione, e `node_modules` non dice da quale lockfile viene: a installazione finita l'app scrive cosa ha messo, e a ogni avvio confronta.
@@ -331,16 +368,20 @@ La chiusura si prova chiedendola a quella finestra, mai fermando un processo per
 | `app/src/lib.rs` | la finestra, l'avvio, la navigazione verso lo studio |
 | `app/src/istanza.rs` | il registro dell'app in esecuzione (`app.json`) e la variabile col suo pid per il server |
 | `app/src/radice.rs`, `server.rs` | dove sta il codice; il server già acceso o da accendere, e il comando che lo accende |
-| `app/src/lavoro.rs` | la cartella di lavoro: la variabile, la scelta ricordata, la cartella predefinita in Documenti, il dialogo di sistema |
-| `app/src/dati.rs` | la cartella dei dati vista dallo studio: leggerla e cambiarla (un plugin, come la dettatura) |
+| `app/src/lavoro.rs` | la cartella di lavoro: la variabile, la scelta ricordata (e lo spostamento chiesto), la cartella predefinita in Documenti, il dialogo di sistema |
+| `app/src/dati.rs` | la cartella dei dati vista dallo studio: leggerla e chiedere di spostarla (un plugin, come la dettatura) |
+| `app/src/cartella.rs` | dove stanno i video: lo spazio dei dischi, la cartella proposta, le scelte rapide e il riconoscimento di OneDrive |
+| `app/src/sposta.rs` | lo spostamento della cartella dei dati: copia con avanzamento, verifica, originali tolti, o tutto com'era |
+| `app/src/mangocode.rs` | se Mango Code è acceso e risponde (lo stesso controllo del server), per dirlo nella pagina di Claude Code |
 | `app/src/supervisor.rs` | i processi avviati, il Job Object, i log |
 | `app/src/lingua.rs` | la lingua delle pagine dell'app: come si sceglie, la scelta ricordata, `t(it, en)`, il ponte con cui lo studio dice la sua (un plugin) |
 | `app/src/titolo.rs` | il colore della barra del titolo (un plugin: lo studio è una pagina remota) |
-| `app/src/claude.rs` | il Claude Code del creator: dove sta, versione e account, l'accesso |
+| `app/src/claude.rs` | il Claude Code del creator: dove sta, versione e account, l'accesso e l'installazione |
 | `app/src/codice.rs` | `codice\` dopo un aggiornamento: toglie i file che la versione nuova non ha più (l'elenco di `prepara.ts`) |
 | `app/src/preparazione.rs` | i passi dell'avvio che aspettano il creator, e le sue risposte dalla pagina d'attesa |
 | `app/src/computer/` | il computer pronto: cosa c'è (`hw.rs`), il manifesto di ciò che si scarica, il piano (`piano.rs`), lo scarico con verifica (`scarica.rs`), gli installatori (`installa.rs`), il profilo (`profilo.rs`), il ponte per lo studio (`ponte.rs`) |
 | `app/src/segnalazione/` | «Segnala un problema» e `ui.log`: l'evento per Sentry, l'anonimizzazione, la schermata, il ponte per le pagine (un plugin) |
+| `app/src/zoom.rs` | lo zoom della finestra (Ctrl+ / Ctrl- / Ctrl+0), ricordato fra un avvio e l'altro |
 | `app/src/appunti.rs` | i file copiati in Esplora risorse, per la chat (un plugin, come la dettatura) |
 | `app/src/trascinamento.rs` | i file lasciati sulla finestra, con il loro percorso (eventi, niente comandi) |
 | `app/src/voce/` | la dettatura: il microfono, il motore locale (`locale.rs`), il ponte verso la pagina (`ponte.js`) e le sue prove (`prove.rs`) |

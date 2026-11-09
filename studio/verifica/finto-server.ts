@@ -545,7 +545,7 @@ async function porta(richiesta: Request): Promise<Response> {
     emetti({ tipo: "profilo" })
     return json({})
   }
-  if (percorso === "/api/profilo" && metodo === "GET") return json({ valido: problemiDelProfilo.length === 0, problemi: problemiDelProfilo })
+  if (percorso === "/api/profilo" && metodo === "GET") return json({ valido: problemiDelProfilo.length === 0, presente: true, canali: [{ piattaforma: "tiktok", nome: "@esempio" }], problemi: problemiDelProfilo })
   if (percorso === "/finto/tailscale" && metodo === "POST") {
     tailscale = (await corpo<{ stato: "pronto" | "bloccato" | "assente" }>()).stato
     emetti({ tipo: "accesso-studio" })

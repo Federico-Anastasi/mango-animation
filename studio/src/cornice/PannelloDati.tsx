@@ -51,7 +51,7 @@ export function PannelloDati({ onChiudi }: { onChiudi: () => void }) {
                 <>
                   <p className={base.piccolo}>{t("Dal prossimo avvio:", "From the next start:")}</p>
                   <p className={styles.percorso}>{dati.prossima}</p>
-                  <p className={base.piccolo}>{t("I file non si spostano da soli: se ti servono lì, copiali tu.", "Files do not move by themselves: if you need them there, copy them yourself.")}</p>
+                  <p className={base.piccolo}>{t("Alla prossima apertura sposto io i file, con l'avanzamento: chiudi e riapri l'app quando vuoi.", "Next time the app opens I move the files myself, showing the progress: close and reopen the app when you like.")}</p>
                 </>
               )}
               <div>

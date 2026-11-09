@@ -118,6 +118,20 @@ fn la_cartella_dei_dati_arriva_al_motore_della_dettatura() {
 }
 
 #[test]
+fn la_cartella_scelta_dopo_l_accensione_dell_app_arriva_al_motore_e_sostituisce_quella_di_prima() {
+    let r = finta_radice();
+    let (prima, dopo) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let cartella = |m: &Motore| m.comando_attuale().unwrap().ambiente.iter().filter(|(k, _)| k == "MANGO_ANIMATION_LAVORO").map(|(_, v)| v.clone()).collect::<Vec<_>>();
+    let senza = Motore::nuovo(comando_del_motore(&ambiente(&[]), r.path(), None), r.path().join("d.log"));
+    assert!(cartella(&senza).is_empty());
+    senza.usa_lavoro(dopo.path());
+    assert_eq!(cartella(&senza), vec![dopo.path().as_os_str().to_owned()]);
+    let con = Motore::nuovo(comando_del_motore(&ambiente(&[]), r.path(), Some(prima.path())), r.path().join("d.log"));
+    con.usa_lavoro(dopo.path());
+    assert_eq!(cartella(&con), vec![dopo.path().as_os_str().to_owned()]);
+}
+
+#[test]
 fn la_radice_indicata_vince_e_senza_motore_lo_dice() {
     let r = finta_radice();
     let altrove = tempfile::tempdir().unwrap();

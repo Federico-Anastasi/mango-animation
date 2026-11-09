@@ -19,8 +19,16 @@ their sources, their machine) is not here: it is their **profile** (`docs/PROFIL
   `macchina` (`scheda_video`, `scheda_registrazione`, `profilo_chrome`, `disco_quasi_pieno`);
 - `stile.json`: their style; what it writes overlays, key by key, the default style of the product.
 
+**Who is who.** The creator is whoever uses the app and talks to you; their name is in `profilo.json`. In the rules and skills of
+this method «FA» is the author of the method: his videos, channels, projects and style are examples, never the creator's. Do not call
+the creator «FA» and do not apply his habits to them unless their profile says the same.
+
+**First time.** A working folder with no `profilo.json` belongs to a creator who has not done the first round yet: follow the skill
+`welcome` (a short chat that asks who they are, where they publish and what style they want, and writes their profile). If they ask
+for something else first, do that and offer the round in one line.
+
 Read the profile before you propose, write, cut or publish anything. **Where the profile changes a default of this method, the profile
-wins.** In every rule and skill, «the creator» is the person whose profile it is. Rules tied to a platform (TikTok, YouTube) are active
+wins.** In every rule and skill, «the creator» is the person whose profile it is. Rules tied to a platform (TikTok, Instagram, YouTube) are active
 when that platform is among the creator's `canali`.
 
 ## Rules

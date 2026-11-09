@@ -53,7 +53,7 @@ describe("Audience, in English", () => {
   it("says so when there is no read yet", async () => {
     installaRete({ "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] }, "GET /api/video": [] })
     render(<Pubblico />)
-    expect(await screen.findByText(/There is no TikTok read in the archive yet/)).toBeInTheDocument()
+    expect(await screen.findByText(/Here you see how your released videos are doing/)).toBeInTheDocument()
   })
 })
 
@@ -132,7 +132,7 @@ describe("Growth, in English", () => {
   it("explains how to ask when there is no plan", async () => {
     installaRete({ "GET /api/canale/tiktok/crescita": { quando: null }, "GET /api/canale/tiktok/andamento": [], "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] }, "GET /api/video": [] })
     render(<Crescita />)
-    expect(await screen.findByText(/There is no channel strategy in the archive yet/)).toBeInTheDocument()
+    expect(await screen.findByText(/Here you find the plan to grow the channel/)).toBeInTheDocument()
   })
 })
 

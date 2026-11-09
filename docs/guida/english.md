@@ -40,15 +40,18 @@ At start the app goes through a few checks, one after the other. Each one appear
 
 ### The data folder
 
-The app asks you nothing: it creates a folder called **Mango Animation** inside **Documents** and remembers it. Your footage, your videos and your profile live there. To move it, inside the studio click the folder button in the top bar ("Data folder") and then **"Move the data folder…"**: it takes effect from the next start, and the files **do not move by themselves**, you copy them into the new folder.
+The first time, the app asks **"Where should I keep your videos?"**. It suggests a folder called **Mango Animation** inside **Documents**, with the free space of that disk; if another disk has more room you will find it under "Other folders". Click **"Use this folder"**, or **"Choose another folder"**. Your footage, your videos and your profile live there, and they are big: if the folder is inside **OneDrive** the page warns you, because OneDrive would copy them online. To move it later, inside the studio click the folder button in the top bar ("Data folder") and then **"Move the data folder…"**, choosing an empty folder: the next time you open the app it copies everything, checks that everything arrived and only then removes the old files. If anything goes wrong, your files stay where they were.
 
 If the folder disappears (disk unplugged, folder moved), the app says so and offers **"Recreate in Documents"** or **"Choose another folder"**.
 
 ### The link to Claude Code
 
-- **"Claude Code is missing"** or **"Claude Code won't start"**: the page shows Anthropic's install command and a link to their guide. Click **"Copy the command"**, open **PowerShell** (search for it in the Start menu), paste the command and press Enter. When it finishes, go back to the app and click **"Check again"**. This is the only technical step in this guide.
-- **"Claude Code is not connected to your account"**: click **"Sign in to Claude Code"**. A black window opens (this is normal) and then the browser, where you sign in with your Claude account. When the window closes, the app checks again by itself. If you signed in elsewhere, click **"Check again"**.
-- **"Continue without Claude Code"** opens the studio anyway, but the chat cannot work until Claude Code is there and signed in.
+To use the app you need **a Claude account with a subscription** (Pro, Max, Ultra, Team or Enterprise: the free plan does not include Claude Code). The page has a link to the plans.
+
+- **"To get started you need Claude Code"** or **"Claude Code won't start"**: click **"Install Claude Code"**. A window opens (this is normal), installs it and closes by itself; then the app checks again. If it does not work it says so, and you can click **"Try again"**. If you prefer, below you will find Anthropic's command to paste into **PowerShell**, and a link to their guide. If you installed it elsewhere, click **"Check again"**.
+- **"Connect Claude Code to your account"**: click **"Sign in to Claude Code"**. A black window opens (this is normal) and then the browser, where you sign in with your Claude account. When the window closes, the app checks again by itself. If you signed in elsewhere, click **"Check again"**.
+
+Without Claude Code installed and signed in the app does not go on. If Mango Code is also running, the page says so: you will find it among the chat's engines.
 
 If Claude Code is already installed and signed in, this step does not appear.
 
@@ -254,7 +257,7 @@ Close the app's window and reopen it from the Start menu. Closing it also stops 
 | **"Getting everything ready"** for more than a minute | the app is starting the studio (it waits up to 90 seconds) |
 | **"The server won't start"** | the app shows the last lines of what went wrong and where the log is: **"Try again"**; if it does not pass, close and reopen, and if still no, send those lines to whoever is helping you |
 | **"The data folder has a problem"** / **"The data folder is gone"** | see "The data folder" in section 2 |
-| **"Claude Code is missing"**, **"won't start"**, **"is not connected"** | see "The link to Claude Code" in section 2 |
+| **"To get started you need Claude Code"**, **"won't start"**, **"Connect Claude Code to your account"** | see "The link to Claude Code" in section 2 |
 | **"Something went wrong"** during the download | the page says which entry and why: **"Try again"** resumes without downloading again what has arrived |
 | the chat says why a conversation will not open | **"Try again"**; if it is the Claude Code sign-in, redo it from the start page |
 | a red warning on a video's card or plan | a file does not pass the checks: ask in the chat to fix it; the exact reason opens on request |

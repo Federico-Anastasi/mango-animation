@@ -218,7 +218,7 @@ export interface Scheda {
   priorita?: number
   /** Senza: un video. Un carosello ha le sue immagini in `uscite/slide-<n>.png`. */
   formato?: "video" | "carosello"
-  canali?: Array<"tiktok" | "youtube" | "x">
+  canali?: Array<"tiktok" | "instagram" | "youtube" | "x">
   /** `quadro` e `scene` servono alla prova prima di registrare: ogni scena comincia alla frase del copione che inizia con `dalla`. */
   proposta?: {
     aggancio?: string
@@ -385,6 +385,8 @@ export interface Lavoro {
 /** `GET /api/profilo`: se `profilo.json` passa lo schema, e le frasi di ciò che non va. */
 export interface StatoProfilo {
   valido: boolean
+  presente: boolean
+  canali: Array<{ piattaforma: string; nome?: string }>
   problemi: string[]
 }
 

@@ -47,7 +47,7 @@ describe("la cartella dei dati", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sposta la cartella dei dati…" }))
     expect(await screen.findByText("D:\Video")).toBeInTheDocument()
     expect(pannello).toHaveTextContent("Dal prossimo avvio:")
-    expect(pannello).toHaveTextContent("I file non si spostano da soli")
+    expect(pannello).toHaveTextContent("Alla prossima apertura sposto io i file")
     expect(ponte.sposta).toHaveBeenCalledOnce()
   })
 

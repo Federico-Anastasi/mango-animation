@@ -249,7 +249,7 @@ describe("video", () => {
     }
     expect((await chiama(a, "PUT", "/api/video/v/scheda", scheda)).stato).toBe(200)
     expect((await chiama<Dettaglio>(a, "GET", "/api/video/v")).corpo.scheda).toEqual(scheda)
-    for (const storta of [{ ...scheda, canali: [] }, { ...scheda, canali: ["tiktok", "tiktok"] }, { ...scheda, canali: ["instagram"] }, { ...scheda, scaletta: [{ fai: "Senza apri" }] }, { ...scheda, pubblicazioni: [{ canale: "tiktok" }] }]) {
+    for (const storta of [{ ...scheda, canali: [] }, { ...scheda, canali: ["tiktok", "tiktok"] }, { ...scheda, canali: ["snapchat"] }, { ...scheda, scaletta: [{ fai: "Senza apri" }] }, { ...scheda, pubblicazioni: [{ canale: "tiktok" }] }]) {
       expect((await chiama(a, "PUT", "/api/video/v/scheda", storta)).stato).toBe(400)
     }
   })
@@ -390,7 +390,7 @@ describe("video", () => {
       base: "madre",
       sorgenti: { d: { file: "2026-10-08/d.mp4", viste: { altra: { taglio: [1, 1, 5, 5] } } } },
       scene: [{ nome: "due", vista: "altra", pezzi: [{ sorgente: "d", da: 9, a: 10 }] }, { nome: "tre", vista: "altra", pezzi: [{ sorgente: "d", da: 5, a: 6 }] }],
-      sottotitoli: { nomi: ["Elettra"], correzioni: [{ sentite: ["y"], giuste: "Y" }] },
+      sottotitoli: { nomi: ["Alice"], correzioni: [{ sentite: ["y"], giuste: "Y" }] },
     }
     expect((await chiama(a, "PUT", "/api/video/figlia/piano", figlia)).stato).toBe(200)
     interface Unito {
@@ -406,7 +406,7 @@ describe("video", () => {
     expect(unito.scene.map((s) => s.nome)).toEqual(["uno", "due", "tre"])
     expect(unito.scene[1]!.pezzi[0]!.da).toBe(9)
     expect(Object.keys(unito.sorgenti.d.viste)).toEqual(["gara", "altra"])
-    expect(unito.sottotitoli.nomi).toEqual(["Agata", "Elettra"])
+    expect(unito.sottotitoli.nomi).toEqual(["Agata", "Alice"])
     expect(unito.sottotitoli.correzioni).toHaveLength(2)
   })
 

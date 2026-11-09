@@ -86,7 +86,7 @@ In quali video è usato un file non si scrive: lo ricava il server dai piani.
       "serie": "errori",                            facoltativo: video nati dalla stessa fonte
       "priorita": 1,                              facoltativo: l'ordine in cui farli, 1 il primo
       "formato": "carosello",                     facoltativo: "video" (se manca) o "carosello"
-      "canali": ["tiktok", "youtube"],            dove esce: "tiktok", "youtube", "x"
+      "canali": ["tiktok", "youtube"],            dove esce: "tiktok", "instagram", "youtube", "x"
       "proposta": { "aggancio": "", "centro": "", "chiusa": "", "note": "",
                     "quadro": "sagoma-al-centro",                 facoltativi: per la prova prima di registrare
                     "scene": [ { "animazione": "a1", "dalla": "La notizia" } ],

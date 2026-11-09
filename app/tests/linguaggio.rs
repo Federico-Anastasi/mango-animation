@@ -305,9 +305,10 @@ fn ogni_frase_di_app_js_ha_l_italiano_e_l_inglese() {
 }
 
 /// Testi del Rust che non sono frasi per chi legge: il codice di un altro programma (che non si traduce) e i codici di stato che la pagina traduce da sé.
-const AMMESSI: [(&str, &str); 7] = [
+const AMMESSI: [(&str, &str); 8] = [
     ("supervisor.rs", "AssignProcessToJobObject"),
     ("supervisor.rs", "$ErrorActionPreference"),
+    ("claude.rs", "$ErrorActionPreference"),
     ("computer/installa.rs", "import "),
     ("lavoro.rs", "Add-Type"),
     ("dati.rs", "(() =>"),
@@ -315,7 +316,7 @@ const AMMESSI: [(&str, &str); 7] = [
     ("computer/mod.rs", "in corso"),
 ];
 
-const FILE_RUST: [&str; 18] = [
+const FILE_RUST: [&str; 19] = [
     "lib.rs",
     "server.rs",
     "claude.rs",
@@ -323,6 +324,7 @@ const FILE_RUST: [&str; 18] = [
     "aggiornamento.rs",
     "dati.rs",
     "lavoro.rs",
+    "sposta.rs",
     "radice.rs",
     "supervisor.rs",
     "istanza.rs",

@@ -5,8 +5,9 @@ description: Reads what the archive knows about the channel — video numbers, c
 
 # Numeri
 
-Goal: a reading that helps to decide, based on the data in the archive. The channel read is TikTok's (the account is in the profile,
-`canali[]`).
+Goal: a reading that helps to decide, based on the data in the archive. The automatic channel read is TikTok's (the account is in the profile,
+`canali[]`). For an Instagram channel there is no automatic read yet: with the creator's permission, open the public profile in
+the browser and read the numbers from the page, or take the numbers the creator brings; say that the automatic read will come later.
 
 ## How
 

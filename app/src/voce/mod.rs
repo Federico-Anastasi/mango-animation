@@ -79,6 +79,11 @@ impl Voce {
         self.motore.usa_python(python);
     }
 
+    /// La cartella dei dati scelta dal creator al primo avvio, quando la dettatura è già pronta senza.
+    pub fn usa_lavoro(&self, lavoro: &Path) {
+        self.motore.usa_lavoro(lavoro);
+    }
+
     pub fn stato(&self, lingua: Lingua) -> Value {
         let in_ascolto = self.ascolto.lock().unwrap().is_some();
         match self.motore.disponibile() {

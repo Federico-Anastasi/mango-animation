@@ -8,7 +8,7 @@ import threading
 import numpy as np
 
 from .archivio import REPO, VARIABILE_LAVORO, leggi_stile
-from .dispositivo import dispositivo_voce
+from .dispositivo import dispositivo_voce, errore_di_libreria_cuda, librerie_cuda, prova_della_scheda
 from .errori import Errore, dice
 from .profilo import richiedi
 
@@ -164,6 +164,8 @@ def carica(cfg):
     dove = dispositivo_voce()
     d = cfg["dispositivi"][dove]
     calcolo = scelta_del_calcolo(d["calcolo"], dove)
+    if dove == "cuda":
+        librerie_cuda()
     try:
         from faster_whisper import WhisperModel
     except ImportError:
@@ -171,10 +173,14 @@ def carica(cfg):
                      "the Python package faster-whisper is missing (pip install faster-whisper)")
     try:
         modello = WhisperModel(d["modello"], device=dove, device_index=0, compute_type=calcolo, cpu_threads=d["thread"])
+        if dove == "cuda":
+            prova_della_scheda(modello, cfg["lingua"])
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
             raise Errore(f"la scheda video non ha memoria libera per il modello {d['modello']}: chiudi il lavoro che la usa, oppure metti null in macchina.scheda_video del profilo per dettare col processore",
                          f"the video card has no free memory for the model {d['modello']}: close the job that uses it, or set null in macchina.scheda_video of the profile to dictate with the processor")
+        if errore := errore_di_libreria_cuda(e):
+            raise errore from e
         raise
     except OSError as e:
         raise Errore(f"il modello {d['modello']} non si trova e non si riesce a scaricarlo (la prima volta serve la rete): {e}",

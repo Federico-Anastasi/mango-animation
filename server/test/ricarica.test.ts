@@ -178,7 +178,7 @@ describe("il profilo", () => {
     await aspetta(() => (a.server.indice.profilo.valore["creator"] as { nome?: string }).nome === "Cambiato")
   })
 
-  const statoDelProfilo = (a: Ambiente, lingua?: "it" | "en") => chiama<{ valido: boolean; problemi: string[] }>(a, "GET", "/api/profilo", undefined, lingua)
+  const statoDelProfilo = (a: Ambiente, lingua?: "it" | "en") => chiama<{ valido: boolean; presente: boolean; canali: Array<{ piattaforma: string; nome?: string }>; problemi: string[] }>(a, "GET", "/api/profilo", undefined, lingua)
 
   test("il server parte anche con un profilo che lo schema non ammette: dice cosa correggere, nelle due lingue, e non riscrive il file", async () => {
     const rotto = JSON.stringify({ creator: { nome: "Prova", lingua: 5 }, inventato: true })
@@ -187,6 +187,7 @@ describe("il profilo", () => {
 
     const it = (await statoDelProfilo(a)).corpo
     expect(it.valido).toBe(false)
+    expect(it.presente).toBe(true)
     expect(it.problemi.join(" ")).toContain("creator.lingua: deve essere un testo")
     expect((await statoDelProfilo(a, "en")).corpo.problemi.join(" ")).toContain("creator.lingua: must be")
     expect((await chiama(a, "GET", "/api/motori")).corpo).toEqual({})
@@ -207,10 +208,12 @@ describe("il profilo", () => {
   test("a server acceso un profilo che non passa lo schema si vede, e tornando a quello di prima l'avviso sparisce", async () => {
     const a = await avviaAmbiente()
     const file = join(a.radice, "profilo.json")
-    const buono = JSON.stringify({ creator: { nome: "Prova", lingua: "it" } })
-    expect((await statoDelProfilo(a)).corpo).toEqual({ valido: true, problemi: [] })
+    const buono = JSON.stringify({ creator: { nome: "Prova", lingua: "it" }, canali: [{ piattaforma: "instagram", nome: "fondazione.esempio", formato: "verticale" }] })
+    expect((await statoDelProfilo(a)).corpo).toEqual({ valido: true, presente: false, canali: [], problemi: [] })
     await writeFile(file, buono)
     await aspetta(() => (a.server.indice.profilo.valore["creator"] as { nome?: string } | undefined)?.nome === "Prova")
+    expect((await statoDelProfilo(a)).corpo.presente).toBe(true)
+    expect((await statoDelProfilo(a)).corpo.canali).toEqual([{ piattaforma: "instagram", nome: "fondazione.esempio" }])
 
     await writeFile(file, "{ rotto")
     await aspetta(async () => !(await statoDelProfilo(a)).corpo.valido)

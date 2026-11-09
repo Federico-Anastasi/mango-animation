@@ -119,7 +119,7 @@ describe("Produzione", () => {
   it("senza video fatti lo dice, e senza conti di Claude non inventa medie", async () => {
     rete({ "GET /api/video": [voce("d", { stato: "proposta" })] })
     const { unmount } = render(<Produzione />)
-    expect(await screen.findByText(/Non c'è ancora nessun video pronto o pubblicato/)).toBeInTheDocument()
+    expect(await screen.findByText(/Quando ci sarà un video pronto, compaiono i suoi conti/)).toBeInTheDocument()
     unmount()
 
     rete({ "GET /api/consumi": consumi({}) })

@@ -11,7 +11,7 @@
     "serie": { "type": "string" },
     "priorita": { "type": "integer", "minimum": 1 },
     "formato": { "enum": ["video", "carosello"] },
-    "canali": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["tiktok", "youtube", "x"] } },
+    "canali": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["tiktok", "instagram", "youtube", "x"] } },
     "proposta": {
       "type": "object",
       "additionalProperties": false,
