@@ -53,6 +53,12 @@ export class ElencoTask {
         else if (voce) this.voci.set(m.task_id, { ...voce, background: m.patch.is_backgrounded ?? voce.background, descrizione: m.patch.description ?? voce.descrizione })
         break
       }
+      case "task_progress": {
+        // Solo di un lavoro che si mostra: l'avanzamento di uno di servizio o già finito non lo fa comparire.
+        const voce = this.voci.get(m.task_id)
+        if (voce) this.voci.set(m.task_id, { ...voce, uso: { token: m.usage.total_tokens, strumenti: m.usage.tool_uses } })
+        break
+      }
       case "task_notification":
         this.voci.delete(m.task_id)
         break
@@ -67,7 +73,9 @@ export class ElencoTask {
     return JSON.stringify(this.elenco) !== prima
   }
 
+  /** Un lavoro che l'SDK annuncia di nuovo (l'elenco a ogni cambio) resta com'era: l'inizio e l'uso non si perdono. */
   private metti(id: string, tipo: string | undefined, descrizione: string, background: boolean): void {
-    this.voci.set(id, { id, tipo: tipoDi(tipo), descrizione, iniziato: this.voci.get(id)?.iniziato ?? this.adesso().toISOString(), background })
+    const prima = this.voci.get(id)
+    this.voci.set(id, { id, tipo: tipoDi(tipo), descrizione, iniziato: prima?.iniziato ?? this.adesso().toISOString(), background, ...(prima?.uso ? { uso: prima.uso } : {}) })
   }
 }

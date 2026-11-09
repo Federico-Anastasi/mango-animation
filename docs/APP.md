@@ -43,7 +43,9 @@ funziona qui dentro come ogni altra vista dello studio, senza bisogno di niente 
 - **La barra del titolo di Windows** prende lo stesso colore della pagina (chiara o scura, dallo sfondo vero,
   non da un tema fisso), e si aggiorna da sola se la pagina cambia tema.
 - **Chiusura**: l'app entra in un Job Object di Windows che chiude ogni processo avviato da lei (il server, se
-  l'ha acceso lei) quando si chiude, anche se va in crash. Un server già acceso prima non si tocca.
+  l'ha acceso lei) quando si chiude, anche se va in crash. Un server già acceso prima non si tocca. I link e la pagina di una
+  segnalazione che l'app apre per il creator partono invece fuori dal Job (`supervisor::apri_fuori_dal_giobbe`, `CREATE_BREAKAWAY_FROM_JOB`):
+  un browser che non era acceso resta aperto quando l'app si chiude.
 - **Una sola istanza**: un secondo avvio porta in primo piano la finestra già aperta.
 - **Il registro** (`app/src/istanza.rs`): all'avvio l'app scrive `app.json` (`{ "pid", "exe" }`: il suo pid e il percorso del suo eseguibile) in `%LOCALAPPDATA%\dev.mango.animation\`, accanto a `logs\` e
   `computer\`; lo scrive intero o per niente (file provvisorio e rinomina), e alla chiusura lo toglie solo se il pid scritto è il suo. Nell'ambiente del server che accende mette `MANGO_ANIMATION_APP_PID`
@@ -95,6 +97,8 @@ Al primo avvio (e a ogni avvio in cui manca qualcosa) l'app vede cosa c'è nel c
   I modelli **non si distribuiscono con l'app**: si scaricano dalla loro fonte, con la licenza di ciascuno accanto nella pagina. Un modello già nella cache di Hugging Face, di qualunque revisione, non si riscarica.
   I pacchetti Python sono quelli di `piano.rs` (versioni fissate come in `docs/NUOVO-COMPUTER.md`); PyTorch viene dall'indice CUDA 12.4 se c'è una scheda NVIDIA con capacità di calcolo da 5.0, dall'indice del
   processore altrimenti. Python lo prepara `uv` (`uv python install --no-bin`, `uv venv`, `uv pip install`): non tocca il Python del computer né `~/.local/bin`.
+  Mentre scarica `uv` scrive righe solo a inizio e fine: la barra di «Python e i suoi pacchetti» è quanto sono cresciute, dall'inizio, `computer\uv-cache\` e `computer\python\` rispetto al peso stimato (si guarda ogni
+  secondo, `installa.rs`). Non torna indietro e non arriva in fondo prima che `uv` finisca; con la cache già piena (un'installazione ripresa) resta bassa e si completa alla fine.
 - **Pacchetti e versioni dopo un aggiornamento.** I moduli presenti non dicono la versione, e `node_modules` non dice da quale lockfile viene: a installazione finita l'app scrive cosa ha messo, e a ogni avvio confronta.
   Per i pacchetti JS è l'impronta (SHA-256) di `package.json`, `bun.lock` e `bun.lockb` com'erano a `bun install` finito, in `node_modules/.mango-impronta` (tolto `node_modules`, sparisce anche lei); cambia il lockfile, o manca
   l'impronta, e `bun install` si rifà; uguale, non si fa niente. Per Python è l'elenco dei pacchetti con il loro indice (`ambiente\.mango-pacchetti`): l'ambiente dell'app vale solo se contiene tutto ciò che le funzioni
@@ -296,7 +300,9 @@ all'eseguibile (l'app lo trova da lì: `app/src/radice.rs`). **Non è firmato co
   aperto da un altro programma); l'elenco in `installer/prepara.test.ts`; la scelta della chiave di firma in `installer/costruisci.test.ts`; i pacchetti in `src/computer/piano.rs` e `installa.rs`.
 - **Cosa si prova solo installando** (l'installatore chiude ogni istanza aperta di `mango-animation.exe`, quindi non si fa mentre l'app sta lavorando): che l'installatore parta e metta i file, che l'app installata proponga la versione nuova,
   che l'installatore avviato fuori dal Job sopravviva all'app che si chiude e la riapra (sotto `cargo test` non si prova: cargo tiene le prove in un suo Job che non lascia uscire). Passi: costruire due installatori (versioni 0.1.0 e 0.1.1) con identificatore e nome di prova, la chiave di prova e un `latest.json` servito da `http://127.0.0.1:<porta>/`
-  (`installer/pubblica.ts` per il `latest.json`, e `dangerousInsecureTransportProtocol` solo nel config di prova), in una cartella di destinazione a parte (`CARGO_TARGET_DIR`); installare la 0.1.0, aprirla, premere «Aggiorna ora». Il contenuto di un
+  (`installer/pubblica.ts` per il `latest.json`, e `dangerousInsecureTransportProtocol` solo nel config di prova), in una cartella di destinazione a parte (`CARGO_TARGET_DIR`); installare la 0.1.0, aprirla con
+  `MANGO_ANIMATION_UPDATE_URL=http://127.0.0.1:<porta>/latest.json` (l'indirizzo che l'app interroga al posto di quello di `tauri.conf.json`; si accetta solo su `127.0.0.1` o `localhost`, un altro è un errore scritto in
+  `aggiornamento.log` e il controllo non si fa; un indirizzo http funziona solo in una costruzione col config di prova), premere «Aggiorna ora». Il contenuto di un
   installatore si controlla senza lanciarlo: `target\release\nsis\x64\installer.nsi` elenca i file che mette.
 
 ## Come si prova

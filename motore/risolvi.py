@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .archivio import scrivi_json
+from .archivio import scrivi_json, senza_voce
 from .errori import Errore, Frase
 from .sorgenti import Sorgente
 from .sottotitoli import battute, chiave, parole_tradotte
@@ -202,14 +202,15 @@ def risolvi(archivio, slug, scrivi=True):
         con_girato = {s["tipo"] for s in stile["quadri"].get(nome_quadro, {}).get("strati", [])} - {"animazione"}
         for m, pezzo in enumerate(scena["pezzi"]):
             if "durata" in pezzo:
-                if con_girato:
-                    raise Errore(f"la scena «{scena['nome']}», pezzo {m + 1}: un pezzo senza voce (`durata`) non ha girato, e il quadro «{nome_quadro}» lo mostra: "
-                                 "scegli un quadro con la sola animazione",
-                                 f"scene «{scena['nome']}», piece {m + 1}: a piece without voice (`durata`) has no footage, and the frame «{nome_quadro}» shows it: "
-                                 "choose a frame with the animation only")
+                muto = pezzo.get("girato")
+                problema = senza_voce(muto, con_girato, nome_quadro)
+                if problema:
+                    raise Errore(f"la scena «{scena['nome']}», pezzo {m + 1}: {problema}", f"scene «{scena['nome']}», piece {m + 1}: {problema.en}")
                 pezzi[(n, m)], specifici[len(tratti)] = (len(tratti), len(tratti) + 1), {}
+                # Senza voce ma con un `girato`, il pezzo mostra quella ripresa muta, inquadrata come un pezzo con la voce.
                 tratti.append({"scena": n, "pezzo": m, "sorgente": None, "da": 0.0, "durata": quadri(pezzo["durata"], fps), "esce": round(fotogrammi / fps, 4),
-                               "vista": None, "zoom": None, "evidenzia": None, "legato": [None, None], "sagoma": None, "girato": None})
+                               "vista": pezzo.get("vista", scena.get("vista")) if muto else None, "zoom": pezzo.get("zoom"), "evidenzia": pezzo.get("evidenzia"),
+                               "legato": [None, None], "sagoma": None, "girato": muto})
                 fotogrammi += round(pezzo["durata"] * fps)
                 continue
             s = sorgente(pezzo["sorgente"])

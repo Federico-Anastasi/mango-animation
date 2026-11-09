@@ -124,7 +124,11 @@ export function PannelloTratto({
       )}
 
       {senzaVoce ? (
-        <p className={styles.nota}>{t("Dura {durata} s: non ha girato, solo l'animazione della scena.", "Lasts {durata} s: no footage, just the scene's animation.", { durata: numero(tratto.durata, 2) })}</p>
+        <p className={styles.nota}>
+          {tratto.girato
+            ? t("Dura {durata} s: il girato «{girato}», muto.", "Lasts {durata} s: the footage «{girato}», muted.", { durata: numero(tratto.durata, 2), girato: tratto.girato.sorgente })
+            : t("Dura {durata} s: non ha girato, solo l'animazione della scena.", "Lasts {durata} s: no footage, just the scene's animation.", { durata: numero(tratto.durata, 2) })}
+        </p>
       ) : (
         <>
           <div className={styles.coppia}>

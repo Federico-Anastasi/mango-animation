@@ -58,7 +58,7 @@ export function ereditata(proprio: Piano, effettivo: PianoCompleto, indiceScena:
   return nome === undefined || !(proprio.scene ?? []).some((s) => s.nome === nome)
 }
 
-const motivoSenzaVoce = (): string => t("Un pezzo senza voce non ha girato: dura quanto dice il piano, e qui non si taglia, non si divide e non si ingrandisce.", "A clip without a voice has no footage: it lasts as long as the plan says, and here it cannot be cut, split or zoomed.")
+const motivoSenzaVoce = (): string => t("Un pezzo senza voce dura quanto dice il piano: qui non si taglia, non si divide e non si ingrandisce.", "A clip without a voice lasts as long as the plan says: here it cannot be cut, split or zoomed.")
 
 const motivoEreditato = (base: string): string => t("Questo pezzo viene dal video «{base}». Per ritoccarlo stacca il video dalla base: le scene si copiano qui e restano tue.", "This clip comes from the video «{base}». To edit it, detach the video from its base: the scenes are copied here and become yours.", { base })
 

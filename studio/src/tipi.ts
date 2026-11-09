@@ -15,7 +15,7 @@ export interface Zoom {
 }
 
 export interface Pezzo {
-  /** Senza `sorgente` il pezzo è senza voce e ha solo `durata`. */
+  /** Senza `sorgente` il pezzo è senza voce: ha `durata` e, se mostra una ripresa muta, `girato` (con `vista` e `zoom`). */
   sorgente?: string
   durata?: number
   da?: number
@@ -124,7 +124,7 @@ export interface ScenaRisolta {
 export interface Tratto {
   scena: number
   pezzo: number
-  /** `null` per un pezzo senza voce: niente girato, niente parole. */
+  /** `null` per un pezzo senza voce: niente parole; ciò che mostra, se non è solo l'animazione, sta in `girato`. */
   sorgente: string | null
   da: number
   durata: number
@@ -134,6 +134,8 @@ export interface Tratto {
   legato: [number | null, number | null]
   /** La sagoma viene da un'altra ripresa: quale e da che secondo. */
   sagoma: { sorgente: string; da: number } | null
+  /** Ciò che lo strato `girato` mostra quando non è la ripresa della voce: un'altra ripresa, ferma o che corre al suo `passo`; per un pezzo senza voce è il suo girato muto. */
+  girato?: { sorgente: string; da?: number; fermo?: number; passo?: number } | null
 }
 
 export interface ParolaRisolta {

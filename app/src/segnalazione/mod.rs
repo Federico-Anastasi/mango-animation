@@ -165,7 +165,7 @@ async fn segnala_problema(
         let file = PathBuf::from(file);
         let _ = app.opener().reveal_item_in_dir(&file);
         let indirizzo = nuova_issue(&riassunto, &file);
-        app.opener().open_url(indirizzo.as_str(), None::<&str>).map_err(|e| e.to_string())?;
+        crate::supervisor::apri_fuori_dal_giobbe(indirizzo.as_str()).map_err(|e| e.to_string())?;
     }
     Ok(fatto)
 }

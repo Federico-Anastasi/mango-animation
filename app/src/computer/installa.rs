@@ -13,11 +13,13 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub const HUGGING_FACE: &str = "https://huggingface.co";
 const PYTHON_DA_INSTALLARE: &str = "3.12";
+/// Ogni quanto, mentre un installatore gira, si guarda quanto ha scritto.
+const BATTITO: Duration = Duration::from_secs(1);
 
 /// Cosa succede, voce per voce, mentre si prepara.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,6 +80,11 @@ impl Sonde for SondeVere {
 
 /// Lancia un programma nascosto e ne passa le righe a `riga`; torna Err con le ultime righe se esce con un errore, e lo ferma (per il suo PID) se `annulla` si accende.
 pub fn esegui_comando(exe: &Path, args: &[OsString], cwd: &Path, env: &[(OsString, OsString)], annulla: &AtomicBool, riga: &mut dyn FnMut(&str)) -> Result<(), String> {
+    esegui_con_battito(exe, args, cwd, env, annulla, riga, &mut || {})
+}
+
+/// Come `esegui_comando`, e ogni `BATTITO` chiama `battito`: per un installatore che non scrive righe mentre scarica.
+fn esegui_con_battito(exe: &Path, args: &[OsString], cwd: &Path, env: &[(OsString, OsString)], annulla: &AtomicBool, riga: &mut dyn FnMut(&str), battito: &mut dyn FnMut()) -> Result<(), String> {
     let mut figlio = Command::new(exe)
         .args(args)
         .current_dir(cwd)
@@ -102,7 +109,12 @@ pub fn esegui_comando(exe: &Path, args: &[OsString], cwd: &Path, env: &[(OsStrin
     let fuori = leggi(Box::new(figlio.stdout.take().expect("stdout")), mittente.clone());
     let errori = leggi(Box::new(figlio.stderr.take().expect("stderr")), mittente);
     let mut ultime: Vec<String> = Vec::new();
+    let mut ultimo_battito = Instant::now();
     let stato = loop {
+        if ultimo_battito.elapsed() >= BATTITO {
+            battito();
+            ultimo_battito = Instant::now();
+        }
         match ricevitore.recv_timeout(Duration::from_millis(100)) {
             Ok(r) => {
                 riga(&r);
@@ -206,7 +218,21 @@ fn installa_modello(r: &RepoHf, luoghi: &Luoghi, base: &str, annulla: &AtomicBoo
     fs::write(refs.join("main"), &r.revisione).map_err(|e| t(format!("non riesco a scrivere {} ({e})", refs.join("main").display()), format!("I can't write {} ({e})", refs.join("main").display())))
 }
 
-fn installa_python(luoghi: &Luoghi, gruppi: &[Gruppo], strumenti: &Strumenti, annulla: &AtomicBool, riga: &mut dyn FnMut(&str)) -> Result<(), String> {
+/// Quanto pesano i file di una cartella e delle sue sottocartelle (0 se non c'è).
+fn byte_nella_cartella(cartella: &Path) -> u64 {
+    let Ok(voci) = fs::read_dir(cartella) else { return 0 };
+    voci.flatten()
+        .map(|v| match v.file_type() {
+            Ok(tipo) if tipo.is_dir() => byte_nella_cartella(&v.path()),
+            Ok(tipo) if tipo.is_file() => v.metadata().map_or(0, |m| m.len()),
+            _ => 0,
+        })
+        .sum()
+}
+
+/// Prepara Python e i pacchetti con `uv`, che mentre scarica scrive solo righe a inizio e fine: l'avanzamento è quanto è cresciuto, dall'inizio, ciò che `uv`
+/// tiene (la sua cache coi pacchetti già aperti, e Python), rispetto al `peso` stimato. Non arriva in fondo prima che `uv` finisca, e non torna indietro.
+fn installa_python(luoghi: &Luoghi, peso: u64, gruppi: &[Gruppo], strumenti: &Strumenti, annulla: &AtomicBool, avanza: &mut dyn FnMut(u64, u64), riga: &mut dyn FnMut(&str)) -> Result<(), String> {
     let env: Vec<(OsString, OsString)> = vec![
         ("UV_PYTHON_INSTALL_DIR".into(), luoghi.dati.join("python").into_os_string()),
         ("UV_CACHE_DIR".into(), luoghi.dati.join("uv-cache").into_os_string()),
@@ -214,8 +240,15 @@ fn installa_python(luoghi: &Luoghi, gruppi: &[Gruppo], strumenti: &Strumenti, an
     ];
     fs::create_dir_all(&luoghi.dati).map_err(|e| e.to_string())?;
     let os = |s: &str| OsString::from(s);
-    esegui_comando(&strumenti.uv, &[os("python"), os("install"), os(PYTHON_DA_INSTALLARE), os("--no-bin")], &luoghi.dati, &env, annulla, riga)?;
-    esegui_comando(&strumenti.uv, &[os("venv"), luoghi.ambiente_python().into_os_string(), os("--python"), os(PYTHON_DA_INSTALLARE), os("--allow-existing")], &luoghi.dati, &env, annulla, riga)?;
+    let scritti = || byte_nella_cartella(&luoghi.dati.join("uv-cache")) + byte_nella_cartella(&luoghi.dati.join("python"));
+    let prima = scritti();
+    let mut fatti = 0;
+    let mut battito = || {
+        fatti = fatti.max(scritti().saturating_sub(prima).min(peso / 20 * 19));
+        avanza(fatti, peso);
+    };
+    esegui_con_battito(&strumenti.uv, &[os("python"), os("install"), os(PYTHON_DA_INSTALLARE), os("--no-bin")], &luoghi.dati, &env, annulla, riga, &mut battito)?;
+    esegui_con_battito(&strumenti.uv, &[os("venv"), luoghi.ambiente_python().into_os_string(), os("--python"), os(PYTHON_DA_INSTALLARE), os("--allow-existing")], &luoghi.dati, &env, annulla, riga, &mut battito)?;
     for gruppo in gruppi {
         let mut args = vec![os("pip"), os("install"), os("--python"), luoghi.python_dell_app().into_os_string()];
         if let Some(indice) = &gruppo.indice {
@@ -223,7 +256,7 @@ fn installa_python(luoghi: &Luoghi, gruppi: &[Gruppo], strumenti: &Strumenti, an
             args.extend(["--index-url", indice, "--extra-index-url", "https://pypi.org/simple", "--index-strategy", "unsafe-best-match"].map(os));
         }
         args.extend(gruppo.pacchetti.iter().map(|p| os(p)));
-        esegui_comando(&strumenti.uv, &args, &luoghi.dati, &env, annulla, riga)?;
+        esegui_con_battito(&strumenti.uv, &args, &luoghi.dati, &env, annulla, riga, &mut battito)?;
     }
     segna_python_installato(luoghi, gruppi)
 }
@@ -238,7 +271,7 @@ pub fn fai(voce: &Voce, luoghi: &Luoghi, strumenti: &Strumenti, hf: &str, annull
             Tipo::File(f) => installa_file(f, luoghi, annulla, avanza),
             Tipo::Hf(r) => installa_modello(r, luoghi, hf, annulla, avanza),
         },
-        Lavoro::Python(gruppi) => installa_python(luoghi, gruppi, strumenti, annulla, riga),
+        Lavoro::Python(gruppi) => installa_python(luoghi, voce.peso, gruppi, strumenti, annulla, avanza, riga),
         Lavoro::PacchettiJs(cartella) => {
             let dove = luoghi.radice.join(cartella);
             esegui_comando(&strumenti.bun, &[os("install")], &dove, &env, annulla, riga)?;
@@ -256,6 +289,8 @@ mod prove {
     use crate::computer::piano::{js_aggiornato, python_aggiornato};
     use crate::computer::scarica::prove::{server, sha_di};
     use std::io::Write;
+
+    const MB: u64 = 1_048_576;
 
     fn zip_di_prova(file: &[(&str, &[u8])]) -> Vec<u8> {
         let mut dati = std::io::Cursor::new(Vec::new());
@@ -397,7 +432,7 @@ mod prove {
             Gruppo { pacchetti: vec!["jsonschema==4.26.0".into(), "numpy==2.4.3".into()], indice: None },
             Gruppo { pacchetti: vec!["torch==2.6.0".into()], indice: Some("https://download.pytorch.org/whl/cu124".into()) },
         ];
-        installa_python(&l, &gruppi, &strumenti, &nessuno(), &mut |_| {}).unwrap();
+        installa_python(&l, 0, &gruppi, &strumenti, &nessuno(), &mut |_, _| {}, &mut |_| {}).unwrap();
         // Rust mette fra virgolette gli argomenti con «=» quando lancia un file .cmd; un uv.exe vero non le vede.
         let scritto = fs::read_to_string(&registro).unwrap().replace('"', "");
         let righe: Vec<&str> = scritto.lines().map(str::trim).filter(|r| !r.starts_with("UV_PYTHON_INSTALL_DIR")).collect();
@@ -412,6 +447,46 @@ mod prove {
         assert!(!python_aggiornato(&l, &[Gruppo { pacchetti: vec!["numpy==9.9.9".into()], indice: None }]));
     }
 
+    /// Un finto uv che, installando i pacchetti, riempie la cache come il vero: 2 MB subito e 4 MB tre secondi dopo.
+    fn uv_che_riempie_la_cache(cartella: &Path) -> Strumenti {
+        let uv = finto(cartella, "uv.cmd", "@echo off
+if not \"%1\"==\"pip\" exit /b 0
+if not exist \"%UV_CACHE_DIR%\" mkdir \"%UV_CACHE_DIR%\"
+fsutil file createnew \"%UV_CACHE_DIR%\\uno.bin\" 2097152 >nul
+ping -n 4 127.0.0.1 >nul
+fsutil file createnew \"%UV_CACHE_DIR%\\due.bin\" 4194304 >nul
+ping -n 4 127.0.0.1 >nul
+exit /b 0
+");
+        // `fsutil` e `ping` stanno nel PATH di Windows.
+        Strumenti { uv, bun: PathBuf::from("bun"), percorso: std::env::var_os("PATH").unwrap() }
+    }
+
+    #[test]
+    fn mentre_uv_installa_la_barra_segue_i_byte_che_arrivano_nella_cache() {
+        let t = tempfile::tempdir().unwrap();
+        let l = luoghi(t.path());
+        let strumenti = uv_che_riempie_la_cache(t.path());
+        let gruppi = [Gruppo { pacchetti: vec!["numpy==2.4.3".into()], indice: None }];
+        let mut visti: Vec<(u64, u64)> = Vec::new();
+        installa_python(&l, 20 * MB, &gruppi, &strumenti, &nessuno(), &mut |fatti, totale| visti.push((fatti, totale)), &mut |_| {}).unwrap();
+        assert!(visti.iter().all(|&(_, totale)| totale == 20 * MB), "{visti:?}");
+        assert!(visti.windows(2).all(|w| w[0].0 <= w[1].0), "la barra non torna indietro: {visti:?}");
+        assert!(visti.iter().any(|&(fatti, _)| fatti == 2 * MB), "i 2 MB arrivati per primi: {visti:?}");
+        assert_eq!(visti.last().unwrap().0, 6 * MB, "{visti:?}");
+    }
+
+    #[test]
+    fn la_barra_di_python_non_arriva_in_fondo_prima_che_uv_finisca() {
+        let t = tempfile::tempdir().unwrap();
+        let l = luoghi(t.path());
+        let strumenti = uv_che_riempie_la_cache(t.path());
+        let gruppi = [Gruppo { pacchetti: vec!["numpy==2.4.3".into()], indice: None }];
+        let mut visti: Vec<u64> = Vec::new();
+        installa_python(&l, 3 * MB, &gruppi, &strumenti, &nessuno(), &mut |fatti, _| visti.push(fatti), &mut |_| {}).unwrap();
+        assert!(!visti.is_empty() && visti.iter().all(|&f| f < 3 * MB), "{visti:?}");
+    }
+
     #[test]
     fn se_un_passo_di_python_fallisce_non_si_va_avanti() {
         let t = tempfile::tempdir().unwrap();
@@ -419,7 +494,7 @@ mod prove {
         let registro = t.path().join("uv.log");
         let uv = finto(t.path(), "uv.cmd", &format!("@echo off\necho %1 >> \"{}\"\necho nessuna rete 1>&2\nexit /b 2\n", registro.display()));
         let strumenti = Strumenti { uv, bun: PathBuf::from("bun"), percorso: "x".into() };
-        let errore = installa_python(&l, &[], &strumenti, &nessuno(), &mut |_| {}).unwrap_err();
+        let errore = installa_python(&l, 0, &[], &strumenti, &nessuno(), &mut |_, _| {}, &mut |_| {}).unwrap_err();
         assert!(errore.contains("nessuna rete"), "{errore}");
         assert_eq!(fs::read_to_string(&registro).unwrap().lines().count(), 1);
     }
@@ -434,7 +509,7 @@ exit /b 0
 ");
         let strumenti = Strumenti { uv, bun: PathBuf::from("bun"), percorso: "x".into() };
         let gruppi = [Gruppo { pacchetti: vec!["numpy==2.4.3".into()], indice: None }];
-        installa_python(&l, &gruppi, &strumenti, &nessuno(), &mut |_| {}).unwrap_err();
+        installa_python(&l, 0, &gruppi, &strumenti, &nessuno(), &mut |_, _| {}, &mut |_| {}).unwrap_err();
         assert!(!python_aggiornato(&l, &gruppi));
     }
 

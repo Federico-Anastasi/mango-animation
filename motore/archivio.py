@@ -253,6 +253,20 @@ def _animazioni_note(archivio):
         return None
 
 
+def senza_voce(girato, strati, nome_quadro):
+    """Perché un pezzo senza voce (`durata`, col suo `girato` o senza) non può stare nel quadro che mostra questi `strati` oltre l'animazione; None se può."""
+    if not girato and strati:
+        return Frase(f"un pezzo senza voce (`durata`) non ha girato, e il quadro «{nome_quadro}» lo mostra: dagli un `girato` o scegli un quadro con la sola animazione",
+                     f"a piece without voice (`durata`) has no footage, and the frame «{nome_quadro}» shows it: give it a `girato` or choose a frame with the animation only")
+    if girato and "girato" not in strati:
+        return Frase(f"un pezzo senza voce prende il girato da «{girato['sorgente']}», ma il quadro «{nome_quadro}» non mostra un girato",
+                     f"a piece without voice takes the footage from «{girato['sorgente']}», but the frame «{nome_quadro}» does not show footage")
+    if girato and "sagoma" in strati:
+        return Frase(f"un pezzo senza voce (`durata`) non ha la ripresa di chi parla, e il quadro «{nome_quadro}» mostra la sagoma: scegli un quadro senza sagoma (come girato-pieno)",
+                     f"a piece without voice (`durata`) has no shot of the speaker, and the frame «{nome_quadro}» shows the silhouette: choose a frame without silhouette (like girato-pieno)")
+    return None
+
+
 def valida(archivio, slug, controlla_animazioni=True):
     """Schema e riferimenti del piano: (errori, avvisi), ognuno una frase che dice cosa correggere."""
     from .risolvi import file_del_suono
@@ -308,9 +322,22 @@ def valida(archivio, slug, controlla_animazioni=True):
             qui = f"{dove}, pezzo {numero}"
             qui_en = f"{dove_en}, piece {numero}"
             if "durata" in pezzo:
-                if set(strati) - {"animazione"}:
-                    errori.append(Frase(f"{qui}: un pezzo senza voce (`durata`) non ha girato, e il quadro «{nome_quadro}» lo mostra: scegli un quadro con la sola animazione",
-                                        f"{qui_en}: a piece without voice (`durata`) has no footage, and the frame «{nome_quadro}» shows it: choose a frame with the animation only"))
+                muto = pezzo.get("girato")
+                problema = senza_voce(muto, set(strati) - {"animazione"}, nome_quadro)
+                if problema:
+                    errori.append(Frase(f"{qui}: {problema}", f"{qui_en}: {problema.en}"))
+                elif muto and muto["sorgente"] not in piano["sorgenti"]:
+                    errori.append(Frase(f"{qui} prende il girato da «{muto['sorgente']}», che il piano non dichiara fra le `sorgenti`",
+                                        f"{qui_en} takes the footage from «{muto['sorgente']}», which the plan does not declare among the `sorgenti`"))
+                elif muto:
+                    usate.add(muto["sorgente"])
+                    vista, viste = pezzo.get("vista", scena.get("vista")), piano["sorgenti"][muto["sorgente"]].get("viste", {})
+                    if vista and vista not in viste:
+                        errori.append(Frase(f"{qui} chiede la vista «{vista}», che la sorgente «{muto['sorgente']}» non ha: ci sono {', '.join(viste) or 'nessuna'}",
+                                            f"{qui_en} asks for the view «{vista}», which the source «{muto['sorgente']}» does not have: there are {', '.join(viste) or 'none'}"))
+                    if "a" in muto and muto["a"] <= muto["da"]:
+                        errori.append(Frase(f"{qui}: il girato va da {muto['da']} a {muto['a']} s di «{muto['sorgente']}»: `a` dev'essere dopo `da`",
+                                            f"{qui_en}: the footage goes from {muto['da']} to {muto['a']} s of «{muto['sorgente']}»: `a` must come after `da`"))
                 continue
             nome_sorgente = pezzo["sorgente"]
             usate.add(nome_sorgente)

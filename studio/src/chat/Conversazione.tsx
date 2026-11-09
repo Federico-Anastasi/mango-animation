@@ -9,6 +9,7 @@ import { MessaggioDiClaude, MessaggioDelCreator } from "./Messaggio"
 import { negozio, type StatoNegozio } from "./negozio"
 import { Richieste } from "./Richieste"
 import { SchedaTask } from "./SchedaTask"
+import { testoUso, usoInPrimoPiano } from "./usoTask"
 import styles from "./Conversazione.module.css"
 import { t } from "../lingua"
 
@@ -55,6 +56,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
   const lavora = chat.stato === "lavora" || chat.stato === "aspetta"
   const chi = motoreDellaChat(chat)?.corto ?? undefined
   const inPrimoPiano = chat.task.some((t) => !t.background)
+  const usoInCorso = testoUso(usoInPrimoPiano(chat.task))
   const passo = passoInCorso(chat)
   const [erroreBackground, setErroreBackground] = useState<string | null>(null)
   // Senza un lavoro in primo piano la riga d'errore non ha più niente di cui parlare.
@@ -161,6 +163,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
                       <Cronometro da={passo.da} />
                     </>
                   )}
+                  {usoInCorso && ` · ${usoInCorso}`}
                 </span>
               </p>
               {inPrimoPiano && (

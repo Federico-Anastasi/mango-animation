@@ -64,6 +64,15 @@ describe("numeri e date all'italiana", () => {
     expect(t.quantitaGrossa(999_999_999)).toBe("1,0 miliardi")
   })
 
+  it("i conteggi in poche cifre, come li scrive il terminale", () => {
+    expect([820, 999, 1000, 1234, 12_449, 99_949].map(t.quantitaCompatta)).toEqual(["820", "999", "1k", "1,2k", "12,4k", "99,9k"])
+    expect([99_950, 234_400, 999_499].map(t.quantitaCompatta)).toEqual(["100k", "234k", "999k"])
+    // Sul confine passa all'unità dopo, invece di «1.000k».
+    expect([999_500, 1_234_000, 99_949_999, 130_253_512].map(t.quantitaCompatta)).toEqual(["1M", "1,2M", "99,9M", "130M"])
+    scegliLingua("en")
+    expect(t.quantitaCompatta(12_449)).toBe("12.4k")
+  })
+
   it("durate e tempi come li legge chi monta", () => {
     expect(t.durata(1.5)).toBe("1,5 s")
     expect(t.durata(45)).toBe("45 s")

@@ -286,8 +286,8 @@ def _codifica(archivio, slug, comp, risolto, piano, comandi, quanti, elenco, usc
     comincia a metà. `primo_fotogramma` (un'immagine: la copertina) è il primo fotogramma, con un fotogramma di silenzio: tutto il resto parte un fotogramma dopo.
     Torna quanti fotogrammi dei tratti ha scritto."""
     stile = archivio.stile
-    # Un video senza voce non ha niente da pulire: solo silenzio, che la misura del livello della voce non sa trattare.
-    if attiva("pulizia_voce", stile["voce"]["pulizia"]["attiva"]) and any(t["sorgente"] for t in risolto["tratti"]):
+    # Un video senza voce (pezzi senza sorgente, o sorgenti senza traccia audio) non ha niente da pulire: solo silenzio, che la misura del livello della voce non sa trattare.
+    if attiva("pulizia_voce", stile["voce"]["pulizia"]["attiva"]) and any(t["sorgente"] and comp.sorgente(t["sorgente"]).info["ha_audio"] for t in risolto["tratti"]):
         voce = ["-i", str(voce_pulita(elenco, archivio.lavoro(slug) / "voce" / quale, stile))]
     else:
         voce = ["-f", "concat", "-safe", "0", "-i", str(elenco)]

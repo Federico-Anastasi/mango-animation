@@ -154,7 +154,7 @@
     "pezzo": {
       "type": "object",
       "additionalProperties": false,
-      "oneOf": [{ "required": ["sorgente"], "not": { "required": ["durata"] } }, { "required": ["durata"], "maxProperties": 1 }],
+      "oneOf": [{ "required": ["sorgente"], "not": { "required": ["durata"] } }, { "required": ["durata"], "propertyNames": { "enum": ["durata", "girato", "zoom", "vista", "evidenzia"] }, "dependentRequired": { "zoom": ["girato"], "vista": ["girato"], "evidenzia": ["girato"] } }],
       "properties": {
         "sorgente": { "type": "string" },
         "durata": { "type": "number", "exclusiveMinimum": 0 },

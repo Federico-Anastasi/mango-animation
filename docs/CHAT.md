@@ -129,9 +129,11 @@ Nelle conversazioni lette dal file non c'è la Parte `fine` (il file non ha cost
 
 **Task** (un lavoro che Claude Code ha in corso, sotto «I lavori in background»).
 
-    { id, tipo: "comando" | "agente" | "altro", descrizione, iniziato, background }
+    { id, tipo: "comando" | "agente" | "altro", descrizione, iniziato, background, uso?: { token, strumenti } }
                                                                  `descrizione`: ciò che Claude Code dice del lavoro; `iniziato`: l'istante (ISO)
-                                                                 in cui il server l'ha visto; `background`: `false` se Claude lo sta aspettando
+                                                                 in cui il server l'ha visto; `background`: `false` se Claude lo sta aspettando;
+                                                                 `uso`: i token e gli strumenti usati dall'inizio, dall'ultimo messaggio di
+                                                                 avanzamento (assente finché non ne arriva uno)
 
 **Richiesta** (Claude chiede, il creator risponde con un bottone). L'`id` è quello della chiamata dello strumento.
 
@@ -242,8 +244,10 @@ aspetta lo stesso la fine del comando): non si usa.
 
 - **Cosa si segue.** I messaggi `system` dell'SDK: `task_started` (con `is_backgrounded`: `false` è un lavoro che Claude aspetta; Claude Code lo
   manda dopo qualche secondo di comando, non subito), `task_updated` (il passaggio in background, la fine), `task_notification` (la fine) e
-  `background_tasks_changed`, l'elenco di ciò che è in background a ogni cambio, che rimette a posto ciò che si fosse perso. `task.ts` ne fa
-  l'elenco `task` della conversazione e ogni cambio è l'evento `task`. Non entrano i lavori di servizio e quelli di un sottoagente. Un
+  `background_tasks_changed`, l'elenco di ciò che è in background a ogni cambio, che rimette a posto ciò che si fosse perso, e `task_progress`
+  (`usage.total_tokens` e `usage.tool_uses` diventano `uso`, solo di un lavoro già nell'elenco; ogni cambio è un evento `task`). `task.ts` ne fa
+  l'elenco `task` della conversazione e ogni cambio è l'evento `task`. Non entrano i lavori di servizio e quelli di un sottoagente. Lo studio scrive
+  `uso` come «12,4k token · 18 strumenti» nella scheda di un lavoro in background e, sommato, nella riga di lavoro mentre Claude ne aspetta uno in primo piano. Un
   lavoro in background resta da un giro all'altro e finisce con il processo di Claude Code (la conversazione che si chiude o cade).
 - **Mandare in background** (`POST /api/chat/:id/background`): il server lo rifiuta (409) se nell'elenco non c'è niente in primo piano; poi
   chiede `backgroundTasks()` per tutti, senza scegliere un lavoro.

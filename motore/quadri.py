@@ -382,7 +382,7 @@ class Compositore:
         stile = self.stile
         L, A, fps = (self.risolto["formato"][c] for c in ("largo", "alto", "fps"))
         durata = t["durata"]
-        # Un tratto senza voce (pezzo con `durata`) non legge nessuna sorgente: solo l'animazione, e il silenzio.
+        # Un tratto senza voce (pezzo con `durata`) non legge la voce: il silenzio, sotto l'animazione o il suo `girato` muto.
         ingressi = [["-ss", f"{t['da']:.4f}", "-t", f"{durata:.4f}", "-i", sorgente.percorso]] if sorgente else []
         ingredienti = {"file": [self._impronta_file(sorgente.percorso)] if sorgente else []}
         # Ciò che lo strato `girato` mostra: la ripresa del tratto, o un'altra (`girato` del pezzo), ferma o che scorre.
@@ -470,8 +470,8 @@ class Compositore:
             elif tipo == "riquadro":
                 r = visto.spec.get("riquadri", {}).get(strato["nome"])
                 if r is None:
-                    raise Errore(f"la sorgente «{t['sorgente']}» non ha il riquadro «{strato['nome']}», che il quadro «{scena['quadro']}» mostra: dichiaralo in `riquadri` della sorgente",
-                                 f"the source «{t['sorgente']}» has no box «{strato['nome']}», which the frame «{scena['quadro']}» shows: declare it in `riquadri` of the source")
+                    raise Errore(f"la sorgente «{visto.nome}» non ha il riquadro «{strato['nome']}», che il quadro «{scena['quadro']}» mostra: dichiaralo in `riquadri` della sorgente",
+                                 f"the source «{visto.nome}» has no box «{strato['nome']}», which the frame «{scena['quadro']}» shows: declare it in `riquadri` of the source")
                 rx, ry, rw, rh = r
                 vw, vh = round(rw * strato["scala"]), round(rh * strato["scala"])
                 m = ingresso("-loop", "1", "-i", maschera(self.lavoro / "maschere", vw, vh, strato["raggio"]))
@@ -479,7 +479,8 @@ class Compositore:
                            f"[{corrente}][r{n}]overlay={(L - vw) // 2}:{strato['y']}[{dove}]"]
                 usate += 1
             elif tipo == "viso":
-                r, altra = visto.spec.get("riquadri", {}).get(strato["nome"]), sorgente.spec.get("viso")
+                # Il viso registrato a parte va col tempo della voce: un pezzo senza voce lo può prendere solo da un riquadro del suo girato.
+                r, altra = visto.spec.get("riquadri", {}).get(strato["nome"]), sorgente.spec.get("viso") if sorgente else None
                 if r is not None:
                     rx, ry, rw, rh = r
                     entrata, taglio = f"v{usate}", f"crop={rw}:{rh}:{rx}:{ry},"
@@ -491,8 +492,8 @@ class Compositore:
                     filtri.append(f"[{i}:v]fps={fps}:start_time=0,setsar=1[c{n}]")
                     entrata, taglio = f"c{n}", ""
                 else:
-                    raise Errore(f"la sorgente «{t['sorgente']}» non ha il viso «{strato['nome']}», che il quadro «{scena['quadro']}» mostra: dichiaralo in `riquadri` o in `viso` della sorgente",
-                                 f"the source «{t['sorgente']}» has no face «{strato['nome']}», which the frame «{scena['quadro']}» shows: declare it in `riquadri` or in `viso` of the source")
+                    raise Errore(f"la sorgente «{visto.nome}» non ha il viso «{strato['nome']}», che il quadro «{scena['quadro']}» mostra: dichiaralo in `riquadri` o in `viso` della sorgente",
+                                 f"the source «{visto.nome}» has no face «{strato['nome']}», which the frame «{scena['quadro']}» shows: declare it in `riquadri` or in `viso` of the source")
                 vw = strato["largo"]
                 vh = round(rh * vw / rw / 2) * 2
                 m = ingresso("-loop", "1", "-i", maschera(self.lavoro / "maschere", vw, vh, strato["raggio"]))

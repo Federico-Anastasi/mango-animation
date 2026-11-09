@@ -6,7 +6,7 @@ from .errori import Errore
 from .media import info, pcm_16k
 from .profilo import richiedi
 from .sottotitoli import chiave, parole_pulite, secondi
-from .voce import leggi_onda, livello
+from .voce import MINIMO_DB, leggi_onda, livello
 
 
 class Sorgente:
@@ -27,6 +27,9 @@ class Sorgente:
         return Errore(f"la sorgente «{self.nome}» non è preparata ({cosa}): lancia `python -m motore prepara {self.slug}`",
                       f"the source «{self.nome}» is not prepared ({cosa_en}): run `python -m motore prepara {self.slug}`")
 
+    def senza_audio(self, cosa, cosa_en):
+        return Errore(f"la sorgente «{self.nome}» non ha una traccia audio: {cosa}", f"the source «{self.nome}» has no audio track: {cosa_en}")
+
     @property
     def info(self):
         if self._info is None:
@@ -35,7 +38,9 @@ class Sorgente:
 
     @property
     def parole(self):
-        if self._parole is None:
+        if self._parole is None and not self.info["ha_audio"]:
+            self._parole = []
+        elif self._parole is None:
             file = self.preparati / "parole.json"
             if not file.exists():
                 richiedi("trascrizione", f"la sorgente «{self.nome}» non ha le parole e il video le vuole per tagliare e sottotitolare",
@@ -47,7 +52,10 @@ class Sorgente:
     @property
     def db(self):
         """Il livello della voce per centesimo di secondo, dal secondo zero del contenitore."""
-        if self._db is None:
+        if self._db is None and not self.info["ha_audio"]:
+            # Senza traccia audio non c'è voce in nessun istante.
+            self._db = np.full(round(self.info["durata"] * 100), MINIMO_DB, dtype=np.float32)
+        elif self._db is None:
             file = self.preparati / "onda.bin"
             if not file.exists():
                 raise self._manca("manca il livello della voce", "the voice level is missing")
@@ -75,6 +83,8 @@ class Sorgente:
     def scegli(self, minuto, dice):
         """Le parole (da, a escluso) di `dice`: la prima volta che vengono dette dal `minuto` della trascrizione."""
         ap = self.archivio.stile["taglio"]["a_parole"]
+        if not self.info["ha_audio"]:
+            raise self.senza_audio("un pezzo con `dice` ha bisogno della voce: dagli un `da` e un `a`", "a piece with `dice` needs the voice: give it a `da` and an `a`")
         if self._testo is None:
             self._testo = ("".join(p["chiave"] for p in self.parole), np.cumsum([0, *(len(p["chiave"]) for p in self.parole)]))
         testo, inizi = self._testo

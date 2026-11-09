@@ -294,11 +294,12 @@ fn ricorda_pagina(app: &AppHandle, url: &Url) {
     }
 }
 
-fn apri_nel_browser(app: &AppHandle, url: &str) {
-    use tauri_plugin_opener::OpenerExt;
+fn apri_nel_browser(url: &str) {
     if let Ok(parsed) = Url::parse(url) {
         if matches!(parsed.scheme(), "http" | "https" | "mailto") {
-            let _ = app.opener().open_url(parsed.as_str(), None::<&str>);
+            if let Err(e) = supervisor::apri_fuori_dal_giobbe(parsed.as_str()) {
+                eprintln!("link non aperto ({url}): {e}");
+            }
             return;
         }
     }
@@ -341,7 +342,6 @@ fn prepara(app: &tauri::App) -> Result<()> {
     istanza::registra(&app.path().app_local_data_dir()?, &istanza::Istanza::questa()?)?;
 
     let per_i_link_nav = app.handle().clone();
-    let per_i_link_popup = app.handle().clone();
     let finestra = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Mango Animation")
         .inner_size(1500.0, 950.0)
@@ -357,8 +357,8 @@ fn prepara(app: &tauri::App) -> Result<()> {
         // Ultimo: misura le chiamate dei ponti definiti prima.
         .initialization_script(segnalazione::PONTE)
         // target=_blank e window.open: mai una seconda finestra dell'app, sempre il browser di sistema.
-        .on_new_window(move |url, _| {
-            apri_nel_browser(&per_i_link_popup, url.as_str());
+        .on_new_window(|url, _| {
+            apri_nel_browser(url.as_str());
             NewWindowResponse::Deny
         })
         // un link che porterebbe la finestra fuori dall'app (pagina d'attesa o studio) va al browser.
@@ -367,7 +367,7 @@ fn prepara(app: &tauri::App) -> Result<()> {
             if e_interna(url) {
                 return true;
             }
-            apri_nel_browser(&per_i_link_nav, url.as_str());
+            apri_nel_browser(url.as_str());
             false
         })
         .build()?;

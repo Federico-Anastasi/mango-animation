@@ -47,6 +47,14 @@ export interface TaskChat {
   /** ISO. */
   iniziato: string
   background: boolean
+  /** Quanto ha usato finora, dai messaggi di avanzamento dell'SDK: assente finché non ne arriva uno. */
+  uso?: UsoTask
+}
+
+/** I token e gli strumenti che un lavoro ha usato dal suo inizio. */
+export interface UsoTask {
+  token: number
+  strumenti: number
 }
 
 export type StatoChat = "pronta" | "lavora" | "aspetta" | "errore"

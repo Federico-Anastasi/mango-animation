@@ -73,6 +73,39 @@ describe("il dettaglio di una foto", () => {
   })
 })
 
+describe("il dettaglio di un video senza traccia audio", () => {
+  const video = (preparato: Partial<PreparatoGrezzo>): FileGrezzo => ({ ...foto("muto.mp4"), scheda: { tipo: "schermo", origine: "registrazione", durata: 12, note: "" }, preparato: { ...VUOTO, ...preparato } })
+  // Preparato un video muto, il motore non scrive il livello della voce né le parole: restano la copia leggera e la miniatura.
+  const preparatoMuto = { leggero: "preparati/2026-10-06/muto.mp4/leggero.mp4", miniatura: "preparati/2026-10-06/muto.mp4/miniatura.jpg" }
+
+  it("dice che il file non ha audio, non che il parlato non è stato ancora trascritto", () => {
+    dettaglio(video(preparatoMuto))
+    expect(screen.getByText("Il file non ha audio: non c'è parlato da trascrivere.")).toBeInTheDocument()
+    expect(screen.queryByText(/non è stato ancora trascritto/)).toBeNull()
+    expect(screen.queryByText("Non ancora preparato.")).toBeNull()
+  })
+
+  it("in inglese lo dice in inglese", () => {
+    scegliLingua("en")
+    dettaglio(video(preparatoMuto))
+    expect(screen.getByText("This file has no audio, so there is no speech to transcribe.")).toBeInTheDocument()
+    expect(screen.queryByText(/has not been transcribed yet/)).toBeNull()
+  })
+
+  it("un video non ancora preparato non si sa se ha audio: resta «non ancora trascritto»", () => {
+    dettaglio(video({}))
+    expect(screen.getByText(/Il parlato non è stato ancora trascritto/)).toBeInTheDocument()
+    expect(screen.queryByText(/non ha audio/)).toBeNull()
+    expect(screen.getByText("Non ancora preparato.")).toBeInTheDocument()
+  })
+
+  it("un video con audio e le parole ancora da fare non è «senza audio»", () => {
+    dettaglio(video({ ...preparatoMuto, onda: "preparati/2026-10-06/muto.mp4/onda.bin" }))
+    expect(screen.getByText(/Il parlato non è stato ancora trascritto/)).toBeInTheDocument()
+    expect(screen.queryByText(/non ha audio/)).toBeNull()
+  })
+})
+
 describe("l'elenco del girato", () => {
   it("una foto è «Foto», non «Ripresa»", async () => {
     installaRete({ "GET /api/grezzo": [{ giorno: "2026-10-06", file: [foto("IMG_0001.HEIC", { miniatura: "preparati/x/miniatura.jpg" }), { ...foto("a.mp4"), scheda: { tipo: "ripresa", origine: "telefono", durata: 12, note: "" } }] }], "GET /api/video": [] })

@@ -305,7 +305,7 @@ def test_a_tempo_un_a_oltre_la_fine_del_file_si_ferma_alla_fine(tempo, archivio)
 
 class Muta:
     """Una sorgente a tavolino per il taglio a tempo: la voce sta negli intervalli dati (secondi), il resto è silenzio."""
-    nome, sfasa = "v", 0.0
+    nome, sfasa, info = "v", 0.0, {"ha_audio": True}
     parole = [{"da": 0.0, "a": 0.2}, {"da": 8.9, "a": 10.0}]
 
     def __init__(self, voce, fine=10.0):

@@ -673,6 +673,50 @@ describe("i lavori in background", () => {
     expect(await compiti(c, id)).toEqual([comeDaFare("a1", "agente", true), comeDaFare("w1", "altro", true)])
   })
 
+  describe("i token e gli strumenti che un lavoro usa", () => {
+    const avanza = (id: string, total_tokens: number, tool_uses: number) => ({ type: "system", subtype: "task_progress", task_id: id, description: `Lavoro ${id}`, usage: { total_tokens, tool_uses, duration_ms: 1000 } })
+
+    test("arrivano coi messaggi di avanzamento e si aggiornano a ogni messaggio, in background e in primo piano", async () => {
+      const c = await avvia()
+      const ascolto = await ascolta(c.a)
+      const { id, q } = await nuova(c)
+      q.emetti(init, partito("a1", { task_type: "local_agent", is_backgrounded: true }), partito("f1", { task_type: "local_agent" }))
+      await aspetta(async () => (await compiti(c, id)).length === 2)
+      expect(await compiti(c, id)).toEqual([comeDaFare("a1", "agente", true), comeDaFare("f1", "agente", false)])
+
+      q.emetti(avanza("a1", 1200, 3), avanza("f1", 800, 1), avanza("a1", 12_400, 18))
+      await aspetta(async () => ((await compiti(c, id)) as { uso?: { token: number } }[])[0]?.uso?.token === 12_400)
+      expect(await compiti(c, id)).toEqual([
+        { ...comeDaFare("a1", "agente", true), uso: { token: 12_400, strumenti: 18 } },
+        { ...comeDaFare("f1", "agente", false), uso: { token: 800, strumenti: 1 } },
+      ])
+      // Ogni avanzamento è un evento `task` con l'elenco intero: lo studio vede i numeri salire.
+      const visti = eventiChat(ascolto, id).flatMap((e) => (e.evento === "task" ? [e.task.find((t) => t.id === "a1")?.uso?.token] : []))
+      expect(visti).toContain(1200)
+      expect(visti.at(-1)).toBe(12_400)
+      ascolto.chiudi()
+    })
+
+    test("l'elenco dell'SDK a ogni cambio e il passaggio in background non cancellano i numeri", async () => {
+      const c = await avvia()
+      const { id, q } = await nuova(c)
+      q.emetti(init, partito("a1", { task_type: "local_agent" }), avanza("a1", 5000, 7))
+      await aspetta(async () => ((await compiti(c, id)) as { uso?: unknown }[])[0]?.uso !== undefined)
+      q.emetti({ type: "system", subtype: "task_updated", task_id: "a1", patch: { is_backgrounded: true } }, livello({ task_id: "a1", task_type: "local_agent" }), partito("a1", { task_type: "local_agent", is_backgrounded: true }))
+      await aspetta(async () => ((await compiti(c, id)) as { background: boolean }[])[0]?.background === true)
+      expect(await compiti(c, id)).toEqual([{ ...comeDaFare("a1", "agente", true), uso: { token: 5000, strumenti: 7 } }])
+    })
+
+    test("l'avanzamento di un lavoro che non si mostra o non c'è più non ne fa comparire uno", async () => {
+      const c = await avvia()
+      const { id, q } = await nuova(c)
+      q.emetti(init, partito("s1", { ambient: true }), partito("a1", { task_type: "local_agent", is_backgrounded: true }), avanza("s1", 100, 1), avanza("sconosciuto", 100, 1), finito("a1"), avanza("a1", 9000, 9))
+      await aspetta(async () => (await dettaglio(c, id)).corpo.stato !== undefined)
+      await Bun.sleep(50)
+      expect(await compiti(c, id)).toEqual([])
+    })
+  })
+
   test("l'elenco che l'SDK manda a ogni cambio rimette a posto ciò che si è perso", async () => {
     const c = await avvia()
     const { id, q } = await nuova(c)

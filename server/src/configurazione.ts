@@ -115,9 +115,13 @@ function mostraInEsplora(percorso: string, eCartella: boolean): void {
   Bun.spawn(eCartella ? ["explorer.exe", percorso] : ["explorer.exe", `/select,${percorso}`], { stdin: "ignore", stdout: "ignore", stderr: "ignore" })
 }
 
-/** `rundll32` e non `cmd /c start`: l'indirizzo ha «&», che `cmd` prenderebbe per un secondo comando. */
+/**
+ * `explorer.exe` passa l'indirizzo all'Esplora risorse già acceso, che apre il browser fuori dal giobbe dell'app: un browser che
+ * non era aperto resta aperto quando l'app si chiude (con `rundll32` nasceva dentro il giobbe e moriva con l'app). Non `cmd /c start`:
+ * l'indirizzo ha «&», che `cmd` prenderebbe per un secondo comando.
+ */
 export function apriNelBrowser(indirizzo: string): void {
-  Bun.spawn(["rundll32", "url.dll,FileProtocolHandler", indirizzo], { stdin: "ignore", stdout: "ignore", stderr: "ignore" })
+  Bun.spawn(["explorer.exe", indirizzo], { stdin: "ignore", stdout: "ignore", stderr: "ignore" })
 }
 
 /** L'unico punto del server che cerca la cartella di lavoro. */

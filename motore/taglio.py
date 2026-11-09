@@ -14,7 +14,13 @@ def quadri(secondi, fps):
 def a_tempo(sorgente, pezzo, stile):
     """I tratti (da, a) della sorgente che restano, a tempo: dalla prima all'ultima voce, senza le pause lunghe e i tratti in `via`."""
     t, v = stile["taglio"]["a_tempo"], stile["voce"]
-    parla = sorgente.voce
+    if not sorgente.info["ha_audio"]:
+        if "da" not in pezzo or "a" not in pezzo:
+            raise sorgente.senza_audio("dai un `da` e un `a` al pezzo", "give the piece a `da` and an `a`")
+        # Senza traccia audio non c'è silenzio da togliere: ogni istante si tiene.
+        parla = np.ones(len(sorgente.voce), dtype=bool)
+    else:
+        parla = sorgente.voce
     sonori = np.flatnonzero(parla)
     if ("da" not in pezzo or "a" not in pezzo) and not len(sonori):
         raise Errore(f"nella sorgente «{sorgente.nome}» non c'è voce: dai un `da` e un `a` al pezzo",

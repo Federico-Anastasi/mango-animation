@@ -35,6 +35,8 @@ def pcm_16k(file, da=None, durata=None):
 
     taglio = [] if da is None else ["-ss", f"{da:.3f}", "-t", f"{durata:.3f}"]
     esito = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", *taglio, "-i", str(file), "-vn", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], capture_output=True)
+    if esito.returncode != 0 and not info(file)["ha_audio"]:
+        raise Errore(f"{Path(file).name} non ha una traccia audio", f"{Path(file).name} has no audio track")
     if esito.returncode != 0:
         raise Errore(f"non riesco a leggere l'audio di {file}: {esito.stderr.decode(errors='replace').strip()[-300:]}",
                      f"I cannot read the audio of {file}: {esito.stderr.decode(errors='replace').strip()[-300:]}")

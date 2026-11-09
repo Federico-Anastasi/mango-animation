@@ -25,7 +25,6 @@
 
 .figura text {
   font-family: var(--font-testo);
-  font-size: 68px;
   text-anchor: middle;
   dominant-baseline: middle;
   fill: var(--inchiostro);

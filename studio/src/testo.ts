@@ -23,6 +23,16 @@ export function quantitaGrossa(n: number): string {
   return t("{n} miliardi", "{n} billion", { n: numero(n / 1_000_000_000, 1) })
 }
 
+/** Un conteggio in poche cifre, come lo scrive il terminale: «820», «12,4k», «234k», «1,2M». */
+export function quantitaCompatta(n: number): string {
+  // I confini sono quelli dopo l'arrotondamento: 999.500 è «1M», non «1.000k».
+  if (n < 1000) return numero(Math.round(n))
+  if (n < 99_950) return `${numero(Math.round(n / 100) / 10)}k`
+  if (n < 999_500) return `${numero(Math.round(n / 1000))}k`
+  if (n < 99_950_000) return `${numero(Math.round(n / 100_000) / 10)}M`
+  return `${numero(Math.round(n / 1_000_000))}M`
+}
+
 /** «1,5 s», «2 min 5 s», «1 h 2 min». */
 export function durata(secondi: number): string {
   if (secondi < 60) return `${numero(secondi, secondi < 10 ? 1 : 0)} s`

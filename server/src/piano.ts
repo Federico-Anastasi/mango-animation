@@ -13,7 +13,7 @@ export interface Sorgente {
   viste?: Record<string, Vista>
 }
 
-/** Un pezzo di una sorgente o, in un video di sola animazione, un pezzo senza voce (`durata`). */
+/** Un pezzo di una sorgente o un pezzo senza voce (`durata`): solo l'animazione, o il `girato` muto di una ripresa. */
 export interface Pezzo {
   sorgente?: string
   durata?: number
@@ -132,11 +132,11 @@ export function controllaRiferimenti(piano: Piano, quadriDelloStile: ReadonlySet
     scena.pezzi.forEach((pezzo, j) => {
       if (pezzo.girato !== undefined) sorgenteEsiste(pezzo.girato.sorgente, `${dove}.pezzi[${j}].girato`)
       const { sorgente } = pezzo
-      if (sorgente === undefined) return
-      sorgenteEsiste(sorgente, `${dove}.pezzi[${j}]`)
-      // La vista inquadra ciò che si vede: col girato di un'altra ripresa è quella, non la voce.
-      const vista = pezzo.vista ?? scena.vista
+      if (sorgente !== undefined) sorgenteEsiste(sorgente, `${dove}.pezzi[${j}]`)
+      // La vista inquadra ciò che si vede: col girato di un'altra ripresa è quella, non la voce; un pezzo senza voce né girato non ne ha.
       const visto = pezzo.girato?.sorgente ?? sorgente
+      if (visto === undefined) return
+      const vista = pezzo.vista ?? scena.vista
       if (vista !== undefined && visto in sorgenti && !(vista in (sorgenti[visto]?.viste ?? {}))) {
         problemi.push(frase(`${dove}.pezzi[${j}]: la vista «${vista}» non è dichiarata in «sorgenti.${visto}.viste».`, `${dove}.pezzi[${j}]: the view «${vista}» is not declared in «sorgenti.${visto}.viste».`))
       }

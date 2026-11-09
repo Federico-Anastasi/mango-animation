@@ -138,3 +138,58 @@ def test_valida_conosce_i_pezzi_senza_voce_i_suoni_di_una_scena_e_il_girato_che_
                          "scene": [{"nome": "s", "pezzi": [{"sorgente": "voce", "da": 0.6, "a": 2.4, "girato": {"sorgente": "muto", "da": 3.0, "a": 2.0}}]}]})
     errori, _ = valida(archivio, "mac", controlla_animazioni=False)
     assert errori == ["la scena «s», pezzo 1: il girato va da 3.0 a 2.0 s di «muto»: `a` dev'essere dopo `da`"]
+
+
+def test_un_pezzo_senza_voce_mostra_muto_il_suo_girato(archivio, scrivi_piano, memo_e_muto, tmp_path):
+    """Il primo montaggio di una ripresa muta, con la voce da registrare dopo: due secondi a velocità vera, poi sei secondi stretti in uno."""
+    _, muto = memo_e_muto
+    scrivi_piano("muto", {"quadro": "girato-pieno", "sorgenti": {"muto": {"file": muto}}, "scene": [
+        {"nome": "vero", "pezzi": [{"durata": 1.5, "girato": {"sorgente": "muto", "da": 0.0}}]},
+        {"nome": "svelto", "pezzi": [{"durata": 1.0, "girato": {"sorgente": "muto", "da": 2.0, "a": 8.0}, "zoom": {"scala": 1.2, "centro": [0.5, 0.5]}}]}]})
+    assert valida(archivio, "muto", controlla_animazioni=False) == ([], [])
+    r = risolvi(archivio, "muto")
+    assert [t["sorgente"] for t in r["tratti"]] == [None, None] and r["parole"] == [] and r["battute"] == []
+    assert [t["girato"] for t in r["tratti"]] == [{"sorgente": "muto", "da": 0.0, "passo": 1.0}, {"sorgente": "muto", "da": 2.0, "passo": 6.0}]
+    assert r["tratti"][1]["zoom"] == {"scala": 1.2, "centro": [0.5, 0.5]} and abs(r["durata"] - 2.5) < 1e-6
+
+    file, montato = monta_con_animazioni(archivio, "muto", tmp_path)
+    assert abs(montato["durata"] - 2.5) < 0.1
+    # Il primo pezzo corre a velocità vera (rosso fino ai 2 s del muto); il secondo passa in un secondo dal verde dei 2 s al giallo dei 6.
+    assert vicino(fotogramma(file, 0.2)[300, 540], ROSSO) and vicino(fotogramma(file, 1.3)[300, 540], ROSSO)
+    assert vicino(fotogramma(file, 1.55)[300, 540], VERDE)
+    assert vicino(fotogramma(file, 2.4)[300, 540], GIALLO)
+    # Niente voce e niente sottotitoli: il video tace.
+    assert np.abs(audio(file)).max() < 0.01
+    assert scritta_bianca(fotogramma(file, 0.8)) == 0
+
+
+def test_un_pezzo_senza_voce_col_girato_si_scrive_solo_nelle_sue_forme(archivio, scrivi_piano, memo_e_muto):
+    memo, muto = memo_e_muto
+    sorgenti = {"voce": {"file": memo}, "muto": {"file": muto}}
+
+    def piano(quadro, pezzo, **scena):
+        scrivi_piano("forme", {"quadro": quadro, "sorgenti": sorgenti, "scene": [{"nome": "s", "pezzi": [pezzo], **scena}]})
+        return valida(archivio, "forme", controlla_animazioni=False)[0]
+
+    girato = {"sorgente": "muto", "fermo": 3.0}
+    assert piano("girato-pieno", {"durata": 2, "girato": girato, "evidenzia": [0, 0, 100, 100]}) == []
+    # Zoom, vista ed evidenzia vanno su ciò che si vede: senza `girato` un pezzo senza voce non li ha.
+    errori = piano("solo-animazione", {"durata": 2, "zoom": {"scala": 1.2}}, animazione="a1")
+    assert len(errori) == 1 and errori[0].endswith("scene[0].pezzi[0]: va scritto in una sola delle sue forme (docs/PIANO.md), e ha durata, zoom"), errori
+    for di_troppo in ({"dice": "ciao"}, {"da": 1.0}, {"sagoma": {"sorgente": "voce", "scarto": 0}}, {"sorgente": "voce"}):
+        errori = piano("girato-pieno", {"durata": 2, "girato": girato, **di_troppo})
+        assert len(errori) == 1 and "una sola delle sue forme" in errori[0], (di_troppo, errori)
+    # Senza voce non c'è la sagoma di chi parla, e un girato che il quadro non mostra non si vedrebbe.
+    errori = piano("girato-e-sagoma", {"durata": 2, "girato": girato})
+    assert errori == ["la scena «s», pezzo 1: un pezzo senza voce (`durata`) non ha la ripresa di chi parla, e il quadro «girato-e-sagoma» mostra la sagoma: "
+                      "scegli un quadro senza sagoma (come girato-pieno)"], errori
+    with pytest.raises(Errore, match="mostra la sagoma"):
+        risolvi(archivio, "forme")
+    errori = piano("solo-animazione", {"durata": 2, "girato": girato}, animazione="a1")
+    assert any("non mostra un girato" in e for e in errori), errori
+    assert piano("girato-pieno", {"durata": 2, "girato": {"sorgente": "altro", "da": 0}}) == [
+        "la scena «s», pezzo 1 prende il girato da «altro», che il piano non dichiara fra le `sorgenti`"]
+    # Un girato che corre oltre la fine della ripresa si ferma come nei pezzi con la voce: qui 6 s da 3 s di una ripresa di 8.
+    piano("girato-pieno", {"durata": 6, "girato": {"sorgente": "muto", "da": 3.0}})
+    with pytest.raises(Errore, match="oltre la fine"):
+        risolvi(archivio, "forme")

@@ -91,18 +91,21 @@ export interface Preparato {
 }
 
 export interface TrattoRisolto {
-  /** `null` per un pezzo senza voce, o se il risolto non lo dice. */
+  /** Da quale sorgente si prende il fotogramma del tratto: la sua voce o, per un pezzo senza voce, il suo `girato` muto; `null` per un pezzo di sola animazione, o se il risolto non lo dice. */
   sorgente: string | null
   da: number | null
 }
 
+const numero = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : null)
+
 export function trattiDelRisolto(risolto: unknown): TrattoRisolto[] {
   const tratti = (risolto as { tratti?: unknown } | null)?.tratti
   if (!Array.isArray(tratti)) return []
-  return tratti.map((t: { sorgente?: unknown; da?: unknown } | null) => ({
-    sorgente: typeof t?.sorgente === "string" ? t.sorgente : null,
-    da: typeof t?.da === "number" && Number.isFinite(t.da) ? t.da : null,
-  }))
+  return tratti.map((t: { sorgente?: unknown; da?: unknown; girato?: { sorgente?: unknown; da?: unknown; fermo?: unknown } | null } | null) => {
+    if (typeof t?.sorgente === "string") return { sorgente: t.sorgente, da: numero(t.da) }
+    const muto = t?.girato
+    return typeof muto?.sorgente === "string" ? { sorgente: muto.sorgente, da: numero(muto.fermo ?? muto.da) } : { sorgente: null, da: null }
+  })
 }
 
 export interface VoceGrezzo {

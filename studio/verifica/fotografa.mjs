@@ -337,7 +337,7 @@ async function chatBackground(pagina) {
   await pagina.evaluate(() => localStorage.setItem("mango-animation.chat.corrente", "background"))
   await pagina.reload()
   await apriChat(pagina)
-  await pagina.getByRole("group", { name: /^Lavoro in background/ }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-background: la scheda del lavoro in background non compare"))
+  await pagina.getByRole("group", { name: /^Lavoro in background/ }).first().waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-background: la scheda del lavoro in background non compare"))
   await pagina.getByRole("button", { name: "Manda in background" }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-background: il bottone «Manda in background» non compare"))
   await pagina.waitForTimeout(500)
 }

@@ -1,7 +1,7 @@
 //! Gli aggiornamenti contro un server di aggiornamenti finto, senza installare niente: versioni, firma dell'updater valida e non valida, configurazione.
 //! Un file di prove a parte perché usa l'app finta di Tauri, che vuole il manifesto dei controlli di Windows (`build.rs`).
 
-use mango_animation_lib::aggiornamento::{cerca, dopo_il_si, installata, scarica, stato_d_errore, Fallito, Passo, Proposta};
+use mango_animation_lib::aggiornamento::{cerca, cerca_su, dopo_il_si, installata, scarica, stato_d_errore, Fallito, Passo, Proposta};
 use serde_json::json;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -76,6 +76,23 @@ fn un_manifesto_senza_questo_sistema_o_un_indirizzo_che_non_risponde_e_un_errore
     let libero = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
     let app = app_alla_versione("0.1.0", &format!("http://127.0.0.1:{libero}/latest.json"), CHIAVE_DELLA_PROVA);
     assert!(cerca(app.handle()).is_err());
+}
+
+#[test]
+fn un_indirizzo_di_prova_prende_il_posto_di_quello_della_configurazione() {
+    let libero = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let app = app_alla_versione("0.1.0", &format!("http://127.0.0.1:{libero}/latest.json"), CHIAVE_DELLA_PROVA);
+    assert!(cerca(app.handle()).is_err(), "quello della configurazione non risponde");
+    let di_prova = server("0.1.1", FIRMA, CARICO.to_vec(), SISTEMA);
+    let p = cerca_su(app.handle(), Some(&di_prova)).unwrap().expect("l'indirizzo di prova ha la 0.1.1");
+    assert_eq!(p.stato.nuova, "0.1.1");
+}
+
+#[test]
+fn un_indirizzo_di_prova_che_non_e_di_questo_computer_si_rifiuta_senza_chiedere_in_rete() {
+    let app = app_alla_versione("0.1.0", &server("0.1.1", FIRMA, CARICO.to_vec(), SISTEMA), CHIAVE_DELLA_PROVA);
+    let errore = cerca_su(app.handle(), Some("https://example.com/latest.json")).err().expect("un indirizzo non locale è un errore, non una ricerca");
+    assert!(errore.contains("MANGO_ANIMATION_UPDATE_URL"), "{errore}");
 }
 
 #[test]

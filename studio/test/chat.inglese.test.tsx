@@ -93,6 +93,14 @@ describe("la chat in inglese", () => {
     expect(screen.getByText("What went wrong")).toBeInTheDocument()
   })
 
+  it("la scheda di un lavoro in background dice token e strumenti in inglese", async () => {
+    rete({ "GET /api/chat/c1": conversazione({ task: [{ id: "a1", tipo: "agente", descrizione: "Search", iniziato: new Date(Date.now() - 65_000).toISOString(), background: true, uso: { token: 12_400, strumenti: 18 } }] }) })
+    negozio.apri("c1")
+    render(<PannelloChat />)
+    const scheda = await screen.findByRole("group", { name: "Background job: Search" })
+    expect(scheda).toHaveTextContent("Subagent · In the background for 1 min 5 s · 12.4k tokens · 18 tools")
+  })
+
   it("il bottone, le descrizioni degli strumenti e il markdown", () => {
     rete()
     render(<BottoneChat />)

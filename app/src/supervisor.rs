@@ -2,7 +2,8 @@
 //!
 //! L'app entra in un Job Object con KILL_ON_JOB_CLOSE all'avvio: ogni figlio e nipote lo eredita, quindi
 //! quando l'app si chiude, o va in crash, Windows li uccide tutti. Ne esce solo chi parte con CREATE_BREAKAWAY_FROM_JOB:
-//! l'installatore di un aggiornamento, che deve sopravvivere all'app (`aggiornamento.rs`).
+//! l'installatore di un aggiornamento, che deve sopravvivere all'app (`aggiornamento.rs`), e i programmi che l'app apre per
+//! il creator (`apri_fuori_dal_giobbe`).
 
 use crate::lingua::t;
 use anyhow::{Context, Result};
@@ -21,6 +22,8 @@ use windows::Win32::System::JobObjects::{
 use windows::Win32::System::Threading::GetCurrentProcess;
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+/// Il processo esce dal giobbe dell'app (che lo permette) e le sopravvive.
+pub const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
 
 pub struct Giobbe(HANDLE);
 
@@ -162,6 +165,24 @@ impl Supervisore {
         }
     }
 }
+
+/// Apre un file, una cartella o un indirizzo col suo programma di Windows, fuori dal giobbe dell'app: il browser o il foglio di calcolo
+/// che l'app apre per il creator devono restare aperti quando l'app si chiude. Il plugin `opener` li avviava dentro il giobbe e Windows
+/// li chiudeva insieme all'app (un browser che non era già aperto). Lo stesso comando del plugin: `Invoke-Item` per i percorsi,
+/// `Start-Process` per gli indirizzi; la destinazione passa da una variabile d'ambiente, non dal testo del comando.
+pub fn apri_fuori_dal_giobbe(destinazione: &str) -> std::io::Result<()> {
+    Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", COMANDO_APRI])
+        .env("MANGO_APRI_DESTINAZIONE", destinazione)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB)
+        .spawn()
+        .map(|_| ())
+}
+
+const COMANDO_APRI: &str = "$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath $env:MANGO_APRI_DESTINAZIONE) { Invoke-Item -LiteralPath $env:MANGO_APRI_DESTINAZIONE } else { Start-Process -FilePath $env:MANGO_APRI_DESTINAZIONE }";
 
 /// Il processo `pid` e i suoi discendenti. Solo di processi avviati dall'app: mai per nome.
 pub fn uccidi_albero(pid: u32) {

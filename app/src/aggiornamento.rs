@@ -2,12 +2,13 @@
 //! Il pacchetto è firmato con la chiave dell'updater di Tauri (non è un certificato a pagamento): l'app controlla la firma con la chiave pubblica scritta in `tauri.conf.json`.
 
 use crate::lingua::t;
+use crate::supervisor::CREATE_BREAKAWAY_FROM_JOB;
 use serde::Serialize;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Runtime, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 const ATTESA_DELLA_RISPOSTA: Duration = Duration::from_secs(15);
@@ -36,9 +37,35 @@ pub struct Proposta {
     update: Update,
 }
 
+/// La variabile con cui una prova degli aggiornamenti indica un altro `latest.json`, prima di pubblicare (`docs/APP.md`, «Cosa si prova solo installando»).
+pub const VARIABILE_INDIRIZZO_DI_PROVA: &str = "MANGO_ANIMATION_UPDATE_URL";
+
+/// L'indirizzo di prova, se c'è: solo di questo computer (`127.0.0.1` o `localhost`), perché chi controlla gli aggiornamenti da un altro indirizzo decide cosa si installa.
+/// Un valore vuoto è come se la variabile non ci fosse; uno di un altro computer o non scritto bene è un errore, non si cerca altrove di nascosto.
+pub fn indirizzo_di_prova(valore: Option<&str>) -> Result<Option<Url>, String> {
+    let Some(valore) = valore.filter(|v| !v.is_empty()) else { return Ok(None) };
+    match Url::parse(valore) {
+        Ok(url) if matches!(url.scheme(), "http" | "https") && matches!(url.host_str(), Some("127.0.0.1" | "localhost")) => Ok(Some(url)),
+        _ => Err(t(
+            format!("{variabile} vale «{valore}»: si accetta solo un indirizzo http o https su 127.0.0.1 o localhost", variabile = VARIABILE_INDIRIZZO_DI_PROVA),
+            format!("{variabile} is «{valore}»: only an http or https address on 127.0.0.1 or localhost is accepted", variabile = VARIABILE_INDIRIZZO_DI_PROVA),
+        )),
+    }
+}
+
 /// C'è una versione nuova? Se l'indirizzo non risponde (nessuna rete, nessuna uscita pubblicata) o il manifesto non è scritto bene, l'errore va a chi chiama.
+/// L'indirizzo è quello di `tauri.conf.json`, o quello della variabile di prova.
 pub fn cerca<R: Runtime>(app: &AppHandle<R>) -> Result<Option<Proposta>, String> {
-    let updater = app.updater_builder().timeout(ATTESA_DELLA_RISPOSTA).build().map_err(|e| e.to_string())?;
+    cerca_su(app, std::env::var(VARIABILE_INDIRIZZO_DI_PROVA).ok().as_deref())
+}
+
+/// Come `cerca`, con l'indirizzo di prova dato (vedi `indirizzo_di_prova`).
+pub fn cerca_su<R: Runtime>(app: &AppHandle<R>, valore_di_prova: Option<&str>) -> Result<Option<Proposta>, String> {
+    let mut costruttore = app.updater_builder().timeout(ATTESA_DELLA_RISPOSTA);
+    if let Some(url) = indirizzo_di_prova(valore_di_prova)? {
+        costruttore = costruttore.endpoints(vec![url]).map_err(|e| e.to_string())?;
+    }
+    let updater = costruttore.build().map_err(|e| e.to_string())?;
     let trovato = tauri::async_runtime::block_on(updater.check()).map_err(|e| e.to_string())?;
     Ok(trovato.map(|update| Proposta {
         stato: StatoAggiornamento { fase: "proposta".into(), corrente: update.current_version.clone(), nuova: update.version.clone(), note: update.body.clone().filter(|n| !n.trim().is_empty()), ..Default::default() },
@@ -62,9 +89,6 @@ pub fn scarica(proposta: &Proposta, mut avanza: impl FnMut(u64, u64)) -> Result<
 
 /// L'installatore NSIS in modalità passiva (`/P`), come aggiornamento (`/UPDATE`), e riapre l'app quando ha finito (`/R`).
 const ARGOMENTI_DELL_INSTALLATORE: [&str; 3] = ["/P", "/UPDATE", "/R"];
-
-/// Il processo esce dal giobbe dell'app (`supervisor.rs` lo permette) e sopravvive all'app che si chiude.
-const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
 
 /// Scrive l'installatore scaricato in `cartella`.
 fn scrivi_installatore(cartella: &Path, versione: &str, pacchetto: &[u8]) -> Result<PathBuf, String> {
@@ -168,6 +192,30 @@ mod prove {
         assert_eq!(file, t.path().join("mango-animation-aggiornamento-0.1.1").join("mango-animation-0.1.1-setup.exe"));
         assert_eq!(std::fs::read(&file).unwrap(), b"pacchetto");
         assert_eq!(ARGOMENTI_DELL_INSTALLATORE, ["/P", "/UPDATE", "/R"]);
+    }
+
+    #[test]
+    fn l_indirizzo_di_prova_si_accetta_solo_su_questo_computer() {
+        assert_eq!(indirizzo_di_prova(None), Ok(None));
+        assert_eq!(indirizzo_di_prova(Some("")), Ok(None));
+        for valido in ["http://127.0.0.1:8765/latest.json", "http://localhost:8765/latest.json", "https://localhost/latest.json"] {
+            assert_eq!(indirizzo_di_prova(Some(valido)).map(|u| u.map(String::from)), Ok(Some(valido.to_owned())), "{valido}");
+        }
+        for rifiutato in [
+            "https://example.com/latest.json",
+            "http://127.0.0.1.example.com/latest.json",
+            "http://localhost@example.com/latest.json",
+            "http://192.168.1.50:8765/latest.json",
+            "http://0.0.0.0:8765/latest.json",
+            "file:///C:/latest.json",
+            "127.0.0.1:8765/latest.json",
+            "non è un indirizzo",
+        ] {
+            let errore = indirizzo_di_prova(Some(rifiutato)).expect_err(rifiutato);
+            assert!(errore.contains(VARIABILE_INDIRIZZO_DI_PROVA) && errore.contains(rifiutato), "{errore}");
+        }
+        let (it, en) = (con(Lingua::It, || indirizzo_di_prova(Some("https://example.com/")).unwrap_err()), con(Lingua::En, || indirizzo_di_prova(Some("https://example.com/")).unwrap_err()));
+        assert!(it != en && !en.chars().any(|c| "àèéìòù".contains(c)), "{it} / {en}");
     }
 
     fn scarico_fallito() -> Fallito {

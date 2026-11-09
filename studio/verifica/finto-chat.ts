@@ -298,6 +298,7 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
       inAttesa: [],
       task: [
         { id: "bg1", tipo: "comando", descrizione: "Rende le 9 slide del carosello della dispensa", iniziato: fa(75), background: true },
+        { id: "bg2", tipo: "agente", descrizione: "Cerca nel girato i passaggi sul forno", iniziato: fa(140), background: true, uso: { token: 12_400, strumenti: 18 } },
         { id: "fg1", tipo: "comando", descrizione: "Controlla tutti i video dell'archivio", iniziato: fa(20), background: false },
       ],
       messaggi: [

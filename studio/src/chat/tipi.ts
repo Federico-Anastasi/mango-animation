@@ -50,6 +50,14 @@ export interface TaskChat {
   descrizione: string
   iniziato: string
   background: boolean
+  /** Quanto ha usato finora: assente finché il server non ne sa niente. */
+  uso?: UsoTask
+}
+
+/** I token e gli strumenti che un lavoro ha usato dal suo inizio. */
+export interface UsoTask {
+  token: number
+  strumenti: number
 }
 
 export type StatoConversazione = "pronta" | "lavora" | "aspetta" | "errore"

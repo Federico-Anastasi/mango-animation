@@ -748,6 +748,26 @@ describe("i lavori in background", () => {
     await waitFor(() => expect(chiamate.some((c) => c.metodo === "POST" && c.percorso === "/api/chat/c1/task/b1/ferma")).toBe(true))
   })
 
+  it("la scheda dice quanti token e strumenti il lavoro ha usato, e li aggiorna mentre va", async () => {
+    await apriConversazione({ task: [task("a1", true, { tipo: "agente", uso: { token: 12_400, strumenti: 18 } })], messaggi: [fa("m1", "Cerca")] })
+    const scheda = screen.getByRole("group", { name: "Lavoro in background: Esporta a1" })
+    expect(scheda).toHaveTextContent("Sottoagente · In background da 1 min 5 s · 12,4k token · 18 strumenti")
+    await manda({ id: "c1", evento: "task", task: [task("a1", true, { tipo: "agente", uso: { token: 13_900, strumenti: 19 } })] })
+    expect(screen.getByRole("group", { name: "Lavoro in background: Esporta a1" })).toHaveTextContent("13,9k token · 19 strumenti")
+  })
+
+  it("un solo strumento è «1 strumento»; senza numeri la scheda non ne scrive", async () => {
+    await apriConversazione({ task: [task("a1", true, { tipo: "agente", uso: { token: 820, strumenti: 1 } }), task("b1", true), task("a2", true, { tipo: "agente", uso: { token: 0, strumenti: 0 } })], messaggi: [fa("m1", "Cerca")] })
+    expect(screen.getByRole("group", { name: "Lavoro in background: Esporta a1" })).toHaveTextContent("820 token · 1 strumento")
+    expect(screen.getByRole("group", { name: "Lavoro in background: Esporta b1" })).not.toHaveTextContent(/token/)
+    expect(screen.getByRole("group", { name: "Lavoro in background: Esporta a2" })).not.toHaveTextContent(/token/)
+  })
+
+  it("mentre Claude aspetta un sottoagente, la riga di lavoro mostra anche i suoi numeri", async () => {
+    await apriConversazione({ stato: "lavora", attiva: true, lavora_da: fa_(30), task: [task("f1", false, { tipo: "agente", uso: { token: 12_400, strumenti: 18 } }), task("f2", false, { uso: { token: 600, strumenti: 2 } })], messaggi: [fa("m1", "Cerca")] })
+    expect(screen.getByRole("status")).toHaveTextContent("13k token · 20 strumenti")
+  })
+
   it("se il server non ferma il lavoro lo dice, e la scheda resta", async () => {
     await apriConversazione({ task: [task("b1", true)] })
     rete({ "GET /api/chat/c1": conversazione(), "POST /api/chat/c1/task/b1/ferma": errore(502, "Claude Code non ha fermato il lavoro: occupato") })

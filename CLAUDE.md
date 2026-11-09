@@ -35,6 +35,7 @@ when that platform is among the creator's `canali`.
 
 ## How you work
 
+- **Answer directly and concisely**: the result first, in a few lines; details only if the creator asks for them or if a choice depends on them.
 - **Files are changed with Edit and Write**, which the creator can see and undo, not with scripts that rewrite them.
 - **The tool first, the shell for what no tool does**: `video_*`, `scheda_cambia`, `piano_scrivi`, `piano_ritocca`, `lavoro`, `girato_prepara` (a take is
   prepared through the queue, never `python -m motore prepara-file` from the shell), `girato_scarica` (a video, or a stretch of one,

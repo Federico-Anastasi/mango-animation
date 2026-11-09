@@ -32,7 +32,7 @@
 - **`sorgenti`**: i file del girato, ognuno col nome con cui il piano lo chiama. `file` è relativo ad
   `archivio/grezzo/`. Il file può essere solo audio (un memo vocale, una voce registrata a parte): se il quadro della scena mostra il girato,
   ogni suo pezzo vuole allora `girato`; sopra la sola animazione (`solo-animazione`) no. Una foto
-  (JPEG, PNG) è una sorgente di un fotogramma solo, da mostrare come `girato` con `fermo: 0`. Facoltativi: `sfasamento` (di quanti secondi l'audio parte dopo il video nel file),
+  (JPEG, PNG) è una sorgente di un fotogramma solo, da mostrare come `girato` con `fermo: 0`. Un video senza traccia audio (una registrazione dello schermo) è una sorgente senza voce: non ha parole né livello, i suoi pezzi vogliono `da` e `a` (con `dice` il piano non va) e si tengono interi, senza pause da togliere; il suo audio è silenzio. Facoltativi: `sfasamento` (di quanti secondi l'audio parte dopo il video nel file),
   `immagine` (`"continua"`: per uno schermo registrato, senza viso; l'immagine non salta a ogni taglio della voce ma corre fino al tratto dopo, fra due salti veri non resta mai meno di `immagine.minimo` di `stile.json`, e non corre mai oltre `immagine.passo_massimo` volte la velocità: oltre, corre al massimo e poi salta),
   `riquadri` (rettangoli `[x, y, largo, alto]` del fotogramma con un nome: la webcam di una diretta),
   `viste` (rettangoli da mostrare, con un nome; `inserto` è un secondo rettangolo tenuto sopra; `"segui": true` tiene la persona al centro: il `taglio` dà misure e altezza, e scorre in orizzontale dietro la testa, levigato come una camera che segue), `viso` (`{ "sorgente": nome di un'altra sorgente del piano, "scarto": secondi }`: il file del viso registrato a parte, che a `scarto` ha lo stesso istante del secondo zero di questa sorgente).
@@ -48,8 +48,11 @@
     che l'allineatore non sa scrivere in lettere) il bordo del pezzo si cerca sul livello della voce. `rifila: [inizio, fine]`
     sposta a mano i due bordi, in secondi (negativo = prima), da quello già trovato: se cade dentro la voce
     finisce negli `avvisi`.
-  - **senza voce**: solo `durata` (secondi), nessuna sorgente: per un video di sole animazioni e suoni, senza girato. Si vede
-    l'animazione della scena, e il quadro non deve mostrare altro; si sentono solo i `suoni`.
+  - **senza voce**: `durata` (secondi del video), nessuna sorgente; si sentono solo i `suoni`, e non ci sono sottotitoli. Da solo
+    mostra l'animazione della scena, e il quadro non deve mostrare altro. Con `girato` (lo stesso del pezzo con la voce, sotto)
+    mostra muta quella ripresa: `fermo`, o da `da` a velocità vera, o da `da` ad `a` stretta nella `durata` (accelerata), con
+    facoltativi `vista`, `zoom` ed `evidenzia`; il quadro mostra il girato ma non la sagoma (`girato-pieno`). Serve a un primo
+    montaggio su una ripresa muta, con la voce da registrare dopo.
   Su ogni pezzo con una sorgente: `evidenzia` (`[x, y, largo, alto]` nel fotogramma della sorgente: un riquadro attorno alla
   zona di cui si parla, per la durata del pezzo; colore e spessore dallo stile), `vista` (se diversa da quella della scena) e `zoom`
   (`{ "scala": 1.2, "centro": [0.5, 0.35] }`, oppure `"da"` e `"a"` al posto di `scala` per uno zoom che
@@ -198,7 +201,8 @@ taglio, coi secondi della sorgente, e dove un tratto riprende l'audio del tratto
 - `voto` di una parola è quello dell'allineamento, solo per i pezzi a parole; per i pezzi a tempo la parola
   ha i tempi della trascrizione e `voto` è `null`.
 - `testo` di una battuta tiene gli asterischi delle correzioni (il `.srt` li toglie).
-- Il tratto di un pezzo senza voce ha `sorgente` `null` e `da` 0: niente parole, il suo audio è silenzio.
+- Il tratto di un pezzo senza voce ha `sorgente` `null` e `da` 0: niente parole, il suo audio è silenzio. Col suo `girato`,
+  `girato` è `{ "sorgente", "da", "passo" }` (o col `fermo`), come nei pezzi con la voce.
 - `suoni[].file` è come sta nel piano; `guadagno` porta il suo picco a quello chiesto.
 
 ## I ritocchi a mano

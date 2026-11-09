@@ -31,7 +31,9 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
   const scheda = file.scheda ?? { tipo: "altro" as const, origine: "altro" as const }
   const eUnaFoto = eFoto(nome)
   const immagine = preparato.foto ?? (siApreNelBrowser(nome) ? `grezzo/${file.file}` : preparato.miniatura)
-  const completo = Boolean(preparato.parole && preparato.leggero && preparato.miniatura && preparato.onda)
+  // Un file senza traccia audio non ha livello della voce né parole: la sua preparazione finisce con la copia leggera, e `onda` non c'è mai.
+  const senzaAudio = preparato.onda === null && preparato.leggero !== null
+  const completo = Boolean(preparato.leggero && preparato.miniatura && (senzaAudio || (preparato.parole && preparato.onda)))
 
   useEffect(() => {
     setParole(null)
@@ -145,7 +147,8 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
       {!eUnaFoto && (
         <section>
           <h3>{t("Il parlato", "The speech")}</h3>
-          {preparato.parole === null && <p className={styles.meta}>{t("Il parlato non è stato ancora trascritto: preparando il file compare qui, con i tempi.", "The speech has not been transcribed yet: once the file is prepared it appears here, with timings.")}</p>}
+          {senzaAudio && <p className={styles.meta}>{t("Il file non ha audio: non c'è parlato da trascrivere.", "This file has no audio, so there is no speech to transcribe.")}</p>}
+          {preparato.parole === null && !senzaAudio && <p className={styles.meta}>{t("Il parlato non è stato ancora trascritto: preparando il file compare qui, con i tempi.", "The speech has not been transcribed yet: once the file is prepared it appears here, with timings.")}</p>}
           {preparato.parole !== null && erroreParole && <p className={styles.errore}>{erroreParole}</p>}
           {preparato.parole !== null && !erroreParole && parole === null && <Caricamento />}
           {parole && parole.length === 0 && <p className={styles.meta}>{t("In questo file non c'è parlato.", "There is no speech in this file.")}</p>}

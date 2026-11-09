@@ -305,8 +305,9 @@ fn ogni_frase_di_app_js_ha_l_italiano_e_l_inglese() {
 }
 
 /// Testi del Rust che non sono frasi per chi legge: il codice di un altro programma (che non si traduce) e i codici di stato che la pagina traduce da sé.
-const AMMESSI: [(&str, &str); 6] = [
+const AMMESSI: [(&str, &str); 7] = [
     ("supervisor.rs", "AssignProcessToJobObject"),
+    ("supervisor.rs", "$ErrorActionPreference"),
     ("computer/installa.rs", "import "),
     ("lavoro.rs", "Add-Type"),
     ("dati.rs", "(() =>"),
