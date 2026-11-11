@@ -74,7 +74,7 @@ describe.each([
   ["Ctrl+Interr", 1, false],
   ["Ctrl+Interr a `bun run avvia`", 1, true],
 ] as const)("la chiusura con %s", (_nome, evento, conBunRun) => {
-  test("ferma il lavoro in corso per PID, con i suoi figli, scrive l'esito e libera le porte", async () => {
+  test(`ferma il lavoro in corso per PID, con i suoi figli, ${conBunRun ? "" : "scrive l'esito "}e libera le porte`, async () => {
     const radice = await mkdtemp(join(tmpdir(), "mango-animation-chiusura-"))
     cartelle.push(radice)
     const archivio = join(radice, "archivio")
@@ -125,9 +125,18 @@ describe.each([
 
     const registro = join(archivio, "lavori.jsonl")
     const righeDelRegistro = async (): Promise<string[]> => (await readFile(registro, "utf-8").catch(() => "")).trim().split("\n").filter(Boolean)
-    const registrati = (await aspetta(async () => ((await righeDelRegistro()).length >= 2 ? await righeDelRegistro() : null), 20_000)).map((r) => JSON.parse(r) as { comando: string; esito: string })
-    expect(registrati).toMatchObject([{ comando: "monta", esito: "in corso" }, { comando: "monta", esito: "interrotto" }])
-    await aspetta(() => !èVivo(lavoro) && !èVivo(figlio))
+    const lette = async (): Promise<{ comando: string; esito: string }[]> => (await righeDelRegistro()).map((r) => JSON.parse(r) as { comando: string; esito: string })
+    if (conBunRun) {
+      // `bun run`, morendo, può portarsi via il server prima che scriva l'esito: allora lo scrive il prossimo avvio (coda.test.ts,
+      // «se il server muore senza chiudere»). Qui si guarda che il lavoro e i figli siano fermi e che nel registro non ci sia altro.
+      await aspetta(() => !èVivo(lavoro) && !èVivo(figlio), 20_000)
+      const [inCorso, ...dopo] = await lette()
+      expect(inCorso).toMatchObject({ comando: "monta", esito: "in corso" })
+      expect(dopo).toMatchObject(dopo.length > 0 ? [{ comando: "monta", esito: "interrotto" }] : [])
+    } else {
+      expect(await aspetta(async () => ((await righeDelRegistro()).length >= 2 ? await lette() : null), 20_000)).toMatchObject([{ comando: "monta", esito: "in corso" }, { comando: "monta", esito: "interrotto" }])
+      await aspetta(() => !èVivo(lavoro) && !èVivo(figlio))
+    }
     for (const p of [porta, portaArrivi]) {
       const libera = await aspetta(() => {
         try {

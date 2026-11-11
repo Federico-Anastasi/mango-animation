@@ -7,7 +7,7 @@ import { unisciStile } from "../../strumenti/stile.mjs"
 import type { CaricatoreCanali } from "./caricatoreCanali"
 import type { Coda, RichiestaLavoro } from "./coda"
 import type { Opzioni, Percorsi } from "./configurazione"
-import { elenca, jsonDaTesto, leggiTesto, NON_SI_LEGGE, scrivi, statistica, testoJson } from "./disco"
+import { elenca, jsonDaTesto, leggiTesto, NON_SI_LEGGE, scrivi, statistica, statisticaEsatta, testoJson } from "./disco"
 import type { CosaDelVideo, Eventi } from "./eventi"
 import { PREPARATO_VUOTO, trattiDelRisolto, voceVuota, type Indice, type Preparato, type Scheda, type SchedaGrezzo, type Uscita, type VoceVideo } from "./indice"
 import { percorsoSicuro } from "./media"
@@ -15,7 +15,7 @@ import { applicaBase, controllaCompleto, controllaRiferimenti, fileDelPiano, typ
 import { giudicaProfilo } from "./profilo"
 import type { NomeSchema, Schemi } from "./schemi"
 import type { Miniature, MisureMiniatura } from "./miniature"
-import { segnaGliStessiFile } from "./montato"
+import { idDelFile, segnaGliStessiFile } from "./montato"
 import { pezziDichiarati } from "./sagoma"
 import { eHeic, type Sonda } from "./sonda"
 import { descriviVersioni, leggiPosizione, leggiVersione, leggiVersioni, muovi, registraNuovaVersione, ripristina, type VersioneDelPiano } from "./storia"
@@ -416,11 +416,11 @@ export class Elaboratore {
   private async ricaricaUscite(voce: VoceVideo): Promise<void> {
     const cartella = this.percorsi.uscite(voce.slug)
     const file = (await elenca(cartella)).filter((d) => d.isFile() && eFileDelGirato(d.name))
-    const lette = await Promise.all(file.map(async (d) => ({ nome: d.name, stato: await statistica(join(cartella, d.name)) })))
+    const lette = await Promise.all(file.map(async (d) => ({ nome: d.name, stato: await statisticaEsatta(join(cartella, d.name)) })))
     const presenti = lette.flatMap(({ nome, stato }) => (stato ? [{ file: `video/${voce.slug}/uscite/${nome}`, stato }] : []))
-    const stessi = segnaGliStessiFile(presenti.map(({ file, stato }) => ({ file, id: stato.ino === 0 ? null : `${stato.dev}:${stato.ino}` })))
+    const stessi = segnaGliStessiFile(presenti.map(({ file, stato }) => ({ file, id: idDelFile(stato) })))
     const uscite: Uscita[] = presenti
-      .map(({ file, stato }) => ({ file, byte: stato.size, cambiato: new Date(stato.mtimeMs).toISOString(), stesso_file: stessi.get(file) ?? null }))
+      .map(({ file, stato }) => ({ file, byte: Number(stato.size), cambiato: new Date(Number(stato.mtimeMs)).toISOString(), stesso_file: stessi.get(file) ?? null }))
       .sort((a, b) => a.file.localeCompare(b.file))
     if (JSON.stringify(uscite) === JSON.stringify(voce.uscite)) return
     voce.uscite = uscite

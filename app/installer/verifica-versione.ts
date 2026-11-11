@@ -1,5 +1,5 @@
 // Controlla che la versione dell'app sia la stessa in tutti i file che la scrivono e che se ne possa fare un'uscita: `tauri.conf.json`, `Cargo.toml`, `motore/__init__.py`, il tag (`v` + versione, se si dà `--tag`) e le note dell'uscita con l'elenco delle novità. Esce con 1 a ogni differenza.
-// Uso, dalla radice del repo: bun run app/installer/verifica-versione.ts [--tag v0.1.2]   (il workflow delle uscite lo lancia prima di tutto)
+// Uso, dalla radice del repo: bun run app/installer/verifica-versione.ts [--tag v0.1.2]   (il workflow delle uscite lo lancia prima di costruire)
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { novita } from "./pubblica"

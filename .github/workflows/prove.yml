@@ -1,0 +1,66 @@
+# Le prove che girano sul computer di GitHub (`docs/APP.md`, «Installer e aggiornamenti»): senza scheda video, senza segreti e
+# senza l'environment delle uscite. Le lancia il workflow `release` prima di costruire, e si lanciano a mano («Run workflow») su
+# qualunque ramo. Escluse: le prove di `motore/` (pytest, vogliono torch e gli altri pacchetti del motore, gigabyte da scaricare),
+# quelle di `strumenti/` tranne gli avvisi di terzi (vogliono Pillow e Playwright), e le `#[ignore]` di `app/` (finestra, motore e
+# rete veri).
+name: prove
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: app
+
+      - name: I pacchetti di studio, animazioni e server
+        run: |
+          bun install --cwd studio --frozen-lockfile
+          bun install --cwd animazioni --frozen-lockfile
+          bun install --cwd server --frozen-lockfile
+
+      # Le prove del server fanno e leggono video veri, e il computer di GitHub non ha ffmpeg: si prende quello che l'app scarica
+      # per il creator, dall'indirizzo e con l'impronta di `app/src/computer/manifesto.json`. Un archivio diverso ferma il passo.
+      - name: ffmpeg per le prove
+        run: |
+          read -r URL SHA CARTELLA < <(bun -e 'const a = (await Bun.file("app/src/computer/manifesto.json").json()).elementi.find((e) => e.id === "ffmpeg").archivio; console.log(a.url, a.sha256, a.cartella.da)' | tr -d '\r')
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o ffmpeg.zip "$URL"
+          echo "$SHA *ffmpeg.zip" | sha256sum -c -
+          unzip -q ffmpeg.zip -d ffmpeg
+          cygpath -w "$PWD/ffmpeg/$CARTELLA" >> "$GITHUB_PATH"
+
+      - name: Prove
+        run: |
+          (cd app && cargo test --locked)
+          (cd app && bun test prove installer)
+          (cd studio && bun run test)
+          (cd studio && bun run lint)
+          (cd animazioni && bun test)
+          (cd server && bun test)
+          python -m pip install pytest==8.3.4
+          python -m pytest strumenti/prove/test_avvisi_terzi.py -q

@@ -1,6 +1,6 @@
 // Ogni accesso al disco del server passa da qui: le letture sono contate, perché la prova di costo
 // di una rotta di lettura è che il contatore non si muova.
-import type { Dirent, Stats } from "node:fs"
+import type { BigIntStats, Dirent, Stats } from "node:fs"
 import { appendFile, copyFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
 import { randomUUID } from "node:crypto"
@@ -81,6 +81,17 @@ export async function statistica(percorso: string): Promise<Stats | null> {
   contatori.letture++
   try {
     return await stat(percorso)
+  } catch (errore) {
+    if (mancante(errore)) return null
+    throw errore
+  }
+}
+
+/** Come `statistica`, con i numeri interi esatti: serve a chi confronta `dev` e `ino` di due file. */
+export async function statisticaEsatta(percorso: string): Promise<BigIntStats | null> {
+  contatori.letture++
+  try {
+    return await stat(percorso, { bigint: true })
   } catch (errore) {
     if (mancante(errore)) return null
     throw errore

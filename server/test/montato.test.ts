@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { link, mkdir, utimes, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { Uscita } from "../src/indice"
-import { montatoDi, pianoDopoIlMontato, segnaGliStessiFile } from "../src/montato"
+import { idDelFile, montatoDi, pianoDopoIlMontato, segnaGliStessiFile } from "../src/montato"
 import { videoDaGuardare } from "../src/arrivi/guarda"
 import { avviaAmbiente, chiama, fermaTutti, piano, scriviVideo } from "./aiuti"
 
@@ -68,6 +68,13 @@ describe("il video montato", () => {
       { file: "u/b.bin", id: null },
     ])
     expect(Object.fromEntries(m)).toEqual({ "u/a.bin": null, "u/b.bin": null, "u/con-copertina.mp4": null, "u/finale.mp4": "u/con-copertina.mp4", "u/finale.srt": null })
+  })
+
+  test("due file vicini su un disco che numera i file oltre 2^53 non sono lo stesso file", () => {
+    const grande = 2n ** 53n + 1686743n
+    expect(idDelFile({ dev: 4031815358n, ino: grande })).not.toBe(idDelFile({ dev: 4031815358n, ino: grande + 1n }))
+    expect(idDelFile({ dev: 4031815358n, ino: grande })).toBe(idDelFile({ dev: 4031815358n, ino: grande }))
+    expect(idDelFile({ dev: 4031815358n, ino: 0n })).toBeNull()
   })
 
   test("la scheda del telefono guarda il montato giusto, non una copertina rimasta di un montaggio più vecchio", () => {

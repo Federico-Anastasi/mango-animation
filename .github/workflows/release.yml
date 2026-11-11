@@ -1,5 +1,5 @@
-# L'uscita di una versione (`docs/APP.md`, «Installer e aggiornamenti»): un tag `vX.Y.Z` (o `vX.Y.Z-rc.N`) controlla la versione,
-# lancia le prove, costruisce l'installatore, lo firma su Windows, ne controlla la firma, scrive `latest.json` e crea l'uscita con installatore, firma e `latest.json`.
+# L'uscita di una versione (`docs/APP.md`, «Installer e aggiornamenti»): un tag `vX.Y.Z` (o `vX.Y.Z-rc.N`) lancia le prove
+# (il workflow `prove`), controlla la versione, costruisce l'installatore, lo firma su Windows, ne controlla la firma, scrive `latest.json` e crea l'uscita con installatore, firma e `latest.json`.
 # Un'uscita senza firma non si pubblica: senza la chiave il workflow si ferma (un fork mette i suoi segreti, `docs/APP.md`, «La firma»).
 # La chiave la legge solo il passo «Firma l'installatore»: prove, costruzione e pacchetti girano prima e senza.
 # L'uscita nasce come bozza, si controlla che i tre file ci siano tutti e solo allora si pubblica: chi ha l'app non vede mai un'uscita a metà.
@@ -13,7 +13,12 @@ permissions:
   contents: write
 
 jobs:
+  # Le prove girano in un lavoro a parte, senza l'environment: l'approvazione si chiede solo se sono verdi.
+  prove:
+    uses: ./.github/workflows/prove.yml
+
   windows:
+    needs: prove
     runs-on: windows-latest
     # I segreti della firma sono usabili solo dopo l'approvazione sull'environment.
     environment: release
@@ -53,31 +58,6 @@ jobs:
           bun install --cwd studio --frozen-lockfile
           bun install --cwd animazioni --frozen-lockfile
           bun install --cwd server --frozen-lockfile
-
-      # Le prove del server fanno e leggono video veri, e il computer di GitHub non ha ffmpeg: si prende quello che l'app scarica
-      # per il creator, dall'indirizzo e con l'impronta di `app/src/computer/manifesto.json`. Un archivio diverso ferma il passo.
-      - name: ffmpeg per le prove
-        run: |
-          read -r URL SHA CARTELLA < <(bun -e 'const a = (await Bun.file("app/src/computer/manifesto.json").json()).elementi.find((e) => e.id === "ffmpeg").archivio; console.log(a.url, a.sha256, a.cartella.da)' | tr -d '\r')
-          cd "$RUNNER_TEMP"
-          curl -fsSL --retry 3 -o ffmpeg.zip "$URL"
-          echo "$SHA *ffmpeg.zip" | sha256sum -c -
-          unzip -q ffmpeg.zip -d ffmpeg
-          cygpath -w "$PWD/ffmpeg/$CARTELLA" >> "$GITHUB_PATH"
-
-      # Le prove che non vogliono scheda video né rete esterna, prima di costruire e senza segreti. Escluse: le prove di
-      # `motore/` (pytest, vogliono torch e gli altri pacchetti del motore, gigabyte da scaricare), quelle di `strumenti/`
-      # tranne gli avvisi di terzi (vogliono Pillow e Playwright), e le `#[ignore]` di `app/` (finestra, motore e rete veri).
-      - name: Prove
-        run: |
-          (cd app && cargo test --locked)
-          (cd app && bun test prove installer)
-          (cd studio && bun run test)
-          (cd studio && bun run lint)
-          (cd animazioni && bun test)
-          (cd server && bun test)
-          python -m pip install pytest==8.3.4
-          python -m pytest strumenti/prove/test_avvisi_terzi.py -q
 
       - name: Costruzione
         working-directory: app

@@ -15,6 +15,9 @@ export function montatoDi(uscite: readonly Uscita[]): Uscita | null {
   return eLoStessoFile(finale, conCopertina) || Date.parse(conCopertina.cambiato) >= Date.parse(finale.cambiato) ? conCopertina : finale
 }
 
+/** Ciò che dice quale file è sul disco, o `null` se il disco non lo sa dire. Numeri interi esatti: Windows numera i file anche oltre 2^53, dove due file vicini letti come numeri normali diventano uguali. */
+export const idDelFile = (stato: { dev: bigint; ino: bigint }): string | null => (stato.ino === 0n ? null : `${stato.dev}:${stato.ino}`)
+
 /** I file che sono lo stesso file sul disco (stesso collegamento, `id` uguale): il primo per nome è il file, degli altri si dice qual è. */
 export function segnaGliStessiFile(voci: ReadonlyArray<{ file: string; id: string | null }>): Map<string, string | null> {
   const primo = new Map<string, string>()

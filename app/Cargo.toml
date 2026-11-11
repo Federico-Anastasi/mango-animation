@@ -1,6 +1,6 @@
 [package]
 name = "mango-animation"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "Mango Animation: the archive and editing bench for your videos"
 license = "AGPL-3.0-or-later"

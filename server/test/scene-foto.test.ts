@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { aspetta, avviaAmbiente, chiama, fermaTutti, piano, righeDelFinto, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
@@ -26,7 +26,8 @@ if (sigla === "tante") {
 
 let cartella: string
 beforeAll(async () => {
-  cartella = await mkdtemp(join(tmpdir(), "mango-animation-finte-scene-"))
+  // Il nome intero: la cartella temporanea può arrivare col nome corto di Windows, e lo script stampa i percorsi con quello lungo.
+  cartella = await realpath(await mkdtemp(join(tmpdir(), "mango-animation-finte-scene-")))
   await writeFile(join(cartella, "scene.ts"), FINTE_SCENE)
 })
 afterAll(() => rm(cartella, { recursive: true, force: true }))
