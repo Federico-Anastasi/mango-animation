@@ -291,6 +291,31 @@ describe("GET /api/canale/:canale/messaggi", () => {
   })
 })
 
+describe("il legame tra un video del canale e la sua scheda", () => {
+  const conSchede = () =>
+    avviaAmbiente({}, async (c) => {
+      await dueLetture(c)
+      await scriviVideo(c, "orto")
+      await scriviVideo(c, "nuovo", { titolo: "Nuovo", stato: "pubblicato", creato: "2026-10-06", pubblicazioni: [{ canale: "tiktok", data: "2026-10-09T18:00", url: "https://www.tiktok.com/@mio/video/333?lang=it" }] })
+      await scriviVideo(c, "su-youtube", { titolo: "Su YouTube", stato: "pubblicato", creato: "2026-10-06", pubblicazioni: [{ canale: "youtube", data: "2026-10-09T18:00", url: "https://youtu.be/222" }] })
+    })
+
+  test("un video che la lettura non lega prende lo slug dalla scheda la cui pubblicazione ha il suo indirizzo", async () => {
+    const a = await conSchede()
+    const r = await chiama<{ video: { id: string; slug: string | null }[] }>(a, "GET", "/api/canale/tiktok")
+    const slugDi = (id: string) => r.corpo.video.find((v) => v.id === id)?.slug ?? null
+    expect(slugDi("333")).toBe("nuovo")
+    expect(slugDi("111")).toBe("orto")
+    expect(slugDi("222")).toBeNull()
+  })
+
+  test("i commenti di un video si trovano anche con il legame della scheda", async () => {
+    const a = await conSchede()
+    expect((await chiama(a, "GET", "/api/video/nuovo/commenti")).corpo).toEqual({ commenti: [], nuovi: [], legato: true, canale: "tiktok", video: "333", lettura: null })
+    expect((await chiama(a, "GET", "/api/video/su-youtube/commenti")).corpo).toEqual({ commenti: [], legato: false })
+  })
+})
+
 describe("GET /api/video/:slug/commenti", () => {
   test("i commenti del video del canale legato a quello slug", async () => {
     const a = await conLetture()

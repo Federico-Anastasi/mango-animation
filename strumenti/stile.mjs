@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { dice } from "./lingua.mjs"
 
 const eOggetto = (v) => typeof v === "object" && v !== null && !Array.isArray(v)
 
@@ -12,20 +13,20 @@ export function unisciStile(serie, creator) {
   return unito
 }
 
-function leggiJson(percorso, cosa) {
+function leggiJson(percorso, cosa, cosaEn) {
   try {
     return JSON.parse(readFileSync(percorso, "utf8"))
   } catch (errore) {
-    throw new Error(`${cosa} non si legge (${percorso}): ${errore.message}`)
+    throw new Error(dice(`${cosa} non si legge (${percorso}): ${errore.message}`, `${cosaEn} cannot be read (${percorso}): ${errore.message}`))
   }
 }
 
 /** Lo stile di serie del prodotto (`<codice>/stile.json`) con sopra quello del creator (`<lavoro>/stile.json`), se la cartella di lavoro ne ha uno. */
 export function leggiStile(codice, lavoro) {
-  const serie = leggiJson(join(codice, "stile.json"), "lo stile (stile.json)")
+  const serie = leggiJson(join(codice, "stile.json"), "lo stile (stile.json)", "the style (stile.json)")
   const delCreator = lavoro ? join(lavoro, "stile.json") : null
   if (!delCreator || !existsSync(delCreator)) return serie
-  const sopra = leggiJson(delCreator, "lo stile del creator")
-  if (!eOggetto(sopra)) throw new Error(`lo stile del creator (${delCreator}) dev'essere un oggetto JSON`)
+  const sopra = leggiJson(delCreator, "lo stile del creator", "the creator style")
+  if (!eOggetto(sopra)) throw new Error(dice(`lo stile del creator (${delCreator}) dev'essere un oggetto JSON`, `the creator style (${delCreator}) must be a JSON object`))
   return unisciStile(serie, sopra)
 }

@@ -27,6 +27,7 @@ const conversazione = (extra: Partial<DettaglioConversazione> = {}): DettaglioCo
   in_attesa: [],
   task: [],
   contesto_usato: null,
+  primo_giro: false,
   ...extra,
 })
 
@@ -108,6 +109,18 @@ describe("la chat in inglese", () => {
     fireEvent.click(riga)
     expect(screen.getByText("Reads a.md")).toBeInTheDocument()
     expect(screen.queryByText("Ha lavorato")).toBeNull()
+  })
+
+  it("nel primo giro anche il passo in corso sta nella riga, e la frase di sotto è semplice e in inglese", async () => {
+    const messaggi: Messaggio[] = [{ id: "m2", ruolo: "claude", quando: "2026-11-02T10:00:00", parti: [{ tipo: "strumento", id: "t1", nome: "Bash", ingresso: { command: "ls" } }] }]
+    rete({ "GET /api/chat/c1": conversazione({ stato: "lavora", attiva: true, primo_giro: true, messaggi }) })
+    negozio.apri("c1")
+    render(<PannelloChat />)
+    await screen.findByRole("log", { name: "The conversation" })
+    await assesta()
+    expect(screen.getByRole("button", { name: /Working · 1 step/ })).toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent("Checking the computer")
+    expect(screen.queryByText("Runs a command")).toBeNull()
   })
 
   it("la scheda di un lavoro in background dice token e strumenti in inglese", async () => {

@@ -18,7 +18,7 @@ export function Canale({ scheda, video }: { scheda: SchedaCanale; video: string 
   if (!caricato || !dato) return <Caricamento />
   if (!dato.ultima) return <PaginaDiCanaleVuota pagina="canale" titolo={t("Canale", "Channel")} />
   return (
-    <div className={styles.pagina} data-scheda={scheda}>
+    <div className={styles.pagina}>
       <h1>{t("Canale", "Channel")}</h1>
       <div className={styles.schede}>
         <Schede etichetta={t("Schede del canale", "Channel tabs")} schede={SCHEDE_CANALE.map((id) => ({ id, nome: nomi()[id] }))} attiva={scheda} indirizzo={(id) => scriviIndirizzo({ vista: "canale", parte: id })} />

@@ -814,3 +814,17 @@ def test_la_copertina_orizzontale_senza_righe_va_a_capo_da_sola_e_senza_sagoma_n
     scrivi_piano("yt", _piano_lungo(larga, verticale, sagoma={"sorgente": "x", "istante": 1.0}))
     with pytest.raises(Errore, match="sorgente «x»"):
         copertina(archivio, "yt", avanza=lambda *_: None)
+
+
+def test_le_righe_delle_animazioni_nella_lingua_del_lavoro_si_riconoscono_e_si_ripetono(archivio, tmp_path, monkeypatch):
+    righe_di_registra = {"it": "animazioni: rese 2, già rese 1", "en": "animations: rendered 2, already rendered 1"}
+    for lingua, riga in righe_di_registra.items():
+        monkeypatch.setenv("MANGO_ANIMATION_LINGUA", lingua)
+        finge_bun(monkeypatch, lambda comando, riga=riga, **k: type("R", (), {"returncode": 0, "stdout": f"[1/2] uno: già resa\n{riga}\n", "stderr": ""})())
+        scene = tmp_path / lingua
+        scene.mkdir()
+        for sigla in ("uno", "due"):
+            (scene / f"{sigla}.mp4").write_bytes(b"x")
+        righe = []
+        animazioni.registra(archivio, {"uno": {}, "due": {}}, tmp_path / f"tempi-{lingua}.json", scene, avanza=righe.append)
+        assert righe == [riga]

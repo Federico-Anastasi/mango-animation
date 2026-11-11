@@ -6,7 +6,7 @@ Il metodo è uguale per tutti; ciò che è del creator (voce, pubblico, canali, 
 |---|---|---|
 | chi è il creator e dove stanno le sue regole | `CLAUDE.md` | Claude Code, che parte dalla cartella di lavoro |
 | le sue regole (voce, struttura dei video, canali, vocabolario) e le sue skill | `.claude/rules/`, `.claude/skills/` | Claude Code, in aggiunta a quelle del prodotto |
-| i difetti già visti nei suoi video, con i nomi dei video (facoltativo) | `storia.md` | Claude Code, accanto a `.claude/metodo/problemi-gia-visti.md` |
+| i difetti già visti nei suoi video, con i nomi dei video (facoltativo) | `storia.md` | Claude Code, accanto ai difetti già visti del metodo (`.claude/metodo/taglio-e-voce.md`, `quadro-e-sagoma.md`, `animazioni.md`) |
 | i dati che leggono codice e skill | `profilo.json` | motore, server, app, skill |
 | lo stile | `stile.json` | motore, animazioni, server, studio |
 
@@ -35,11 +35,13 @@ Lo schema è `motore/schemi/profilo.schema.json`. Il file è facoltativo e ogni 
 | `non_si_dice[]` | ciò che il creator non dice nei video: proposte, copioni, didascalie e risposte lo rispettano | skill e regole |
 | `fonti_delle_idee[]` | cartelle da cui nascono le proposte: `percorso` (obbligatorio), `principali`, `esclusi` | skill e regole |
 | `macchina` | `scheda_video` (l'indice di `nvidia-smi` della scheda per i lavori pesanti; `null` per il processore), `scheda_registrazione` (la scheda che codifica lo schermo registrato; `null` per il processore), `profilo_chrome` (la cartella del profilo di Chrome da cui leggere TikTok), `disco_quasi_pieno` (se è vero, un video grande si collega e non si copia mai: lo legge Claude, non il codice). Non ammette chiavi sconosciute | motore, server, app |
-| `motori` | per funzione (`trascrizione`, `allineamento`, `sagoma`, `segui`, `dettatura`, `pulizia_voce`) `attiva` e, dove ha senso, `dove` (`scheda` o `processore`); per la trascrizione anche `modello` e `calcolo`. Non ammette chiavi sconosciute | motore, app; si cambia da Impostazioni › Computer (`docs/MOTORI.md`, `docs/API.md`) |
+| `motori` | per funzione (`trascrizione`, `allineamento`, `sagoma`, `segui`, `dettatura`, `pulizia_voce`) `attiva` e, dove ha senso, `dove` (`scheda` o `processore`); per la trascrizione anche `modello` e `calcolo`. Non ammette chiavi sconosciute | motore, app; si cambia da Impostazioni › Computer (`docs/MOTORI.md`, `docs/api/impostazioni.md`) |
 
 Una scheda indicata che non c'è, o `dove: "scheda"` senza una scheda utilizzabile, è un errore che dice cosa correggere: il motore non ripiega in silenzio sul processore.
 
-**Un profilo che lo schema non ammette** non ferma il server: il motore lo dice a ogni comando che lo legge, il server lo scrive nel suo terminale e `GET /api/profilo` dice cosa correggere (`docs/API.md`); mentre non passa, lo studio non offre i campi da cambiare e `PUT /api/profilo` risponde `409`. A server acceso il profilo si rilegge quando cambia e, se non passa lo schema, resta l'ultimo valido; all'avvio, senza un profilo valido, il server parte «senza profilo».
+**Un profilo che lo schema non ammette** non ferma il server: il motore lo dice a ogni comando che lo legge, il server lo scrive nel suo terminale e `GET /api/profilo` dice cosa correggere (`docs/api/impostazioni.md`); mentre non passa, lo studio non offre i campi da cambiare e `PUT /api/profilo` risponde `409`. A server acceso il profilo si rilegge quando cambia e, se non passa lo schema, resta l'ultimo valido; all'avvio, senza un profilo valido, il server parte «senza profilo».
+
+**Come lo dice**: ogni problema è una frase per chi usa l'app, nelle due lingue, che nomina la cosa del profilo con parole sue e dice com'è che deve essere, senza nomi di campi né tipi: «La scheda video del computer deve essere un numero intero, o vuota.», «Manca la piattaforma del canale 2.», «La piattaforma del canale 1 non va bene: puoi scegliere «tiktok», «instagram», «youtube» o «x».», «Nella parte del profilo sul computer c'è «gpu», che non conosco: toglila.». Il motore e il server le scrivono allo stesso modo (`motore/profilo.py`, `server/src/frasiProfilo.ts`) con i nomi del blocco `x-nomi` di `motore/schemi/profilo.schema.json`: una voce nuova dello schema ha il suo nome lì (due lingue; `f` se è femminile, `dentro` per le parti che non ammettono altre voci, `forma` dove il tipo non basta), e una prova (`server/test/profilo-frasi.test.ts`) fallisce se manca.
 
 ## `stile.json`
 
@@ -51,4 +53,4 @@ Il prodotto ha il suo `stile.json` di serie, **neutro** (formato, colori sobri, 
 
 Esempio: un creator che vuole il titolo più lungo scrive `{ "titolo": { "durata": 4 } }` e tutto il resto del titolo resta com'è. Una soglia nuova del prodotto arriva a tutti senza toccare lo stile di nessuno.
 
-La regola è scritta una volta per linguaggio (`unisci_stile` in `motore/archivio.py`, `unisciStile` in `strumenti/stile.mjs`); la usano motore, strumenti, animazioni e server, che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza. Dallo studio si ritocca in Impostazioni › Stile (`docs/INTERFACCIA.md`). Nel primo giro (`docs/CHAT.md`, «Il primo giro») lo stile del creator lo scrive Claude, partendo dai suoi video o da uno dei tre stili di `stili-di-partenza.json` (che lo studio mostra come cartoline in Impostazioni › Stile). Un video che si discosta dagli standard lo dichiara nel suo piano (`docs/PIANO.md`), non nel codice.
+La regola è scritta una volta per linguaggio (`unisci_stile` in `motore/archivio.py`, `unisciStile` in `strumenti/stile.mjs`); la usano motore, strumenti, animazioni e server, che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza (`docs/api/impostazioni.md`). Dallo studio si ritocca in Impostazioni › Stile (`docs/INTERFACCIA.md`). Nel primo giro (`docs/CHAT.md`, «Il primo giro») lo stile del creator lo scrive Claude, partendo dai suoi video o da uno dei tre stili di `stili-di-partenza.json` (che lo studio mostra come cartoline in Impostazioni › Stile). Un video che si discosta dagli standard lo dichiara nel suo piano (`docs/PIANO.md`), non nel codice.

@@ -135,7 +135,11 @@ export async function scarica(c: ContestoScarico, richiesta: RichiestaScarico, i
     if (io.fermato()) return
     if (codice !== 0) {
       if (ultimoErrore === null) io.riga(nellaLinguaDi(frase(`yt-dlp è uscito con codice ${codice}.`, `yt-dlp exited with code ${codice}.`), io.lingua))
-      throw ultimoErrore === null ? new ErroreConFrase(frase("Lo scarico non è riuscito: guarda le ultime righe del lavoro.", "The download did not work: look at the last lines of the job.")) : new Error(ultimoErrore)
+      throw new ErroreConFrase(
+        ultimoErrore === null
+          ? frase("Lo scarico non è riuscito: guarda le ultime righe del lavoro.", "The download did not work: look at the last lines of the job.")
+          : frase(`Lo scarico non è riuscito: ${ultimoErrore}`, `The download did not work: ${ultimoErrore}`),
+      )
     }
     const video = join(cartella, `${NOME_D_APPOGGIO}.mp4`)
     if (!(await statistica(video))?.isFile()) throw new ErroreConFrase(frase("Lo scarico è finito ma il video non c'è: guarda le ultime righe del lavoro.", "The download finished but the video is not there: look at the last lines of the job."))

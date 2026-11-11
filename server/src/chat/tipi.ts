@@ -132,6 +132,8 @@ export interface DettaglioChat extends ImpostazioniChat {
   task: TaskChat[]
   /** `null` se nessuna risposta l'ha ancora detto. */
   contesto_usato: ContestoUsato | null
+  /** La conversazione è cominciata con l'avvio del primo giro. */
+  primo_giro: boolean
 }
 
 /** Della `Query` dell'SDK serve solo questo. */

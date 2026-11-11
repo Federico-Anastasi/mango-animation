@@ -77,6 +77,11 @@ describe("le rotte di docs/API.md", () => {
     await expect(api.ritoccaPiano("x", [{ op: "add", path: "/coda", value: 1 }])).rejects.toThrow("Il piano non è valido.\nManca il quadro.\nManca la sorgente.")
   })
 
+  it("un motivo che la frase del server ha già detto non si ripete sotto", async () => {
+    installaRete({ "PUT /api/profilo": new Response(JSON.stringify({ errore: "Il profilo non è valido: Manca il nome del creator. · La lingua del creator non può essere vuota.", problemi: ["Manca il nome del creator.", "La lingua del creator non può essere vuota."] }), { status: 400 }) })
+    await expect(api.scriviProfilo({ creator: { nome: "" } })).rejects.toMatchObject({ message: "Il profilo non è valido: Manca il nome del creator. · La lingua del creator non può essere vuota." })
+  })
+
   it("una risposta che non è JSON (una pagina, un proxy) dice che è inattesa, non un errore di lettura", async () => {
     installaRete({ "GET /api/stile": () => new Response("<h1>Non è ancora costruita</h1>", { status: 503 }), "GET /api/video": () => new Response("<html>", { status: 200 }) })
     await expect(api.stile()).rejects.toMatchObject({ message: "Il server ha risposto in modo inatteso (503).", codice: 503 })

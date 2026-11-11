@@ -13,6 +13,7 @@
 // schermo del telefono, col tempo della pagina fermo fra un fotogramma e l'altro (`orologio.mjs`), in `filmato-<nome>.webm`, e la cattura
 // ferma è quella a `da`. Esce con 1 se una pagina non è stata presa. Le misure: `pagina` dello stile.
 import { apriChrome } from "./chrome.mjs";
+import { dice } from "./lingua.mjs";
 import { spawn } from "node:child_process";
 import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -78,7 +79,7 @@ async function misura(scheda, nome, frasi) {
     const [frase, indice] = Array.isArray(richiesta) ? richiesta : [richiesta, 1];
     const r = await scheda.evaluate(MISURA, [frase, indice]);
     if (r) riquadri[chiave] = r;
-    else console.error(`${nome}: non trovo «${frase}» fra il testo che si vede`);
+    else console.error(dice(`${nome}: non trovo «${frase}» fra il testo che si vede`, `${nome}: I cannot find «${frase}» in the visible text`));
   }
   return riquadri;
 }
@@ -112,7 +113,7 @@ async function filma(nome, voce) {
     const codifica = spawn("ffmpeg", ["-v", "error", "-y", "-f", "image2pipe", "-framerate", String(FORMATO.fps), "-i", "-", "-an", "-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-g", String(FORMATO.fps / 2), "-pix_fmt", "yuv420p", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", "-f", "webm", parziale], { stdio: ["pipe", "inherit", "inherit"] });
     const finita = new Promise((risolvi, rifiuta) => {
       codifica.on("error", rifiuta);
-      codifica.on("close", (codice) => (codice === 0 ? risolvi() : rifiuta(new Error(`ffmpeg è uscito con ${codice}`))));
+      codifica.on("close", (codice) => (codice === 0 ? risolvi() : rifiuta(new Error(dice(`ffmpeg è uscito con ${codice}`, `ffmpeg exited with ${codice}`)))));
     });
     const fotogrammi = Math.round((a - da) * FORMATO.fps);
     try {
@@ -134,7 +135,7 @@ async function filma(nome, voce) {
     scrivi(qui, `screen-${nome}.png`, png);
     scrivi(qui, `screen-${nome}.json`, JSON.stringify({ larghezza: largo, altezza: alto, frasi }) + "\n");
     scrivi(qui, `screen-${nome}.txt`, `${voce.url}\n${risposta?.status() ?? "?"} · ${titolo}\npresa il ${adesso()}\nfilmata da ${da} s a ${a} s del suo tempo, ${fotogrammi} fotogrammi\n`);
-    console.log(`${nome}: ${risposta?.status()} · filmata ${largo}×${alto}, ${fotogrammi} fotogrammi · ${titolo}`);
+    console.log(dice(`${nome}: ${risposta?.status()} · filmata ${largo}×${alto}, ${fotogrammi} fotogrammi · ${titolo}`, `${nome}: ${risposta?.status()} · filmed ${largo}×${alto}, ${fotogrammi} frames · ${titolo}`));
   } finally {
     await contestoFilmato.close();
   }
@@ -160,7 +161,7 @@ let mancate = 0;
 for (const nome of nomi) {
   const voce = pagine[nome];
   if (!voce) {
-    console.error(`non conosco «${nome}»: ho ${Object.keys(pagine).join(", ")}`);
+    console.error(dice(`non conosco «${nome}»: ho ${Object.keys(pagine).join(", ")}`, `I do not know «${nome}»: I have ${Object.keys(pagine).join(", ")}`));
     mancate++;
     continue;
   }
@@ -177,7 +178,7 @@ for (const nome of nomi) {
       await pagina.waitForTimeout(1000);
     }
     if (/checking your browser|just a moment|attention required/i.test(await pagina.title())) {
-      console.error(`${nome}: NON PRESO · il controllo anti-bot non si è sciolto in 40 s; i file di prima restano com'erano`);
+      console.error(dice(`${nome}: NON PRESO · il controllo anti-bot non si è sciolto in 40 s; i file di prima restano com'erano`, `${nome}: NOT TAKEN · the anti-bot check did not clear in 40 s; the earlier files are left as they were`));
       mancate++;
       continue;
     }
@@ -206,9 +207,9 @@ for (const nome of nomi) {
     scrivi(qui, `screen-${nome}.png`, png);
     scrivi(qui, `screen-${nome}.json`, JSON.stringify({ larghezza: largo, altezza: alto, frasi: dopo }) + "\n");
     scrivi(qui, `screen-${nome}.txt`, `${voce.url}\n${risposta?.status() ?? "?"} · ${titolo}\npresa il ${adesso()}\n`);
-    console.log(`${nome}: ${risposta?.status()} · ${largo}×${alto} · ${Object.keys(dopo).length} frasi · ${titolo}`);
+    console.log(dice(`${nome}: ${risposta?.status()} · ${largo}×${alto} · ${Object.keys(dopo).length} frasi · ${titolo}`, `${nome}: ${risposta?.status()} · ${largo}×${alto} · ${Object.keys(dopo).length} sentences · ${titolo}`));
   } catch (e) {
-    console.error(`${nome}: NON PRESO · ${String(e.message).split("\n")[0]}`);
+    console.error(dice(`${nome}: NON PRESO · ${String(e.message).split("\n")[0]}`, `${nome}: NOT TAKEN · ${String(e.message).split("\n")[0]}`));
     mancate++;
   }
 }

@@ -1,0 +1,38 @@
+# Il motore: i materiali
+
+Ciò che il motore prepara o compone oltre al montaggio: il girato preparato, la prova per registrare, la copertina, l'anteprima di una proposta e le animazioni.
+
+| comando | cosa fa | scrive |
+|---|---|---|
+| `python -m motore prepara <slug>` | per ogni sorgente del piano: parole, copia leggera, onda, miniatura. La sagoma e dove sta la persona no: le fa `monta`, dei soli tratti. La trascrizione va a tratti di voce (`preparati.tratti_di_voce`), ognuno da solo e senza il testo degli altri tratti, con i `sottotitoli.nomi` del piano come suggerimento; una parola più lunga di `preparati.parola_lunga` secondi (una falsa partenza fusa con la frase ridetta) si ritrascrive da sola, e se ne escono più parole prendono il suo posto; le parole senza voce sotto (sotto `voce.silenzio_db` fino a `dopo_parola` dopo la loro fine) non entrano | `archivio/preparati/…` |
+| `python -m motore prepara-file <file> [--ritrascrivi]` | lo stesso per un file grezzo solo (con `--ritrascrivi` rifà le parole anche se ci sono: dopo aver cambiato la `lingua` nella scheda del file) (un file solo audio non ha copia leggera né miniatura) (un video senza traccia audio non ha onda né parole: non c'è niente da trascrivere); per i file oltre 10 minuti anche `trascrizione.txt`. Una foto (HEIC/HEIF, JPEG, PNG, WebP, TIFF, BMP, GIF, DNG) non passa da ffmpeg né dalla trascrizione: `foto.jpg`, intera e raddrizzata secondo l'EXIF, col lato lungo al più `preparati.lato_foto` e qualità `preparati.qualita_foto`, e `miniatura.jpg` (`lato_miniatura`, `qualita_miniatura`). Una HEIC dell'iPhone è una griglia di riquadri che ffmpeg legge a uno solo: si apre con `pillow-heif` | `archivio/preparati/…` |
+| `python -m motore prova <slug>` | prima di registrare: le scene della proposta (`proposta.scene` della scheda, `docs/ARCHIVIO.md`) rese coi tempi stimati del copione (`prova` dello stile; una scena con `parole` riceve il secondo stimato di ognuna), nel quadro della proposta, e sotto ogni frase intera con la parola in corso in rosso. Gli spezzoni della proposta (`proposta.spezzoni`: un talk, un keynote che il creator commenta) passano fra le frasi alla loro durata vera (scelti a parole come un pezzo del piano, con le pause in mezzo tolte, o a secondi), nel posto del girato del quadro, con la loro voce e la loro traduzione intera dove stanno le frasi; mentre il creator parla il girato resta fermo. Una scena senza animazione con un `girato` (un podcast, un keynote in un'altra lingua che il creator racconta con la sua voce) lo fa scorrere muto sotto le sue frasi, dal secondo `da`, nel posto del girato del `quadro` della scena. L'unico audio è quello degli spezzoni. Le scene si rendono in `lavoro/prova/`, non in `lavoro/scene/`. Scrive anche `uscite/copione.html`, la pagina che `/guarda` offre al telefono per leggere le frasi mentre si registra (una per riga, grandi, uno spezzone è la sua traduzione in grigio; titolo, colori e misure da `prova` dello stile, `lang` dal profilo; una pagina sola, senza niente di esterno) | `uscite/prova.mp4`, `uscite/copione.html` |
+| `python -m motore copertina <slug> [<disegno>] [--istante <secondo>]` | l'immagine della copertina, per guardarla prima di montare: il disegno (un percorso, o un file nella cartella del video: `materiali/x.png`) con sopra la sagoma del primo fotogramma (o di quel secondo del video, se nel primo il creator ha gli occhi chiusi) e il titolo. Disegno e istante, se non si danno, sono quelli di `copertina` nel piano. Nel video la mette `monta` | `uscite/copertina.png` |
+| `python -m motore anteprima-proposta <slug> [--riga <testo>]` | l'anteprima di una proposta: una carta nello stile (`anteprima` di `stile.json`) con una barra, il titolo della scheda e, sotto, la riga, al centro del riquadro; il titolo si rimpicciolisce finché ci sta, e se non ci sta nemmeno al corpo minimo è un errore che dice di accorciare. Rifatta, sostituisce la precedente; una foto o un disegno si salvano sullo stesso nome | `materiali/anteprima.png` |
+
+## La copertina
+
+Il piano la dichiara (`copertina`: `disegno` e, se serve, `istante`, `docs/PIANO.md`) e `monta` la compone dopo la sagoma e prima della codifica: il disegno a tutto fotogramma, la sagoma del primo
+fotogramma (o di `istante`) dove sta nel video, il titolo. L'immagine (`uscite/copertina.png`) è il primo fotogramma della stessa codifica che scrive i tratti, con un fotogramma di silenzio davanti al suono:
+niente seconda codifica e niente seconda compressione. `con-copertina.mp4` è un secondo nome dello stesso file (un collegamento; una copia, su un disco senza collegamenti fisici), non un'altra codifica. Con la copertina in testa i secondi del
+montato sono quelli del piano più un fotogramma: `foto` e `ascolta --video` lo tolgono da soli, e `controlla` salta il primo fotogramma e il suo silenzio (`risolto.copertina` dice che c'è). In un video orizzontale (`copertina.orizzontale` dello stile: misure della sagoma e del titolo, 1920×1080) la sagoma non è quella del primo fotogramma ma quella di un altro girato (`copertina.sagoma` del piano), ritagliata da `aria` pixel sopra la testa, col bordo bianco; il titolo, col carattere, i colori e gli angoli del titolo dello stile, sta a destra, un cartello per riga (`copertina.righe`), attaccato al margine destro. Un piano senza `copertina` non ne ha:
+`controlla` lo dice (`copertina: manca`).
+
+## Le animazioni
+
+Il motore chiede le animazioni ad `animazioni/` con un file di tempi e un comando:
+
+    bun run --cwd animazioni registra -- --tempi <lavoro>/tempi.json --uscita <lavoro>/scene
+
+`tempi.json`: `{ sigla: { "durata": secondi, "ancore": [[secondo del video nella scena, secondo della scena]], "tempi": { nome: secondo }, "formato": { "largo": 1080, "alto": 1920 }, "fascia": [x0, y0, x1, y1] } }`. `fascia` è la fascia utile (`fascia_animazione`) del quadro della scena nel piano, se ce l'ha: `Campo` e i controlli la leggono da lì invece che da quella di serie. `formato` è la misura in pixel del fotogramma da rendere (1920×1080 per i quadri orizzontali): `animazioni/` rende ogni scena nel formato del suo video (`formato` in `scene.tsx`) ed esce con 1 se il montaggio ne chiede un altro.
+Esce un `<sigla>.mp4` per scena, grande quanto `formato` e a 30 fotogrammi, lungo `durata`; una scena `trasparente` esce anche con `<sigla>.alfa.mkv`, la sua maschera in grigi (bianco dove disegna, nero dove è vuota), e il motore la usa per lasciare visibili gli strati sotto. `tempi` arriva alla scena come
+proprietà: è il secondo in cui viene detta ogni parola dichiarata nel piano (`parole` della scena).
+Il comando gira da `animazioni/` con `MANGO_ANIMATION_LAVORO` dell'archivio (le scene e lo stile del creator): i percorsi vanno assoluti. Per una scena che scorre al passo del video (`parole`
+nel piano) `durata` è quanto dura il suo tratto e i `tempi` mancanti restano quelli di partenza della scena; per le
+altre contano le `ancore`. Quali scene `registra` non rifà (`<sigla>.mp4.impronta`), quando esce con 1 e che righe stampa: `animazioni/registra.md`.
+
+    bun run --cwd animazioni elenco     # {"<slug del video>": [{"sigla", "titolo", "durata"}]}, per `GET /api/animazioni`
+
+Il motore chiede sempre tutte le scene del video, coi loro tempi, e si fida di `registra` per sapere quali rifare; ripete
+le sue righe `animazioni:` (o `animations:`) nell'avanzamento. `registra` riscrive il file di una scena sul posto: se un file di `lavoro/scene/` è collegato a quello di un altro video (un collegamento fisico), il
+motore lo trasforma prima in una copia, così rifare la scena in un video non la cambia nell'altro.

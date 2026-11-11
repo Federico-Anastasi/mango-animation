@@ -17,7 +17,7 @@ async function repoFinto(): Promise<string> {
     await writeFile(join(repo, relativo), "x")
   }
   for (const f of [
-    "CLAUDE.md", "LEGGIMI.md", "LICENSE", "NOTICE.md", "TRADEMARKS.md", "AVVISI-DI-TERZI.md", "stile.json", "font/a.ttf", "motore/__main__.py", "motore/monta.py", "motore/__pycache__/monta.pyc", "motore/prove/test_monta.py",
+    "CLAUDE.md", "LEGGIMI.md", "LICENSE", "NOTICE.md", "TRADEMARKS.md", "AVVISI-DI-TERZI.md", "stile.json", "stili-di-partenza.json", "font/a.ttf", "motore/__main__.py", "motore/monta.py", "motore/__pycache__/monta.pyc", "motore/prove/test_monta.py",
     "strumenti/x.py", "server/package.json", "server/src/avvia.ts", "server/node_modules/z/i.js", "server/test/chat.test.ts", "animazioni/package.json", "animazioni/dist/index.html",
     "animazioni/node_modules/q/i.js", "animazioni/foto/f.png", "animazioni/test/t.ts", "studio/dist/index.html", "studio/src/App.tsx", ".claude/rules/montaggio.md", ".claude/skills/monta/SKILL.md",
     ".claude/metodo/problemi.md", ".claude/settings.local.json", ".claude/worktrees/a/x", "docs/APP.md", "appunti/piano.md", "app/Cargo.toml", "archivio/video/a/scheda.json",
@@ -38,7 +38,7 @@ describe("il codice che l'installatore porta", () => {
     expect(await tutti(destinazione)).toEqual([
       ".mango-elenco.json", ".claude-plugin/plugin.json", "plugin/hooks.json", "plugin/mcp.ts",
       ".claude/metodo/problemi.md", ".claude/rules/montaggio.md", ".claude/skills/monta/SKILL.md", "AVVISI-DI-TERZI.md", "CLAUDE.md", "LEGGIMI.md", "LICENSE", "NOTICE.md", "TRADEMARKS.md", "animazioni/dist/index.html", "animazioni/package.json",
-      "docs/APP.md", "font/a.ttf", "motore/__main__.py", "motore/monta.py", "server/package.json", "server/src/avvia.ts", "strumenti/x.py", "studio/dist/index.html", "stile.json",
+      "docs/APP.md", "font/a.ttf", "motore/__main__.py", "motore/monta.py", "server/package.json", "server/src/avvia.ts", "strumenti/x.py", "studio/dist/index.html", "stile.json", "stili-di-partenza.json",
     ].sort())
   })
 
@@ -50,6 +50,17 @@ describe("il codice che l'installatore porta", () => {
     expect((await stat(join(destinazione, "CLAUDE.md"))).isFile() && (await stat(join(destinazione, "server"))).isDirectory()).toBe(true)
     expect((await stat(join(destinazione, "motore", "__main__.py"))).isFile()).toBe(true)
     expect(DA_PORTARE).toContain("AVVISI-DI-TERZI.md")
+  })
+
+  test("ogni file e cartella di primo livello del repo o si porta o è detto qui che resta fuori: uno nuovo non si dimentica", () => {
+    const repo = join(import.meta.dir, "..", "..")
+    const git = Bun.spawnSync(["git", "ls-tree", "--name-only", "HEAD"], { cwd: repo })
+    expect(git.exitCode).toBe(0)
+    // Di `.claude` e di `studio` si porta solo una parte, scritta in DA_PORTARE.
+    const fuori = [".gitattributes", ".github", ".gitignore", "CONTRIBUTING.md", "README.md", "SECURITY.md", "app", "interni"]
+    const portati = new Set(DA_PORTARE.map((voce) => voce.split("/")[0]))
+    const dimenticati = git.stdout.toString().split("\n").filter((voce) => voce !== "" && !portati.has(voce) && !fuori.includes(voce))
+    expect(dimenticati).toEqual([])
   })
 
   test("l'elenco dice le cartelle del prodotto, tutti i file portati (non se stesso) e ciò che non è del prodotto e resta dov'è", async () => {

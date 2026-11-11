@@ -5,8 +5,8 @@ How it is built: `docs/ARCHITETTURA.md`. The data: `docs/ARCHIVIO.md`. Editing: 
 Every video follows the checklist in `.claude/rules/processo.md` (idea, script, rehearsal, recorded text, animations, editing,
 corrections, release); each step has its own skill in `.claude/skills/`. What only some steps need is in `.claude/metodo/`, and the
 skills of those steps read it: the editing rules and the frames (`montaggio.md`), the content rules (`contenuto.md`), the defects
-already seen, YouTube. Read `montaggio.md` before choosing a frame, cutting, composing a scene or checking an edit, and `contenuto.md`
-before proposing a video or writing a script or a caption.
+already seen (`taglio-e-voce.md`, `quadro-e-sagoma.md`, `animazioni.md`), TikTok, YouTube. Read `montaggio.md` before choosing a frame, cutting, composing a scene or checking an edit, and `contenuto.md`
+before proposing a video or writing a script.
 
 ## The creator's profile
 

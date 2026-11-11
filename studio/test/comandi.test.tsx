@@ -43,6 +43,7 @@ const conversazione = (extra: Partial<DettaglioConversazione> = {}): DettaglioCo
   in_attesa: [],
   task: [],
   contesto_usato: null,
+  primo_giro: false,
   ...extra,
 })
 

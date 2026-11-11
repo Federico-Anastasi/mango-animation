@@ -769,7 +769,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
   /** Una scrittura da qui rifà `profilo.json` partendo da quello valido che il server tiene: se il file sul disco non passa lo schema, lo sostituirebbe. */
   const fermaSeIlProfiloNonVa = () => {
     if (indice.profiloProblemi.length === 0) return
-    throw new ErroreApi(409, frase("profilo.json non passa lo schema: correggilo prima di cambiarlo da qui, o la scrittura lo sostituirebbe.", "profilo.json does not pass the schema: fix it before changing it from here, or the write would replace it."), { problemi: indice.profiloProblemi })
+    throw new ErroreApi(409, frase("Il file profilo.json ha qualcosa che non va: correggilo prima di cambiarlo da qui, o la scrittura lo sostituirebbe.", "The file profilo.json has something wrong in it: fix it before changing it from here, or the write would replace it."), { problemi: indice.profiloProblemi })
   }
 
   const scriviProfilo: Gestore = async ({ req }) => {

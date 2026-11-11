@@ -40,11 +40,12 @@ export class ErroreApi extends Error {
   }
 }
 
-/** La frase del server e, se un rifiuto ha più motivi, ognuno su una riga. */
+/** La frase del server e, se un rifiuto ha più motivi che la frase non dice già, ognuno su una riga. */
 export function fraseDelServer(dati: unknown, stato: number): string {
   if (typeof dati !== "object" || dati === null || !("errore" in dati)) return t("Il server ha risposto con un errore ({stato}).", "The server answered with an error ({stato}).", { stato })
-  const problemi = "problemi" in dati && Array.isArray(dati.problemi) ? dati.problemi.map(String) : []
-  return [String(dati.errore), ...problemi].join("\n")
+  const frase = String(dati.errore)
+  const problemi = "problemi" in dati && Array.isArray(dati.problemi) ? dati.problemi.map(String).filter((p) => !frase.includes(p)) : []
+  return [frase, ...problemi].join("\n")
 }
 
 /** Il corpo di una risposta come JSON; una pagina o un testo di altro tipo è «risposta inattesa», non un errore di lettura. */

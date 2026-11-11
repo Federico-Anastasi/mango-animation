@@ -1,5 +1,5 @@
 // La voce «Canale»: Pubblico, Classifica e Crescita sono tre schede di una sola voce, che compare in barra solo quando c'è un canale letto.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { installaEventi, installaRete } from "./rete"
 
@@ -146,5 +146,28 @@ describe("le tre schede", () => {
     expect(screen.getByRole("button", { name: "Leggi i dati di TikTok" })).toBeInTheDocument()
     // La voce c'è finché si sta su quella pagina, perché dice dove si è.
     expect(within(menu()).getByRole("link", { name: "Canale" })).toHaveAttribute("aria-current", "page")
+  })
+})
+
+describe("la tabella «I video usciti»", () => {
+  const COL_SLUG = { ...LETTO, video: [{ ...LETTO.video[0]!, slug: "primo" }] }
+  const ELENCO = [{ slug: "primo", scheda: { titolo: "Primo", stato: "pubblicato", creato: "2026-10-05" }, durata: 30, miniatura: "video/primo/uscite/miniatura.jpg", anteprima: null, ha_piano: false, quadri: [], ha_finale: true, fase: null, ultimo_cambio: "2026-10-05T13:25:00.000Z" }]
+
+  it("un video legato a uno dell'archivio ne mostra la miniatura; uno non legato lascia il riquadro vuoto", async () => {
+    await studio("#/canale/pubblico", COL_SLUG, { "GET /api/video": ELENCO })
+    await screen.findByRole("heading", { name: "I video usciti" })
+    await waitFor(() => expect(document.querySelector("td img")?.getAttribute("src")).toBe("/media/video/primo/uscite/miniatura.jpg"))
+    document.body.innerHTML = ""
+    await studio("#/canale/pubblico", LETTO, { "GET /api/video": ELENCO })
+    await screen.findByRole("heading", { name: "I video usciti" })
+    expect(document.querySelector("td img")).toBeNull()
+  })
+
+  it("quando una scheda cambia (una pubblicazione nuova lega un video) il canale si rilegge", async () => {
+    const { chiamate } = await studio("#/canale/pubblico", LETTO, { "GET /api/video": ELENCO })
+    await screen.findByRole("heading", { name: "I video usciti" })
+    const prima = chiamate.filter((c) => c.percorso === "/api/canale/tiktok").length
+    act(() => eventi.istanze[0]!.manda({ tipo: "video", slug: "primo", cosa: "scheda" }))
+    await waitFor(() => expect(chiamate.filter((c) => c.percorso === "/api/canale/tiktok").length).toBeGreaterThan(prima))
   })
 })

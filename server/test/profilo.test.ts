@@ -54,10 +54,10 @@ describe("il profilo dal pannello Impostazioni", () => {
     await chiama(a, "PUT", "/api/profilo", { creator: { nome: "Anna", lingua: "it" } })
     const prima = await readFile(join(a.radice, "profilo.json"), "utf-8")
     for (const [corpo, frase] of [
-      [{ creator: { nome: "" } }, /creator\.nome/],
-      [{ creator: { nome: "Anna", lingua: "italiano" } }, /creator\.lingua/],
-      [{ canali: [{ piattaforma: "myspace" }] }, /canali/],
-      [{ canali: [{ nome: "senza piattaforma" }] }, /piattaforma/],
+      [{ creator: { nome: "" } }, /Il nome del creator non può essere vuoto/],
+      [{ creator: { nome: "Anna", lingua: "italiano" } }, /La lingua del creator deve essere un codice di due lettere/],
+      [{ canali: [{ piattaforma: "myspace" }] }, /La piattaforma del canale 1 non va bene/],
+      [{ canali: [{ nome: "senza piattaforma" }] }, /Manca la piattaforma del canale 1/],
     ] as const) {
       const r = await chiama<{ errore: string; problemi: string[] }>(a, "PUT", "/api/profilo", corpo)
       expect(r.stato).toBe(400)

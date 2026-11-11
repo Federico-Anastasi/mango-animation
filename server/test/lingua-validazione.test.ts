@@ -31,7 +31,7 @@ describe("lo schema, tradotto dalle frasi di ajv", () => {
     ["un elenco troppo corto", () => schemi.scheda({ ...SCHEDA_BUONA, canali: [] }), "canali: deve avere almeno 1 elementi", "canali: must have at least 1 items"],
     ["elementi ripetuti", () => schemi.scheda({ ...SCHEDA_BUONA, canali: ["x", "x"] }), "canali: non può avere elementi ripetuti", "canali: cannot have repeated items"],
     ["nessuna delle forme", () => schemi.piano({ ...piano(), scene: [{ nome: "s", pezzi: [{}] }] }), "non ha nessuna delle forme ammesse", "does not match any of the allowed forms"],
-    ["un valore che deve essere un altro", () => schemi.profilo({ versione: 2 }), "versione: deve essere 1", "versione: must be 1"],
+    ["un valore che deve essere un altro", () => schemi.profilo({ versione: 2 }), "La versione del profilo deve essere 1.", "The profile version must be 1."],
     ["un valore sopra lo zero", () => schemi.piano({ ...piano(), scene: [{ nome: "s", pezzi: [{ durata: 0 }] }] }), "durata: deve essere più di 0", "durata: must be more than 0"],
   ]
 
@@ -212,10 +212,10 @@ describe("i motori", () => {
     type Rifiuto = { errore: string; problemi: string[] }
     const it = await chiama<Rifiuto>(a, "PUT", "/api/motori", { inventata: { attiva: true } })
     const en = await chiama<Rifiuto>(a, "PUT", "/api/motori", { inventata: { attiva: true } }, "en")
-    expect(it.corpo.problemi).toEqual(["motori: «inventata» non è una chiave ammessa"])
-    expect(en.corpo.problemi).toEqual(["motori: «inventata» is not an allowed key"])
-    expect(it.corpo.errore).toBe("I motori non sono validi: motori: «inventata» non è una chiave ammessa")
-    expect(en.corpo.errore).toBe("The engines are not valid: motori: «inventata» is not an allowed key")
+    expect(it.corpo.problemi).toEqual(["Nella parte del profilo sui motori del computer c'è «inventata», che non conosco: toglila."])
+    expect(en.corpo.problemi).toEqual(["In the part of the profile about the computer engines there is «inventata», which I do not know: remove it."])
+    expect(it.corpo.errore).toBe("I motori non sono validi: Nella parte del profilo sui motori del computer c'è «inventata», che non conosco: toglila.")
+    expect(en.corpo.errore).toBe("The engines are not valid: In the part of the profile about the computer engines there is «inventata», which I do not know: remove it.")
 
     expect((await chiama<Rifiuto>(a, "PUT", "/api/motori", [1])).corpo.errore).toBe("I motori devono essere un oggetto JSON: una voce per funzione.")
     expect((await chiama<Rifiuto>(a, "PUT", "/api/motori", [1], "en")).corpo.errore).toBe("The engines must be a JSON object: one entry per function.")

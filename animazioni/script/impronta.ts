@@ -5,6 +5,7 @@ import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { leggiStile } from "../../strumenti/stile.mjs";
 import { lavoroDa } from "./percorsi";
 import type { Ancora } from "./tempo";
+import { dice } from "./lingua";
 
 /** Ciò che un montaggio dice di una scena: quanto dura, dove sono le ancore, quando viene detta ogni parola. */
 export interface VoceTempi {
@@ -59,7 +60,7 @@ async function segui(radice: string, partenze: readonly string[], visti: Set<str
     const nome = relative(radice, file);
     try {
       const codice = await readFile(file, "utf8");
-      if (cercaDinamici && DINAMICO.test(codice)) problemi.push(`${nome} usa import() o import.meta.glob`);
+      if (cercaDinamici && DINAMICO.test(codice)) problemi.push(dice(`${nome} usa import() o import.meta.glob`, `${nome} uses import() or import.meta.glob`));
       const lettore = estensione === ".tsx" || estensione === ".jsx" ? LETTORI.tsx : LETTORI.ts;
       for (const { path } of lettore.scanImports(codice)) {
         const delProdotto = path.startsWith(PRODOTTO);
@@ -67,10 +68,10 @@ async function segui(radice: string, partenze: readonly string[], visti: Set<str
         const base = delProdotto ? resolve(radice, "src", path.slice(PRODOTTO.length)) : resolve(dirname(file), path);
         const trovato = await trova(base.split(/[?#]/)[0]!);
         if (trovato) daFare.push(trovato);
-        else problemi.push(`${nome} importa «${path}», che non trovo`);
+        else problemi.push(dice(`${nome} importa «${path}», che non trovo`, `${nome} imports «${path}», which I cannot find`));
       }
     } catch {
-      problemi.push(`non riesco a leggere gli import di ${nome}`);
+      problemi.push(dice(`non riesco a leggere gli import di ${nome}`, `I cannot read the imports of ${nome}`));
     }
   }
   return problemi;
@@ -89,7 +90,7 @@ export async function sorgentiDi(radice: string, slug: string, sigla: string, la
   const cercate = [`${sigla}.tsx`, `${sigla}.ts`, "scene.tsx"].map((n) => join(proprio, n));
   const esistenti = await Promise.all(cercate.map(eFile));
   const entrata = cercate[esistenti.indexOf(true)];
-  if (!entrata) throw new Error(`Non trovo il file della scena «${sigla}»: né ${sigla}.tsx né scene.tsx in ${relative(radice, proprio)}.`);
+  if (!entrata) throw new Error(dice(`Non trovo il file della scena «${sigla}»: né ${sigla}.tsx né scene.tsx in ${relative(radice, proprio)}.`, `I cannot find the file of scene «${sigla}»: neither ${sigla}.tsx nor scene.tsx in ${relative(radice, proprio)}.`));
 
   const problemi = [...problemiComuni, ...(await segui(radice, [entrata], visti, true))];
   if (!problemi.length) return { file: [...visti] };

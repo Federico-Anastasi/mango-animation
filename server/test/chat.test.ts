@@ -227,7 +227,7 @@ async function nuova(c: Avvio, testo = "Ciao", extra: object = {}): Promise<{ id
   return { id: r.corpo.id, q }
 }
 
-const dettaglio = (c: Avvio, id: string) => chiama<{ id: string; lavora_da?: string | null; lavoro: { ms: number; da: string | null }; titolo: string; attiva: boolean; stato: string; modello: string | null; effort: string | null; messaggi: { id: string; ruolo: string; quando: string; parti: Record<string, unknown>[] }[]; in_attesa: Record<string, unknown>[]; task: unknown[]; contesto_usato: { usati: number; totale: number | null } | null }>(c.a, "GET", `/api/chat/${id}`)
+const dettaglio = (c: Avvio, id: string) => chiama<{ id: string; primo_giro: boolean; lavora_da?: string | null; lavoro: { ms: number; da: string | null }; titolo: string; attiva: boolean; stato: string; modello: string | null; effort: string | null; messaggi: { id: string; ruolo: string; quando: string; parti: Record<string, unknown>[] }[]; in_attesa: Record<string, unknown>[]; task: unknown[]; contesto_usato: { usati: number; totale: number | null } | null }>(c.a, "GET", `/api/chat/${id}`)
 
 const eventiChat = (ascolto: { messaggi: unknown[] }, id: string): EventoChat[] => (ascolto.messaggi as EventoChat[]).filter((m) => m.tipo === "chat" && m.id === id)
 
@@ -1808,5 +1808,80 @@ describe("in inglese", () => {
     expect((await dettaglio(c, id)).corpo.in_attesa[0]?.["frase"]).toBe("Claude Code wants to use Bash: rm prova.txt")
     await chiama(c.a, "POST", `/api/chat/${id}/risposte/toolu_p1`, { scelta: "no", motivo: "meglio di no" })
     expect(await risposta).toEqual({ behavior: "deny", message: "Permission to use Bash was not given: meglio di no" })
+  })
+})
+
+describe("l'avvio del primo giro", () => {
+  type Messaggi = { ruolo: string; parti: Record<string, unknown>[] }[]
+  const avvio = async (c: Avvio, corpo: object, lingua?: "it" | "en") => {
+    const r = await chiama<{ id: string }>(c.a, "POST", "/api/chat", corpo, lingua)
+    expect(r.stato).toBe(201)
+    const q = await aspetta(() => c.finto.queries.at(-1))
+    await aspetta(() => q.ricevuti.length >= 1)
+    return { id: r.corpo.id, q }
+  }
+
+  test("Claude riceve l'istruzione, la chat non mostra nessun messaggio del creator e comincia con la risposta di Claude", async () => {
+    const c = await avvia()
+    const ascolto = await ascolta(c.a)
+    const { id, q } = await avvio(c, { avvio: "primo-giro" }, "it")
+    const ricevuto = q.ricevuti[0]?.message.content
+    expect(ricevuto).toStartWith("[Start: first round]")
+    expect(ricevuto).toContain("welcome")
+    expect(ricevuto).toContain("Italian")
+
+    let d = await dettaglio(c, id)
+    expect(d.corpo).toMatchObject({ titolo: "Il primo giro", attiva: true, stato: "lavora", primo_giro: true })
+    expect(d.corpo.messaggi).toEqual([])
+
+    q.emetti(init, ...testoAPezzi("msg_1", ["Ciao!"]), risultato())
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+    d = await dettaglio(c, id)
+    expect((d.corpo.messaggi as Messaggi).map((m) => m.ruolo)).toEqual(["claude"])
+    expect(eventiChat(ascolto, id).some((e) => e.evento === "messaggio" && e.messaggio.ruolo === "utente")).toBe(false)
+    ascolto.chiudi()
+  })
+
+  test("rifarlo dice a Claude di ripartire da ciò che c'è, e la lingua dello studio arriva nell'istruzione", async () => {
+    const c = await avvia()
+    const { id, q } = await avvio(c, { avvio: "rifare-primo-giro" }, "en")
+    const ricevuto = String(q.ricevuti[0]?.message.content)
+    expect(ricevuto).toStartWith("[Start: first round]")
+    expect(ricevuto).toContain("redo")
+    expect(ricevuto).toContain("English")
+    expect((await dettaglio(c, id)).corpo).toMatchObject({ titolo: "The first round", primo_giro: true })
+  })
+
+  test("una conversazione normale non è del primo giro; l'avvio non si mescola con un testo e non è un avvio qualunque", async () => {
+    const c = await avvia()
+    const { id } = await nuova(c, "Ciao")
+    expect((await dettaglio(c, id)).corpo).toMatchObject({ primo_giro: false })
+
+    const errore = (corpo: object, percorso = "/api/chat", lingua?: "it" | "en") => chiama<{ errore: string }>(c.a, "POST", percorso, corpo, lingua)
+    const misto = await errore({ avvio: "primo-giro", testo: "Ciao" })
+    expect(misto.stato).toBe(400)
+    expect(misto.corpo.errore).toContain("avvio")
+    expect((await errore({ avvio: "altro" })).stato).toBe(400)
+    expect((await errore({ avvio: "primo-giro" }, `/api/chat/${id}/messaggi`)).stato).toBe(400)
+    expect((await errore({ avvio: "primo-giro", testo: "Ciao" }, "/api/chat", "en")).corpo.errore).toContain("start")
+    expect(c.finto.queries).toHaveLength(1)
+  })
+
+  test("riletta dal suo file la conversazione comincia con Claude, ha il suo titolo ed è ancora del primo giro", async () => {
+    const c = await avvia()
+    const id = "22222222-2222-4222-8222-222222222222"
+    const istruzione = "[Start: first round] The creator has just opened the app for the first time."
+    c.sessioni.voci = [{ id, titolo: istruzione, aggiornata: Date.parse("2026-10-30T10:05:00Z") }]
+    const riga = (type: string, uuid: string, message: unknown, extra: object = {}): MessaggioSessione => ({ type, uuid, message, timestamp: "2026-10-30T10:00:00.000Z", ...extra })
+    c.sessioni.file.set(id, [
+      riga("user", "u1", { role: "user", content: istruzione }, { origin: { kind: "human" } }),
+      riga("assistant", "a1", { content: [{ type: "text", text: "Ciao! Facciamo il primo giro." }] }),
+      riga("user", "u2", { role: "user", content: "Mi chiamo Anna" }, { origin: { kind: "human" } }),
+    ])
+    const d = await dettaglio(c, id)
+    expect(d.corpo).toMatchObject({ titolo: "Il primo giro", primo_giro: true })
+    expect((d.corpo.messaggi as Messaggi).map((m) => m.ruolo)).toEqual(["claude", "utente"])
+    const elenco = await chiama<{ id: string; titolo: string }[]>(c.a, "GET", "/api/chat", undefined, "en")
+    expect(elenco.corpo.find((v) => v.id === id)?.titolo).toBe("The first round")
   })
 })

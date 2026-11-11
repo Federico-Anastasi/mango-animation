@@ -378,7 +378,5 @@ describe("il profilo del creator", () => {
     const a = await avviaAmbiente({}, async (c) => writeFile(join(c.radice, "profilo.json"), JSON.stringify({ macchina: { scheda_vidoe: 1, scheda_video: "zero" } })))
     const r = await chiama<{ valido: boolean; problemi: string[] }>(a, "GET", "/api/profilo")
     expect(r.corpo.valido).toBe(false)
-    expect(r.corpo.problemi.join(" ")).toContain("macchina.scheda_video")
-    expect(r.corpo.problemi.join(" ")).toContain("«scheda_vidoe» non è una chiave ammessa")
-  })
+    expect(r.corpo.problemi).toEqual(["Nella parte del profilo sul computer c'è «scheda_vidoe», che non conosco: toglila.", "La scheda video del computer deve essere un numero intero, o vuota."])  })
 })

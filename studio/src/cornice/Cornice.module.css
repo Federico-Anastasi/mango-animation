@@ -1,13 +1,43 @@
+/* Il filo e lo sfondo vanno da bordo a bordo; il contenuto sta sugli stessi fili della pagina (`--cornice`, centrato). */
 .cornice {
   position: relative;
   flex: 0 0 auto;
   display: flex;
+  padding: 0.55rem 0 0.55rem 1.5rem;
+  border-bottom: 1px solid var(--filo);
+  background: var(--carta);
+}
+
+.dentro {
+  flex: 0 1 var(--cornice);
+  margin: 0 auto;
+  min-width: 0;
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem 1.25rem;
-  padding: 0.55rem 1.5rem;
-  border-bottom: 1px solid var(--filo);
-  background: var(--carta);
+}
+
+/* Lo spazio che la pagina lascia alla sua barra di scorrimento: la barra in alto lo riserva uguale, e il contenuto resta sotto quello della pagina anche dove la barra di scorrimento è larga. */
+.rientro {
+  flex: 0 0 auto;
+  height: 2rem;
+  margin-left: 1.5rem;
+  overflow-y: scroll;
+  visibility: hidden;
+}
+
+/* Con la chat di fianco la pagina si stringe e la barra la scavalca: torna da bordo a bordo, col bottone della chat sopra il suo pannello. */
+.cornice[data-chat="aperta"] {
+  padding-right: 1.5rem;
+}
+
+.cornice[data-chat="aperta"] .dentro {
+  flex: 1 1 auto;
+}
+
+.cornice[data-chat="aperta"] .rientro {
+  display: none;
 }
 
 .marchio {
@@ -112,7 +142,18 @@
 
 @media (max-width: 640px) {
   .cornice {
-    padding: 0.5rem 0.9rem;
+    padding: 0.5rem 0 0.5rem 0.9rem;
+  }
+
+  .cornice[data-chat="aperta"] {
+    padding-right: 0.9rem;
+  }
+
+  .rientro {
+    margin-left: 0.9rem;
+  }
+
+  .dentro {
     gap: 0.25rem 0.75rem;
   }
 
@@ -139,7 +180,7 @@
   }
 
   .voce {
-    padding: 0 0.5rem;
+    padding: 0 0.4rem;
   }
 
   .voce svg {

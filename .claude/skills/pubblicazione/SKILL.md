@@ -11,9 +11,10 @@ The creator publishes by themselves: here what they need is prepared and the arc
 ## When the creator approves a video
 
 1. Card: `stato: "pronto"`.
-2. Caption (`.claude/metodo/contenuto.md`, «Around the video»): short, makes people want to watch, does not summarize; relevant hashtags. Length, closing, number of hashtags and tone are
-   the creator's (profile, rules on channels; for YouTube `.claude/metodo/youtube.md`, «Around»). Two variants to the creator, written in full in the question; the chosen one goes in
-   `didascalia` and `hashtag`.
+2. **The caption makes people want to watch, it does not summarize**: the video's numbers stay inside the video. Its length, closing,
+   hashtags and tone are the creator's (profile, rules on channels; for YouTube `.claude/metodo/youtube.md`, «Around»); with no
+   indication, a short caption and a few relevant hashtags. It respects what the creator does not say (`.claude/metodo/contenuto.md`,
+   «What is not said»). Two variants to the creator, written in full in the question; the chosen one goes in `didascalia` and `hashtag`.
 3. Tell the creator which file to upload (`uscite/finale.mp4`, or `con-copertina.mp4` if it has the cover; for a carousel the slides
    `uscite/slide-*.png`, in order). If they ask, the post is prepared on TikTok Studio in their Chrome (photo or video, title,
    description with the hashtags) and it stops there: «Publish» is pressed by the creator.

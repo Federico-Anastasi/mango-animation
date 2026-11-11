@@ -8,7 +8,7 @@ import { errore, installaEventi, installaRete } from "./rete"
 let eventi: ReturnType<typeof installaEventi>
 let rete: ReturnType<typeof installaRete>
 
-const PROBLEMI = ["macchina.scheda_video: deve essere un numero o null", "canali[0].piattaforma: manca"]
+const PROBLEMI = ["La scheda video del computer deve essere un numero intero, o vuota.", "Manca la piattaforma del canale 1."]
 
 beforeEach(() => {
   eventi = installaEventi()
@@ -65,13 +65,13 @@ describe("l'avviso del profilo", () => {
       valido: false,
       presente: true,
       canali: [],
-      problemi: [intestazioni["X-Lingua"] === "en" ? "channels[0].platform: missing" : "canali[0].piattaforma: manca"],
+      problemi: [intestazioni["X-Lingua"] === "en" ? "The platform of channel 1 is missing." : "Manca la piattaforma del canale 1."],
     }))
     render(<Cornice vista="video" />)
-    expect(await screen.findByText(/canali\[0\]\.piattaforma: manca/)).toBeInTheDocument()
+    expect(await screen.findByText("Manca la piattaforma del canale 1.")).toBeInTheDocument()
     act(() => scegliLingua("en"))
     const avviso = await screen.findByRole("status", { name: "Profile needs fixing" })
     expect(avviso).toHaveTextContent("chat")
-    await waitFor(() => expect(avviso).toHaveTextContent("channels[0].platform: missing"))
+    await waitFor(() => expect(avviso).toHaveTextContent("The platform of channel 1 is missing."))
   })
 })

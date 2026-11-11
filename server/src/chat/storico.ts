@@ -1,5 +1,6 @@
 // Una conversazione letta dal suo file: gli stessi messaggi che la chat mostra in diretta, rifatti dalla trascrizione di Claude Code.
 import { daTestoDelCreator } from "./allegati"
+import { eAvvio } from "./primoGiro"
 import { conEsito, contestoDaUsage, partiDeiBlocchi, risultatiDegliStrumenti, uscitaLocale } from "./traduzione"
 import type { MessaggioChat, MessaggioSessione, Parte } from "./tipi"
 import { eOggetto } from "../disco"
@@ -25,6 +26,11 @@ function testoDi(contenuto: unknown): string {
     .flatMap((b) => (eOggetto(b) && b["type"] === "text" && typeof b["text"] === "string" ? [b["text"]] : []))
     .join("\n")
 }
+
+const eRigaDiAvvio = (riga: MessaggioSessione): boolean => riga.type === "user" && eOggetto(riga.message) && eAvvio(testoDi(riga.message["content"]))
+
+/** La conversazione è cominciata con l'avvio del primo giro (`primoGiro.ts`). */
+export const eDelPrimoGiro = (righe: MessaggioSessione[]): boolean => righe.some(eRigaDiAvvio)
 
 /** I token che la conversazione occupava all'ultima risposta scritta nel file; `null` se nessuna lo dice o se dopo l'ultima il contesto è stato riassunto. */
 export function contestoDaSessione(righe: MessaggioSessione[]): number | null {
@@ -88,7 +94,7 @@ export function messaggiDaSessione(righe: MessaggioSessione[], archivio: string,
 
     const testo = testoDi(contenuto)
     const comando = testoDelComando(testo)
-    const diFa = !riga.isCompactSummary && (riga.origin?.kind === undefined || riga.origin.kind === "human") && !MARCATORI_INTERNI.test(testo.trimStart())
+    const diFa = !riga.isCompactSummary && (riga.origin?.kind === undefined || riga.origin.kind === "human") && !MARCATORI_INTERNI.test(testo.trimStart()) && !eAvvio(testo)
     const parti: Parte[] = comando !== null ? [{ tipo: "testo", testo: comando }] : diFa ? daTestoDelCreator(testo, archivio) : []
     if (parti.length === 0) continue
     claude = null

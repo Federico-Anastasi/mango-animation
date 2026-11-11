@@ -9,6 +9,8 @@ import { MessaggioDiClaude, MessaggioDelCreator } from "./Messaggio"
 import { negozio, type StatoNegozio } from "./negozio"
 import { Richieste } from "./Richieste"
 import { SchedaTask } from "./SchedaTask"
+import { fraseSemplice } from "./strumenti"
+import type { ParteStrumento } from "./tipi"
 import { testoUso, usoInPrimoPiano } from "./usoTask"
 import styles from "./Conversazione.module.css"
 import { t } from "../lingua"
@@ -34,15 +36,15 @@ function nomePasso(chi: string | undefined, strumento: boolean): string {
  * Il passo che il motore sta facendo adesso, per la riga in fondo (il tempo del giro intero sta nella testata): uno strumento in
  * corso conta da quando è partito; altrimenti il motore pensa, da quando è finito l'ultimo strumento o è arrivato l'ultimo messaggio.
  */
-function passoInCorso(chat: StatoNegozio): { strumento: boolean; da: number | null } {
+function passoInCorso(chat: StatoNegozio): { strumento: ParteStrumento | null; da: number | null } {
   const ultimoDelCreator = chat.messaggi.map((m) => m.ruolo).lastIndexOf("utente")
   const parti = chat.messaggi.slice(ultimoDelCreator + 1).flatMap((m) => (m.ruolo === "claude" ? m.parti : []))
   const strumenti = parti.flatMap((p) => (p.tipo === "strumento" ? [p] : []))
   const istanti = [chat.lavoraDa, istante(chat.messaggi[ultimoDelCreator]?.quando ?? ""), ...strumenti.map((p) => (p.finito === undefined ? null : istante(p.finito)))]
   const ultimo = chat.lavoraDa === null ? null : Math.max(...istanti.filter((i): i is number => i !== null))
   const inCorso = strumenti.filter((p) => p.esito === undefined && p.errore === undefined).at(-1)
-  if (!inCorso) return { strumento: false, da: ultimo }
-  return { strumento: true, da: (inCorso.iniziato === undefined ? null : istante(inCorso.iniziato)) ?? ultimo }
+  if (!inCorso) return { strumento: null, da: ultimo }
+  return { strumento: inCorso, da: (inCorso.iniziato === undefined ? null : istante(inCorso.iniziato)) ?? ultimo }
 }
 
 /** I messaggi, in ordine. Segue il testo che arriva solo se chi legge è già in fondo; altrimenti lascia stare e offre di scendere. */
@@ -120,13 +122,22 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
     <div className={styles.corpo}>
       <div ref={area} className={styles.area} onScroll={alloScorrimento} role="log" aria-label={t("La conversazione", "The conversation")} aria-live="off">
         <div ref={contenuto} className={styles.contenuto}>
-          {chat.messaggi.map((m, i) => (m.ruolo === "utente" ? <MessaggioDelCreator key={m.id} messaggio={m} /> : <MessaggioDiClaude key={m.id} autore={chi ?? t("Risposta", "Reply")} messaggio={m} lavora={lavora} ultimo={i === ultimoDiClaude} collega={collega} />))}
+          {chat.messaggi.map((m, i) => (m.ruolo === "utente" ? <MessaggioDelCreator key={m.id} messaggio={m} /> : <MessaggioDiClaude key={m.id} autore={chi ?? t("Risposta", "Reply")} messaggio={m} lavora={lavora} ultimo={i === ultimoDiClaude} primoGiro={chat.primoGiro} collega={collega} />))}
           {chat.inviati.map((i) => (
             <div key={i.chiave} className={styles.inviato}>
-              <MessaggioDelCreator
-                messaggio={{ id: `inviato-${i.chiave}`, ruolo: "utente", quando: new Date().toISOString(), parti: [...(i.messaggio.testo ? [{ tipo: "testo" as const, testo: i.messaggio.testo }] : []), ...(i.messaggio.allegati ?? []).map((a) => ({ tipo: "allegato" as const, percorso: a.percorso, immagine: /\.(png|jpe?g|gif|webp|bmp)$/i.test(a.percorso) }))] }}
-                nota={i.errore ? undefined : lavora ? notaInCoda(chi, inPrimoPiano) : t("Lo sto mandando…", "Sending…")}
-              />
+              {i.messaggio.avvio ? (
+                // L'avvio del primo giro non è un messaggio del creator: finché parte non c'è niente da mostrare se non che sta cominciando.
+                !i.errore && (
+                  <p className={styles.lavora} role="status">
+                    {t("Sto cominciando…", "Starting…")}
+                  </p>
+                )
+              ) : (
+                <MessaggioDelCreator
+                  messaggio={{ id: `inviato-${i.chiave}`, ruolo: "utente", quando: new Date().toISOString(), parti: [...(i.messaggio.testo ? [{ tipo: "testo" as const, testo: i.messaggio.testo }] : []), ...(i.messaggio.allegati ?? []).map((a) => ({ tipo: "allegato" as const, percorso: a.percorso, immagine: /\.(png|jpe?g|gif|webp|bmp)$/i.test(a.percorso) }))] }}
+                  nota={i.errore ? undefined : lavora ? notaInCoda(chi, inPrimoPiano) : t("Lo sto mandando…", "Sending…")}
+                />
+              )}
               {i.errore && (
                 <p className={styles.erroreInvio} role="alert">
                   <span>{t("Non è partito: {errore}", "It was not sent: {errore}", { errore: i.errore })}</span>
@@ -154,7 +165,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
                   <i />
                 </span>
                 <span>
-                  {nomePasso(chi, passo.strumento)}
+                  {chat.primoGiro && passo.strumento ? fraseSemplice(passo.strumento.nome) : nomePasso(chi, passo.strumento !== null)}
                   {passo.da === null ? (
                     "…"
                   ) : (

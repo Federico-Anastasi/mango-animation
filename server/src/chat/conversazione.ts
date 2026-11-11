@@ -34,6 +34,8 @@ export interface DipendenzeConversazione {
   messaggi: MessaggioChat[]
   /** Il contesto che occupava all'ultima risposta scritta nel suo file. */
   contestoUsato: ContestoUsato | null
+  /** È cominciata con l'avvio del primo giro (`primoGiro.ts`). */
+  primoGiro: boolean
   /** La conversazione c'è già nei file di Claude Code: si riprende con `resume` invece di crearla. */
   esiste: boolean
   titolo: string
@@ -137,6 +139,10 @@ export class Conversazione {
     this.task = new ElencoTask(d.adesso)
   }
 
+  get primoGiro(): boolean {
+    return this.d.primoGiro
+  }
+
   get attiva(): boolean {
     return this.query !== null
   }
@@ -180,7 +186,8 @@ export class Conversazione {
 
   private accogli(parti: Parte[], messaggio: SDKUserMessage, titolo: string): void {
     if (!this.query) this.avvia()
-    this.trascrizione.aggiungiMessaggioDelCreator(parti)
+    // L'avvio del primo giro non ha parti: non è un messaggio del creator e la chat non lo mostra.
+    if (parti.length > 0) this.trascrizione.aggiungiMessaggioDelCreator(parti)
     if (this.titolo === "") this.titolo = titolo
     this.aggiornata = this.d.adesso().getTime()
     if (this.richieste.size === 0) this.imposta("lavora")

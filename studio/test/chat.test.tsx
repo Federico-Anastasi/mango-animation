@@ -47,7 +47,7 @@ const MODELLI: ModelloChat[] = [
 ]
 
 function conversazione(extra: Partial<DettaglioConversazione> = {}): DettaglioConversazione {
-  return { id: "c1", titolo: "Le slide del carosello", attiva: false, stato: "pronta", lavora_da: null, lavoro: { ms: 0, da: null }, modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, ...extra }
+  return { id: "c1", titolo: "Le slide del carosello", attiva: false, stato: "pronta", lavora_da: null, lavoro: { ms: 0, da: null }, modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, primo_giro: false, ...extra }
 }
 
 function rete(rotte: Record<string, unknown> = {}) {

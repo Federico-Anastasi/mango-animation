@@ -146,10 +146,12 @@ describe("POST /api/grezzo/scarica", () => {
     expect((await lavori(a)).in_coda).toEqual([])
   })
 
-  test("se yt-dlp fallisce il lavoro è fallito con la sua ultima frase, e nel girato non resta niente", async () => {
+  test("se yt-dlp fallisce il lavoro è fallito con una frase nella lingua dello studio che porta la sua ultima riga, e nel girato non resta niente", async () => {
     const a = await avviaConScarico(finto)
     const fine = await finito(a, (await scarica(a, { url: "https://esempio.test/rotto", nome: "x" })).corpo.id)
-    expect(fine).toMatchObject({ esito: "fallito", errore: "ERROR: [youtube] abc: Video unavailable" })
+    expect(fine).toMatchObject({ esito: "fallito", errore: "Lo scarico non è riuscito: ERROR: [youtube] abc: Video unavailable" })
+    const inglese = await finito(a, (await chiama<{ id: string }>(a, "POST", "/api/grezzo/scarica", { url: "https://esempio.test/rotto", nome: "x" }, "en")).corpo.id)
+    expect(inglese).toMatchObject({ esito: "fallito", errore: "The download did not work: ERROR: [youtube] abc: Video unavailable" })
     expect(await nelGrezzo(a)).toEqual([])
     expect(await avanzi(a)).toEqual([])
   })

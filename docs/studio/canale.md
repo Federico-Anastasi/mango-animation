@@ -1,0 +1,15 @@
+# Lo studio: il Canale e la Produzione
+
+## Canale — «come va il mio canale?»
+
+Tre schede di una voce: **Pubblico**, **Classifica**, **Crescita** (`#/canale/pubblico`, `#/canale/classifica`, `#/canale/crescita`; gli indirizzi di prima, `#/pubblico`, `#/classifica`, `#/crescita`, portano alla scheda giusta, e `#/canale` a Pubblico). La voce compare in barra solo quando c'è un canale letto (l'ultima lettura di `GET /api/canale/tiktok` esiste); per un creator nuovo non c'è, e la prima lettura si chiede da Impostazioni › Profilo (accanto ai canali), da Produzione o dalla chat (skill `scarica-tiktok`). Finché non c'è nessuna lettura, da ogni indirizzo del canale la pagina è una sola: cosa farà, e un pulsante che apre la chat con la richiesta giusta. La pagina ha un titolo solo, «Canale»; le schede non ripetono il proprio.
+
+Se una rilettura dal server fallisce e restano i dati di prima, la scheda lo dice in cima, con «Riprova» (`DatiVecchi` in `src/comuni/Stati.tsx`), invece di mostrarli come se fossero freschi. Una scheda senza i suoi dati (la classifica o il piano non fatti) dice cosa manca, in due righe, con un pulsante che apre la chat con la richiesta giusta (`src/comuni/PaginaVuota.tsx`); il pulsante segue i canali del profilo (`GET /api/profilo`, `canali`): senza canale «Collega un canale», con TikTok «Leggi i dati di TikTok» (la conversazione è sempre di Claude Code, che ha il browser del creator, anche se di solito si sceglie Mango Code: la scelta ricordata non cambia), con un solo altro canale la pagina dice che la lettura automatica non c'è ancora e propone di far guardare alla chat il profilo pubblico, con il permesso del creator.
+
+- **Pubblico — «cosa dice il pubblico, e come vanno i video usciti?»** L'ultima lettura del canale: quando è stata fatta e cosa le manca, i numeri del profilo, la tabella dei video usciti con la crescita dalla lettura precedente, i commenti del video scelto (quelli nuovi segnati) e i messaggi privati.
+- **Classifica — «a che punto sono fra i profili con cui mi confronto?»** I profili in archivio ordinati per punteggio o per uno dei numeri; la riga del creator è segnata e un riquadro fisso dice a che posto è.
+- **Crescita — «dove sono su TikTok, dove devo arrivare, e come?»** Il piano del canale (`crescita.json`) accanto alle letture vere: da dove viene, dove andare (con lo scenario scelto), cosa fare questa settimana, cosa porta follower per tipo di video. I numeri cambiano a ogni lettura; il piano lo riscrive Claude.
+
+## Produzione — «quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»
+
+Legge ciò che sta in archivio e i conti di Claude, e come Canale non aggiorna niente da sé (la lettura del canale si chiede nella chat; senza lettura la pagina lo dice). Un video è **fatto** quando è pronto o pubblicato (data della prima uscita, o dell'ultima modifica). Il lavoro fatto con Mango Code non è contato. È una voce a sé, e non una scheda di Canale, perché serve a ogni creator, anche a chi non ha un canale letto; senza video fatti dice come cominciare.

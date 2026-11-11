@@ -1,25 +1,21 @@
-/* A blocchi, non in colonna flessibile: Stile e Computer si centrano da soli con margini automatici, e in una colonna flessibile un contenuto largo li allargherebbe oltre lo schermo. */
+/* A blocchi, non in colonna flessibile: in una colonna flessibile un contenuto largo allargherebbe la pagina oltre lo schermo. */
 .pagina {
   container: pagina / inline-size;
-  /* La larghezza di ciò che ospita: le schede e il contenuto stanno sullo stesso filo. */
-  max-width: 62rem;
+  max-width: var(--cornice);
   margin: 0 auto;
   min-width: 0;
-}
-
-.pagina[data-sezione="stile"] {
-  max-width: 78rem;
 }
 
 .schede {
   margin-bottom: 1rem;
 }
 
-/* Una sezione scritta qui: titolo, poi i blocchi uno sotto l'altro. */
+/* Una sezione scritta qui: titolo, poi i blocchi uno sotto l'altro. Sono moduli: stanno a sinistra, non larghi quanto la pagina. */
 .contenuto {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  max-width: var(--moduli);
   min-width: 0;
 }
 

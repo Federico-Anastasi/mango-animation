@@ -69,12 +69,12 @@ function Fine({ durata_ms, errore }: { durata_ms: number; errore?: string }) {
   )
 }
 
-export function MessaggioDiClaude({ autore, messaggio, lavora, ultimo, collega }: { autore: string; messaggio: MessaggioChat; lavora: boolean; ultimo: boolean; collega: (t: string) => Pezzo[] }) {
+export function MessaggioDiClaude({ autore, messaggio, lavora, ultimo, primoGiro, collega }: { autore: string; messaggio: MessaggioChat; lavora: boolean; ultimo: boolean; primoGiro: boolean; collega: (t: string) => Pezzo[] }) {
   const parti = messaggio.parti
   return (
     <article className={styles.claude} aria-label={autore}>
-      {raggruppaPassi(parti).map((v, i) => {
-        if (v.tipo === "gruppo") return <GruppoPassi key={`gruppo-${v.id}`} gruppo={v} />
+      {raggruppaPassi(parti, primoGiro).map((v, i) => {
+        if (v.tipo === "gruppo") return <GruppoPassi key={`gruppo-${v.id}`} gruppo={v} lavora={lavora && ultimo} />
         const p = v.parte
         switch (p.tipo) {
           case "testo":

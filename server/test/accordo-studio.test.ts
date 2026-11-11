@@ -13,7 +13,8 @@ let tipi: TipiLetti
 beforeAll(async () => {
   tipi = tipiDelloStudio()
   a = await avviaAmbiente({}, async (c) => generaArchivio(c.archivio))
-}, 180_000)
+  // Una guardia, non una misura: l'archivio d'esempio si fa con ffmpeg, e su un computer con due processori passa i due minuti e mezzo.
+}, 600_000)
 afterAll(fermaTutti)
 
 const leggi = async <T = unknown>(percorso: string): Promise<T> => {

@@ -261,7 +261,7 @@ describe("il profilo", () => {
     expect(screen.queryByLabelText("Il tuo nome")).toBeNull()
     expect(screen.queryByRole("button", { name: "Salva" })).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Fai il primo giro" }))
-    await waitFor(() => expect(messaggiAClaude()[0]).toMatch(/Facciamo il primo giro/))
+    await waitFor(() => expect(chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo).toMatchObject({ avvio: "primo-giro" }))
     // Parte con Opus, come il giro che si apre da solo.
     expect(chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo).toMatchObject({ modello: "opus" })
   })

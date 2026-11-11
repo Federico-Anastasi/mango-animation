@@ -31,6 +31,15 @@ describe("i passi di fila", () => {
     expect(gruppo.tipo === "gruppo" && gruppo.dentro.map((p) => p.tipo)).toEqual(["strumento", "pensiero", "strumento"])
   })
 
+  it("nel primo giro raccoglie tutto: anche un passo solo, quello in corso e quello fallito; restano fuori solo ciò che il creator deve vedere", () => {
+    const tutto = (parti: Parte[]) => raggruppaPassi(parti, true).map((v) => (v.tipo === "gruppo" ? `[${v.passi.map((p) => p.id).join(",")}]` : v.parte.tipo === "strumento" ? v.parte.id : v.parte.tipo))
+    expect(tutto([passo("a")])).toEqual(["[a]"])
+    expect(tutto([passo("a"), passo("b", { esito: undefined }), passo("c", { esito: undefined, errore: "negato" })])).toEqual(["[a,b,c]"])
+    expect(tutto([passo("a"), { tipo: "testo", testo: "ecco" }, passo("b", { esito: undefined })])).toEqual(["[a]", "testo", "[b]"])
+    const fuori = [passo("q", { nome: "AskUserQuestion" }), passo("l", { nome: "mcp__video__lavoro" }), passo("f", { immagini: [{ media_type: "image/png", data: "x" }] })]
+    expect(tutto([passo("a"), ...fuori, passo("c")])).toEqual(["[a]", "q", "l", "f", "[c]"])
+  })
+
   it("la durata va dall'inizio del primo passo alla fine dell'ultimo; senza gli orari non c'è", () => {
     const gruppo = raggruppaPassi([passo("a", { iniziato: "2026-11-02T10:00:00.000Z", finito: "2026-11-02T10:00:05.000Z" }), passo("b", { iniziato: "2026-11-02T10:00:20.000Z", finito: "2026-11-02T10:01:08.000Z" })])[0]!
     expect(gruppo.tipo === "gruppo" && durataDelGruppo(gruppo.passi)).toBe(68)

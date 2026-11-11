@@ -12,6 +12,8 @@ export interface NuovoMessaggio {
   testo?: string
   allegati?: AllegatoInviato[]
   contesto?: ContestoChat
+  /** Il primo giro (o rifarlo): la conversazione comincia da Claude, senza un messaggio del creator. Va da solo, senza testo né allegati. */
+  avvio?: "primo-giro" | "rifare-primo-giro"
 }
 
 export const apiChat = {

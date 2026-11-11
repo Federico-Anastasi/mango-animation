@@ -1,6 +1,7 @@
 import Ajv2020 from "ajv/dist/2020"
 import type { ErrorObject } from "ajv/dist/2020"
 import { join } from "node:path"
+import { problemiDelProfilo, type NomiDelProfilo } from "./frasiProfilo"
 import { frase, type Frase, type Testo } from "./lingua"
 
 export const NOMI_SCHEMI = ["piano", "scheda", "grezzo", "profilo"] as const
@@ -84,11 +85,14 @@ function problema(e: ErrorObject): Frase {
   return frase(`${dove.it}: ${motivo.it}`, `${dove.en}: ${motivo.en}`)
 }
 
+/** Con `x-nomi` nello schema (i nomi delle voci per chi usa l'app) i problemi sono scritti con quei nomi, come per il profilo. */
 function compila(schema: object): Controllo {
-  const valida = new Ajv2020({ allErrors: true }).compile(schema)
+  const valida = new Ajv2020({ allErrors: true }).addKeyword("x-nomi").compile(schema)
+  const nomi = (schema as { "x-nomi"?: NomiDelProfilo })["x-nomi"]
   return (dato) => {
     if (valida(dato)) return []
-    const frasi = [...new Map((valida.errors ?? []).map(problema).map((f) => [f.it, f])).values()]
+    const errori = valida.errors ?? []
+    const frasi = [...new Map((nomi ? problemiDelProfilo(errori, nomi) : errori.map(problema)).map((f) => [f.it, f])).values()]
     if (frasi.length <= PROBLEMI_MOSTRATI) return frasi
     const altri = frasi.length - PROBLEMI_MOSTRATI
     return [...frasi.slice(0, PROBLEMI_MOSTRATI), frase(`e altri ${altri} problemi`, `and ${altri} more problems`)]

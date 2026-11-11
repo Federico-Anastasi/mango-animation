@@ -41,9 +41,9 @@ describe("i motori del profilo", () => {
     await chiama(a, "PUT", "/api/motori", { sagoma: { dove: "scheda" } })
     const prima = await readFile(join(a.radice, "profilo.json"), "utf-8")
     for (const [corpo, frase] of [
-      [{ sagoma: { dove: "online" } }, /deve essere uno fra/],
-      [{ inventata: { attiva: true } }, /non è una chiave ammessa/],
-      [{ sagoma: { attiva: "si" } }, /deve essere vero o falso/],
+      [{ sagoma: { dove: "online" } }, /non va bene: puoi scegliere/],
+      [{ inventata: { attiva: true } }, /che non conosco/],
+      [{ sagoma: { attiva: "si" } }, /deve essere sì o no/],
     ] as const) {
       const r = await chiama<{ errore: string; problemi: string[] }>(a, "PUT", "/api/motori", corpo)
       expect(r.stato).toBe(400)

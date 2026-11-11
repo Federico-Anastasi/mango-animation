@@ -1,3 +1,4 @@
+// «Cosa fa girare il mio computer?»: le funzioni pesanti, ognuna con il suo interruttore e, dove ha una scelta, dove gira (`motori` del profilo, `PUT /api/motori`); in cima, ciò che l'app misura del computer.
 import { useCallback, useEffect, useState } from "react"
 import { Caricamento, Errore } from "../comuni/Stati"
 import { useCopia } from "../dati"

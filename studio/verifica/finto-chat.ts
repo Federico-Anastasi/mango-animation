@@ -54,6 +54,8 @@ interface Conversazione extends ImpostazioniChat {
   /** Chiusa dal creator: il processo è spento finché non scrive di nuovo. */
   chiusa?: boolean
   contestoUsato?: ContestoUsato
+  /** Cominciata dall'avvio del primo giro: nessun messaggio del creator. */
+  primoGiro?: boolean
 }
 
 /** Un istante di `secondi` fa. */
@@ -193,6 +195,10 @@ const ALTRA: Conversazione = {
     { id: "v2", ruolo: "claude", quando: "2026-11-01T18:30:00", parti: [mostra("Verso le **15:42**, secondo la stima della coda."), { tipo: "fine", durata_ms: 6_000 }] },
   ],
 }
+
+const DOMANDE_PRIMO_GIRO: DomandaChat[] = [
+  { domanda: "Dove pubblichi i tuoi video?", intestazione: "Canali", multipla: true, opzioni: [{ etichetta: "TikTok", descrizione: "Video verticali" }, { etichetta: "Instagram", descrizione: "Reel e storie" }, { etichetta: "YouTube", descrizione: "Video lunghi o Shorts" }] },
+]
 
 const DOMANDE: DomandaChat[] = [
   { domanda: "Con quale quadro lo monto?", intestazione: "Quadro", multipla: false, opzioni: [{ etichetta: "Sagoma al centro", descrizione: "Le animazioni sopra, la tua sagoma a tutta larghezza" }, { etichetta: "Girato pieno", descrizione: "Solo tu che parli, nessuna animazione" }] },
@@ -392,6 +398,72 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
     emetti(c.id, { evento: "elenco" })
   }
 
+  // Il primo giro: Claude saluta, lavora (i passi sono tanti e uno non riesce) e fa la prima domanda, senza nessun messaggio del creator.
+  async function primoGiro(c: Conversazione) {
+    imposta(c, "lavora")
+    const m: Messaggio = { id: `m${++contatore}`, ruolo: "claude", quando: new Date().toISOString(), parti: [] }
+    c.messaggi.push(m)
+    emetti(c.id, { evento: "messaggio", messaggio: m })
+    m.parti.push(mostra(""))
+    await scrivi(c, m, "Ciao! Facciamo il primo giro: ti chiedo chi sei e dove pubblichi, prendiamo il tuo stile e sistemo io le impostazioni. Ci vogliono pochi minuti, e puoi dire «salta» quando vuoi.", 0)
+    const passo = async (parte: Parte, finale?: Parte) => {
+      const indice = m.parti.length
+      m.parti.push(parte)
+      emetti(c.id, { evento: "parte", messaggio: m.id, indice, parte })
+      if (!finale) return
+      await dormi(250)
+      m.parti[indice] = finale
+      emetti(c.id, { evento: "parte", messaggio: m.id, indice, parte: finale })
+    }
+    await passo({ tipo: "strumento", id: "pg1", nome: "Skill", ingresso: { skill: "welcome" } }, { tipo: "strumento", id: "pg1", nome: "Skill", ingresso: { skill: "welcome" }, esito: "ok" })
+    await passo({ tipo: "strumento", id: "pg2", nome: "Read", ingresso: { file_path: "profilo.json" } }, { tipo: "strumento", id: "pg2", nome: "Read", ingresso: { file_path: "profilo.json" }, errore: "File does not exist." })
+    await passo({ tipo: "strumento", id: "pg3", nome: "Glob", ingresso: { pattern: "*.json" } }, { tipo: "strumento", id: "pg3", nome: "Glob", ingresso: { pattern: "*.json" }, esito: "stile.json" })
+    m.parti.push(mostra(""))
+    await scrivi(c, m, "Prima cosa: dove pubblichi i tuoi video?", m.parti.length - 1)
+    await passo({ tipo: "strumento", id: "pg4", nome: "AskUserQuestion", ingresso: { questions: [] } })
+    const risposta = (await chiedi(c, { id: `q${++contatore}`, tipo: "domanda", domande: DOMANDE_PRIMO_GIRO })) as { scelta?: { risposte?: Record<string, string> } }
+    imposta(c, "lavora")
+    m.parti[m.parti.length - 1] = { tipo: "strumento", id: "pg4", nome: "AskUserQuestion", ingresso: { questions: [] }, esito: "ok" }
+    emetti(c.id, { evento: "parte", messaggio: m.id, indice: m.parti.length - 1, parte: m.parti.at(-1)! })
+    m.parti.push(mostra(""))
+    await scrivi(c, m, `Perfetto: ${Object.values(risposta.scelta?.risposte ?? {}).join(", ")}.`, m.parti.length - 1)
+    const fine: Parte = { tipo: "fine", durata_ms: 9_000 }
+    m.parti.push(fine)
+    emetti(c.id, { evento: "parte", messaggio: m.id, indice: m.parti.length - 1, parte: fine })
+    imposta(c, "pronta")
+  }
+
+  // Un giro del primo giro a metà: i passi fatti raccolti in una riga e uno ancora in corso.
+  function creaPrimoGiroAMeta(): Conversazione {
+    return {
+      id: "primogiro",
+      titolo: "Il primo giro",
+      aggiornata: new Date().toISOString(),
+      stato: "lavora",
+      lavoraDa: fa(70),
+      fermata: false,
+      accesa: true,
+      primoGiro: true,
+      modello: "claude-opus-5-5",
+      effort: null,
+      inAttesa: [],
+      task: [],
+      messaggi: [
+        {
+          id: "pg-m1",
+          ruolo: "claude",
+          quando: fa(70),
+          parti: [
+            mostra("Ottimo, lavori su TikTok e Instagram. Adesso guardo i tuoi video per prendere lo stile: ci metto un minuto."),
+            { tipo: "strumento", id: "pg-a", nome: "WebFetch", ingresso: { url: "https://www.tiktok.com/@alice.cucina" }, esito: "ok", iniziato: fa(60), finito: fa(52) },
+            { tipo: "strumento", id: "pg-b", nome: "Read", ingresso: { file_path: "stile.json" }, errore: "File does not exist.", iniziato: fa(50), finito: fa(50) },
+            { tipo: "strumento", id: "pg-c", nome: "Bash", ingresso: { command: "python -m motore palette copertine", description: "Guardo i colori delle copertine" }, iniziato: fa(14) },
+          ],
+        },
+      ],
+    }
+  }
+
   function aggiungiMessaggioDelCreator(c: Conversazione, corpo: { testo: string; allegati?: Array<{ percorso: string }> }) {
     const m: Messaggio = { id: `m${++contatore}`, ruolo: "utente", quando: new Date().toISOString(), parti: [...(corpo.allegati ?? []).map((a): Parte => ({ tipo: "allegato", percorso: a.percorso, immagine: /\.(png|jpe?g|gif|webp)$/i.test(a.percorso) })), mostra(corpo.testo)] }
     c.messaggi.push(m)
@@ -407,12 +479,19 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
     const corpo = async <T>() => (await richiesta.json()) as T
     if (percorso === "/api/chat" && metodo === "GET") return json(elenco())
     if (percorso === "/api/chat" && metodo === "POST") {
-      const dati = await corpo<{ testo: string; allegati?: Array<{ percorso: string }>; modello?: string; effort?: LivelloEffort }>()
-      const c: Conversazione = { id: `c${++contatore}`, titolo: dati.testo.slice(0, 50), aggiornata: new Date().toISOString(), stato: "pronta", lavoraDa: null, messaggi: [], inAttesa: [], task: [], fermata: false, modello: dati.modello ?? null, effort: dati.effort ?? null }
+      const dati = await corpo<{ testo?: string; avvio?: string; allegati?: Array<{ percorso: string }>; modello?: string; effort?: LivelloEffort }>()
+      if (dati.avvio) {
+        const nuovo: Conversazione = { id: `c${++contatore}`, titolo: "Il primo giro", aggiornata: new Date().toISOString(), stato: "pronta", lavoraDa: null, messaggi: [], inAttesa: [], task: [], fermata: false, modello: dati.modello ?? null, effort: dati.effort ?? null, primoGiro: true, accesa: true }
+        conversazioni.set(nuovo.id, nuovo)
+        emetti(nuovo.id, { evento: "elenco" })
+        void primoGiro(nuovo)
+        return json({ id: nuovo.id }, 201)
+      }
+      const c: Conversazione = { id: `c${++contatore}`, titolo: (dati.testo ?? "").slice(0, 50), aggiornata: new Date().toISOString(), stato: "pronta", lavoraDa: null, messaggi: [], inAttesa: [], task: [], fermata: false, modello: dati.modello ?? null, effort: dati.effort ?? null }
       conversazioni.set(c.id, c)
-      aggiungiMessaggioDelCreator(c, dati)
+      aggiungiMessaggioDelCreator(c, { ...dati, testo: dati.testo ?? "" })
       emetti(c.id, { evento: "elenco" })
-      void rispondi(c, dati.testo)
+      void rispondi(c, dati.testo ?? "")
       return json({ id: c.id }, 201)
     }
     if (percorso === "/api/chat/modelli" && metodo === "GET") return json(MODELLI)
@@ -430,9 +509,10 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
     if (idUna === "tempi" && metodo === "GET" && !una[2]) conversazioni.set("tempi", creaTempi())
     if (idUna === "background" && metodo === "GET" && !una[2]) conversazioni.set("background", creaBackground())
     if (idUna === "mango" && metodo === "GET" && !una[2]) conversazioni.set("mango", creaMango())
+    if (idUna === "primogiro" && metodo === "GET" && !una[2]) conversazioni.set("primogiro", creaPrimoGiroAMeta())
     const c = conversazioni.get(idUna)
     if (!c) return errore(404, "Questa conversazione non c'è.")
-    if (!una[2] && metodo === "GET") return json({ id: c.id, titolo: c.titolo, attiva: attiva(c), stato: c.stato, lavora_da: c.lavoraDa, lavoro: lavoroDi(c), modello: c.modello, effort: c.effort, messaggi: c.messaggi, in_attesa: c.inAttesa, task: c.task, contesto_usato: c.contestoUsato ?? null })
+    if (!una[2] && metodo === "GET") return json({ id: c.id, titolo: c.titolo, attiva: attiva(c), stato: c.stato, lavora_da: c.lavoraDa, lavoro: lavoroDi(c), modello: c.modello, effort: c.effort, messaggi: c.messaggi, in_attesa: c.inAttesa, task: c.task, contesto_usato: c.contestoUsato ?? null, primo_giro: c.primoGiro === true })
     if (una[2] === "messaggi" && metodo === "POST") {
       const dati = await corpo<{ testo: string; allegati?: Array<{ percorso: string }> }>()
       aggiungiMessaggioDelCreator(c, dati)

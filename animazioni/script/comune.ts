@@ -9,6 +9,7 @@ import { palcoDi } from "../src/impianto";
 import type { Registro } from "../src/registro";
 import { CODICE, lavoroDa, type Stile, stileUnito } from "./percorsi";
 import { schedaVideo } from "./scheda";
+import { dice } from "./lingua";
 
 export const RADICE = fileURLToPath(new URL("../", import.meta.url));
 export const FPS = stileUnito().formati.verticale.fps;
@@ -58,7 +59,7 @@ const ATTESA_MASSIMA_MS = 60_000;
 
 const costruisciConVite = async (uscita: string): Promise<void> => {
   const r = Bun.spawn([process.execPath, "x", "vite", "build", "--logLevel", "error", "--outDir", uscita], { cwd: RADICE, stdout: "inherit", stderr: "inherit" });
-  if ((await r.exited) !== 0) throw new Error("La pagina delle animazioni non si costruisce: guarda l'errore qui sopra.");
+  if ((await r.exited) !== 0) throw new Error(dice("La pagina delle animazioni non si costruisce: guarda l'errore qui sopra.", "The animations page does not build: look at the error above."));
 };
 
 const codice = (e: unknown): string | undefined => (e instanceof Error && "code" in e && typeof e.code === "string" ? e.code : undefined);
@@ -142,7 +143,7 @@ export async function assicuraCostruita(opzioni: Partial<Costruzione> = {}): Pro
     }
     try {
       if (await aggiornata()) return;
-      console.log("costruisco la pagina delle animazioni…");
+      console.log(dice("costruisco la pagina delle animazioni…", "building the animations page…"));
       await rm(nuova, { recursive: true, force: true });
       await costruisci(nuova);
       await writeFile(join(nuova, ".lavoro"), lavoro);
@@ -177,12 +178,12 @@ export function palcoDellaScena(registro: Registro, sigla: string) {
 export async function apri(registro: Registro) {
   const server = servi();
   const scheda = await schedaVideo();
-  console.log(`animazioni: disegno su ${scheda.nome}`);
+  console.log(dice(`animazioni: disegno su ${scheda.nome}`, `animations: drawing on ${scheda.nome}`));
   const browser = await chromium.launch({ args: scheda.args });
   const errori: string[] = [];
   const scena = async (id: string): Promise<Page> => {
     const pagina = await browser.newPage({ viewport: palcoDellaScena(registro, id), locale: "it-IT" });
-    pagina.on("pageerror", (e) => errori.push(`${id}: errore di pagina: ${e.message}`));
+    pagina.on("pageerror", (e) => errori.push(dice(`${id}: errore di pagina: ${e.message}`, `${id}: page error: ${e.message}`)));
     pagina.on("console", (m) => m.type() === "error" && errori.push(`${id}: console: ${m.text()}`));
     await pagina.goto(`http://127.0.0.1:${server.port}/?animazione=${encodeURIComponent(id)}&t=0`);
     await pagina.waitForFunction(() => window.animazione !== undefined);

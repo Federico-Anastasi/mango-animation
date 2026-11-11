@@ -12,13 +12,14 @@ come regole e skill per Claude Code. Gira su Windows e usa il Claude Code che ha
 - `server/`, `studio/`, `animazioni/`: server, interfaccia, scene animate.
 - `app/`: la finestra desktop.
 - `stile.json`, `font/`: lo stile di serie e i caratteri. Il creator ha il suo `stile.json` nella cartella di lavoro, che si sovrappone chiave per chiave.
-- `.claude/rules/`, `.claude/skills/`: il metodo (processo, montaggio, controlli). `.claude-plugin/` e `plugin/` lo rendono un plugin di Claude Code (`docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude»). Le regole e le skill del creator stanno nella sua cartella di lavoro.
+- `.claude/rules/`, `.claude/skills/`: il metodo (processo, montaggio, controlli). `.claude-plugin/` e `plugin/` lo rendono un plugin di Claude Code (`docs/METODO.md`). Le regole e le skill del creator stanno nella sua cartella di lavoro.
 - `docs/PROFILO.md`: cosa è del creator (`profilo.json`, `stile.json`, le sue regole) e come si somma al metodo.
 - `SECURITY.md` (come segnalare un problema di sicurezza e cosa l'app protegge) e `CONTRIBUTING.md` (come contribuire: costruire, provare con quali comandi, aprire issue e pull request).
 - `LICENSE` (AGPL-3.0-or-later), `NOTICE.md` (cosa vuol dire, il permesso aggiuntivo per Claude Code, i file di terzi nel repo), `TRADEMARKS.md`
   (nome e logo) e `AVVISI-DI-TERZI.md` (le licenze di tutto ciò che il prodotto scarica; si rifà con `python -m strumenti.avvisi_terzi`).
 - `docs/`: come è fatto (`ARCHITETTURA.md`), il contratto di piano (`PIANO.md`), motore (`MOTORE.md`, `MOTORI.md`) e API (`API.md`), l'archivio (`ARCHIVIO.md`),
   l'app (`APP.md`), la chat (`CHAT.md`), lo studio (`INTERFACCIA.md`), la guida per chi la usa (`guida/`) e `NUOVO-COMPUTER.md` per chi sviluppa.
+- `docs/api/`, `docs/app/`: le rotte del server e l'app, un argomento per file (gli indici sono `API.md` e `APP.md`). Per argomento anche: il piano (`PIANO-USCITA.md`, `QUADRI.md`, `RISOLTO.md`), l'archivio (`SCHEDE.md`, `CANALE.md`), il metodo (`METODO.md`), `LINGUA.md` (la lingua delle frasi) e `VARIABILI.md` (le variabili d'ambiente).
 
 ## I dati stanno fuori
 

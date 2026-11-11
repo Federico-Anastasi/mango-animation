@@ -7,7 +7,8 @@ import { eComando, ElencoComandi, rifiutaIlComandoDelloStudio, type ComandoChat 
 import { CONVERSAZIONE_CHIUSA, Conversazione } from "./conversazione"
 import { LetturaDiClaudeCode } from "./lettura"
 import { ElencoModelli } from "./modelli"
-import { contestoDaSessione, messaggiDaSessione } from "./storico"
+import { eAvvio, ingressoDiAvvio, leggiAvvio, TITOLO_PRIMO_GIRO } from "./primoGiro"
+import { contestoDaSessione, eDelPrimoGiro, messaggiDaSessione } from "./storico"
 import { abbrevia, type Oggetto } from "./traduzione"
 import { lavoroDeiGiri } from "./trascrizione"
 import { eDiMangoCode } from "./mangocode"
@@ -32,7 +33,7 @@ export interface DipendenzeChat {
   lingua: () => Lingua
 }
 
-const titoloDa = (testo: string): Testo => abbrevia(testoVisibile(testo)) || SENZA_TITOLO
+const titoloDa = (testo: string): Testo => (eAvvio(testo) ? TITOLO_PRIMO_GIRO : abbrevia(testoVisibile(testo)) || SENZA_TITOLO)
 
 export class Chat {
   private readonly attive = new Map<string, Conversazione>()
@@ -120,7 +121,7 @@ export class Chat {
     return sua
   }
 
-  private async leggiDalFile(id: string): Promise<{ messaggi: MessaggioChat[]; titolo: string; aggiornata: number; contestoUsato: ContestoUsato | null }> {
+  private async leggiDalFile(id: string): Promise<{ messaggi: MessaggioChat[]; titolo: string; aggiornata: number; contestoUsato: ContestoUsato | null; primoGiro: boolean }> {
     const diMango = await this.diMango(id)
     const righe = diMango ? await this.d.opzioni.mangoCode.leggi(id, this.d.lavoro) : await this.d.opzioni.sessioni.leggi(id)
     if (righe === null) throw new ErroreChat(404, NON_TROVATA)
@@ -130,7 +131,9 @@ export class Chat {
     const usati = contestoDaSessione(righe)
     // La finestra di Claude Code la dà solo Claude Code acceso, a fine giro; quella di Mango Code è scritta nei suoi modelli.
     const totale = usati !== null && diMango ? await this.d.opzioni.mangoCode.contestoDi(id, this.d.lavoro) : null
-    return { messaggi, titolo: primo?.tipo === "testo" ? abbrevia(primo.testo) : "", aggiornata: Number.isNaN(ultimo) ? this.d.adesso().getTime() : ultimo, contestoUsato: usati === null ? null : { usati, totale } }
+    const primoGiro = eDelPrimoGiro(righe)
+    const titolo = primoGiro ? TITOLO_PRIMO_GIRO.in(this.d.lingua()) : primo?.tipo === "testo" ? abbrevia(primo.testo) : ""
+    return { messaggi, titolo, aggiornata: Number.isNaN(ultimo) ? this.d.adesso().getTime() : ultimo, contestoUsato: usati === null ? null : { usati, totale }, primoGiro }
   }
 
   /** La conversazione aperta con questo id; se è chiusa si legge dal suo file e si prepara a riprendere. Una chiusura in corso si aspetta. */
@@ -151,8 +154,8 @@ export class Chat {
 
   private iniziaApertura(id: string): Promise<Conversazione> {
     const apertura = (async () => {
-      const { messaggi, titolo, aggiornata, contestoUsato } = await this.leggiDalFile(id)
-      const conversazione = this.nuova(id, messaggi, true, titolo, aggiornata, contestoUsato)
+      const { messaggi, titolo, aggiornata, contestoUsato, primoGiro } = await this.leggiDalFile(id)
+      const conversazione = this.nuova(id, messaggi, true, titolo, aggiornata, contestoUsato, primoGiro)
       const diMango = await this.d.opzioni.mangoCode.modelloDi(id)
       if (diMango) conversazione.preimposta({ modello: diMango })
       this.attive.set(id, conversazione)
@@ -170,7 +173,7 @@ export class Chat {
     }
   }
 
-  private nuova(id: string, messaggi: MessaggioChat[], esiste: boolean, titolo: string, aggiornata: number, contestoUsato: ContestoUsato | null): Conversazione {
+  private nuova(id: string, messaggi: MessaggioChat[], esiste: boolean, titolo: string, aggiornata: number, contestoUsato: ContestoUsato | null, primoGiro: boolean): Conversazione {
     const mango = this.diMangoCode.has(id)
     return new Conversazione({
       id,
@@ -178,6 +181,7 @@ export class Chat {
       lavoro: this.d.lavoro,
       messaggi,
       contestoUsato,
+      primoGiro,
       esiste,
       titolo,
       aggiornata,
@@ -216,11 +220,14 @@ export class Chat {
   async crea(corpo: Oggetto): Promise<string> {
     const { modello, effort, ...messaggio } = corpo
     const scelta = modello === undefined && effort === undefined ? {} : await this.elencoModelli.verifica({ ...(modello === undefined ? {} : { modello }), ...(effort === undefined ? {} : { effort }) }, { modello: null, effort: null })
-    const { testo, parti, ingresso, titolo } = await this.preparaMessaggio(messaggio)
+    const avvio = leggiAvvio(messaggio)
+    const { testo, parti, ingresso, titolo } = avvio
+      ? { testo: "", parti: [], ingresso: ingressoDiAvvio(avvio, this.d.lingua()), titolo: TITOLO_PRIMO_GIRO.in(this.d.lingua()) }
+      : await this.preparaMessaggio(messaggio)
     if (eComando(testo) && !eDiMangoCode(scelta.modello)) rifiutaIlComandoDelloStudio(testo)
     const id = randomUUID()
     if (eDiMangoCode(scelta.modello)) this.diMangoCode.add(id)
-    const conversazione = this.nuova(id, [], false, "", this.d.adesso().getTime(), null)
+    const conversazione = this.nuova(id, [], false, "", this.d.adesso().getTime(), null, avvio !== undefined)
     conversazione.preimposta(scelta)
     this.attive.set(id, conversazione)
     conversazione.scrivi(parti, ingresso, titolo)
@@ -241,9 +248,9 @@ export class Chat {
     const titoloDi = (proprio: string): Testo => (sulDisco ? titoloDa(sulDisco.titolo) : proprio)
     await this.chiusure.get(id)
     const aperta = this.attive.get(id)
-    if (aperta) return { id, titolo: aperta.rinominata ? aperta.titolo : titoloDi(aperta.titolo), attiva: aperta.attiva, stato: aperta.stato, lavora_da: aperta.lavoraDa, lavoro: aperta.lavoro, ...aperta.impostazioni, messaggi: aperta.messaggi, in_attesa: aperta.inAttesa, task: aperta.task.elenco, contesto_usato: aperta.contestoUsato }
-    const { messaggi, titolo, contestoUsato } = await this.leggiDalFile(id)
-    return { id, titolo: titoloDi(titolo), attiva: false, stato: "pronta", lavora_da: null, lavoro: { ms: lavoroDeiGiri(messaggi, false), da: null }, modello: await this.d.opzioni.mangoCode.modelloDi(id), effort: null, messaggi, in_attesa: [], task: [], contesto_usato: contestoUsato }
+    if (aperta) return { id, titolo: aperta.rinominata ? aperta.titolo : titoloDi(aperta.titolo), attiva: aperta.attiva, stato: aperta.stato, lavora_da: aperta.lavoraDa, lavoro: aperta.lavoro, ...aperta.impostazioni, messaggi: aperta.messaggi, in_attesa: aperta.inAttesa, task: aperta.task.elenco, contesto_usato: aperta.contestoUsato, primo_giro: aperta.primoGiro }
+    const { messaggi, titolo, contestoUsato, primoGiro } = await this.leggiDalFile(id)
+    return { id, titolo: titoloDi(titolo), attiva: false, stato: "pronta", lavora_da: null, lavoro: { ms: lavoroDeiGiri(messaggi, false), da: null }, modello: await this.d.opzioni.mangoCode.modelloDi(id), effort: null, messaggi, in_attesa: [], task: [], contesto_usato: contestoUsato, primo_giro: primoGiro }
   }
 
   modelli(): Promise<ModelloChat[]> {

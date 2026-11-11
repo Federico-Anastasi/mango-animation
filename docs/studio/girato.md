@@ -1,0 +1,13 @@
+# Lo studio: il Girato
+
+## Girato — «cosa ho girato, e cosa ne ho fatto?»
+
+Per giorno, dal più recente, a griglia. La miniatura c'è appena il file entra, senza prepararlo. Una foto (HEIC, JPEG, PNG… dall'estensione) si chiama «Foto» e si apre sull'immagine: la foto intera che prepara il motore (`preparato.foto`), altrimenti l'originale se il browser lo apre, altrimenti la miniatura; senza nessuna dice che non è ancora pronta. Una foto non ha né «Tipo» né parlato. Aprendo un video: il lettore (la copia leggera se c'è, altrimenti l'originale; se il browser non lo apre lo dice), il parlato con i tempi (un clic salta lì), le note e, se manca qualcosa, una riga che dice cosa chiedere nella chat.
+
+**«Aggiungi video»** (in testa alla pagina, e nel Girato vuoto) apre la finestra di scelta dei file del computer, più file insieme, e i file lasciati sulla pagina fanno lo stesso: mentre si trascinano, un riquadro tratteggiato copre la vista (non la chat) e dice dove rilasciare. I file entrano nel girato di oggi uno dopo l'altro, come quelli del telefono (`docs/API.md`, «Aggiungere un file dal computer»); sotto la testata un elenco mostra per ognuno l'avanzamento, l'esito o perché non è entrato, e resta finché non lo si chiude (`src/girato/Aggiunte.tsx`). Nell'app un file lasciato sulla finestra arriva col suo percorso e il server lo collega, senza copiarlo se sta sullo stesso disco; nel browser (anche dal telefono) il file parte col suo contenuto.
+
+Filtri: mai usati, per tipo. In testa alla lista, **«Cerca nel parlato»** (`src/girato/CercaNelParlato.tsx`, solo se c'è almeno un file): dalla seconda lettera, dopo un attimo, la lista dei giorni e i filtri lasciano il posto ai risultati, raggruppati per file con il secondo e la frase intorno e le parole trovate in evidenza (`GET /api/grezzo/cerca`, `docs/API.md`: senza badare a maiuscole e accenti). Un clic apre il file a quel punto (`#/girato?file=…&t=12.5`: il lettore va a quel secondo e il dettaglio torna in vista). Dice quanti sono in tutto se i risultati sono più di cento, cosa provare se non c'è niente, e di quanti file il parlato non si legge.
+
+Senza file propone di aggiungerne e dice che si può mandare dal telefono. In testa una riga sul telefono, quanto serve mentre si riceve un file: se può mandare e gli ultimi arrivati; in ogni caso un collegamento porta a Impostazioni › Telefono, dove sta il resto.
+
+Se la scheda di un file non passa i controlli, la pagina del file lo dice con una frase semplice (chiedere nella chat di sistemarla) al posto di «sto ancora leggendo il file»; il perché preciso sta in un riquadro che si apre a richiesta.

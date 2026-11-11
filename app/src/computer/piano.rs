@@ -212,11 +212,11 @@ pub fn moduli_per(f: &Funzioni) -> Vec<&'static str> {
     moduli
 }
 
-/// I pacchetti da installare per le funzioni accese, e la loro stima di peso in byte.
-fn gruppi_per(f: &Funzioni, con_cuda: bool) -> (Vec<Gruppo>, u64) {
+/// I pacchetti da installare per le funzioni accese, a gruppi, ognuno con la stima del suo peso in byte.
+fn gruppi_pesati(f: &Funzioni, con_cuda: bool) -> Vec<(Gruppo, u64)> {
     let semplici = |p: &[&str]| p.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
-    let mut gruppi = vec![Gruppo { pacchetti: semplici(PACCHETTI_BASE), indice: None }];
-    let mut peso = 340 * MB;
+    let mut gruppi = vec![(Gruppo { pacchetti: semplici(PACCHETTI_BASE), indice: None }, 340 * MB)];
+    let mut peso = 0;
     let mut altri = Vec::new();
     if f.attiva("trascrizione") || f.attiva("dettatura") {
         // `requests`: faster-whisper 1.1.0 lo importa e non lo dichiara, e huggingface_hub non lo porta più.
@@ -238,14 +238,26 @@ fn gruppi_per(f: &Funzioni, con_cuda: bool) -> (Vec<Gruppo>, u64) {
     if !altri.is_empty() {
         // Sotto la 2.0, che transformers 5.14.1 non accetta: la stessa versione in ogni combinazione di funzioni.
         altri.extend(["huggingface_hub==1.24.0"]);
-        gruppi.push(Gruppo { pacchetti: semplici(&altri), indice: None });
+        gruppi.push((Gruppo { pacchetti: semplici(&altri), indice: None }, peso));
     }
     if f.attiva("allineamento") || f.attiva("sagoma") {
-        gruppi.push(Gruppo { pacchetti: semplici(&["torch==2.6.0", "torchaudio==2.6.0", "torchvision==0.21.0"]), indice: Some((if con_cuda { INDICE_CUDA } else { INDICE_PROCESSORE }).into()) });
         // I pacchetti di PyTorch con CUDA portano le sue librerie: da 4,7 GB; sul processore da 0,9.
-        peso += if con_cuda { 4700 * MB } else { 900 * MB };
+        gruppi.push((
+            Gruppo { pacchetti: semplici(&["torch==2.6.0", "torchaudio==2.6.0", "torchvision==0.21.0"]), indice: Some((if con_cuda { INDICE_CUDA } else { INDICE_PROCESSORE }).into()) },
+            if con_cuda { 4700 * MB } else { 900 * MB },
+        ));
     }
-    (gruppi, peso)
+    gruppi
+}
+
+/// Quanto c'è da scaricare. In un ambiente che c'è già `uv` non rimette un pacchetto che ha la versione chiesta: si contano solo i gruppi con un
+/// pacchetto che l'ultima installazione non ha scritto. Senza ambiente, senza il suo elenco, o se l'elenco dice che c'è tutto (e allora è rotto), tutti.
+fn peso_da_scaricare(luoghi: &Luoghi, pesati: &[(Gruppo, u64)]) -> u64 {
+    let intero = pesati.iter().map(|(_, peso)| peso).sum();
+    let Some(installati) = luoghi.python_dell_app().is_file().then(|| std::fs::read_to_string(luoghi.pacchetti_python()).ok()).flatten() else { return intero };
+    let installati: BTreeSet<&str> = installati.lines().collect();
+    let mancanti: u64 = pesati.iter().filter(|(gruppo, _)| specifiche(std::slice::from_ref(gruppo)).iter().any(|s| !installati.contains(s.as_str()))).map(|(_, peso)| peso).sum();
+    if mancanti == 0 { intero } else { mancanti }
 }
 
 /// Un pacchetto con l'indice da cui viene: due righe uguali sono la stessa installazione.
@@ -375,7 +387,8 @@ pub fn calcola(luoghi: &Luoghi, sonde: &dyn Sonde, computer: &Computer, funzioni
 
     // Python.
     let moduli = moduli_per(funzioni);
-    let (gruppi, peso) = gruppi_per(funzioni, computer.ha_scheda_per_cuda());
+    let pesati = gruppi_pesati(funzioni, computer.ha_scheda_per_cuda());
+    let gruppi: Vec<Gruppo> = pesati.iter().map(|(gruppo, _)| gruppo.clone()).collect();
     let python = if variabile_python {
         SceltaPython::Variabile
     } else if luoghi.python_dell_app().is_file() && sonde.python_ha(&luoghi.python_dell_app(), &moduli) && python_aggiornato(luoghi, &gruppi) {
@@ -397,7 +410,7 @@ pub fn calcola(luoghi: &Luoghi, sonde: &dyn Sonde, computer: &Computer, funzioni
             funzione: None,
             licenza: t("Python: PSF; ogni pacchetto la sua (MIT, BSD, Apache-2.0)", "Python: PSF; each package has its own (MIT, BSD, Apache-2.0)"),
             fonte: "https://www.python.org".into(),
-            peso,
+            peso: peso_da_scaricare(luoghi, &pesati),
             lavoro: Lavoro::Python(gruppi),
             ordine: 3,
         });
@@ -472,6 +485,13 @@ pub mod prove {
     use crate::computer::manifesto::elementi;
     use serde_json::json;
     use std::collections::HashSet;
+
+    /// I gruppi da installare e la stima del peso di tutti.
+    fn gruppi_per(f: &Funzioni, con_cuda: bool) -> (Vec<Gruppo>, u64) {
+        let pesati = gruppi_pesati(f, con_cuda);
+        let peso = pesati.iter().map(|(_, peso)| peso).sum();
+        (pesati.into_iter().map(|(gruppo, _)| gruppo).collect(), peso)
+    }
 
     /// Un computer finto: quali programmi ci sono nel PATH e quali moduli sa importare Python.
     #[derive(Default)]
@@ -849,6 +869,39 @@ pub mod prove {
         let p = calcola(&l, &sonde, &computer(false), &tutte_accese(), &modelli(), false, &piccoli(elementi()));
         assert_eq!(p.python, SceltaPython::DaPreparare);
         assert!(ids(&p).contains(&"python") && !ids(&p).contains(&"uv"), "uv c'è già: {:?}", ids(&p));
+    }
+
+    #[test]
+    fn dopo_un_aggiornamento_che_aggiunge_un_pacchetto_si_conta_solo_il_gruppo_che_lo_porta() {
+        let t = tempfile::tempdir().unwrap();
+        let l = luoghi(t.path());
+        std::fs::create_dir_all(l.python_dell_app().parent().unwrap()).unwrap();
+        std::fs::write(l.python_dell_app(), "").unwrap();
+        let sonde = Finte { programmi: ["bun", "uv", "ffmpeg", "ffprobe"].into_iter().collect(), ..Default::default() };
+        let python = || {
+            let p = calcola(&l, &sonde, &computer(true), &tutte_accese(), &modelli(), false, &piccoli(elementi()));
+            assert_eq!(p.python, SceltaPython::DaPreparare);
+            p.voci.into_iter().find(|v| v.id == "python").unwrap()
+        };
+        let (tutti, intero) = gruppi_per(&tutte_accese(), true);
+
+        // L'ambiente di una versione di prima, quando playwright non c'era: il suo modulo manca, e si prepara.
+        let mut di_prima = tutti.clone();
+        di_prima[0].pacchetti.retain(|p| !p.starts_with("playwright"));
+        segna_python_installato(&l, &di_prima).unwrap();
+        let voce = python();
+        assert_eq!(voce.peso, 340 * MB, "solo il gruppo di base: PyTorch e gli altri ci sono già");
+        // I gruppi da installare restano tutti: `uv` salta da sé ciò che ha già la versione chiesta.
+        let Lavoro::Python(gruppi) = &voce.lavoro else { panic!() };
+        assert_eq!(gruppi.len(), tutti.len());
+
+        // Senza l'elenco di ciò che c'è non si sa cosa manca: tutto.
+        std::fs::remove_file(l.pacchetti_python()).unwrap();
+        assert_eq!(python().peso, intero);
+
+        // L'elenco dice che c'è tutto ma i moduli mancano: un ambiente rotto, si conta tutto.
+        segna_python_installato(&l, &tutti).unwrap();
+        assert_eq!(python().peso, intero);
     }
 
     #[test]

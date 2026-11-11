@@ -4,7 +4,7 @@ import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises"
 import { dirname, join, relative, sep } from "node:path"
 
 /** Ciò che del repo va nell'installatore. */
-export const DA_PORTARE = ["CLAUDE.md", "LEGGIMI.md", "LICENSE", "NOTICE.md", "TRADEMARKS.md", "AVVISI-DI-TERZI.md", "stile.json", "font", "motore", "strumenti", "server", "animazioni", "studio/dist", ".claude/rules", ".claude/skills", ".claude/metodo", ".claude-plugin", "plugin", "docs"]
+export const DA_PORTARE = ["CLAUDE.md", "LEGGIMI.md", "LICENSE", "NOTICE.md", "TRADEMARKS.md", "AVVISI-DI-TERZI.md", "stile.json", "stili-di-partenza.json", "font", "motore", "strumenti", "server", "animazioni", "studio/dist", ".claude/rules", ".claude/skills", ".claude/metodo", ".claude-plugin", "plugin", "docs"]
 
 /** Il file, in `codice/`, con l'elenco dei file della versione: l'app lo legge per togliere quelli che l'aggiornamento non ha sovrascritto perché la versione nuova non li ha più (`app/src/codice.rs`). */
 export const ELENCO = ".mango-elenco.json"

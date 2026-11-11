@@ -6,6 +6,10 @@ import subprocess
 from .archivio import ambiente_di_lavoro, scrivi_json
 from .errori import Errore, dice
 
+# Le righe di avanzamento di `registra` cominciano così, nella lingua del lavoro (`animazioni/script/lingua.ts`).
+PREFISSI_RIGHE = ("animazioni:", "animations:")
+RIASSUNTO = re.compile(r"animazioni: rese (\d+), già rese (\d+)|animations: rendered (\d+), already rendered (\d+)")
+
 
 def richiesta(risolto, stile):
     """Ciò che le animazioni devono sapere di ogni scena: quanto dura, dove sono le ancore, in che secondo viene detta ogni parola, di che misura è il fotogramma, in che lingua scrivere i suoi testi,
@@ -71,7 +75,7 @@ def foto(archivio, slug, risolto, sigla, secondo, avanza=print):
         raise Errore(f"il fotogramma dell'animazione non è stato reso: {(esito.stderr or esito.stdout).strip()[-600:]}",
                      f"the animation frame was not rendered: {(esito.stderr or esito.stdout).strip()[-600:]}")
     for riga in esito.stdout.splitlines():
-        if riga.startswith("animazioni:"):
+        if riga.startswith(PREFISSI_RIGHE):
             avanza(riga)
     file = cartella / f"{sigla}.foto.png"
     if not file.exists():
@@ -96,12 +100,12 @@ def registra(archivio, chieste, file_tempi, cartella, avanza=print):
                      f"the animations were not rendered: {(esito.stderr or esito.stdout).strip()[-600:]}")
     riassunto = None
     for riga in esito.stdout.splitlines():
-        if riga.startswith("animazioni:"):
+        if riga.startswith(PREFISSI_RIGHE):
             avanza(riga)
-            riassunto = re.fullmatch(r"animazioni: rese (\d+), già rese (\d+)", riga) or riassunto
+            riassunto = RIASSUNTO.fullmatch(riga) or riassunto
     if riassunto is None:
         raise Errore("le animazioni non hanno detto quante scene hanno reso: `registra` doveva stampare «animazioni: rese N, già rese M»",
-                     "the animations did not say how many scenes they rendered: `registra` was supposed to print «animazioni: rese N, già rese M»")
+                     "the animations did not say how many scenes they rendered: `registra` was supposed to print «animations: rendered N, already rendered M»")
     for sigla in chieste:
         if not (cartella / f"{sigla}.mp4").exists():
             raise Errore(f"le animazioni hanno finito senza scrivere «{sigla}.mp4» in {cartella}",

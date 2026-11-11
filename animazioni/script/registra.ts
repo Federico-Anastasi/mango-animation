@@ -9,6 +9,10 @@ import { aGruppi, apri, assicuraCostruita, FPS, PARALLELE, palcoDellaScena, RADI
 import { giaReso, improntaDi, invalida, segnaReso, type VoceTempi } from "./impronta";
 import type { Registro } from "../src/registro";
 import { nellaScena } from "./tempo";
+import { dice } from "./lingua";
+
+/** L'ultima riga di ciò che un programma ha scritto: è quella che dice perché si è fermato. */
+const ultimaRiga = (testo: string): string => testo.trim().split("\n").pop()?.trim() ?? "";
 
 const FISSI = [...["registra.ts", "comune.ts", "tempo.ts", "impronta.ts", "percorsi.ts"].map((f) => join(RADICE, "script", f)), join(RADICE, "index.html"), join(RADICE, "vite.config.ts")];
 
@@ -21,28 +25,28 @@ function leggiArgomenti(argomenti: readonly string[]) {
     const a = argomenti[i] ?? "";
     if (a === "--tempi" || a === "--uscita" || a === "--foto") {
       const valore = argomenti[++i];
-      if (!valore) throw new Error(`Manca il valore dopo ${a}.`);
+      if (!valore) throw new Error(dice(`Manca il valore dopo ${a}.`, `The value after ${a} is missing.`));
       if (a === "--tempi") tempi = resolve(valore);
       else if (a === "--uscita") uscita = resolve(valore);
       else if (Number.isFinite(Number(valore)) && Number(valore) >= 0) foto = Number(valore);
-      else throw new Error(`Dopo --foto ci vuole un secondo (un numero da 0 in su), non «${valore}».`);
-    } else if (a.startsWith("--")) throw new Error(`Opzione sconosciuta: ${a}. Si usa: registra [--tempi <file>] [--uscita <cartella>] [--foto <secondo>] [sigla ...]`);
+      else throw new Error(dice(`Dopo --foto ci vuole un secondo (un numero da 0 in su), non «${valore}».`, `--foto needs a second (a number from 0 up), not «${valore}».`));
+    } else if (a.startsWith("--")) throw new Error(dice(`Opzione sconosciuta: ${a}. Si usa: registra [--tempi <file>] [--uscita <cartella>] [--foto <secondo>] [sigla ...]`, `Unknown option: ${a}. Usage: registra [--tempi <file>] [--uscita <folder>] [--foto <second>] [code ...]`));
     else sigle.push(a);
   }
   return { tempi, uscita, sigle, foto };
 }
 
 function vociDalMontaggio(file: string): Record<string, VoceTempi> {
-  if (!existsSync(file)) throw new Error(`Il file di tempi «${file}» non c'è.`);
+  if (!existsSync(file)) throw new Error(dice(`Il file di tempi «${file}» non c'è.`, `The timing file «${file}» does not exist.`));
   let dati: unknown;
   try {
     dati = JSON.parse(readFileSync(file, "utf8"));
   } catch {
-    throw new Error(`Il file di tempi «${file}» non è un JSON valido.`);
+    throw new Error(dice(`Il file di tempi «${file}» non è un JSON valido.`, `The timing file «${file}» is not valid JSON.`));
   }
-  if (typeof dati !== "object" || dati === null) throw new Error(`«${file}» non è un file di tempi: ci vuole un oggetto con una voce per scena.`);
+  if (typeof dati !== "object" || dati === null) throw new Error(dice(`«${file}» non è un file di tempi: ci vuole un oggetto con una voce per scena.`, `«${file}» is not a timing file: it needs an object with one entry per scene.`));
   for (const [sigla, voce] of Object.entries(dati)) {
-    if (typeof voce?.durata !== "number" || !Array.isArray(voce.ancore)) throw new Error(`Nei tempi la scena «${sigla}» non ha una durata e una lista di ancore.`);
+    if (typeof voce?.durata !== "number" || !Array.isArray(voce.ancore)) throw new Error(dice(`Nei tempi la scena «${sigla}» non ha una durata e una lista di ancore.`, `In the timings, scene «${sigla}» has no duration and no list of anchors.`));
   }
   return dati as Record<string, VoceTempi>;
 }
@@ -50,7 +54,7 @@ function vociDalMontaggio(file: string): Record<string, VoceTempi> {
 /** Un solo fotogramma di ogni scena, `secondo` dopo il suo inizio nel video: `<sigla>.foto.png`. Niente scena intera, niente impronta: serve a vedere il fotogramma composto. */
 async function fotogrammi(registro: Registro, sigle: readonly string[], dalMontaggio: Record<string, VoceTempi> | null, uscita: string, secondo: number) {
   const trasparenti = sigle.filter((s) => registro.scene[s]?.scena.trasparente === true);
-  if (trasparenti.length) throw new Error(`La scena «${trasparenti.join("», «")}» è trasparente: il suo fotogramma ha bisogno della maschera, e un fotogramma solo non la dà. Per guardarla c'è l'anteprima della scena.`);
+  if (trasparenti.length) throw new Error(dice(`La scena «${trasparenti.join("», «")}» è trasparente: il suo fotogramma ha bisogno della maschera, e un fotogramma solo non la dà. Per guardarla c'è l'anteprima della scena.`, `Scene «${trasparenti.join("», «")}» is transparent: its frame needs the mask, and a single frame does not give it. To look at it, use the scene preview.`));
   await assicuraCostruita();
   const { scena: apriScena, errori, chiudi } = await apri(registro);
   try {
@@ -62,13 +66,13 @@ async function fotogrammi(registro: Registro, sigle: readonly string[], dalMonta
       await pagina.evaluate((s) => window.animazione?.vai(s), nellaScena(voce.ancore, secondo));
       writeFileSync(join(uscita, `${sigla}.foto.png`), await pagina.screenshot());
       await pagina.close();
-      console.log(`${sigla}: fotogramma a ${secondo} s → ${sigla}.foto.png`);
+      console.log(dice(`${sigla}: fotogramma a ${secondo} s → ${sigla}.foto.png`, `${sigla}: frame at ${secondo} s → ${sigla}.foto.png`));
     }
-    if (errori.length) throw new Error(`La pagina ha dato errore: ${errori.join("; ")}`);
+    if (errori.length) throw new Error(dice(`La pagina ha dato errore: ${errori.join("; ")}`, `The page gave an error: ${errori.join("; ")}`));
   } finally {
     await chiudi();
   }
-  console.log(`animazioni: fotogrammi ${sigle.length}`);
+  console.log(dice(`animazioni: fotogrammi ${sigle.length}`, `animations: frames ${sigle.length}`));
 }
 
 async function main() {
@@ -77,15 +81,15 @@ async function main() {
   const dalMontaggio = fileTempi ? vociDalMontaggio(fileTempi) : null;
   const richieste = sigle.length ? sigle : dalMontaggio ? Object.keys(dalMontaggio) : Object.keys(registro.scene);
   const mancanti = richieste.filter((s) => !registro.scene[s]);
-  if (mancanti.length) throw new Error(`Non esiste una scena «${mancanti.join("», «")}» in animazioni/. Le sigle sono: ${Object.keys(registro.scene).join(", ")}.`);
+  if (mancanti.length) throw new Error(dice(`Non esiste una scena «${mancanti.join("», «")}» in animazioni/. Le sigle sono: ${Object.keys(registro.scene).join(", ")}.`, `There is no scene «${mancanti.join("», «")}» in animazioni/. The codes are: ${Object.keys(registro.scene).join(", ")}.`));
   const nonDate = dalMontaggio ? richieste.filter((s) => !dalMontaggio[s]) : [];
-  if (nonDate.length) throw new Error(`I tempi non dicono nulla della scena «${nonDate.join("», «")}».`);
+  if (nonDate.length) throw new Error(dice(`I tempi non dicono nulla della scena «${nonDate.join("», «")}».`, `The timings say nothing about scene «${nonDate.join("», «")}».`));
 
   for (const sigla of richieste) {
     const chiesto = dalMontaggio?.[sigla]?.formato;
     const palco = palcoDellaScena(registro, sigla);
     if (chiesto && (chiesto.largo !== palco.width || chiesto.alto !== palco.height))
-      throw new Error(`Il montaggio chiede la scena «${sigla}» a ${chiesto.largo}×${chiesto.alto}, ma è disegnata per ${palco.width}×${palco.height}: il quadro della scena nel piano non è del formato del suo video in animazioni/.`);
+      throw new Error(dice(`Il montaggio chiede la scena «${sigla}» a ${chiesto.largo}×${chiesto.alto}, ma è disegnata per ${palco.width}×${palco.height}: il quadro della scena nel piano non è del formato del suo video in animazioni/.`, `The edit asks for scene «${sigla}» at ${chiesto.largo}×${chiesto.alto}, but it is drawn for ${palco.width}×${palco.height}: the frame of the scene in the plan does not have the format of its video in animazioni/.`));
   }
 
   mkdirSync(uscita, { recursive: true });
@@ -101,7 +105,7 @@ async function main() {
       const voce: VoceTempi = { ...base, formato: { largo: palco.width, alto: palco.height } };
       const file = join(uscita, `${sigla}.mp4`);
       const { valore: impronta, largo } = await improntaDi(RADICE, slug, sigla, voce, FISSI);
-      if (largo) console.log(`animazioni: ${sigla}: impronta sull'intera cartella del video, non su ciò che la scena importa (${largo})`);
+      if (largo) console.log(dice(`animazioni: ${sigla}: impronta sull'intera cartella del video, non su ciò che la scena importa (${largo})`, `animations: ${sigla}: fingerprint of the whole video folder, not of what the scene imports (${largo})`));
       const alfa = join(uscita, `${sigla}.alfa.mkv`);
       const trasparente = scena.trasparente === true;
       const resa = (await giaReso(file, impronta)) && existsSync(alfa) === trasparente;
@@ -109,7 +113,7 @@ async function main() {
     }),
   );
   const daRendere = lavori.filter((l) => !l.resa);
-  for (const l of lavori) if (l.resa) console.log(`${l.prefisso}: già resa con questi tempi e questi sorgenti`);
+  for (const l of lavori) if (l.resa) console.log(dice(`${l.prefisso}: già resa con questi tempi e questi sorgenti`, `${l.prefisso}: already rendered with these timings and these sources`));
 
   if (daRendere.length) {
     await assicuraCostruita();
@@ -142,16 +146,16 @@ async function main() {
         await ffmpeg.stdin.end();
         await pagina.close();
         const messaggioFfmpeg = await new Response(ffmpeg.stderr).text();
-        if ((await ffmpeg.exited) !== 0) throw new Error(`ffmpeg non è riuscito a unire i fotogrammi di «${sigla}»: ${messaggioFfmpeg.trim()}`);
-        if (errori.length) throw new Error(`La pagina ha dato errore nella scena «${sigla}»: ${errori.join("; ")}`);
+        if ((await ffmpeg.exited) !== 0) throw new Error(dice(`ffmpeg non è riuscito a unire i fotogrammi di «${sigla}»: ${ultimaRiga(messaggioFfmpeg)}`, `ffmpeg could not join the frames of «${sigla}»: ${ultimaRiga(messaggioFfmpeg)}`));
+        if (errori.length) throw new Error(dice(`La pagina ha dato errore nella scena «${sigla}»: ${errori.join("; ")}`, `The page gave an error in scene «${sigla}»: ${errori.join("; ")}`));
         await segnaReso(file, impronta);
-        console.log(`${prefisso}: ${totale} fotogrammi, ${voce.durata} s → ${file}`);
+        console.log(dice(`${prefisso}: ${totale} fotogrammi, ${voce.durata} s → ${file}`, `${prefisso}: ${totale} frames, ${voce.durata} s → ${file}`));
       });
     } finally {
       await chiudi();
     }
   }
-  console.log(`animazioni: rese ${daRendere.length}, già rese ${lavori.length - daRendere.length}`);
+  console.log(dice(`animazioni: rese ${daRendere.length}, già rese ${lavori.length - daRendere.length}`, `animations: rendered ${daRendere.length}, already rendered ${lavori.length - daRendere.length}`));
 }
 
 main().catch((errore: unknown) => {

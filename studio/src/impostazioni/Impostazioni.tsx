@@ -23,7 +23,7 @@ const nomi = (): Record<SezioneImpostazioni, string> => ({
 
 export function Impostazioni({ sezione }: { sezione: SezioneImpostazioni }) {
   return (
-    <div className={styles.pagina} data-sezione={sezione}>
+    <div className={styles.pagina}>
       <div className={styles.schede}>
         <Schede etichetta={t("Impostazioni", "Settings")} schede={SEZIONI_IMPOSTAZIONI.map((id) => ({ id, nome: nomi()[id] }))} attiva={sezione} indirizzo={(id) => scriviIndirizzo({ vista: "impostazioni", parte: id })} />
       </div>

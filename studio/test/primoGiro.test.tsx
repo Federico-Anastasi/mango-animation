@@ -11,7 +11,7 @@ const CANALE_VUOTO = { ultima: null, letture: [], video: [] }
 const CLASSIFICA_VUOTA = { quando: null, io: null, quando_io: null, come: [], righe: [] }
 const STRATEGIA_VUOTA = { quando: null }
 
-const DETTAGLIO = { id: "c1", titolo: "", attiva: true, stato: "lavora", lavora_da: null, lavoro: { ms: 0, da: null }, modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null }
+const DETTAGLIO = { id: "c1", titolo: "", attiva: true, stato: "lavora", lavora_da: null, lavoro: { ms: 0, da: null }, modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, primo_giro: true }
 
 function rete(profilo: unknown, extra: Record<string, unknown> = {}) {
   return installaRete({
@@ -34,6 +34,7 @@ function rete(profilo: unknown, extra: Record<string, unknown> = {}) {
 }
 
 const messaggiAClaude = (chiamate: Chiamata[]) => chiamate.filter((c) => c.metodo === "POST" && c.percorso === "/api/chat").map((c) => (c.corpo as { testo: string }).testo)
+const avviiAClaude = (chiamate: Chiamata[]) => chiamate.filter((c) => c.metodo === "POST" && c.percorso === "/api/chat").map((c) => (c.corpo as { avvio?: string }).avvio)
 
 // Il primo giro ricorda nel modulo che cosa ha scelto il creator: ogni prova parte da un modulo nuovo.
 async function nuovoStudio() {
@@ -55,7 +56,7 @@ describe("il primo giro", () => {
     const chiamate = rete(PROFILO_VUOTO)
     const { unmount } = await nuovoStudio()
     await waitFor(() => expect(messaggiAClaude(chiamate)).toHaveLength(1))
-    expect(messaggiAClaude(chiamate)[0]).toMatch(/prima volta.*primo giro/)
+    expect(avviiAClaude(chiamate)).toEqual(["primo-giro"])
     expect(await screen.findByRole("complementary", { name: "Chat" })).toBeInTheDocument()
     expect(window.localStorage.getItem(CHIAVE)).toBe("iniziato")
     unmount()
@@ -65,6 +66,23 @@ describe("il primo giro", () => {
     render(<App />)
     await screen.findByRole("navigation", { name: "Sezioni" })
     expect(messaggiAClaude(chiamate)).toHaveLength(1)
+  })
+
+  it("il creator non vede nessun messaggio come suo: la conversazione comincia con Claude", async () => {
+    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/c1": { ...DETTAGLIO, messaggi: [{ id: "a1", ruolo: "claude", quando: "2026-11-02T10:00:00", parti: [{ tipo: "testo", testo: "Ciao, sono qui per farti conoscere Mango Animation." }] }] } })
+    await nuovoStudio()
+    expect(await screen.findByText("Ciao, sono qui per farti conoscere Mango Animation.")).toBeInTheDocument()
+    expect(avviiAClaude(chiamate)).toEqual(["primo-giro"])
+    expect(screen.queryByRole("article", { name: "Tu" })).toBeNull()
+    expect(screen.queryByText(/Lo sto mandando/)).toBeNull()
+  })
+
+  it("se l'avvio non parte lo dice, con «Riprova», senza un messaggio finto del creator", async () => {
+    rete(PROFILO_VUOTO, { "POST /api/chat": () => new Response(JSON.stringify({ errore: "Claude Code non risponde." }), { status: 502 }) })
+    await nuovoStudio()
+    expect(await screen.findByRole("alert")).toHaveTextContent("Non è partito: Claude Code non risponde.")
+    expect(screen.getByRole("button", { name: "Riprova" })).toBeInTheDocument()
+    expect(screen.queryByRole("article", { name: "Tu" })).toBeNull()
   })
 
   it("con un profilo già fatto non parte niente", async () => {
@@ -90,8 +108,38 @@ describe("il primo giro", () => {
     await nuovoStudio()
     fireEvent.click(await screen.findByRole("button", { name: /^Chat/ }))
     fireEvent.click(await screen.findByRole("button", { name: "Rifai il primo giro" }))
-    await waitFor(() => expect(messaggiAClaude(chiamate)).toEqual(["Vorrei rifare il primo giro."]))
+    await waitFor(() => expect(avviiAClaude(chiamate)).toEqual(["rifare-primo-giro"]))
   })
+})
+
+describe("i passi di Claude nel primo giro", () => {
+  const passo = (id: string, nome: string, ingresso: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({ tipo: "strumento", id, nome, ingresso, ...extra })
+  const giro = (...parti: unknown[]) => ({ ...DETTAGLIO, messaggi: [{ id: "a1", ruolo: "claude", quando: "2026-11-02T10:00:00", parti }] })
+
+  it("sono tutti raccolti in una riga, anche quello in corso e quello non riuscito, e la riga di sotto dice in parole semplici cosa sta facendo", async () => {
+    rete(PROFILO_VUOTO, {
+      "GET /api/chat/c1": giro(
+        passo("t1", "Skill", { skill: "welcome" }, { esito: "ok" }),
+        passo("t2", "Read", { file_path: "profilo.json" }, { errore: "File does not exist" }),
+        passo("t3", "Bash", { command: "ls" }),
+      ),
+    })
+    await nuovoStudio()
+    const riga = await screen.findByRole("button", { name: /Sta lavorando · 3 passi/ })
+    expect(screen.queryByText(/Usa la guida/)).toBeNull()
+    expect(screen.queryByText(/non riuscito/)).toBeNull()
+    expect(screen.getByRole("status")).toHaveTextContent("Sta controllando il computer")
+    fireEvent.click(riga)
+    expect(screen.getByText("Usa la guida «welcome»")).toBeInTheDocument()
+  })
+
+  it("una domanda a scelta resta in vista, fuori dalla riga dei passi", async () => {
+    rete(PROFILO_VUOTO, { "GET /api/chat/c1": { ...giro(passo("t1", "Skill", { skill: "welcome" }, { esito: "ok" }), passo("t2", "AskUserQuestion", { questions: [] }, { esito: "ok" })), stato: "pronta" } })
+    await nuovoStudio()
+    expect(await screen.findByRole("button", { name: /Ha lavorato · 1 passo/ })).toBeInTheDocument()
+    expect(screen.getByText("Ti fa una domanda")).toBeInTheDocument()
+  })
+
 })
 
 describe("il primo giro parte con un modello grande", () => {
@@ -114,7 +162,7 @@ describe("il primo giro parte con un modello grande", () => {
     const { App } = await import("../src/App")
     render(<App />)
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
-    expect(corpoDellaNuova(chiamate)).toEqual({ testo: expect.stringMatching(/primo giro/), modello: "opus" })
+    expect(corpoDellaNuova(chiamate)).toEqual({ avvio: "primo-giro", modello: "opus" })
     expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "claude-haiku-4-5", effort: null })
   })
 

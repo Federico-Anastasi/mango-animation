@@ -1,6 +1,9 @@
 import ast
 import json
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -111,3 +114,46 @@ def test_un_piano_che_non_va_ha_il_suo_inglese(archivio):
         archivio.piano("v")
     assert dentro.value.it.startswith("il piano di «v» non è valido:\n") and "«voce» non è una chiave che il piano conosce" in dentro.value.it
     assert dentro.value.en.startswith("the plan of «v» is not valid:\n") and "«voce» is not a key the plan knows" in dentro.value.en
+
+
+STRUMENTI = MOTORE.parent / "strumenti"
+
+
+def _frasi_degli_strumenti():
+    """Le righe e gli errori degli strumenti (`strumenti/*.mjs`) con del testo scritto a mano: devono passare da `dice`."""
+    for file in sorted(STRUMENTI.glob("*.mjs")):
+        sorgente = file.read_text(encoding="utf-8")
+        for m in re.finditer(r"console\.(?:log|error)\(|new Error\(", sorgente):
+            resto = sorgente[m.end():]
+            if resto.lstrip().startswith("dice("):
+                continue
+            argomento = re.split(r"\)\s*[;,)\n]", resto, maxsplit=1)[0]
+            testi = re.findall(r"""(["'`])((?:\\.|(?!\1).)*)\1""", re.sub(r"\$\{[^}]*\}", " ", argomento))
+            if any(re.search(r"[A-Za-zÀ-ÿ]{3,}", re.sub(r"«[^»]*»", " ", testo)) for _, testo in testi):
+                yield f"{file.name}:{sorgente[:m.start()].count(chr(10)) + 1}"
+
+
+def test_ogni_riga_e_ogni_errore_degli_strumenti_passa_da_dice():
+    senza = list(_frasi_degli_strumenti())
+    assert senza == [], "frase scritta a mano senza dice(italiano, inglese) in " + ", ".join(senza)
+
+
+def _node(*argomenti, lingua, cwd=MOTORE.parent):
+    node = shutil.which("node")
+    if node is None or not (MOTORE.parent / "studio" / "node_modules" / "@playwright" / "test").is_dir():
+        pytest.skip("servono node e i pacchetti di studio/")
+    ambiente = {**os.environ, "MANGO_ANIMATION_LINGUA": lingua}
+    return subprocess.run([node, *argomenti], cwd=cwd, env=ambiente, capture_output=True, encoding="utf-8", errors="replace")
+
+
+def test_gli_strumenti_dicono_gli_errori_nella_lingua_del_lavoro(tmp_path):
+    esito = _node("strumenti/carosello.mjs", lingua="it")
+    assert esito.returncode == 2 and esito.stderr.startswith("uso: node strumenti/carosello.mjs")
+    esito = _node("strumenti/carosello.mjs", lingua="en")
+    assert esito.returncode == 2 and esito.stderr.startswith("usage: node strumenti/carosello.mjs") and "uso" not in esito.stderr
+
+    (tmp_path / "profilo.json").write_text("[]", encoding="utf-8")
+    programma = "import { leggiProfilo } from './strumenti/profilo.mjs'; try { leggiProfilo(process.argv[1]) } catch (e) { console.log(e.message) }"
+    assert "dev'essere un oggetto JSON" in _node("--input-type=module", "-e", programma, str(tmp_path), lingua="it").stdout
+    inglese = _node("--input-type=module", "-e", programma, str(tmp_path), lingua="en").stdout
+    assert "must be a JSON object" in inglese and "dev'essere" not in inglese

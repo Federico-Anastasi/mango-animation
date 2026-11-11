@@ -155,7 +155,7 @@ export class Indice {
   readonly preparati = new Map<string, Preparato>()
   /** Per ogni file del girato, i decimi di secondo di cui c'è il fotogramma in `preparati/<file>/fotogrammi/`. */
   readonly fotogrammi = new Map<string, Set<number>>()
-  readonly canali = new IndiceCanali()
+  readonly canali = new IndiceCanali((canale, id) => this.slugPubblicatoCome(canale, id))
   /** `serie` è lo stile del prodotto, `valore` quello che serve: lo stile del creator sovrapposto. */
   stile: { testo: string | null; serie: unknown; valore: unknown; mtime: number; quadri: Set<string> } = { testo: null, serie: null, valore: null, mtime: 0, quadri: new Set() }
   profilo: Profilo = { testo: null, valore: {} }
@@ -167,6 +167,15 @@ export class Indice {
   visibile(slug: string): VoceVideo | null {
     const voce = this.video.get(slug)
     return voce?.scheda ? voce : null
+  }
+
+  /** Il video la cui scheda ha una pubblicazione su `canale` con l'indirizzo del video `id` (l'identificatore è un pezzo del percorso). */
+  private slugPubblicatoCome(canale: string, id: string): string | null {
+    const pubblicaCome = (voce: VoceVideo): boolean => {
+      const pubblicazioni = voce.scheda?.["pubblicazioni"]
+      return Array.isArray(pubblicazioni) && pubblicazioni.some((p: { canale?: unknown; url?: unknown }) => p.canale === canale && typeof p.url === "string" && p.url.split(/[/?#]/).includes(id))
+    }
+    return [...this.video.values()].find(pubblicaCome)?.slug ?? null
   }
 
   pianoDi = (slug: string): Piano | null => this.video.get(slug)?.pianoValido ?? null

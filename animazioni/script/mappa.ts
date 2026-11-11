@@ -5,14 +5,15 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { caricaRegistro } from "./catalogo";
 import { assicuraCostruita, RADICE, servi } from "./comune";
+import { dice } from "./lingua";
 
 async function main() {
   const slugs = Bun.argv.slice(2);
   const registro = await caricaRegistro();
   const elenco = Object.keys(registro.videos).join(", ");
-  if (!slugs.length) throw new Error(`Manca il video. Si usa: mappa <slug> [slug ...]. I video sono: ${elenco}.`);
+  if (!slugs.length) throw new Error(dice(`Manca il video. Si usa: mappa <slug> [slug ...]. I video sono: ${elenco}.`, `The video is missing. Usage: mappa <slug> [slug ...]. The videos are: ${elenco}.`));
   const mancanti = slugs.filter((s) => !registro.videos[s]);
-  if (mancanti.length) throw new Error(`Non esiste un video «${mancanti.join("», «")}». I video sono: ${elenco}.`);
+  if (mancanti.length) throw new Error(dice(`Non esiste un video «${mancanti.join("», «")}». I video sono: ${elenco}.`, `There is no video «${mancanti.join("», «")}». The videos are: ${elenco}.`));
   await assicuraCostruita();
   const uscita = join(RADICE, "mappe");
   mkdirSync(uscita, { recursive: true });

@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { leggiProfilo } from "../../strumenti/profilo.mjs";
+import { dice } from "./lingua";
 
 // La scheda video su cui il browser disegna le scene: quella di `macchina.scheda_video` del profilo del creator (l'indice di `nvidia-smi`; `null` per il
 // processore); senza profilo, la prima scheda NVIDIA che c'è, e senza schede il processore (lo dice). `ANIMAZIONI_SCHEDA` ne indica un'altra per una
@@ -42,19 +43,19 @@ export interface Richiesta {
 /** La scheda su cui disegnare, o il processore con la frase che dice perché. */
 export function scegliScheda({ profilo, nome }: Richiesta, elenco: Scheda[]): { scheda: Scheda } | { processore: string } {
   if (nome !== undefined) {
-    if (nome.toLowerCase() === "processore") return { processore: "ANIMAZIONI_SCHEDA lo chiede" };
+    if (nome.toLowerCase() === "processore") return { processore: dice("ANIMAZIONI_SCHEDA lo chiede", "ANIMAZIONI_SCHEDA asks for it") };
     const scheda = elenco.find((s) => s.nome.toLowerCase().includes(nome.toLowerCase()));
-    if (!scheda) throw new Error(`La scheda video «${nome}» non c'è: ANIMAZIONI_SCHEDA dice un pezzo del nome di una scheda NVIDIA (nvidia-smi), o «processore»`);
+    if (!scheda) throw new Error(dice(`La scheda video «${nome}» non c'è: ANIMAZIONI_SCHEDA dice un pezzo del nome di una scheda NVIDIA (nvidia-smi), o «processore»`, `The video card «${nome}» does not exist: ANIMAZIONI_SCHEDA gives a piece of the name of an NVIDIA card (nvidia-smi), or «processore»`));
     return { scheda };
   }
-  if (profilo === null) return { processore: "il profilo lo chiede (macchina.scheda_video)" };
+  if (profilo === null) return { processore: dice("il profilo lo chiede (macchina.scheda_video)", "the profile asks for it (macchina.scheda_video)") };
   if (profilo !== undefined) {
     const scheda = elenco.find((s) => s.indice === profilo);
-    if (!scheda) throw new Error(`Il profilo vuole la scheda video ${profilo} (macchina.scheda_video), ma nvidia-smi non la elenca: correggi il numero, oppure metti null per disegnare sul processore`);
+    if (!scheda) throw new Error(dice(`Il profilo vuole la scheda video ${profilo} (macchina.scheda_video), ma nvidia-smi non la elenca: correggi il numero, oppure metti null per disegnare sul processore`, `The profile wants video card ${profilo} (macchina.scheda_video), but nvidia-smi does not list it: fix the number, or put null to draw on the processor`));
     return { scheda };
   }
   const prima = elenco[0];
-  return prima ? { scheda: prima } : { processore: "nessuna scheda NVIDIA (si indica in profilo.json, macchina.scheda_video)" };
+  return prima ? { scheda: prima } : { processore: dice("nessuna scheda NVIDIA (si indica in profilo.json, macchina.scheda_video)", "no NVIDIA card (set one in profilo.json, macchina.scheda_video)") };
 }
 
 function indiceDelProfilo(): number | null | undefined {
@@ -95,12 +96,12 @@ async function trova(): Promise<{ args: string[]; nome: string }> {
   const nome = process.env.ANIMAZIONI_PROCESSORE === "1" ? "processore" : process.env.ANIMAZIONI_SCHEDA;
   const scelta = scegliScheda({ profilo: indiceDelProfilo(), ...(nome === undefined ? {} : { nome }) }, await schede());
   if ("processore" in scelta) {
-    console.log(`animazioni: ${scelta.processore}: disegno sul processore, più lento`);
+    console.log(dice(`animazioni: ${scelta.processore}: disegno sul processore, più lento`, `animations: ${scelta.processore}: drawing on the processor, slower`));
     return { args: ["--disable-gpu"], nome: "il processore" };
   }
   const { scheda } = scelta;
   if (scheda.utilizzo >= OCCUPATA.utilizzo || scheda.memoriaMB >= OCCUPATA.memoriaMB) {
-    console.log(`animazioni: attenzione, ${scheda.nome} sta già lavorando (${scheda.utilizzo}%, ${scheda.memoriaMB} MB)`);
+    console.log(dice(`animazioni: attenzione, ${scheda.nome} sta già lavorando (${scheda.utilizzo}%, ${scheda.memoriaMB} MB)`, `animations: warning, ${scheda.nome} is already busy (${scheda.utilizzo}%, ${scheda.memoriaMB} MB)`));
   }
   // I filmati delle scene (`standard/filmato.tsx`) si decodificano sul processore: sull'adattatore scelto col LUID la decodifica della
   // scheda fallisce al primo spostamento («video decode error»), mentre il disegno resta sulla scheda.
@@ -108,5 +109,5 @@ async function trova(): Promise<{ args: string[]; nome: string }> {
   for (const id of await luid()) {
     if ((await nomeDelLuid(id).catch(() => "")).includes(scheda.nome)) return { args: [...base, `--use-adapter-luid=${id[0]},${id[1]}`], nome: scheda.nome };
   }
-  throw new Error(`Non trovo l'adattatore Direct3D di ${scheda.nome}: la resa non riparte su un'altra scheda; si sceglie con ANIMAZIONI_SCHEDA`);
+  throw new Error(dice(`Non trovo l'adattatore Direct3D di ${scheda.nome}: la resa non riparte su un'altra scheda; si sceglie con ANIMAZIONI_SCHEDA`, `I cannot find the Direct3D adapter of ${scheda.nome}: the rendering does not move to another card; choose one with ANIMAZIONI_SCHEDA`));
 }

@@ -94,7 +94,7 @@ export const arrivi = creaCopia<StatoArrivi>(api.arrivi, (e) => e.tipo === "arri
 export const accessoStudio = creaCopia<StatoStudioRemoto>(api.accessoStudio, (e) => e.tipo === "accesso-studio" || e.tipo === "arrivi")
 export const registrazione = creaCopia<StatoRegistrazione>(api.registrazione, (e) => e.tipo === "registrazione")
 /** Le letture del canale TikTok: le guardano Pubblico, Crescita e Produzione. */
-export const canaleTiktok = creaCopia<StatoCanale>(() => api.canale("tiktok"), (e) => e.tipo === "canale")
+export const canaleTiktok = creaCopia<StatoCanale>(() => api.canale("tiktok"), (e) => e.tipo === "canale" || (e.tipo === "video" && (e.cosa === "scheda" || e.cosa === "nuovo" || e.cosa === "tolto")))
 export const profilo = creaCopia<StatoProfilo>(api.profilo, (e) => e.tipo === "profilo")
 export const consumi = creaCopia<ConsumiDiClaude>(api.consumi, (e) => e.tipo === "consumi")
 export const animazioni = creaCopia<Record<string, AnimazioneDisponibile[]>>(api.animazioni, (e) => e.tipo === "animazioni")

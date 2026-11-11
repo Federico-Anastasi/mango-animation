@@ -106,6 +106,8 @@ export interface DettaglioConversazione extends ImpostazioniChat {
   in_attesa: Richiesta[]
   task: TaskChat[]
   contesto_usato: ContestoUsato | null
+  /** La conversazione è cominciata con l'avvio del primo giro. */
+  primo_giro: boolean
 }
 
 /** Quanta memoria del modello occupa la conversazione, in token; `totale` è la misura del suo contesto, `null` finché non si sa. */

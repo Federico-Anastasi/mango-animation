@@ -1,3 +1,4 @@
+// Cosa arriva dal telefono: spento di base; acceso e pronto dice l'indirizzo, i due codici (la Scorciatoia per iPhone, la pagina per ogni telefono) e gli ultimi arrivati; se non può arrivare dice perché.
 import { useState } from "react"
 import { api, chiedi } from "../api"
 import { Bottone } from "../comuni/Bottone"

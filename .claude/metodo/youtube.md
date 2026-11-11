@@ -5,7 +5,7 @@ here. Active when YouTube is among the creator's `canali` in the profile.
 
 ## What it is for
 
-Depth: whoever comes from a short video and wants to see everything. One video per result, 8-20 minutes, 16:9. The long video is the
+Depth: whoever comes from a short video and wants to see everything. One video per result, by default 8-20 minutes, 16:9 (the creator's profile can set its own). The long video is the
 master: the short ones for TikTok are extracted from it, not the other way round.
 
 ## Before shooting
@@ -25,7 +25,7 @@ master: the short ones for TikTok are extracted from it, not the other way round
 - **Nothing on screen before the voice says it** and background never still apply here too.
 - **Subtitles**: not burned into the video; the subtitles file is uploaded. The on-screen title only where needed.
 - **Rhythm**: the cuts remove the gaps but let it breathe; it is not the rhythm of a short.
-- **The close** points to another precise video, not to «follow me».
+- **The close** points to another precise video, not to «follow me»: an exception of the platform to «The close» of `contenuto.md`.
 
 ## Around
 

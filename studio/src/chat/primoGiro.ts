@@ -2,7 +2,7 @@
 // `docs/CHAT.md`). Si salta da un pulsante discreto e si rifà dalla chat vuota. La scelta si ricorda nel browser.
 import { useEffect, useSyncExternalStore } from "react"
 import { profilo, useCopia } from "../dati"
-import { t } from "../lingua"
+import type { NuovoMessaggio } from "./api"
 import { negozio } from "./negozio"
 import { apriChat, scegliLarghezzaChat } from "./pannello"
 
@@ -39,20 +39,20 @@ function ricorda(nuova: Scelta): void {
  * con `modelloGrande` parte con l'Opus più recente (o «Predefinito» se non c'è), senza cambiare la scelta che il creator ricorda per le altre.
  */
 export function chiediAClaude(testo: string, opzioni: { soloClaudeCode?: boolean; modelloGrande?: boolean } = {}): void {
-  apriChat()
-  negozio.apri(null)
-  void negozio.invia({ testo }, opzioni)
+  apriConversazioneCon({ testo }, opzioni)
 }
 
+function apriConversazioneCon(messaggio: NuovoMessaggio, opzioni: { soloClaudeCode?: boolean; modelloGrande?: boolean }): void {
+  apriChat()
+  negozio.apri(null)
+  void negozio.invia(messaggio, opzioni)
+}
+
+/** La conversazione del primo giro comincia da Claude: il server gli manda l'istruzione, e il creator non vede nessun messaggio come suo. */
 export function avviaPrimoGiro(rifacendo: boolean): void {
   ricorda("iniziato")
   scegliLarghezzaChat(LARGHEZZA_PRIMO_GIRO, false)
-  chiediAClaude(
-    rifacendo
-      ? t("Vorrei rifare il primo giro.", "I'd like to redo the first round.")
-      : t("Ciao! È la prima volta che apro Mango Animation. Facciamo il primo giro?", "Hi! This is the first time I open Mango Animation. Shall we do the first round?"),
-    { modelloGrande: true },
-  )
+  apriConversazioneCon({ avvio: rifacendo ? "rifare-primo-giro" : "primo-giro" }, { modelloGrande: true })
 }
 
 /** Ferma Claude se sta parlando del primo giro e lascia la chat vuota. */

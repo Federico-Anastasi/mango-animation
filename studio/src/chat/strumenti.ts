@@ -158,6 +158,31 @@ export function descriviStrumento(nome: string, ingressoGrezzo: unknown): Descri
   return { etichetta: t("Usa lo strumento «{nome}»", "Uses the tool “{nome}”", { nome }), icona: "ingranaggio" }
 }
 
+/** Cosa sta facendo uno strumento, per chi non è tecnico: nessun nome di file, di comando o di strumento. */
+export function fraseSemplice(nome: string): string {
+  switch (nome) {
+    case "Read":
+    case "Glob":
+    case "Grep":
+    case "LS":
+      return t("Sta guardando cosa c'è sul computer", "Looking at what is on the computer")
+    case "Write":
+    case "Edit":
+    case "MultiEdit":
+    case "NotebookEdit":
+      return t("Sta salvando", "Saving")
+    case "Bash":
+    case "BashOutput":
+    case "KillShell":
+      return t("Sta controllando il computer", "Checking the computer")
+    case "WebFetch":
+    case "WebSearch":
+      return t("Sta guardando il web", "Looking at the web")
+  }
+  if (nome.startsWith("mcp__claude-in-chrome__")) return t("Sta guardando il web", "Looking at the web")
+  return t("Sta preparando il prossimo passo", "Getting the next step ready")
+}
+
 /** Un esito di strumento come testo: una stringa com'è, il resto scritto in JSON. */
 export function esitoComeTesto(esito: unknown): string {
   if (typeof esito === "string") return esito

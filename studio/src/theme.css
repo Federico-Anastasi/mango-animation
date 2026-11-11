@@ -52,6 +52,9 @@
   --font-display: "Archivo", sans-serif;
   --font-testo: "Instrument Sans", sans-serif;
   --font-mono: "Chivo Mono", monospace;
+  /* La larghezza di ogni pagina: una sola, così titolo e schede stanno nello stesso punto passando dall'una all'altra. Dentro, tabelle e griglie la riempiono, testo e moduli stanno a sinistra con il loro tetto. */
+  --cornice: 96rem;
+  --moduli: 62rem;
 }
 
 /* Al buio vale una tavolozza sola, con gli stessi ruoli: i colori di carta e inchiostro non si rovesciano a occhio. */

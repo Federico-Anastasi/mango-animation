@@ -6,8 +6,8 @@ description: Checks an edited video before sending it to the creator or calling 
 # Controlla
 
 Goal: to know, with proof, whether the edited video is clean and says right things. Before the check read `.claude/metodo/montaggio.md` (the rules; what is looked at
-in the frames is in «Voice and screen») and `.claude/metodo/problemi-gia-visti.md` (the defects already met, with cause and remedy): what it lists
-is looked for in this video too.
+in the frames is in «Voice and screen»), `.claude/metodo/taglio-e-voce.md` and `.claude/metodo/quadro-e-sagoma.md` (the defects already met, with cause and remedy): what they list
+is looked for in this video too. For a vertical video on TikTok or Instagram also `.claude/metodo/tiktok.md`.
 
 ## How
 
@@ -40,8 +40,8 @@ is looked for in this video too.
    - `zona_alta` (the band above the silhouette still or almost empty for more than a second, also between two scenes or on a still
      recorded screen): zero. The frame at that second is looked at (`foto`) and the scene is given movement, or something above the
      still screen.
-   - `copertina`: `manca` if `con-copertina.mp4` does not exist (declare `copertina` in the plan and re-edit), `vecchia` if `con-copertina.mp4` is older than the edit (skill `copertina`: declare it
-     and re-edit); `vuota` if the first frame has little or nothing above the head: it is redone with another drawing.
+   - `copertina`: `manca` (`con-copertina.mp4` does not exist), `vecchia` (older than the edit), `vuota` (the first frame has little or nothing
+     above the head): the remedy is in the skill `copertina`.
 
    What is corrected is corrected in the plan, all in one round: skill `monta`, «A correction».
 3. **The eyes.** `foto` (eight seconds at a time at most) on: the first frame (are face, background and subtitles already there?), the

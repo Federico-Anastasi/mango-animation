@@ -188,8 +188,8 @@ describe("il profilo", () => {
     const it = (await statoDelProfilo(a)).corpo
     expect(it.valido).toBe(false)
     expect(it.presente).toBe(true)
-    expect(it.problemi.join(" ")).toContain("creator.lingua: deve essere un testo")
-    expect((await statoDelProfilo(a, "en")).corpo.problemi.join(" ")).toContain("creator.lingua: must be")
+    expect(it.problemi.join(" ")).toContain("La lingua del creator deve essere un testo")
+    expect((await statoDelProfilo(a, "en")).corpo.problemi.join(" ")).toContain("The creator's language must be")
     expect((await chiama(a, "GET", "/api/motori")).corpo).toEqual({})
 
     const scrittura = await chiama<{ errore: string }>(a, "PUT", "/api/motori", { sagoma: { attiva: false } })

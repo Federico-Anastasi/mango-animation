@@ -93,6 +93,14 @@ export class IndiceCanali {
   readonly classifiche = new Map<string, Classifica>()
   readonly crescite = new Map<string, Crescita>()
 
+  /** `slugDallaScheda(canale, id)`: il video dell'archivio la cui scheda ha, tra le pubblicazioni, l'indirizzo di quel video del canale. */
+  constructor(private readonly slugDallaScheda: (canale: string, id: string) => string | null) {}
+
+  /** Lo slug scritto dalla lettura, e se la lettura non lo lega (è uscito dopo, o la scheda ha preso l'indirizzo dopo) quello che dicono le schede. */
+  private slugDi(canale: string, video: VideoDelCanale): string | null {
+    return typeof video.slug === "string" && video.slug !== "" ? video.slug : this.slugDallaScheda(canale, video.id)
+  }
+
   crescita(canale: string): object {
     return this.crescite.get(canale) ?? { quando: null }
   }
@@ -119,7 +127,7 @@ export class IndiceCanali {
       ultima: letture[0] ? { lettura: letture[0].lettura, quando: letture[0].quando } : null,
       letture: letture.map((l) => ({ lettura: l.lettura, quando: l.quando, completa: l.completa, mancano: l.mancano })),
       profilo: riuscita?.profilo ?? null,
-      video: (riuscita?.video ?? []).map((v) => ({ ...v, commenti_letti: riuscita?.commenti.get(v.id)?.size ?? 0, variazione: this.variazione(v, letture.slice(posto + 1)) })),
+      video: (riuscita?.video ?? []).map((v) => ({ ...v, slug: this.slugDi(canale, v), commenti_letti: riuscita?.commenti.get(v.id)?.size ?? 0, variazione: this.variazione(v, letture.slice(posto + 1)) })),
     }
   }
 
@@ -194,11 +202,11 @@ export class IndiceCanali {
     return { lettura: trovata, nuovi }
   }
 
-  /** Il video del canale che un video dell'archivio ha come `slug`, nella lettura più recente che lo nomina. */
+  /** Il video del canale legato a un video dell'archivio (dalla lettura o dalla scheda), nella lettura più recente che lo nomina. */
   legatoA(slug: string): { canale: string; id: string } | null {
     for (const canale of this.canali.keys()) {
       for (const l of this.letture(canale)) {
-        const trovato = l.video?.find((v) => v.slug === slug)
+        const trovato = l.video?.find((v) => this.slugDi(canale, v) === slug)
         if (trovato) return { canale, id: trovato.id }
       }
     }

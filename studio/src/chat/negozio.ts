@@ -42,6 +42,8 @@ export interface StatoNegozio extends ImpostazioniChat {
   /** I lavori che Claude Code ha in corso, in primo piano e in background. */
   task: TaskChat[]
   contestoUsato: ContestoUsato | null
+  /** La conversazione è del primo giro: i passi di Claude stanno raccolti, per chi non è tecnico. */
+  primoGiro: boolean
   inviati: Inviato[]
   /** Perché l'ultima scelta di modello o effort non è andata. */
   erroreImpostazioni: string | null
@@ -80,6 +82,7 @@ const vuoto = (id: string | null): StatoNegozio => ({
   inAttesa: [],
   task: [],
   contestoUsato: null,
+  primoGiro: false,
   inviati: [],
   erroreImpostazioni: null,
   ...(id === null ? leggiPredefinite() : { modello: null, effort: null }),
@@ -170,7 +173,7 @@ class Negozio {
   }
 
   private dalDettaglio(d: DettaglioConversazione): StatoNegozio {
-    return this.senzaRitornati({ ...this.stato, id: d.id, caricato: true, errore: null, titolo: d.titolo, attiva: d.attiva, stato: d.stato, lavoraDa: d.lavora_da ? istante(d.lavora_da) : null, lavoro: lavoroDa(d.lavoro), modello: d.modello, effort: d.effort, messaggi: d.messaggi, inAttesa: d.in_attesa, task: d.task, contestoUsato: d.contesto_usato })
+    return this.senzaRitornati({ ...this.stato, id: d.id, caricato: true, errore: null, titolo: d.titolo, attiva: d.attiva, stato: d.stato, lavoraDa: d.lavora_da ? istante(d.lavora_da) : null, lavoro: lavoroDa(d.lavoro), modello: d.modello, effort: d.effort, messaggi: d.messaggi, inAttesa: d.in_attesa, task: d.task, contestoUsato: d.contesto_usato, primoGiro: d.primo_giro })
   }
 
   /** Toglie dagli inviati quelli che il server ha già messo fra i messaggi. */
@@ -285,6 +288,8 @@ class Negozio {
         const { id: nuovo } = await apiChat.nuova(inviato.messaggio, scelta)
         ricordaCorrente(nuovo)
         this.versione += 1
+        // L'avvio non ritorna fra i messaggi del creator: finito di partire, non c'è più niente da aspettare.
+        if (inviato.messaggio.avvio) this.togli(inviato.chiave)
         this.imposta({ ...this.stato, id: nuovo, attiva: true, stato: "lavora", lavoraDa: this.stato.lavoraDa ?? Date.now(), lavoro: { ms: this.stato.lavoro.ms, da: this.stato.lavoro.da ?? Date.now() } })
         await this.carica()
       } else {

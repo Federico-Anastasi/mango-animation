@@ -18,7 +18,7 @@ const soloVista = valore("--vista", "")
 const inglese = valore("--lingua", "it") === "en"
 const T = (italiano, ingleseTesto) => (inglese ? ingleseTesto : italiano)
 // Le scene che guidano la pagina con testi scritti in italiano (la conversazione d'esempio, gli avvisi) non si rifanno in inglese.
-const SOLO_ITALIANO = ["chat-conversazione", "chat-permesso", "chat-immagine-grande", "chat-mango-lavora", "chat-menu-modello", "chat-domanda", "chat-allegato", "chat-lavoro", "chat-tempi", "chat-background", "chat-chiusa", "chat-chiudi", "lavori-piano-cambiato", "slide-carosello-avvisi", "scheda-non-valida", "montaggio-piano-non-valido", "girato-scheda-rifiutata"]
+const SOLO_ITALIANO = ["chat-conversazione", "chat-permesso", "chat-immagine-grande", "chat-mango-lavora", "chat-menu-modello", "chat-domanda", "chat-allegato", "chat-lavoro", "chat-tempi", "chat-background", "chat-primo-giro", "chat-primo-giro-lavora", "chat-chiusa", "chat-chiudi", "lavori-piano-cambiato", "slide-carosello-avvisi", "scheda-non-valida", "montaggio-piano-non-valido", "girato-scheda-rifiutata"]
 // Con `--chat` ogni vista si fotografa con la chat aperta sulla conversazione d'esempio.
 const conChat = argomenti.includes("--chat")
 // A 430 px la chat copre la vista: con `--chat` le larghezze sono due, e a 430 la chat si fotografa con le sue scene.
@@ -119,6 +119,9 @@ const VISTE = [
   { nome: "chat-comandi", indirizzo: "#/girato", dopo: (p) => chatComandi(p, "/", "ArrowUp"), poi: chiudiChat },
   { nome: "chat-comandi-filtro", indirizzo: "#/girato", dopo: (p) => chatComandi(p, "/mo", "ArrowDown"), poi: chiudiChat },
   // Una conversazione chiusa (è nell'elenco ma non ha il processo acceso), e il bottone «Chiudi la conversazione» premuto.
+  // Il primo giro: la conversazione comincia da Claude (nessuna bolla del creator), i passi sono una riga sola e la domanda a scelta resta in vista; poi a metà lavoro, con un passo in corso.
+  { nome: "chat-primo-giro", indirizzo: "#/girato", dopo: chatPrimoGiro, poi: chiudiChatTempi },
+  { nome: "chat-primo-giro-lavora", indirizzo: "#/girato", dopo: chatPrimoGiroAMeta, poi: chiudiChatTempi },
   { nome: "chat-chiusa", indirizzo: "#/girato", dopo: chatChiusa, poi: chiudiChatTempi },
   { nome: "chat-chiudi", indirizzo: "#/girato", dopo: chatChiudi, poi: chiudiChat },
   { nome: "chat-domanda", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: chatDomanda, poi: chiudiChat },
@@ -294,7 +297,7 @@ async function profiloSenzaNome(pagina) {
 
 // Come il server vero quando `profilo.json` non passa lo schema: l'avviso compare da solo, e sparisce quando il profilo torna buono.
 async function profiloNonValido(pagina) {
-  const frasi = [T("macchina.scheda_video: deve essere un numero o null", "macchina.scheda_video: must be a number or null"), T("canali[0].piattaforma: manca", "canali[0].piattaforma: missing")]
+  const frasi = [T("La scheda video del computer deve essere un numero intero, o vuota.", "The computer's video card must be a whole number, or empty."), T("Manca la piattaforma del canale 1.", "The platform of channel 1 is missing.")]
   await pagina.evaluate((p) => fetch("/finto/profilo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ problemi: p }) }), frasi)
   await pagina.getByRole("status", { name: T("Profilo da correggere", "Profile needs fixing") }).waitFor({ timeout: 5000 }).catch(() => problemi.push("profilo-non-valido: l'avviso non compare"))
 }
@@ -353,7 +356,11 @@ async function fotoDiUnaScenaInCoda(pagina) {
     while ((await (await fetch("/api/lavori")).json()).in_corso?.comando !== "monta") await new Promise((ok) => setTimeout(ok, 50))
     await fetch("/api/animazioni/foto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sigla: "l1" }) })
   })
-  await pagina.locator("header button[aria-expanded]").nth(1).click()
+  // Il bottone dei lavori compare quando l'evento arriva, e fra quelli della barra che si aprono è il solo senza un'etichetta sua: si aspetta lui,
+  // non il secondo che c'è. Se la scena di prima ha lasciato il pannello aperto, un altro clic lo chiuderebbe.
+  const bottone = pagina.locator("header button[aria-expanded]:not([aria-label])").first()
+  await bottone.waitFor({ timeout: 5000 }).catch(() => {})
+  if ((await bottone.getAttribute("aria-expanded").catch(() => null)) === "false") await bottone.click()
   await pagina.getByRole("dialog", { name: T("Lavori", "Jobs") }).getByText(T("Foto di una scena", "Frames of a scene")).waitFor({ timeout: 3000 }).catch(() => problemi.push("lavori-scene-foto: le foto di una scena non compaiono in coda (il finto server va avviato con MONTA_FINTO_MS=8000)"))
 }
 
@@ -474,6 +481,26 @@ async function chatTempi(pagina) {
   await pagina.getByRole("group", { name: "Lavoro: Montaggio" }).first().waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-tempi: la scheda del lavoro non compare"))
   await pagina.getByRole("status").filter({ hasText: /(Sta pensando|Aspetta lo strumento) · / }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-tempi: il cronometro del giro non compare"))
   await pagina.waitForTimeout(2500)
+}
+
+async function chatPrimoGiro(pagina) {
+  await apriChat(pagina)
+  await pagina.getByRole("button", { name: T("Nuova conversazione", "New conversation") }).click()
+  await pagina.getByRole("button", { name: T("Rifai il primo giro", "Redo the first round") }).click()
+  await pagina.getByRole("button", { name: T("Invia la risposta", "Send the answer") }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-primo-giro: la domanda a scelta non compare"))
+  if ((await pagina.getByRole("article", { name: T("Tu", "You") }).count()) > 0) problemi.push("chat-primo-giro: c'è un messaggio come se l'avesse scritto il creator")
+  if ((await pagina.getByText(T(/^Legge /, /^Reads /)).count()) > 0) problemi.push("chat-primo-giro: una scheda di strumento è in vista")
+  await pagina.getByRole("button", { name: /TikTok/ }).first().click()
+  await pagina.waitForTimeout(300)
+}
+
+async function chatPrimoGiroAMeta(pagina) {
+  await pagina.evaluate(() => localStorage.setItem("mango-animation.chat.corrente", "primogiro"))
+  await pagina.reload()
+  await apriChat(pagina)
+  await pagina.getByRole("button", { name: T(/Sta lavorando/, /Working/) }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-primo-giro-lavora: la riga dei passi non compare"))
+  await pagina.getByRole("status").filter({ hasText: T("Sta controllando il computer", "Checking the computer") }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-primo-giro-lavora: la frase semplice del passo non compare"))
+  await pagina.waitForTimeout(500)
 }
 
 async function chatBackground(pagina) {

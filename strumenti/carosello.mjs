@@ -9,6 +9,7 @@
 // testo (`accavallato`) e la slide quasi vuota o di un solo colore (`vuota`); `dettaglio` porta il numero o il testo che serve a dirlo.
 // Le misure: `carosello` e `telefono.margine_lati` dello stile (di serie, con sopra quello del creator).
 import { apriChrome } from "./chrome.mjs";
+import { dice } from "./lingua.mjs";
 import { renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -23,7 +24,7 @@ const SINISTRA = stile.telefono.margine_lati;
 
 const [pagina, cartella] = process.argv.slice(2).map((p) => resolve(p));
 if (!pagina || !cartella) {
-  console.error("uso: node strumenti/carosello.mjs <carosello.html> <cartella delle slide>");
+  console.error(dice("uso: node strumenti/carosello.mjs <carosello.html> <cartella delle slide>", "usage: node strumenti/carosello.mjs <carosello.html> <slides folder>"));
   process.exit(2);
 }
 
@@ -133,9 +134,9 @@ try {
     await document.fonts.ready;
   });
   const { quante, misure, avvisi } = await scheda.evaluate(GUARDA, [SINISTRA, LARGO - DESTRA, ALTO - DIDASCALIA, PICCOLO, TAGLIO, ACCAVALLAMENTO]);
-  const storte = misure.map(([w, h], i) => (w === LARGO && h === ALTO ? null : `la slide ${i + 1} è ${w}×${h}`)).filter(Boolean);
+  const storte = misure.map(([w, h], i) => (w === LARGO && h === ALTO ? null : dice(`la slide ${i + 1} è ${w}×${h}`, `slide ${i + 1} is ${w}×${h}`))).filter(Boolean);
   if (storte.length > 0) {
-    console.error(`${storte.join("; ")}: ogni section.slide dev'essere ${LARGO}×${ALTO}`);
+    console.error(dice(`${storte.join("; ")}: ogni section.slide dev'essere ${LARGO}×${ALTO}`, `${storte.join("; ")}: every section.slide must be ${LARGO}×${ALTO}`));
     process.exit(1);
   }
   const elementi = await scheda.$$("section.slide");

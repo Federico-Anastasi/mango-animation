@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { FASCIA } from "../src/standard/stile";
 import { caricaRegistro } from "./catalogo";
 import { apri, assicuraCostruita, palcoDellaScena, RADICE } from "./comune";
+import { dice } from "./lingua";
 import { stileUnito } from "./percorsi";
 
 const stile = stileUnito();
@@ -37,7 +38,7 @@ async function main() {
   const registro = await caricaRegistro();
   const richieste = Bun.argv.slice(2);
   const mancanti = richieste.filter((s) => !registro.scene[s]);
-  if (mancanti.length) throw new Error(`Non esiste una scena «${mancanti.join("», «")}» in animazioni/. Le sigle sono: ${Object.keys(registro.scene).join(", ")}.`);
+  if (mancanti.length) throw new Error(dice(`Non esiste una scena «${mancanti.join("», «")}» in animazioni/. Le sigle sono: ${Object.keys(registro.scene).join(", ")}.`, `There is no scene «${mancanti.join("», «")}» in animazioni/. The codes are: ${Object.keys(registro.scene).join(", ")}.`));
   await assicuraCostruita();
   mkdirSync(uscita, { recursive: true });
 

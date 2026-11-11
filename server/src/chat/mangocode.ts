@@ -7,6 +7,7 @@ import { eOggetto, jsonDaTesto, leggiTesto, rinomina, scrivi, testoJson } from "
 import { frase, type Frase } from "../lingua"
 import { osserva } from "../osservatore"
 import { cartellaDellaChat } from "./allegati"
+import { eAvvio } from "./primoGiro"
 import { contestoDaUsage, type Oggetto } from "./traduzione"
 import { VociSpente } from "./vociSpente"
 import { ErroreChat, type FunzioneQuery, type MessaggioSessione, type MisuraDelContesto, type ModelloChat, type QueryChat, type VoceSessione } from "./tipi"
@@ -269,7 +270,7 @@ class QueryMangoCode implements QueryChat {
       if (this.chiusa) return
       const parti = partiDelMessaggio(m.message.content)
       if (this.sessione === null) {
-        const titolo = parti.flatMap((p) => (p["type"] === "text" && typeof p["text"] === "string" ? [p["text"].replace(/^\[Context:[^\]]*\]\s*/, "")] : [])).join(" ").slice(0, 60)
+        const titolo = parti.flatMap((p) => (p["type"] === "text" && typeof p["text"] === "string" ? [eAvvio(p["text"]) ? "" : p["text"].replace(/^\[Context:[^\]]*\]\s*/, "")] : [])).join(" ").slice(0, 60)
         const creata = await this.chiama("POST", "/session", { title: titolo || "Mango Animation" })
         if (!eOggetto(creata) || typeof creata["id"] !== "string") throw new ErroreChat(502, frase("Mango Code non ha aperto la conversazione: riprova.", "Mango Code did not open the conversation: try again."))
         this.sessione = creata["id"]

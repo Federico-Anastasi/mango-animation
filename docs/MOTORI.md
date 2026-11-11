@@ -1,18 +1,18 @@
 # I motori
 
 Le funzioni pesanti del prodotto (trascrizione, allineamento, sagoma, ...) usano modelli grandi che girano sulla scheda video o sul processore. Ognuna ha un interruttore e un «dove» nella sezione `motori` del profilo
-(`profilo.json`, `docs/PROFILO.md`); la sezione Computer delle impostazioni dello studio li cambia (`docs/INTERFACCIA.md`, `docs/API.md`), e l'app scarica solo ciò che le funzioni accese richiedono (`docs/APP.md`, «Il computer pronto»).
+(`profilo.json`, `docs/PROFILO.md`); la sezione Computer delle impostazioni dello studio li cambia (`docs/INTERFACCIA.md`, `docs/api/impostazioni.md`), e l'app scarica solo ciò che le funzioni accese richiedono (`docs/app/computer-pronto.md`).
 
 ## 1. Le funzioni
 
-| funzione (`motori.<funzione>`) | cosa fa | modello | peso del modello | chi la usa | spenta |
-|---|---|---|---|---|---|
-| `trascrizione` | le parole coi tempi | faster-whisper (CTranslate2): `large-v3` (di serie), `large-v3-turbo` o `small` | 3,1 GB, 1,6 GB, 0,5 GB | `prepara` (ogni sorgente con audio → `parole.json`), `controlla` (riascolta il montato) | `prepara` non scrive `parole.json`; un video che ha bisogno delle parole (tagli a parole, sottotitoli) si ferma e dice di accenderla; `controlla` salta il riascolto e lo segna in `spente` |
-| `allineamento` | i confini veri delle parole nell'audio | MMS_FA (torchaudio), CC-BY-NC-4.0: **non commerciale** | 1,3 GB | `risolvi` e `monta` (pezzi scelti a parole, `allineate.json`), `controlla` (parole ritrovate) | i bordi dei pezzi si cercano sul livello della voce, con i tempi della trascrizione come punto di partenza; `controlla` non misura le parole fuori posto (`spente`) |
-| `sagoma` | lo scontorno della persona | SAM 2.1 (base+) + ViTMatte-small + RT-DETR (primo riquadro), tutti Apache-2.0 | 324 + 103 + 81 MB, più PyTorch | `monta` e `anteprima` (i tratti in sagoma), `copertina`, sticker e oggetti scontornati (`strumenti/`) | i pezzi di sagoma già fatti si usano; uno scontorno nuovo non parte e la frase dice di accenderla o di scegliere un quadro senza sagoma |
-| `segui` | dove sta la persona nelle viste che la seguono (`persona.json`) | YuNet (MIT) su OpenCV | 0,2 MB | `prepara`, per le viste `segui` | la misura di una vista che segue non parte e la frase lo dice |
-| `pulizia_voce` | toglie il rumore dalla voce montata | DeepFilterNet3 (MIT o Apache-2.0), un eseguibile sul processore | 27 MB | `monta`, `anteprima` | resta il rumore di fondo; prende il posto di `voce.pulizia.attiva` dello stile |
-| `dettatura` | il microfono nella chat | faster-whisper: `large-v3-turbo` sulla scheda, `small` sul processore (`stile.json`, `dettatura.dispositivi`) | 1,6 GB, 0,5 GB | l'app (`python -m motore detta`, `docs/APP.md`) | si scrive a mano |
+| funzione (`motori.<funzione>`) | cosa fa | modello | chi la usa | spenta |
+|---|---|---|---|---|
+| `trascrizione` | le parole coi tempi | faster-whisper (CTranslate2): `large-v3` (di serie), `large-v3-turbo` o `small` | `prepara` (ogni sorgente con audio → `parole.json`), `controlla` (riascolta il montato) | `prepara` non scrive `parole.json`; un video che ha bisogno delle parole (tagli a parole, sottotitoli) si ferma e dice di accenderla; `controlla` salta il riascolto e lo segna in `spente` |
+| `allineamento` | i confini veri delle parole nell'audio | MMS_FA (torchaudio), CC-BY-NC-4.0: **non commerciale** | `risolvi` e `monta` (pezzi scelti a parole, `allineate.json`), `controlla` (parole ritrovate) | i bordi dei pezzi si cercano sul livello della voce, con i tempi della trascrizione come punto di partenza; `controlla` non misura le parole fuori posto (`spente`) |
+| `sagoma` | lo scontorno della persona | SAM 2.1 (base+) + ViTMatte-small + RT-DETR (primo riquadro), tutti Apache-2.0 | `monta` e `anteprima` (i tratti in sagoma), `copertina`, sticker e oggetti scontornati (`strumenti/`) | i pezzi di sagoma già fatti si usano; uno scontorno nuovo non parte e la frase dice di accenderla o di scegliere un quadro senza sagoma |
+| `segui` | dove sta la persona nelle viste che la seguono (`persona.json`) | YuNet (MIT) su OpenCV | `prepara`, per le viste `segui` | la misura di una vista che segue non parte e la frase lo dice |
+| `pulizia_voce` | toglie il rumore dalla voce montata | DeepFilterNet3 (MIT o Apache-2.0), un eseguibile sul processore | `monta`, `anteprima` | resta il rumore di fondo; prende il posto di `voce.pulizia.attiva` dello stile |
+| `dettatura` | il microfono nella chat | faster-whisper: `large-v3-turbo` sulla scheda, `small` sul processore (`stile.json`, `dettatura.dispositivi`) | l'app (`python -m motore detta`, `docs/app/dettatura.md`) | si scrive a mano |
 
 PyTorch (e con lui `transformers` e OpenCV) serve a `allineamento` e `sagoma`: finché una delle due è accesa si scarica; la scheda NVIDIA lo vuole in versione CUDA (circa 4,7 GB), il processore in versione leggera (circa 0,9 GB).
 `trascrizione`, `segui` e `pulizia_voce` non ne hanno bisogno.
@@ -21,7 +21,7 @@ Sulla scheda NVIDIA la trascrizione (e la dettatura) hanno bisogno della cublas 
 
 Le animazioni non sono una funzione del profilo: si rendono con Playwright e il suo Chromium (circa 0,7 GB), che l'app scarica se Playwright non ne ha uno. La copertina non ha un motore suo: segue la sagoma.
 
-I modelli non si distribuiscono con l'app: si scaricano dalla loro fonte, ognuno con la sua licenza (`app/src/computer/manifesto.json`).
+Peso, fonte e licenza di ogni modello, e cosa non si distribuisce con l'app: `docs/app/computer-pronto.md`, «Cosa può scaricare».
 
 ## 2. Dove gira una funzione
 
@@ -46,7 +46,7 @@ E sul processore: `sagoma` con meno di 8 thread è lenta (avviso), e con meno di
 
 ## 3. Come l'app sceglie e scarica
 
-All'avvio, se il server lo accende l'app, legge il computer, calcola il piano di ciò che le funzioni accese richiedono, lo mostra con lo spazio che serve e lo scarica (`docs/APP.md`, «Il computer pronto»). Cambiare una funzione nella pagina «Motori» riscrive `motori.<funzione>.attiva` nel profilo, lasciando il resto com'è, e ciò che si accende lo scarica l'app al prossimo avvio. Lo studio vede il computer attraverso il ponte `window.__MANGO_ANIMATION__.computer.leggi()` (`app/src/computer/ponte.rs`); nel browser senza l'app il ponte non c'è e la pagina non può dire se una scelta è possibile.
+L'app legge il computer, calcola ciò che le funzioni accese richiedono e lo scarica all'avvio, quando il server lo accende lei (`docs/app/computer-pronto.md`). Cambiare una funzione nella pagina «Motori» riscrive `motori.<funzione>.attiva` nel profilo, lasciando il resto com'è, e ciò che si accende lo scarica l'app al prossimo avvio. Nel browser senza l'app il ponte con cui lo studio vede il computer non c'è, e la pagina non può dire se una scelta è possibile.
 
 ## 4. La sezione `motori` del profilo
 

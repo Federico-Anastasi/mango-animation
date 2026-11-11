@@ -6,7 +6,7 @@ how it is done and which rules it reads (`.claude/metodo/contenuto.md` and `mont
 | step | what comes out | skill |
 |---|---|---|
 | 1. The idea | the video's folder, its card `stato: "proposta"` and its preview (`materiali/anteprima.png`) | `proponi` |
-| 2. The script | text in lines, frame, scenes described in words, in `proposta` | `proponi` |
+| 2. The script | text in lines, frame, scenes described in words, in `proposta` | `copione` |
 | 3. The rehearsal | `uscite/prova.mp4`: the scenes with estimated timing and the whole sentence to read | `prova` |
 | 4. The recorded text | `materiali/testo-registrato.md`: for each line the chosen take | `testo` |
 | 5. Text and animations | in the same table, the scene of each line; then one still frame per scene | `scena` |
