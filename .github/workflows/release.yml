@@ -54,6 +54,17 @@ jobs:
           bun install --cwd animazioni --frozen-lockfile
           bun install --cwd server --frozen-lockfile
 
+      # Le prove del server fanno e leggono video veri, e il computer di GitHub non ha ffmpeg: si prende quello che l'app scarica
+      # per il creator, dall'indirizzo e con l'impronta di `app/src/computer/manifesto.json`. Un archivio diverso ferma il passo.
+      - name: ffmpeg per le prove
+        run: |
+          read -r URL SHA CARTELLA < <(bun -e 'const a = (await Bun.file("app/src/computer/manifesto.json").json()).elementi.find((e) => e.id === "ffmpeg").archivio; console.log(a.url, a.sha256, a.cartella.da)' | tr -d '\r')
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o ffmpeg.zip "$URL"
+          echo "$SHA *ffmpeg.zip" | sha256sum -c -
+          unzip -q ffmpeg.zip -d ffmpeg
+          cygpath -w "$PWD/ffmpeg/$CARTELLA" >> "$GITHUB_PATH"
+
       # Le prove che non vogliono scheda video né rete esterna, prima di costruire e senza segreti. Escluse: le prove di
       # `motore/` (pytest, vogliono torch e gli altri pacchetti del motore, gigabyte da scaricare), quelle di `strumenti/`
       # tranne gli avvisi di terzi (vogliono Pillow e Playwright), e le `#[ignore]` di `app/` (finestra, motore e rete veri).

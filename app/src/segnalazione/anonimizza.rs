@@ -39,6 +39,8 @@ impl Chi {
     }
 }
 
+/// Il nome corto che Windows dà alla cartella del profilo (`ALICER~1`, `ALICE~1.ROS`): la cartella temporanea spesso compare così, e porta l'inizio del nome.
+static NOME_CORTO: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?i)(users[\\/]+)[^\\/\s"'<>]{1,6}~\d+(?:\.[^\\/\s"'<>]{1,3})?"#).unwrap());
 static EMAIL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}").unwrap());
 /// Una cartella di OneDrive di lavoro porta il nome dell'azienda: `OneDrive - Nome Azienda`.
 static ONEDRIVE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?i)\b(OneDrive - )[^\\/"'\r\n]+"#).unwrap());
@@ -63,6 +65,7 @@ static CAMPO_JSON: LazyLock<Regex> =
 /// (per questo la schermata di invio avvisa che i registri possono contenerli).
 pub fn anonimizza(testo: &str, chi: &Chi) -> String {
     let mut s = chi.segreti.iter().fold(testo.to_string(), |s, segreto| s.replace(segreto.as_str(), "<secret>"));
+    s = NOME_CORTO.replace_all(&s, "${1}<user>").into_owned();
     for (cerca, metti) in &chi.percorsi {
         s = cerca.replace_all(&s, metti.as_str()).into_owned();
     }
@@ -101,8 +104,10 @@ mod prove {
     /// Una regola per riga: il testo com'è nei registri e com'è dopo.
     #[test]
     fn ogni_regola_toglie_il_suo_dato_e_lascia_il_resto() {
-        let regole: [(&str, String, String); 24] = [
+        let regole: [(&str, String, String); 26] = [
             ("nome dell'account nel percorso", r"C:\Users\Alice\AppData\Local\x.exe".into(), r"C:\Users\<user>\AppData\Local\x.exe".into()),
+            ("nome corto di Windows della cartella del profilo", r"C:\Users\ALICER~1\AppData\Local\Temp\x.exe".into(), r"C:\Users\<user>\AppData\Local\Temp\x.exe".into()),
+            ("nome corto di una cartella del profilo col punto", r"C:\Users\ALICE~1.ROS\AppData\Local\Temp".into(), r"C:\Users\<user>\AppData\Local\Temp".into()),
             ("nome della cartella del profilo, diverso dall'account", r"C:\Users\alice.rossi\Desktop".into(), r"C:\Users\<user>\Desktop".into()),
             ("percorso con le doppie barre del JSON", r#"{"lavoro":"C:\Users\alice.rossi\Documents"}"#.into(), r#"{"lavoro":"C:\Users\<user>\Documents"}"#.into()),
             ("percorso con barre dritte e maiuscole diverse", "file:///C:/Users/ALICE/Videos/girato.mp4".into(), "file:///C:/Users/<user>/Videos/girato.mp4".into()),

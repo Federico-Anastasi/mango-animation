@@ -309,10 +309,11 @@ mod prove {
     #[test]
     fn di_un_registro_lungo_entra_la_fine_e_si_dice_quanto_manca() {
         let t = tempfile::tempdir().unwrap();
-        std::fs::write(t.path().join("lungo.log"), "~".repeat((CODA + 10) as usize)).unwrap();
+        // Un carattere che il percorso della cartella temporanea non può avere: nel testo c'è solo quello del registro.
+        std::fs::write(t.path().join("lungo.log"), "|".repeat((CODA + 10) as usize)).unwrap();
         let s = Segnalazione::raccogli(ingresso(None, None), String::new(), computer(), &Schermata::NonChiesta, t.path(), &chi());
         assert!(s.testo.contains("[... 10 bytes]"));
-        assert_eq!(s.testo.matches('~').count(), CODA as usize);
+        assert_eq!(s.testo.matches('|').count(), CODA as usize);
     }
 
     #[test]
