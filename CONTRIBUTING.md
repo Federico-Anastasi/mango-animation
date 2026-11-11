@@ -26,7 +26,7 @@ pull request run, from the root of the repository:
 
 ```powershell
 bun run --cwd server test;     bun run --cwd server typecheck       # the server
-bun run --cwd studio test;     bun run --cwd studio typecheck       # the interface
+bun run --cwd studio test;     bun run --cwd studio typecheck; bun run --cwd studio lint   # the interface
 bun run --cwd animazioni test; bun run --cwd animazioni typecheck   # the animated scenes
 python -m pytest motore/prove -q                                    # the editing engine
 python -m pytest strumenti/prove -q                                 # the tools

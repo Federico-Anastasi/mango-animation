@@ -3,9 +3,11 @@
 use crate::istanza::VARIABILE_PID;
 use crate::lavoro::VARIABILE;
 use crate::lingua::t;
+use crate::rete;
 use crate::supervisor::{coda_del_log, Comando, Supervisore};
 use anyhow::{bail, Result};
 use std::ffi::OsString;
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tauri::Url;
@@ -35,27 +37,44 @@ pub fn porta_da(valore: Option<&str>) -> Result<u16> {
     }
 }
 
-/// Il comando che accende il server: parte dal codice e riceve la cartella di lavoro, che passa a motore e chat, il pid dell'app che lo accende e le variabili
+/// La porta del server che l'app accende: quella voluta. Se è quella di serie e un altro programma la occupa, la prima libera (chi ha scelto la porta con `MANGO_ANIMATION_PORTA` la tiene).
+pub fn porta_per_il_server(voluta: u16, scelta_dal_creator: bool) -> u16 {
+    if scelta_dal_creator || TcpListener::bind(("127.0.0.1", voluta)).is_ok() {
+        return voluta;
+    }
+    TcpListener::bind(("127.0.0.1", 0)).and_then(|ascolto| ascolto.local_addr()).map_or(voluta, |indirizzo| indirizzo.port())
+}
+
+/// Il comando che accende il server: parte dal codice e riceve la cartella di lavoro, che passa a motore e chat, il pid dell'app che lo accende, la porta e le variabili
 /// in più che l'app ha preparato (il Claude Code del creator). `bun` è l'eseguibile con gli argomenti che gli servono per partire (`risolvi_bun`).
-pub fn comando_server(bun: (PathBuf, Vec<OsString>), radice: &Path, lavoro: &Path, app_pid: u32, ambiente: Vec<(OsString, OsString)>) -> Comando {
+pub fn comando_server(bun: (PathBuf, Vec<OsString>), radice: &Path, lavoro: &Path, app_pid: u32, porta: u16, ambiente: Vec<(OsString, OsString)>) -> Comando {
     let (exe, mut args) = bun;
     args.extend(["run", "--cwd", "server", "avvia"].map(OsString::from));
-    let env = [(VARIABILE.into(), lavoro.as_os_str().to_owned()), (VARIABILE_PID.into(), app_pid.to_string().into())].into_iter().chain(ambiente).collect();
+    let env = [(VARIABILE.into(), lavoro.as_os_str().to_owned()), (VARIABILE_PID.into(), app_pid.to_string().into()), ("MANGO_ANIMATION_PORTA".into(), porta.to_string().into())].into_iter().chain(ambiente).collect();
     Comando { nome: "server".into(), exe, args, cwd: radice.to_path_buf(), env }
 }
 
 /// La chiave delle API di questa cartella di lavoro (`docs/API.md`, «La chiave delle API»): la fa il server al primo avvio, e senza ogni sua risposta è 401.
 pub fn chiave_del_server(lavoro: &Path) -> Option<String> {
-    let testo = std::fs::read_to_string(lavoro.join("archivio").join("arrivi").join("chiave-api.json")).ok()?;
+    chiave_in(lavoro, "chiave-api.json")
+}
+
+/// La chiave dell'app (`docs/API.md`, «I file scelti dal creator»): con lei sola l'app dice al server quali file ha scelto il creator.
+pub fn chiave_dell_app(lavoro: &Path) -> Option<String> {
+    chiave_in(lavoro, "chiave-app.json")
+}
+
+fn chiave_in(lavoro: &Path, file: &str) -> Option<String> {
+    let testo = std::fs::read_to_string(lavoro.join("archivio").join("arrivi").join(file)).ok()?;
     serde_json::from_str::<serde_json::Value>(&testo).ok()?.get("chiave")?.as_str().map(str::to_owned)
 }
 
 /// Il server risponde a `GET /api/lavori` con 200, con la chiave di questa cartella di lavoro? Un server che risponde 401 è di un'altra cartella (o non ha ancora la sua chiave).
 pub fn decidi(porta: u16, lavoro: &Path) -> Decisione {
-    let agente = ureq::AgentBuilder::new().timeout(Duration::from_secs(3)).build();
-    let mut richiesta = agente.get(&format!("http://127.0.0.1:{porta}/api/lavori"));
+    let url = format!("http://127.0.0.1:{porta}/api/lavori");
+    let mut richiesta = rete::agente(&url, Duration::from_secs(3)).get(&url);
     if let Some(chiave) = chiave_del_server(lavoro) {
-        richiesta = richiesta.set("X-Chiave-Api", &chiave);
+        richiesta = richiesta.header("X-Chiave-Api", &chiave);
     }
     match richiesta.call() {
         Ok(risposta) if risposta.status() == 200 => Decisione::GiaAcceso,
@@ -194,7 +213,7 @@ mod prove {
     fn il_server_parte_dal_codice_e_riceve_la_cartella_di_lavoro() {
         let codice = tempfile::tempdir().unwrap();
         let lavoro = tempfile::tempdir().unwrap();
-        let c = comando_server((PathBuf::from("cmd"), vec!["/c".into(), "bun.cmd".into()]), codice.path(), lavoro.path(), 4242, Vec::new());
+        let c = comando_server((PathBuf::from("cmd"), vec!["/c".into(), "bun.cmd".into()]), codice.path(), lavoro.path(), 4242, 47431, Vec::new());
         assert_eq!(c.cwd, codice.path());
         assert_eq!(c.env[0], (OsString::from("MANGO_ANIMATION_LAVORO"), lavoro.path().as_os_str().to_owned()));
         let args: Vec<String> = c.args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
@@ -206,17 +225,31 @@ mod prove {
         let codice = tempfile::tempdir().unwrap();
         let lavoro = tempfile::tempdir().unwrap();
         let claude = (OsString::from("MANGO_ANIMATION_CLAUDE"), OsString::from(r"C:\Users\esempio\.local\bin\claude.exe"));
-        let c = comando_server((PathBuf::from("bun.exe"), Vec::new()), codice.path(), lavoro.path(), 4242, vec![claude.clone()]);
+        let c = comando_server((PathBuf::from("bun.exe"), Vec::new()), codice.path(), lavoro.path(), 4242, 47431, vec![claude.clone()]);
         assert_eq!(c.env[0], (OsString::from("MANGO_ANIMATION_LAVORO"), lavoro.path().as_os_str().to_owned()));
-        assert_eq!(c.env[2], claude);
+        assert_eq!(c.env[3], claude);
     }
 
     #[test]
     fn il_server_sa_di_quale_app_e_figlio() {
         let codice = tempfile::tempdir().unwrap();
         let lavoro = tempfile::tempdir().unwrap();
-        let c = comando_server((PathBuf::from("bun.exe"), Vec::new()), codice.path(), lavoro.path(), 4242, Vec::new());
+        let c = comando_server((PathBuf::from("bun.exe"), Vec::new()), codice.path(), lavoro.path(), 4242, 47500, Vec::new());
         assert!(c.env.contains(&(OsString::from("MANGO_ANIMATION_APP_PID"), OsString::from("4242"))));
+        // La porta in cui l'app aspetta lo studio è quella che il server riceve.
+        assert!(c.env.contains(&(OsString::from("MANGO_ANIMATION_PORTA"), OsString::from("47500"))));
+    }
+
+    #[test]
+    fn se_la_porta_di_serie_e_occupata_il_server_ne_prende_un_altra_ma_quella_scelta_dal_creator_resta() {
+        let occupata = TcpListener::bind("127.0.0.1:0").unwrap();
+        let porta = occupata.local_addr().unwrap().port();
+        let altra = porta_per_il_server(porta, false);
+        assert_ne!(altra, porta);
+        assert!(TcpListener::bind(("127.0.0.1", altra)).is_ok());
+        assert_eq!(porta_per_il_server(porta, true), porta);
+        let libera = porta_libera();
+        assert_eq!(porta_per_il_server(libera, false), libera);
     }
 
     #[test]

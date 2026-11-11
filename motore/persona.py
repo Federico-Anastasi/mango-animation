@@ -1,5 +1,5 @@
 """Dove sta la persona in un fotogramma. Il riquadro (la prima indicazione a SAM2 nello scontorno) lo trova RT-DETR (Apache-2.0, 20 M di parametri,
-da Hugging Face); la testa (le viste che seguono la persona) la trova YuNet (MIT, 0,2 MB, da Hugging Face, su OpenCV)."""
+da Hugging Face); il viso (le viste che seguono la persona, e fin dove sale il riquadro dello scontorno) lo trova YuNet (MIT, 0,2 MB, da Hugging Face, su OpenCV)."""
 
 import numpy as np
 
@@ -21,16 +21,21 @@ class Rilevatore:
         self.rete = RTDetrForObjectDetection.from_pretrained(RILEVATORE).to(self.dove).eval()
         self.persona = next(n for n, nome in self.rete.config.id2label.items() if nome == "person")
 
-    def riquadro(self, rgb):
-        """[x0, y0, x1, y1] della persona più grande, in pixel del fotogramma."""
+    def trova(self, rgb):
+        """[x0, y0, x1, y1] della persona più grande, in pixel del fotogramma, o None se non ce n'è nessuna."""
         with self.torch.no_grad():
             ingresso = self.processore(images=np.ascontiguousarray(rgb), return_tensors="pt").to(self.dove)
             trovati = self.processore.post_process_object_detection(self.rete(**ingresso), target_sizes=[rgb.shape[:2]], threshold=self.soglia)[0]
         persone = [b.tolist() for etichetta, b in zip(trovati["labels"], trovati["boxes"]) if etichetta.item() == self.persona]
-        if not persone:
+        return max(persone, key=lambda b: (b[2] - b[0]) * (b[3] - b[1])) if persone else None
+
+    def riquadro(self, rgb):
+        """Come `trova`, ma senza nessuno è un errore."""
+        riquadro = self.trova(rgb)
+        if riquadro is None:
             raise Errore("nel primo fotogramma del tratto non trovo nessuno: guarda il girato di quel tratto",
                          "I find no one in the first frame of the stretch: look at the footage of that stretch")
-        return max(persone, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
+        return riquadro
 
 
 class Visi:
@@ -43,11 +48,18 @@ class Visi:
         self.cv2 = cv2
         self.rete = cv2.FaceDetectorYN.create(hf_hub_download(*VISO), "", (320, 320), score_threshold=soglia)
 
-    def x(self, rgb):
+    def riquadro(self, rgb):
+        """[x, y, largo, alto] del viso più grande, in pixel del fotogramma; None se non se ne vede nessuno."""
         alto, largo = rgb.shape[:2]
         self.rete.setInputSize((largo, alto))
         _, visi = self.rete.detect(self.cv2.cvtColor(np.ascontiguousarray(rgb), self.cv2.COLOR_RGB2BGR))
         if visi is None:
             return None
-        x, _, w, _ = max(visi[:, :4], key=lambda v: v[2] * v[3])
-        return round(float((x + w / 2) / largo), 4)
+        return [float(v) for v in max(visi[:, :4], key=lambda v: v[2] * v[3])]
+
+    def x(self, rgb):
+        viso = self.riquadro(rgb)
+        if viso is None:
+            return None
+        x, _, w, _ = viso
+        return round((x + w / 2) / rgb.shape[1], 4)

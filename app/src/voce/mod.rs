@@ -18,10 +18,6 @@ use tauri::{AppHandle, Manager, State};
 /// Lo script che la finestra esegue in ogni pagina: definisce `window.__MANGO_ANIMATION__.voce`.
 pub const PONTE: &str = include_str!("ponte.js");
 
-/// I comandi del plugin della voce: gli stessi in `build.rs` (permessi), `ponte.js` e `capabilities/`.
-#[cfg(test)]
-const COMANDI: [&str; 3] = ["voce_stato", "voce_avvia", "voce_ferma"];
-
 pub use crate::lingua::Lingua;
 
 /// Un errore per la pagina: `code` per scegliere cosa mostrare, `message` la frase (in italiano finché `nella` non la sceglie), `en` la stessa in inglese.
@@ -63,10 +59,9 @@ pub struct Voce {
 }
 
 impl Voce {
-    /// `cartella_log`: dove il motore scrive il suo log (`dettatura.log`); `lavoro`: la cartella dei dati, se c'è già.
-    pub fn nuova(cartella_log: PathBuf, lavoro: Option<&Path>) -> Voce {
-        let partenza = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.to_path_buf())).unwrap_or_default();
-        let comando = locale::comando_del_motore(&|nome| std::env::var(nome).ok(), &partenza, lavoro);
+    /// `cartella_log`: dove il motore scrive il suo log (`dettatura.log`); `radice`: la cartella del codice, se l'app l'ha trovata; `lavoro`: la cartella dei dati, se c'è già.
+    pub fn nuova(cartella_log: PathBuf, radice: Option<&Path>, lavoro: Option<&Path>) -> Voce {
+        let comando = locale::comando_del_motore(&|nome| std::env::var(nome).ok(), radice, lavoro);
         Voce::con(Motore::nuovo(comando, cartella_log.join("dettatura.log")))
     }
 
@@ -151,12 +146,12 @@ impl Voce {
 // ---------------------------------------------------------------- comandi
 
 #[tauri::command]
-async fn voce_stato(voce: State<'_, Voce>, lingua: Option<String>) -> Result<Value, Errore> {
+pub(crate) async fn voce_stato(voce: State<'_, Voce>, lingua: Option<String>) -> Result<Value, Errore> {
     Ok(voce.stato(Lingua::da(lingua.as_deref())))
 }
 
 #[tauri::command]
-async fn voce_avvia(app: AppHandle, voce: State<'_, Voce>, lingua: Option<String>) -> Result<u64, Errore> {
+pub(crate) async fn voce_avvia(app: AppHandle, voce: State<'_, Voce>, lingua: Option<String>) -> Result<u64, Errore> {
     // MANGO_ANIMATION_VOCE_FILE: nelle prove dal vivo un WAV suona al posto del microfono
     let sorgente = std::env::var_os("MANGO_ANIMATION_VOCE_FILE").map_or(Sorgente::Microfono, |f| Sorgente::File(f.into()));
     let emetti: Emetti = Arc::new(move |evento| {
@@ -168,19 +163,14 @@ async fn voce_avvia(app: AppHandle, voce: State<'_, Voce>, lingua: Option<String
 }
 
 #[tauri::command]
-async fn voce_ferma(voce: State<'_, Voce>, lingua: Option<String>) -> Result<(), Errore> {
+pub(crate) async fn voce_ferma(voce: State<'_, Voce>, lingua: Option<String>) -> Result<(), Errore> {
     voce.ferma(Lingua::da(lingua.as_deref()))
 }
 
-/// Registra i comandi come plugin: lo studio è una pagina remota (127.0.0.1) e un comando remoto vuole
-/// permessi suoi (`build.rs`, `capabilities/default.json`).
-pub fn installa(app: &tauri::App, lavoro: Option<&Path>) -> tauri::Result<()> {
-    app.manage(Voce::nuova(app.path().app_log_dir()?, lavoro));
-    app.handle().plugin(
-        tauri::plugin::Builder::<tauri::Wry>::new("mango-animation-voce")
-            .invoke_handler(tauri::generate_handler![voce_stato, voce_avvia, voce_ferma])
-            .build(),
-    )
+/// Tiene lo stato della dettatura; i suoi comandi li registra `prepara` in `lib.rs`, insieme agli altri del ponte.
+pub fn installa(app: &tauri::App, radice: Option<&Path>, lavoro: Option<&Path>) -> tauri::Result<()> {
+    app.manage(Voce::nuova(app.path().app_log_dir()?, radice, lavoro));
+    Ok(())
 }
 
 #[cfg(test)]

@@ -10,8 +10,8 @@ import { COMANDI_SULLA_SCHEDA } from "./schede"
 
 /** Ciò che un lavoro che non è un comando del motore può fare mentre gira. */
 export interface IoLavoro {
-  /** Lancia un processo: le sue righe vanno nel lavoro e il suo PID è quello che «ferma» chiude. Un lavoro già fermato non lancia più niente. */
-  lancia: (comando: string[]) => Promise<{ codice: number; ultimoErrore: string | null }>
+  /** Lancia un processo: le sue righe vanno nel lavoro e il suo PID è quello che «ferma» chiude. Un lavoro già fermato non lancia più niente. Con `uscita`, le righe di stdout si raccolgono anche lì, tutte (le righe del lavoro sono le ultime 200). */
+  lancia: (comando: string[], uscita?: string[]) => Promise<{ codice: number; ultimoErrore: string | null }>
   riga: (riga: string) => void
   fermato: () => boolean
   /** La lingua di chi ha chiesto il lavoro: le righe che scrive il lavoro sono in questa. */
@@ -23,8 +23,8 @@ export interface RichiestaLavoro {
   argomenti: string[]
   slug: string | null
   file: string | null
-  /** Per un lavoro che non lancia `python -m motore`: cosa fa. Se fallisce lancia un errore la cui frase è quella che il lavoro mostra. */
-  esegui?: (io: IoLavoro) => Promise<void>
+  /** Per un lavoro che non lancia `python -m motore`: cosa fa. Se fallisce lancia un errore la cui frase è quella che il lavoro mostra; ciò che torna è il `risultato` del lavoro finito. */
+  esegui?: (io: IoLavoro) => Promise<unknown>
 }
 
 interface Lavoro extends RichiestaLavoro {
@@ -55,6 +55,8 @@ export interface LavoroFinito {
   righe: string[]
   /** I secondi di video su cui ha lavorato; `null` se non si sapevano (e nelle righe scritte prima che ci fossero). */
   secondi_video: number | null
+  /** Ciò che il lavoro ha prodotto per chi l'aspettava, se è un lavoro che lo dà (`scene-foto`). */
+  risultato?: unknown
 }
 
 /** La riga di `lavori.jsonl` scritta quando un lavoro parte: se al riavvio non ha la sua fine, il server si è fermato a metà. */
@@ -131,10 +133,10 @@ export class Coda {
   ) {}
 
   /** Se il modello di Mango Code tiene la scheda, la libera; un lavoro che non può averla fallisce con la frase che dice perché. */
-  private async prendiLaScheda(lingua: Lingua, tieni: (riga: string) => void): Promise<Pick<LavoroFinito, "esito" | "errore"> | null> {
+  private async prendiLaScheda(lingua: Lingua, tieni: (riga: string) => void): Promise<Pick<LavoroFinito, "esito" | "errore" | "risultato"> | null> {
     try {
       const avviso = await this.opzioni.schede.prendi(this.schedaDelProfilo())
-      if (avviso) tieni(avviso)
+      if (avviso) tieni(avviso.in(lingua))
       return null
     } catch (causa) {
       return { esito: "fallito", errore: fraseDi(causa, lingua) }
@@ -165,13 +167,12 @@ export class Coda {
         letti.push(finito)
       }
     }
-    for (const p of partiti.values()) {
-      const interrotto: LavoroFinito = { id: p.id, slug: p.slug, comando: p.comando, file: p.file, iniziato: p.iniziato, finito: iso(Date.now()), esito: "interrotto", errore: nellaLinguaDi(INTERROTTO, p.lingua), righe: [], secondi_video: null }
-      letti.push(interrotto)
-      await this.ricorda(interrotto)
-    }
+    const interrotti = [...partiti.values()].map((p): LavoroFinito => ({ id: p.id, slug: p.slug, comando: p.comando, file: p.file, iniziato: p.iniziato, finito: iso(Date.now()), esito: "interrotto", errore: nellaLinguaDi(INTERROTTO, p.lingua), righe: [], secondi_video: null }))
+    letti.push(...interrotti)
+    // Prima le raccolte, poi la scrittura: la compattazione del file riparte da loro.
     this.finiti = letti.slice(-FINITI_TENUTI)
     letti.forEach((f) => this.tieniSeRiuscito(f))
+    for (const interrotto of interrotti) await this.ricorda(interrotto)
   }
 
   /**
@@ -179,6 +180,7 @@ export class Coda {
    * mediana delle durate di quelli che non li sapevano. Con meno di `MINIMO_PER_STIMARE` lavori così, `null`: non si inventa.
    */
   private stimaDi(comando: string, secondiVideo: number | null): number | null {
+    if (secondiVideo === 0) return null
     const uguali = (this.riusciti.get(comando) ?? []).filter((f) => (secondiVideo === null ? f.secondi_video === null : (f.secondi_video ?? 0) > 0))
     if (uguali.length < MINIMO_PER_STIMARE) return null
     if (secondiVideo === null) return Math.round(mediana(uguali.map(durataIn)))
@@ -276,9 +278,9 @@ export class Coda {
   }
 
   /** Fa il lavoro e dice com'è finito. */
-  private async corpo(lavoro: Lavoro, tieni: (riga: string) => void): Promise<Pick<LavoroFinito, "esito" | "errore">> {
+  private async corpo(lavoro: Lavoro, tieni: (riga: string) => void): Promise<Pick<LavoroFinito, "esito" | "errore" | "risultato">> {
     const annuncia = (): void => this.eventi.emetti({ tipo: "lavori" })
-    const lancia: IoLavoro["lancia"] = async (comando) => {
+    const lancia: IoLavoro["lancia"] = async (comando, uscita) => {
       if (lavoro.fermato) throw new ErroreConFrase(frase("Lavoro fermato.", "The job was stopped."))
       const { ambiente } = this.opzioni.motore
       let processo: Bun.Subprocess<"ignore", "pipe", "pipe">
@@ -301,7 +303,14 @@ export class Coda {
       try {
         const [codice] = await Promise.all([
           processo.exited,
-          leggiRighe(processo.stdout, tieni, annuncia),
+          leggiRighe(
+            processo.stdout,
+            (riga) => {
+              tieni(riga)
+              uscita?.push(riga)
+            },
+            annuncia,
+          ),
           leggiRighe(
             processo.stderr,
             (riga) => {
@@ -319,8 +328,8 @@ export class Coda {
 
     try {
       if (lavoro.esegui) {
-        await lavoro.esegui({ lancia, riga: tieni, fermato: () => lavoro.fermato, lingua: lavoro.lingua })
-        return { esito: lavoro.fermato ? "fermato" : "riuscito", errore: null }
+        const risultato = await lavoro.esegui({ lancia, riga: tieni, fermato: () => lavoro.fermato, lingua: lavoro.lingua })
+        return lavoro.fermato ? { esito: "fermato", errore: null } : { esito: "riuscito", errore: null, ...(risultato === undefined ? {} : { risultato }) }
       }
       const { eseguibile, modulo } = this.opzioni.motore
       const { codice, ultimoErrore } = await lancia([eseguibile, "-m", modulo, lavoro.comando, ...lavoro.argomenti])
@@ -354,7 +363,7 @@ export class Coda {
     }
     const sullaScheda = COMANDI_SULLA_SCHEDA.has(lavoro.comando)
     await this.segnaPartito(lavoro)
-    const { esito: finePerChiHaFermato, errore } = (sullaScheda ? await this.prendiLaScheda(lavoro.lingua, tieni) : null) ?? (await this.corpo(lavoro, tieni))
+    const { esito: finePerChiHaFermato, errore, risultato } = (sullaScheda ? await this.prendiLaScheda(lavoro.lingua, tieni) : null) ?? (await this.corpo(lavoro, tieni))
 
     const esito = this.chiuso && finePerChiHaFermato === "fermato" ? "interrotto" : finePerChiHaFermato
     const finito: LavoroFinito = {
@@ -368,6 +377,7 @@ export class Coda {
       errore: esito === "interrotto" ? nellaLinguaDi(INTERROTTO, lavoro.lingua) : errore,
       righe: lavoro.righe.slice(-RIGHE_DEI_FINITI),
       secondi_video: lavoro.secondiVideo,
+      ...(risultato === undefined ? {} : { risultato }),
     }
     try {
       await this.dopoIlLavoro(lavoro)

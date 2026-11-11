@@ -340,9 +340,9 @@ await prova("a riposo, per cinque secondi, non parte nessuna richiesta oltre agl
 await prova("un ricarica resta dov'è: video, scheda e parametri", async () => {
   const { pagina, contesto } = await nuovaPagina()
   await pagina.goto(`${origine}/#/video/primo-video-pubblicato/scheda`)
-  await pagina.getByRole("heading", { name: "La proposta" }).waitFor()
+  await pagina.getByRole("heading", { name: "Il copione" }).waitFor()
   await pagina.reload()
-  await pagina.getByRole("heading", { name: "La proposta" }).waitFor()
+  await pagina.getByRole("heading", { name: "Il copione" }).waitFor()
   await pagina.goto(`${origine}/#/girato?file=${encodeURIComponent("2026-10-08/diretta-prova-cucina.mp4")}`)
   await pagina.getByRole("heading", { name: "diretta-prova-cucina.mp4" }).waitFor()
   await pagina.reload()
@@ -377,7 +377,7 @@ await prova("il montaggio chiesto nella chat va nel pannello dei lavori", async 
   await pagina.getByRole("button", { name: /Lavoro in corso|in attesa/ }).waitFor({ timeout: 5000 })
   await pagina.getByRole("button", { name: /Lavoro in corso|in attesa/ }).click()
   await pagina.getByRole("dialog", { name: "Lavori" }).getByText(/Montaggio/).first().waitFor()
-  await pagina.getByRole("button", { name: /Nessun lavoro/ }).waitFor({ timeout: 10000 })
+  await pagina.getByRole("button", { name: "Lavori", exact: true }).waitFor({ timeout: 10000 })
   await contesto.close()
 })
 

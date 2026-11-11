@@ -1,8 +1,9 @@
 // Una conversazione letta dal suo file: gli stessi messaggi che la chat mostra in diretta, rifatti dalla trascrizione di Claude Code.
 import { daTestoDelCreator } from "./allegati"
-import { conEsito, contestoDaUsage, eOggetto, partiDeiBlocchi, risultatiDegliStrumenti, uscitaLocale } from "./traduzione"
+import { conEsito, contestoDaUsage, partiDeiBlocchi, risultatiDegliStrumenti, uscitaLocale } from "./traduzione"
 import type { MessaggioChat, MessaggioSessione, Parte } from "./tipi"
-
+import { eOggetto } from "../disco"
+import type { Lingua } from "../lingua"
 /** Ciò che Claude Code scrive come messaggio «utente» ma non è un messaggio del creator. */
 const MARCATORI_INTERNI = /^(<(local-command|system-reminder|task-notification)|\[Request interrupted)/
 
@@ -36,7 +37,7 @@ export function contestoDaSessione(righe: MessaggioSessione[]): number | null {
   return null
 }
 
-export function messaggiDaSessione(righe: MessaggioSessione[], archivio: string): MessaggioChat[] {
+export function messaggiDaSessione(righe: MessaggioSessione[], archivio: string, lingua: Lingua): MessaggioChat[] {
   const messaggi: MessaggioChat[] = []
   const strumenti = new Map<string, { messaggio: MessaggioChat; indice: number }>()
   let claude: MessaggioChat | null = null
@@ -80,7 +81,7 @@ export function messaggiDaSessione(righe: MessaggioSessione[], archivio: string)
       for (const risultato of risultati) {
         const dove = strumenti.get(String(risultato["tool_use_id"]))
         const parte = dove?.messaggio.parti[dove.indice]
-        if (dove && parte?.tipo === "strumento") dove.messaggio.parti[dove.indice] = conEsito(parte, risultato, riga.timestamp)
+        if (dove && parte?.tipo === "strumento") dove.messaggio.parti[dove.indice] = conEsito(parte, risultato, lingua, riga.timestamp)
       }
       continue
     }

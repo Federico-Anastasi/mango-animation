@@ -1,9 +1,12 @@
 // Le rotte di `docs/API.md`. Le letture rispondono dall'indice in memoria; le scritture validano,
 // scrivono in modo atomico e fanno annunciare il cambio all'elaboratore.
-import { join } from "node:path"
+import { extname, isAbsolute, join } from "node:path"
 import { entra, haLaChiave, senzaChiave } from "./accesso"
 import type { Animazioni } from "./animazioni"
 import type { ControlloFirewall } from "./arrivi/firewall"
+import { aggiungiAlGirato, cercaDoppione, type DaAggiungere } from "./arrivi/aggiungi"
+import { ErroreArrivo } from "./arrivi/errore"
+import type { PercorsiScelti } from "./arrivi/percorsiScelti"
 import type { Ricevitore } from "./arrivi/ricevitore"
 import { INTESTAZIONE_DALLA_RETE } from "./arrivi/studio"
 import type { Chat } from "./chat/chat"
@@ -11,20 +14,25 @@ import { rotteDellaChat } from "./chat/rotte"
 import type { Coda } from "./coda"
 import type { Consumi } from "./consumi/consumi"
 import type { Opzioni, Percorsi } from "./configurazione"
-import { elencaFile, jsonDaTesto, leggiTesto, rimuovi, scrivi, statistica, testoJson } from "./disco"
+import { elencaFile, eOggetto, jsonDaTesto, leggiTesto, rimuovi, scrivi, statistica, testoJson } from "./disco"
 import type { Elaboratore } from "./elaboratore"
-import type { Eventi } from "./eventi"
+import type { Eventi, Messaggio } from "./eventi"
 import { trattiDelRisolto, type Indice } from "./indice"
 import { ErroreConFrase, Frase, frase, haLingua, linguaDi, nellaLingua, nellaLinguaDi, type Lingua, type Testo } from "./lingua"
 import { decodifica, nonSiServe, percorsoSicuro, serviFile, serviStudio } from "./media"
 import { ErroreRegistrazione, MODI, type Modo, type Registrazione, type Scelta } from "./registrazione"
-import { applicaRitocchi, ErroreRitocco } from "./ritocchi"
+import { applicaRitocchi, ErroreRitocco, PianoCambiato } from "./ritocchi"
+import { COMANDO_SCENE_FOTO, SIGLA, sceneFoto } from "./sceneFoto"
 import { COMANDO_SCARICA, ErroreScarico, leggiRichiesta, misureScarico, scarica, type RichiestaScarico } from "./scarica"
 import { montatoDi, pianoDopoIlMontato } from "./montato"
-import { ErroreMotori, macchinaDelProfilo, motoriDelProfilo, salvaMotori } from "./motori"
-import { canaliDelProfilo, haUnCreator } from "./profilo"
+import { Parlato, semplifica } from "./parlato"
+import { macchinaDelProfilo, motoriDelProfilo, salvaMotori } from "./motori"
+import { quadriDelPiano } from "./piano"
+import { canaliDelProfilo, ErroreProfilo, haUnCreator, salvaSezioniDelCreator, sezioniDelCreator } from "./profilo"
 import type { Schemi } from "./schemi"
 import { differenza } from "./stile"
+import { stiliDiPartenza } from "./stiliDiPartenza"
+import { elencaCaratteri, ESTENSIONI as ESTENSIONI_CARATTERI, MASSIMO_BYTE as MASSIMO_CARATTERE, nomeDelCarattere, nomeDelFile, salvaCarattere } from "./caratteri"
 import { giornoLocale } from "./tempo"
 
 export interface Contesto {
@@ -42,10 +50,14 @@ export interface Contesto {
   consumi: Consumi
   /** Gli schemi di `motore/schemi/`, per ciò che il server scrive nel profilo. */
   schemi: Schemi
+  /** I file che il creator ha scelto con un gesto, detti dall'app. */
+  percorsiScelti: PercorsiScelti
   /** La chiave delle API (`accesso.ts`): senza, ogni richiesta è 401. */
   chiaveApi: string
 }
 
+/** Quanto può pesare il corpo di una richiesta, tranne quello di un file per il girato. */
+export const CORPO_MASSIMO_BYTE = 16 * 1024 ** 2
 const NON_AMMESSO = frase("Metodo non ammesso qui.", "This method is not allowed here.")
 
 class ErroreApi extends ErroreConFrase {
@@ -62,6 +74,8 @@ interface Chiamata {
   req: Request
   url: URL
   param: string[]
+  /** Toglie il limite di silenzio alla connessione di questa richiesta: serve a chi lavora a lungo senza scrivere. */
+  senzaScadenza: () => void
 }
 
 type Gestore = (chiamata: Chiamata) => Promise<Response> | Response
@@ -72,6 +86,15 @@ export const COMANDI_DEL_VIDEO = ["prepara", "risolvi", "monta", "anteprima", "c
 /** I campi della richiesta oltre a `comando`, e il comando a cui servono. */
 const CAMPI_DEL_COMANDO: Record<string, string> = { scena: "anteprima", da: "anteprima", a: "anteprima", disegno: "copertina", istante: "copertina" }
 const NOMI_LOCALI = new Set(["127.0.0.1", "localhost", "[::1]"])
+
+/** `Origin: null` (pagine in una cornice isolata, `file://`) o scritta male non è un nome locale. */
+const origineLocale = (origine: string): boolean => {
+  try {
+    return NOMI_LOCALI.has(new URL(origine).hostname)
+  } catch {
+    return false
+  }
+}
 
 const risposta = (corpo: unknown, stato = 200): Response => Response.json(corpo, { status: stato, headers: { "Cache-Control": "no-store" } })
 
@@ -86,15 +109,22 @@ async function corpoJson(req: Request): Promise<unknown> {
   }
 }
 
-const èOggetto = (valore: unknown): valore is Record<string, unknown> => typeof valore === "object" && valore !== null && !Array.isArray(valore)
+/** Quanti risultati porta la ricerca nel parlato: oltre, dice solo quanti sono. */
+const MASSIMO_NEL_PARLATO = 100
 
 const LA_RICHIESTA = frase("La richiesta", "The request")
 const LA_MODIFICA_DELLA_SCHEDA = frase("La modifica della scheda", "The card change")
 const LO_STILE = frase("Lo stile", "The style")
 
 function comeOggetto(valore: unknown, cosa: Frase): Record<string, unknown> {
-  if (!èOggetto(valore)) throw new ErroreApi(400, frase(`${cosa.it} deve essere un oggetto JSON.`, `${cosa.en} must be a JSON object.`))
+  if (!eOggetto(valore)) throw new ErroreApi(400, frase(`${cosa.it} deve essere un oggetto JSON.`, `${cosa.en} must be a JSON object.`))
   return valore
+}
+
+/** Il primo percorso della lista che è un file. */
+async function primoCheEsiste(percorsi: string[]): Promise<string | null> {
+  for (const percorso of percorsi) if ((await statistica(percorso))?.isFile()) return percorso
+  return null
 }
 
 const unisci = (problemi: Testo[], lingua: Lingua): string => problemi.map((p) => nellaLinguaDi(p, lingua)).join(" · ")
@@ -109,12 +139,14 @@ const elencoBreve = (problemi: Testo[], lingua: Lingua): string => {
 const conElenco = (problemi: Testo[], it: (elenco: string) => string, en: (elenco: string) => string): Frase => frase(it(unisci(problemi, "it")), en(unisci(problemi, "en")))
 
 const schedaNonValida = (problemi: Testo[]): Frase => conElenco(problemi, (e) => `La scheda non è valida: ${e}`, (e) => `The card is not valid: ${e}`)
+const schedaDelFileNonValida = (problemi: Testo[]): Frase =>
+  conElenco(problemi, (e) => `La scheda scritta nel file non è valida, quindi non si può ritoccare: correggila o scrivila intera. ${e}`, (e) => `The card written in the file is not valid, so it cannot be adjusted: fix it or write it whole. ${e}`)
 const schedaNonSarebbeValida = (problemi: Testo[]): Frase => conElenco(problemi, (e) => `La scheda non sarebbe valida: ${e}`, (e) => `The card would not be valid: ${e}`)
 const fileNonNelGrezzo = (file: string): Frase => frase(`Il file «${file}» non c'è in archivio/grezzo/: guarda la pagina Girato.`, `The file «${file}» is not in archivio/grezzo/: see the Footage page.`)
 /** JSON Merge Patch (RFC 7386): gli oggetti si fondono campo per campo, `null` toglie, il resto (testi, liste) si sostituisce. */
 function fondi(base: unknown, modifica: unknown): unknown {
-  if (!èOggetto(modifica)) return modifica
-  const risultato: Record<string, unknown> = èOggetto(base) ? { ...base } : {}
+  if (!eOggetto(modifica)) return modifica
+  const risultato: Record<string, unknown> = eOggetto(base) ? { ...base } : {}
   for (const [campo, valore] of Object.entries(modifica)) {
     if (valore === null) delete risultato[campo]
     else risultato[campo] = fondi(risultato[campo], valore)
@@ -209,8 +241,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
   const quadriUsati = (): Map<string, string[]> => {
     const usati = new Map<string, string[]>()
     indice.video.forEach((voce) => {
-      const quadri = new Set([voce.pianoConBase?.quadro, ...(voce.pianoConBase?.scene ?? []).map((s) => s.quadro)].filter((q): q is string => q !== undefined))
-      quadri.forEach((q) => usati.set(q, [...(usati.get(q) ?? []), voce.slug]))
+      quadriDelPiano(voce.pianoConBase).forEach((q) => usati.set(q, [...(usati.get(q) ?? []), voce.slug]))
     })
     return usati
   }
@@ -263,6 +294,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
       puo_annullare: indice.puoAnnullare(voce),
       puo_rifare: indice.puoRifare(voce),
       lavoro: coda.lavoroDi(slug),
+      fase: indice.faseDi(voce),
       montaggio_superato: montaggioSuperato(slug),
       piano_cambiato: indice.ultimoPiano(slug) > 0 ? new Date(indice.ultimoPiano(slug)).toISOString() : null,
       piano_dopo_montato: pianoDopoIlMontato({ conMontato: indice.haIlMontato(voce), montaggio, risolto, risoltoAggiornato, pianoPiuNuovoDelFinale: indice.pianoPiuNuovoDelFinale(voce) }),
@@ -354,17 +386,20 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
   const ritoccaPiano: Gestore = async ({ req, param }) => {
     const slug = slugDi(param[0])
     const voce = cartellaDi(slug)
-    if (voce.pianoTesto === null) {
+    const ritocchi = await corpoJson(req)
+    const piano = await elaboratore.ritoccaPiano(slug, async (attuale) => {
+      let ritoccato: unknown
+      try {
+        ritoccato = applicaRitocchi(attuale, ritocchi)
+      } catch (errore) {
+        throw errore instanceof ErroreRitocco ? new ErroreApi(errore instanceof PianoCambiato ? 409 : 400, errore.testo) : errore
+      }
+      sePianoNonValido(await elaboratore.problemiDelPiano(slug, ritoccato))
+      return ritoccato
+    })
+    if (piano === null) {
       throw new ErroreApi(409, frase("Questo video non ha ancora un piano da ritoccare: scrivilo intero (PUT del piano).", "This video has no plan yet to adjust: write it whole (PUT of the plan)."))
     }
-    let piano: unknown
-    try {
-      piano = applicaRitocchi(JSON.parse(voce.pianoTesto), await corpoJson(req))
-    } catch (errore) {
-      throw errore instanceof ErroreRitocco ? new ErroreApi(400, errore.testo) : errore
-    }
-    sePianoNonValido(await elaboratore.problemiDelPiano(slug, piano))
-    await elaboratore.salvaPiano(slug, testoJson(piano))
     return risposta({ ok: true, piano, puo_annullare: indice.puoAnnullare(voce), puo_rifare: indice.puoRifare(voce) })
   }
 
@@ -392,6 +427,33 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
       }
       return risposta({ ok: true, piano: voce.piano, puo_annullare: indice.puoAnnullare(voce), puo_rifare: indice.puoRifare(voce) })
     }
+
+  const nonCeLaVersione = (slug: string, n: string): ErroreApi => new ErroreApi(404, frase(`Il video «${slug}» non ha una versione ${n} del piano: guarda l'elenco delle versioni.`, `The video «${slug}» has no version ${n} of its plan: look at the list of versions.`))
+
+  const versioniDelPiano: Gestore = async ({ param }) => {
+    const slug = slugDi(param[0])
+    cartellaDi(slug)
+    const versioni = await elaboratore.versioniDelPiano(slug)
+    if (versioni === null) throw new ErroreApi(404, frase("Questo video non ha ancora un piano: non ci sono versioni.", "This video has no plan yet: there are no versions."))
+    return risposta({ versioni })
+  }
+
+  const versioneDelPiano: Gestore = async ({ param }) => {
+    const slug = slugDi(param[0])
+    cartellaDi(slug)
+    const piano = await elaboratore.pianoDellaVersione(slug, Number(param[1]))
+    if (piano === null) throw nonCeLaVersione(slug, param[1]!)
+    return risposta({ n: Number(param[1]), piano })
+  }
+
+  const ripristinaVersione: Gestore = async ({ param }) => {
+    const slug = slugDi(param[0])
+    const voce = cartellaDi(slug)
+    const esito = await elaboratore.ripristinaPiano(slug, Number(param[1]), async (piano) => sePianoNonValido(await elaboratore.problemiDelPiano(slug, piano)))
+    if (esito === "manca") throw nonCeLaVersione(slug, param[1]!)
+    if (esito === "uguale") throw new ErroreApi(409, frase("Questa versione è già quella in uso.", "This version is already the one in use."))
+    return risposta({ ok: true, piano: voce.piano, puo_annullare: indice.puoAnnullare(voce), puo_rifare: indice.puoRifare(voce) })
+  }
 
   const mettiInCoda: Gestore = async ({ req, param }) => {
     const slug = slugDi(param[0])
@@ -443,6 +505,15 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     return risposta({ id: coda.accoda({ comando, argomenti: [slug, ...argomenti], slug, file: null }) }, 202)
   }
 
+  const fotoDiUnaScena: Gestore = async ({ req }) => {
+    const sigla = comeOggetto(await corpoJson(req), LA_RICHIESTA)["sigla"]
+    if (typeof sigla !== "string" || !SIGLA.test(sigla)) {
+      throw new ErroreApi(400, frase("La sigla ha solo lettere, numeri, trattini e trattini bassi (la sigla della scena, come nel piano: «l1», «a3»).", "The scene code has only letters, numbers, hyphens and underscores (the code of the scene, as in the plan: «l1», «a3»)."))
+    }
+    const { comandoSceneFoto } = c.opzioni
+    return risposta({ id: coda.accoda({ comando: COMANDO_SCENE_FOTO, argomenti: [sigla], slug: null, file: null, esegui: (io) => sceneFoto(comandoSceneFoto, sigla, io) }) }, 202)
+  }
+
   const eliminaVideo: Gestore = async ({ param }) => {
     const slug = slugDi(param[0])
     const voce = cartellaDi(slug)
@@ -470,6 +541,8 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
 
   // --- Girato ---------------------------------------------------------------------------------
 
+  const parlato = new Parlato()
+
   const fileDallaRichiesta = (url: URL): { file: string; giorno: string; nome: string } => {
     const file = fileDelGirato(url.searchParams.get("file"), "file")
     const [giorno = "", nome = ""] = file.split("/")
@@ -489,24 +562,42 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     return risposta(await leggiJson(join(percorsi.archivio, parole)))
   }
 
+  const cercaNelParlato: Gestore = async ({ url }) => {
+    const domanda = url.searchParams.get("q") ?? ""
+    if (semplifica(domanda).length < 2) throw new ErroreApi(400, frase("Scrivi almeno due lettere da cercare nel parlato.", "Write at least two letters to search for in the speech."))
+    const file = [...indice.preparati]
+      .flatMap(([chiave, preparato]): Array<[string, string]> => (preparato.parole !== null && indice.grezzo.get(chiave.split("/")[0] ?? "")?.has(chiave.split("/").slice(1).join("/")) ? [[chiave, join(percorsi.archivio, preparato.parole)]] : []))
+      .sort(([a], [b]) => b.split("/")[0]!.localeCompare(a.split("/")[0]!) || a.localeCompare(b))
+    return risposta({ q: domanda, ...(await parlato.cerca(domanda, file, MASSIMO_NEL_PARLATO)) })
+  }
+
   const salvaSchedaDelFile: Gestore = async ({ req, url }) => {
     const { file } = fileDallaRichiesta(url)
     const scheda = await corpoJson(req)
     const problemi = await elaboratore.problemiDi("grezzo", scheda)
     if (problemi.length > 0) throw new ErroreApi(400, schedaNonValida(problemi), { problemi })
-    await scrivi(percorsi.schedaGrezzo(file), testoJson(scheda))
-    await elaboratore.cambiati([`grezzo/${file}.scheda.json`])
+    await elaboratore.conBlocco(`grezzo/${file}`, async () => {
+      await scrivi(percorsi.schedaGrezzo(file), testoJson(scheda))
+      await elaboratore.cambiati([`grezzo/${file}.scheda.json`])
+    })
     return risposta({ ok: true })
   }
 
   const cambiaSchedaDelFile: Gestore = async ({ req, url }) => {
     const { file, giorno, nome } = fileDallaRichiesta(url)
     const modifica = comeOggetto(await corpoJson(req), LA_MODIFICA_DELLA_SCHEDA)
-    const nuova = fondi(indice.grezzo.get(giorno)?.get(nome)?.scheda ?? {}, modifica)
-    const problemi = await elaboratore.problemiDi("grezzo", nuova)
-    if (problemi.length > 0) throw new ErroreApi(400, schedaNonSarebbeValida(problemi), { problemi })
-    await scrivi(percorsi.schedaGrezzo(file), testoJson(nuova))
-    await elaboratore.cambiati([`grezzo/${file}.scheda.json`])
+    const nuova = await elaboratore.conBlocco(`grezzo/${file}`, async () => {
+      const voce = indice.grezzo.get(giorno)?.get(nome)
+      if (voce && voce.schedaProblemi.length > 0) {
+        throw new ErroreApi(409, schedaDelFileNonValida(voce.schedaProblemi), { problemi: voce.schedaProblemi })
+      }
+      const fusa = fondi(voce?.scheda ?? {}, modifica)
+      const problemi = await elaboratore.problemiDi("grezzo", fusa)
+      if (problemi.length > 0) throw new ErroreApi(400, schedaNonSarebbeValida(problemi), { problemi })
+      await scrivi(percorsi.schedaGrezzo(file), testoJson(fusa))
+      await elaboratore.cambiati([`grezzo/${file}.scheda.json`])
+      return fusa
+    })
     return risposta({ ok: true, scheda: nuova })
   }
 
@@ -568,6 +659,40 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     return risposta({ id }, 202)
   }
 
+  const registraPercorsi: Gestore = async ({ req }) => {
+    const percorsi = comeOggetto(await corpoJson(req), LA_RICHIESTA)["percorsi"]
+    if (!Array.isArray(percorsi) || !percorsi.every((p) => typeof p === "string" && isAbsolute(p))) {
+      throw new ErroreApi(400, frase("«percorsi» è l'elenco dei percorsi completi dei file scelti.", "«percorsi» is the list of the full paths of the picked files."))
+    }
+    if (!c.percorsiScelti.registra(req.headers.get("x-chiave-app"), percorsi)) {
+      throw new ErroreApi(403, frase("Solo l'app di Mango Animation può dire quali file ha scelto chi la usa.", "Only the Mango Animation app can say which files its user picked."))
+    }
+    return risposta({ ok: true })
+  }
+
+  /** Un file del computer nel girato (`arrivi/aggiungi.ts`): il suo contenuto nel corpo, o `{ percorso }` per uno scelto con un gesto nell'app. */
+  const aggiungiAlGirato_: Gestore = async ({ req, senzaScadenza }) => {
+    senzaScadenza()
+    let da: DaAggiungere
+    if ((req.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
+      const percorso = comeOggetto(await corpoJson(req), LA_RICHIESTA)["percorso"]
+      if (typeof percorso !== "string" || !isAbsolute(percorso)) throw new ErroreApi(400, frase("Manda il «percorso» completo del file.", "Send the full «percorso» of the file."))
+      da = { come: "percorso", percorso }
+    } else {
+      const intestazione = req.headers.get("x-nome-file") ?? ""
+      const nome = decodifica(intestazione) ?? intestazione
+      if (nome.trim() === "") throw new ErroreApi(400, frase("Manca il nome del file: mandalo nell'intestazione X-Nome-File.", "The file name is missing: send it in the X-Nome-File header."))
+      const lunghezza = Number(req.headers.get("content-length"))
+      da = { come: "caricato", nome, mime: req.headers.get("content-type"), corpo: req.body, lunghezza: Number.isFinite(lunghezza) && lunghezza > 0 ? lunghezza : null }
+    }
+    try {
+      const arrivo = await aggiungiAlGirato({ ...c.ricevitore.aggiunta, giaNelGirato: (nome, byte) => cercaDoppione(indice.grezzo, nome, byte), percorsiScelti: c.percorsiScelti }, da)
+      return risposta({ file: arrivo.file, byte: arrivo.byte }, 201)
+    } catch (errore) {
+      throw errore instanceof ErroreArrivo ? new ErroreApi(errore.stato, errore.testo) : errore
+    }
+  }
+
   // --- Stile, lavori, arrivi ------------------------------------------------------------------
 
   const leggiStile: Gestore = () => {
@@ -575,13 +700,37 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     return risposta(indice.stile.valore)
   }
 
+  const leggiStiliDiPartenza: Gestore = async () => {
+    const testo = await leggiTesto(join(c.opzioni.codice, "stili-di-partenza.json"))
+    const stili = testo === null ? null : stiliDiPartenza(jsonDaTesto(testo)?.valore, indice.stile.serie)
+    if (stili === null) throw new ErroreApi(404, frase("Non trovo gli stili di partenza nella cartella del prodotto: va reinstallato.", "I cannot find the starting styles in the product folder: it needs to be reinstalled."))
+    return risposta(stili)
+  }
+
+  const elencoCaratteri: Gestore = async () => risposta(await elencaCaratteri(c.opzioni.font, join(c.opzioni.lavoro, "font")))
+
+  /** Il carattere scelto dal creator arriva come `{ nome, dati }`, i byte del file in base64. */
+  const aggiungiCarattere: Gestore = async ({ req }) => {
+    const { nome, dati } = comeOggetto(await corpoJson(req), LA_RICHIESTA)
+    if (typeof nome !== "string" || typeof dati !== "string") throw new ErroreApi(400, frase("Servono «nome» (il nome del file) e «dati» (il file, in base64).", "«nome» (the file name) and «dati» (the file, in base64) are needed."))
+    const file = nomeDelFile(nome)
+    if (!ESTENSIONI_CARATTERI.includes(extname(file))) throw new ErroreApi(400, frase("Scegli un file .ttf, .otf o .woff2.", "Choose a .ttf, .otf or .woff2 file."))
+    const byte = Buffer.from(dati, "base64")
+    if (byte.length > MASSIMO_CARATTERE) {
+      throw new ErroreApi(413, frase(`Il file è troppo grande (oltre ${MASSIMO_CARATTERE / 1024 ** 2} MB): un carattere di solito pesa meno di 1 MB. Scegline un altro.`, `The file is too big (over ${MASSIMO_CARATTERE / 1024 ** 2} MB): a font usually weighs less than 1 MB. Choose another one.`))
+    }
+    const nomeLetto = nomeDelCarattere(byte)
+    if (nomeLetto === null) throw new ErroreApi(400, frase("Questo file non è un carattere che posso usare: scegli un file .ttf, .otf o .woff2.", "This file is not a font I can use: choose a .ttf, .otf or .woff2 file."))
+    return risposta({ file: await salvaCarattere(file, byte, c.opzioni.font, join(c.opzioni.lavoro, "font")), nome: nomeLetto })
+  }
+
   const salvaStile: Gestore = async ({ req }) => {
     const stile = await corpoJson(req)
     const problemi: Frase[] = []
     const radice = comeOggetto(stile, LO_STILE)
-    const formato = radice["formato"] as Record<string, unknown> | undefined
-    if (!formato || !["largo", "alto", "fps"].every((k) => typeof formato[k] === "number" && (formato[k] as number) > 0)) {
-      problemi.push(frase("formato: servono «largo», «alto» e «fps», numeri maggiori di zero.", "formato: «largo», «alto» and «fps» are needed, numbers greater than zero."))
+    const formati = radice["formati"] as Record<string, Record<string, unknown>> | undefined
+    if (!formati?.["verticale"] || !Object.values(formati).every((f) => ["largo", "alto", "fps"].every((k) => typeof f?.[k] === "number" && (f[k] as number) > 0))) {
+      problemi.push(frase("formati: serve il «verticale», e ogni formato vuole «largo», «alto» e «fps», numeri maggiori di zero.", "formati: the «verticale» is needed, and every format needs «largo», «alto» and «fps», numbers greater than zero."))
     }
     const quadri = radice["quadri"]
     if (typeof quadri !== "object" || quadri === null || Array.isArray(quadri) || Object.keys(quadri).length === 0) {
@@ -613,21 +762,36 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
 
   const leggiMacchina: Gestore = () => risposta(macchinaDelProfilo(indice.profilo.valore))
 
-  const leggiProfilo: Gestore = () => risposta({ valido: indice.profiloProblemi.length === 0, presente: haUnCreator(indice.profilo.valore) || indice.profiloProblemi.length > 0, canali: canaliDelProfilo(indice.profilo.valore), problemi: indice.profiloProblemi })
+  const statoDelProfilo = () => ({ valido: indice.profiloProblemi.length === 0, presente: haUnCreator(indice.profilo.valore) || indice.profiloProblemi.length > 0, canali: canaliDelProfilo(indice.profilo.valore), profilo: sezioniDelCreator(indice.profilo.valore), problemi: indice.profiloProblemi })
+
+  const leggiProfilo: Gestore = () => risposta(statoDelProfilo())
+
+  /** Una scrittura da qui rifà `profilo.json` partendo da quello valido che il server tiene: se il file sul disco non passa lo schema, lo sostituirebbe. */
+  const fermaSeIlProfiloNonVa = () => {
+    if (indice.profiloProblemi.length === 0) return
+    throw new ErroreApi(409, frase("profilo.json non passa lo schema: correggilo prima di cambiarlo da qui, o la scrittura lo sostituirebbe.", "profilo.json does not pass the schema: fix it before changing it from here, or the write would replace it."), { problemi: indice.profiloProblemi })
+  }
+
+  const scriviProfilo: Gestore = async ({ req }) => {
+    const sezioni = await corpoJson(req)
+    fermaSeIlProfiloNonVa()
+    try {
+      await salvaSezioniDelCreator(sezioni, indice.profilo, c.schemi, c.opzioni.lavoro)
+    } catch (errore) {
+      if (errore instanceof ErroreProfilo) throw new ErroreApi(errore.stato, errore.testo, { problemi: errore.problemi })
+      throw errore
+    }
+    await elaboratore.profiloCambiato()
+    return risposta(statoDelProfilo())
+  }
 
   const scriviMotori: Gestore = async ({ req }) => {
     const motori = await corpoJson(req)
-    if (indice.profiloProblemi.length > 0) {
-      throw new ErroreApi(
-        409,
-        frase("profilo.json non passa lo schema: correggilo prima di cambiare i motori, o la scrittura lo sostituirebbe.", "profilo.json does not pass the schema: fix it before changing the engines, or the write would replace it."),
-        { problemi: indice.profiloProblemi },
-      )
-    }
+    fermaSeIlProfiloNonVa()
     try {
       await salvaMotori(motori, indice.profilo, c.schemi, c.opzioni.lavoro)
     } catch (errore) {
-      if (errore instanceof ErroreMotori) throw new ErroreApi(errore.stato, errore.testo, { problemi: errore.problemi })
+      if (errore instanceof ErroreProfilo) throw new ErroreApi(errore.stato, errore.testo, { problemi: errore.problemi })
       throw errore
     }
     await elaboratore.profiloCambiato()
@@ -640,10 +804,14 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     return risposta({ ok: true, esito })
   }
 
-  /** Apre nel browser di sistema una pagina dello studio o un file dell'archivio, entrando con la chiave: la chiave non passa da chi chiede. */
+  /**
+   * Mostra al creator una pagina dello studio o un file dell'archivio. Dentro l'app porta la sua finestra (messaggio `vai`); altrimenti apre il browser
+   * di sistema entrando con la chiave, che non passa da chi chiede.
+   */
   const apriNelBrowser = async (corpo: Record<string, unknown>, origine: string): Promise<Response> => {
     const { video, percorso, scheda } = corpo
     let dopo: string
+    let vai: Messaggio | null = null
     if (typeof video === "string" && percorso !== undefined) {
       throw new ErroreApi(400, frase("Dì una cosa sola: «video» per la pagina di un video, oppure «percorso» per un file.", "Say one thing only: «video» for a video's page, or «percorso» for a file."))
     }
@@ -661,6 +829,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
         )
       }
       dopo = `/#/video/${video}${typeof scheda === "string" ? `/${scheda}` : ""}`
+      vai = { tipo: "vai", video, ...(typeof scheda === "string" ? { scheda } : {}) }
     } else if (typeof percorso === "string") {
       if (scheda !== undefined) throw new ErroreApi(400, frase("«scheda» va con «video», non con «percorso».", "«scheda» goes with «video», not with «percorso»."))
       const relativo = percorso.replaceAll("\\", "/")
@@ -678,6 +847,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
         throw new ErroreApi(404, frase("Questo file non c'è nell'archivio (o non si mostra): si apre un file, non una cartella.", "This file is not in the archive (or is not shown): a file is opened, not a folder."))
       }
       dopo = `/media/${relativo.split("/").filter((p) => p !== "").map(encodeURIComponent).join("/")}`
+      if (/^(video|grezzo)\//.test(relativo)) vai = { tipo: "vai", percorso: relativo }
     } else {
       throw new ErroreApi(
         400,
@@ -687,7 +857,8 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
         ),
       )
     }
-    c.opzioni.apriNelBrowser(`${origine}/entra?chiave=${encodeURIComponent(c.chiaveApi)}&dopo=${encodeURIComponent(dopo)}`)
+    if (vai !== null && c.opzioni.nellApp && c.eventi.collegati() > 0) c.eventi.emetti(vai)
+    else c.opzioni.apriNelBrowser(`${origine}/entra?chiave=${encodeURIComponent(c.chiaveApi)}&dopo=${encodeURIComponent(dopo)}`)
     return risposta({ ok: true, aperto: dopo })
   }
 
@@ -903,22 +1074,33 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     ["PATCH", /^\/api\/video\/([^/]+)\/piano$/, ritoccaPiano],
     ["POST", /^\/api\/video\/([^/]+)\/annulla$/, muoviPiano(true)],
     ["POST", /^\/api\/video\/([^/]+)\/rifai$/, muoviPiano(false)],
+    ["GET", /^\/api\/video\/([^/]+)\/versioni$/, versioniDelPiano],
+    ["GET", /^\/api\/video\/([^/]+)\/versioni\/(\d+)$/, versioneDelPiano],
+    ["POST", /^\/api\/video\/([^/]+)\/versioni\/(\d+)\/ripristina$/, ripristinaVersione],
     ["POST", /^\/api\/video\/([^/]+)\/lavori$/, mettiInCoda],
+    ["POST", /^\/api\/animazioni\/foto$/, fotoDiUnaScena],
     ["GET", /^\/api\/grezzo$/, () => risposta(indice.elencoGrezzo())],
     ["GET", /^\/api\/grezzo\/parole$/, paroleDelFile],
+    ["GET", /^\/api\/grezzo\/cerca$/, cercaNelParlato],
     ["PUT", /^\/api\/grezzo\/scheda$/, salvaSchedaDelFile],
     ["PATCH", /^\/api\/grezzo\/scheda$/, cambiaSchedaDelFile],
     ["POST", /^\/api\/grezzo\/prepara$/, preparaFile],
     ["POST", /^\/api\/grezzo\/scarica$/, scaricaGirato],
+    ["POST", /^\/api\/grezzo\/aggiungi$/, aggiungiAlGirato_],
     ["GET", /^\/api\/stile$/, leggiStile],
+    ["GET", /^\/api\/stile\/partenza$/, leggiStiliDiPartenza],
+    ["GET", /^\/api\/caratteri$/, elencoCaratteri],
+    ["POST", /^\/api\/caratteri$/, aggiungiCarattere],
     ["PUT", /^\/api\/stile$/, salvaStile],
     ["GET", /^\/api\/motori$/, leggiMotori],
     ["PUT", /^\/api\/motori$/, scriviMotori],
     ["GET", /^\/api\/macchina$/, leggiMacchina],
     ["GET", /^\/api\/profilo$/, leggiProfilo],
+    ["PUT", /^\/api\/profilo$/, scriviProfilo],
     ["GET", /^\/api\/animazioni$/, async () => risposta(await c.animazioni.ottieni())],
     ["GET", /^\/api\/lavori$/, () => risposta(coda.stato())],
     ["DELETE", /^\/api\/lavori\/([^/]+)$/, fermaLavoro],
+    ["POST", /^\/api\/app\/percorsi$/, registraPercorsi],
     ["GET", /^\/api\/arrivi$/, () => risposta(c.ricevitore.stato())],
     ["PUT", /^\/api\/arrivi$/, impostaArrivi],
     ["POST", /^\/api\/arrivi\/controlla$/, controllaFirewall],
@@ -938,7 +1120,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     ["GET", /^\/api\/video\/([^/]+)\/commenti$/, commentiDelVideo],
     ["GET", /^\/api\/consumi$/, () => risposta(c.consumi.vista())],
     ["POST", /^\/api\/apri$/, apri],
-    ...rotteDellaChat(c.chat),
+    ...rotteDellaChat(c.chat, c.percorsiScelti),
   ]
 
   async function api(req: Request, url: URL, senzaScadenza: () => void): Promise<Response> {
@@ -954,7 +1136,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
     if (trovate.length === 0) throw new ErroreApi(404, frase("Questa rotta non esiste: guarda docs/API.md.", "This route does not exist: see docs/API.md."))
     const scelta = trovate.find((t) => t.metodo === req.method)
     if (!scelta) throw new ErroreApi(405, NON_AMMESSO)
-    return scelta.gestore({ req, url, param: scelta.param })
+    return scelta.gestore({ req, url, param: scelta.param, senzaScadenza })
   }
 
   return (req, senzaScadenza) => {
@@ -974,7 +1156,7 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
         )
       }
       const origine = req.headers.get("origin")
-      if (req.method !== "GET" && req.method !== "HEAD" && origine && !NOMI_LOCALI.has(new URL(origine).hostname)) {
+      if (req.method !== "GET" && req.method !== "HEAD" && origine && !origineLocale(origine)) {
         throw new ErroreApi(
           403,
           frase(
@@ -987,17 +1169,23 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
       if (url.pathname === "/entra") return entra(req, url, c.chiaveApi)
       if (!haLaChiave(c.chiaveApi, req, url)) return senzaChiave(req)
 
+      if (Number(req.headers.get("content-length")) > CORPO_MASSIMO_BYTE && !(req.method === "POST" && url.pathname === "/api/grezzo/aggiungi")) {
+        throw new ErroreApi(413, frase("La richiesta è troppo grande: un file si aggiunge al girato dalla pagina Girato.", "The request is too big: a file is added to the footage from the Footage page."))
+      }
       if (url.pathname.startsWith("/api/")) return await api(req, url, senzaScadenza)
       if (req.method !== "GET" && req.method !== "HEAD") throw new ErroreApi(405, NON_AMMESSO)
 
-      const cartelle: [prefisso: string, radice: string, cache: string][] = [
-        ["/media/", percorsi.archivio, "no-cache"],
-        ["/font/", c.opzioni.font, "public, max-age=86400"],
+      // I caratteri: prima la cartella del creator, poi quella del prodotto.
+      const cartelle: [prefisso: string, radici: string[], cache: string][] = [
+        ["/media/", [percorsi.archivio], "no-cache"],
+        ["/font/", [join(c.opzioni.lavoro, "font"), c.opzioni.font], "public, max-age=86400"],
       ]
-      for (const [prefisso, radice, cache] of cartelle) {
+      for (const [prefisso, radici, cache] of cartelle) {
         if (!url.pathname.startsWith(prefisso)) continue
         const relativo = decodifica(url.pathname.slice(prefisso.length))
-        const percorso = relativo === null ? null : percorsoSicuro(radice, relativo)
+        const candidati = relativo === null ? [] : radici.map((radice) => percorsoSicuro(radice, relativo))
+        // Con più cartelle vale la prima che ha il file; se nessuna lo ha, l'ultima dà la risposta «non c'è».
+        const percorso = candidati.includes(null) || candidati.length === 0 ? null : ((await primoCheEsiste(candidati.slice(0, -1) as string[])) ?? candidati[candidati.length - 1]!)
         if (percorso === null) {
           throw new ErroreApi(400, frase("Questo percorso non è ammesso: si servono solo file dentro la cartella, senza «..».", "This path is not allowed: only files inside the folder are served, without «..»."))
         }
@@ -1011,8 +1199,8 @@ export function creaGestore(c: Contesto): (req: Request, senzaScadenza: () => vo
       return Response.json(
         {
           errore: frase(
-            "Qualcosa è andato storto nel server: la richiesta non è stata eseguita. I dettagli sono nel terminale dove gira il server.",
-            "Something went wrong in the server: the request was not carried out. The details are in the terminal where the server runs.",
+            "Qualcosa è andato storto nel server: la richiesta non è stata eseguita. I dettagli sono nel file «logs\\server.log», nella cartella dei dati di Mango Animation.",
+            "Something went wrong in the server: the request was not carried out. The details are in the file «logs\\server.log», in the Mango Animation data folder.",
           ),
         },
         { status: 500 },

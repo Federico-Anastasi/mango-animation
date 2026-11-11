@@ -131,7 +131,7 @@ pub const PONTE: &str = r#"
     const l = document.documentElement.lang;
     if ((l !== "it" && l !== "en") || l === ultima) return;
     ultima = l;
-    window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-lingua|lingua_dello_studio", { lingua: l }).catch(() => {});
+    window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|lingua_dello_studio", { lingua: l }).catch(() => {});
   };
   addEventListener("DOMContentLoaded", () => {
     dici();
@@ -140,12 +140,8 @@ pub const PONTE: &str = r#"
 })();
 "#;
 
-/// I comandi del plugin della lingua: gli stessi in `build.rs` (permessi), in `PONTE` e in `capabilities/`.
-#[cfg(test)]
-const COMANDI: [&str; 1] = ["lingua_dello_studio"];
-
 #[tauri::command]
-fn lingua_dello_studio(stato: State<'_, Interno>, lingua: String) {
+pub(crate) fn lingua_dello_studio(stato: State<'_, Interno>, lingua: String) {
     let nuova = match lingua.as_str() {
         "it" => Lingua::It,
         "en" => Lingua::En,
@@ -155,12 +151,6 @@ fn lingua_dello_studio(stato: State<'_, Interno>, lingua: String) {
         imposta(nuova);
         let _ = ricorda(&stato.impostazioni, nuova);
     }
-}
-
-pub fn installa(app: &tauri::App) -> tauri::Result<()> {
-    app.handle().plugin(
-        tauri::plugin::Builder::<tauri::Wry>::new("mango-animation-lingua").invoke_handler(tauri::generate_handler![lingua_dello_studio]).build(),
-    )
 }
 
 #[cfg(test)]
@@ -218,15 +208,5 @@ mod prove {
             assert_eq!(std::thread::spawn(|| t("ciao", "hello")).join().unwrap(), "ciao");
         });
         assert_eq!(t("ciao", "hello"), "ciao");
-    }
-
-    #[test]
-    fn il_ponte_i_permessi_e_la_capability_dicono_gli_stessi_comandi() {
-        let (build, capability) = (include_str!("../build.rs"), include_str!("../capabilities/default.json"));
-        for comando in COMANDI {
-            assert!(PONTE.contains(&format!("\"plugin:mango-animation-lingua|{comando}\"")), "{comando} non è nel ponte");
-            assert!(build.contains(&format!("\"{comando}\"")), "{comando} non è nei permessi di build.rs");
-        }
-        assert!(build.contains("\"mango-animation-lingua\"") && capability.contains("mango-animation-lingua:default"));
     }
 }

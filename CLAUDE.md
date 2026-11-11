@@ -1,11 +1,12 @@
 # Mango Animation
 
-The archive and editing bench for a creator's videos. You work from the terminal in the working folder; the interface in the browser
-(`http://127.0.0.1:47431`) shows the same files. How it is built: `docs/ARCHITETTURA.md`. The data: `docs/ARCHIVIO.md`. Editing:
-`docs/PIANO.md`, `docs/MOTORE.md`.
+The archive and editing bench for a creator's videos. You work in the working folder; the studio (the interface) shows the same files.
+How it is built: `docs/ARCHITETTURA.md`. The data: `docs/ARCHIVIO.md`. Editing: `docs/PIANO.md`, `docs/MOTORE.md`.
 Every video follows the checklist in `.claude/rules/processo.md` (idea, script, rehearsal, recorded text, animations, editing,
-corrections, release); each step has its own skill in `.claude/skills/`. The other rules are in `.claude/rules/`; those needed only at
-one step (the defects already seen, YouTube) are in `.claude/metodo/`, and the skills of that step read them.
+corrections, release); each step has its own skill in `.claude/skills/`. What only some steps need is in `.claude/metodo/`, and the
+skills of those steps read it: the editing rules and the frames (`montaggio.md`), the content rules (`contenuto.md`), the defects
+already seen, YouTube. Read `montaggio.md` before choosing a frame, cutting, composing a scene or checking an edit, and `contenuto.md`
+before proposing a video or writing a script or a caption.
 
 ## The creator's profile
 
@@ -19,17 +20,13 @@ their sources, their machine) is not here: it is their **profile** (`docs/PROFIL
   `macchina` (`scheda_video`, `scheda_registrazione`, `profilo_chrome`, `disco_quasi_pieno`);
 - `stile.json`: their style; what it writes overlays, key by key, the default style of the product.
 
-**Who is who.** The creator is whoever uses the app and talks to you; their name is in `profilo.json`. In the rules and skills of
-this method «FA» is the author of the method: his videos, channels, projects and style are examples, never the creator's. Do not call
-the creator «FA» and do not apply his habits to them unless their profile says the same.
-
-**First time.** A working folder with no `profilo.json` belongs to a creator who has not done the first round yet: follow the skill
-`welcome` (a short chat that asks who they are, where they publish and what style they want, and writes their profile). If they ask
-for something else first, do that and offer the round in one line.
+The creator is whoever uses the app and talks to you; their name is in `profilo.json`. A working folder with no `profilo.json` belongs
+to a creator who has not done the first round yet: follow the skill `welcome` (a short chat that asks who they are, where they publish
+and what style they want, and writes their profile). If they ask for something else first, do that and offer the round in one line.
 
 Read the profile before you propose, write, cut or publish anything. **Where the profile changes a default of this method, the profile
-wins.** In every rule and skill, «the creator» is the person whose profile it is. Rules tied to a platform (TikTok, Instagram, YouTube) are active
-when that platform is among the creator's `canali`.
+wins.** In every rule and skill, «the creator» is the person whose profile it is. Rules tied to a platform (TikTok, Instagram, YouTube)
+are active when that platform is among the creator's `canali`.
 
 ## Rules
 
@@ -45,14 +42,13 @@ when that platform is among the creator's `canali`.
 
 - **Answer directly and concisely**: the result first, in a few lines; details only if the creator asks for them or if a choice depends on them.
 - **Files are changed with Edit and Write**, which the creator can see and undo, not with scripts that rewrite them.
-- **The tool first, the shell for what no tool does**: `video_*`, `scheda_cambia`, `piano_scrivi`, `piano_ritocca`, `lavoro`, `girato_prepara` (a take is
-  prepared through the queue, never `python -m motore prepara-file` from the shell), `girato_scarica` (a video, or a stretch of one,
-  from the web into the Girato, never yt-dlp by hand), `apri` (to show the creator a page or a file in the browser: the studio's addresses ask
-  for a key that you never read or write). For anything of your own outside the normal work, the shell is fine.
+- **The tool first, the shell for what no tool does**: `video_*`, `piano_*`, `scheda_cambia`, `lavoro`, `girato_*` (a take is prepared and a web
+  video downloaded only through them) and `apri` (the only way to show the creator a page or a file). For anything of your own
+  outside the normal work, the shell is fine.
 - **The card is always up to date**: the creator reads and corrects the script from the card in the studio, not from the chat. Every
   change of script, proposal or notes goes into the card (`scheda_cambia`), and `video_leggi` must then give the new text.
 - **Run commands from the folder you are already in**: no `cd` to the full path in front.
-- **Say how long it will take.** Before work that lasts more than a few tens of seconds (a queued job, a long command, a wait), say roughly
-  how long you expect it to take («about 3 minutes», «around 15:42»): the queue's estimate when the job has one (`lavoro` and `lavoro_stato`
-  give it), your own guess otherwise, and never an invented figure when the queue says it has none. If it runs over, say so again with the new estimate. A few words.
+- **Say how long it will take** before work that lasts more than a few tens of seconds (a queued job, a long command, a wait): the queue's
+  estimate when the job has one (`lavoro`, `lavoro_stato`), your own guess otherwise; `stima: null` means the queue does not know, so never an
+  invented figure. If it runs over, say so again with the new estimate.
 - **Speak the creator's language** (`creator.lingua` in `profilo.json`), also in the short sentences between one step and the next.

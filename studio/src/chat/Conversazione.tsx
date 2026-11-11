@@ -55,7 +55,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
   const collega = useMemo(() => creaCollegatore(slugs ?? []), [slugs])
   const lavora = chat.stato === "lavora" || chat.stato === "aspetta"
   const chi = motoreDellaChat(chat)?.corto ?? undefined
-  const inPrimoPiano = chat.task.some((t) => !t.background)
+  const inPrimoPiano = chat.task.some((lavoro) => !lavoro.background)
   const usoInCorso = testoUso(usoInPrimoPiano(chat.task))
   const passo = passoInCorso(chat)
   const [erroreBackground, setErroreBackground] = useState<string | null>(null)
@@ -141,9 +141,9 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
             </div>
           ))}
           {chat.task
-            .filter((t) => t.background)
-            .map((t) => (
-              <SchedaTask key={t.id} task={t} />
+            .filter((lavoro) => lavoro.background)
+            .map((lavoro) => (
+              <SchedaTask key={lavoro.id} task={lavoro} />
             ))}
           {lavora && chat.inAttesa.length === 0 && (
             <div className={styles.rigaLavora}>

@@ -59,12 +59,21 @@ def errore_di_libreria_cuda(guasto):
                   f"the video card is missing the computing library {libreria} (CUDA 12): set null in macchina.scheda_video of the profile to work with the processor")
 
 
+def errore_di_memoria(guasto, cosa, cosa_en):
+    """L'`Errore` da dire se `guasto` (un RuntimeError di CUDA o di torch) è la memoria della scheda che non basta per `cosa`; `None` per ogni altro guasto."""
+    if "out of memory" not in str(guasto).lower():
+        return None
+    return Errore(f"la scheda video non ha memoria libera per {cosa}: chiudi il lavoro che la usa, oppure metti null in macchina.scheda_video del profilo per lavorare col processore",
+                  f"the video card has no free memory for {cosa_en}: close the job that uses it, or set null in macchina.scheda_video of the profile to work with the processor")
+
+
 def _vincola_la_scheda(macchina):
-    """Dopo questo, la scheda del profilo è la 0 per tutti i programmi del processo (torch, ctranslate2); chi ha già scelto le schede visibili non viene scavalcato."""
+    """Dopo questo, le schede sono numerate come le elenca `nvidia-smi` (anche per `animazioni/`) e quella del profilo è la 0 per tutti i programmi del processo (torch, ctranslate2).
+    La scheda la decide il profilo: un `CUDA_VISIBLE_DEVICES` ereditato da chi ha lanciato il motore (l'ambiente dell'utente, l'app) non si rispetta né si rifiuta, si sostituisce."""
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     indice = macchina.get("scheda_video")
     if indice is not None:
-        os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
-        os.environ.setdefault("CUDA_VISIBLE_DEVICES", str(indice))
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(indice)
 
 
 @cache
@@ -78,8 +87,8 @@ def _della_macchina():
     if cuda_disponibile():
         return "cuda"
     if "scheda_video" in macchina:
-        raise Errore(f"il profilo vuole la scheda video {macchina['scheda_video']} (macchina.scheda_video), ma non c'è una scheda NVIDIA che il motore possa usare: correggi il numero, oppure metti null per lavorare sul processore",
-                     f"the profile wants the video card {macchina['scheda_video']} (macchina.scheda_video), but there is no NVIDIA card the engine can use: fix the number, or set null to work on the processor")
+        raise Errore(f"il profilo vuole la scheda video {macchina['scheda_video']} (macchina.scheda_video), ma non c'è una scheda NVIDIA con quel numero (i numeri sono quelli di nvidia-smi): correggi il numero, oppure metti null per lavorare sul processore",
+                     f"the profile wants the video card {macchina['scheda_video']} (macchina.scheda_video), but there is no NVIDIA card with that number (the numbers are those of nvidia-smi): fix the number, or set null to work on the processor")
     print(dice("motore: nessuna scheda NVIDIA: i modelli lavorano sul processore, più lento (una scheda si indica in profilo.json, macchina.scheda_video)",
                "engine: no NVIDIA card: the models run on the processor, slower (a card is set in profilo.json, macchina.scheda_video)"), file=sys.stderr)
     return "cpu"

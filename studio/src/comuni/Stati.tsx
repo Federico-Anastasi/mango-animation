@@ -18,7 +18,7 @@ export function Caricamento({ etichetta = t("carico…", "loading…") }: { etic
  * La prima riga di `messaggio` è la frase per il creator; le altre righe, e `dettaglio`, sono per chi sistema l'errore e stanno
  * in un riquadro chiuso, che si apre a richiesta.
  */
-export function Errore({ messaggio, dettaglio = [], onRiprova }: { messaggio: string; dettaglio?: readonly string[]; onRiprova?: () => void }) {
+export function Errore({ messaggio, dettaglio = [], onRiprova, etichettaRiprova = t("Riprova", "Try again") }: { messaggio: string; dettaglio?: readonly string[]; onRiprova?: () => void; etichettaRiprova?: string }) {
   const [frase, ...altreRighe] = messaggio.split("\n")
   const righe = [...altreRighe, ...dettaglio].filter((r) => r !== "")
   const [segnala, setSegnala] = useState(false)
@@ -37,7 +37,7 @@ export function Errore({ messaggio, dettaglio = [], onRiprova }: { messaggio: st
       )}
       {onRiprova && (
         <button type="button" onClick={onRiprova} className={styles.riprova}>
-          {t("Riprova", "Try again")}
+          {etichettaRiprova}
         </button>
       )}
       {ponteSegnalazione() && (
@@ -49,6 +49,19 @@ export function Errore({ messaggio, dettaglio = [], onRiprova }: { messaggio: st
         </>
       )}
     </div>
+  )
+}
+
+/** La rilettura è fallita ma restano i dati di prima: la pagina lo dice, con la data dei dati se la sa. `errore` è quello della copia: senza, non scrive niente. */
+export function DatiVecchi({ errore, dal, onRiprova }: { errore: string | null; dal?: string; onRiprova: () => void }) {
+  if (errore === null) return null
+  return (
+    <p className={styles.vecchi} role="status">
+      <span>{dal ? t("Dati del {quando}: l'ultima rilettura non è riuscita.", "Data from {quando}: the last refresh failed.", { quando: dal }) : t("L'ultima rilettura non è riuscita: questi dati possono essere vecchi.", "The last refresh failed: this data may be out of date.")}</span>
+      <button type="button" onClick={onRiprova} className={styles.riprova}>
+        {t("Riprova", "Try again")}
+      </button>
+    </p>
   )
 }
 

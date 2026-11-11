@@ -1,0 +1,44 @@
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sezione h2 {
+  margin: 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--filo);
+  font-size: 1.05rem;
+}
+
+.sezione p {
+  margin: 0;
+}
+
+.sotto {
+  color: var(--grigio);
+  font-size: 0.9rem;
+}
+
+.scelta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.scelta legend {
+  padding: 0;
+  margin-bottom: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--grigio);
+}
+
+.scelta label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}

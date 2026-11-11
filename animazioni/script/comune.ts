@@ -7,13 +7,14 @@ import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright";
 import { palcoDi } from "../src/impianto";
 import type { Registro } from "../src/registro";
-import { CODICE, lavoroDa, stileUnito } from "./percorsi";
+import { CODICE, lavoroDa, type Stile, stileUnito } from "./percorsi";
 import { schedaVideo } from "./scheda";
 
 export const RADICE = fileURLToPath(new URL("../", import.meta.url));
-export const FPS = stileUnito().formato.fps;
-/** Quante scene si rendono insieme: una ogni quattro processori, perché Chrome e x264 ne usano già più d'uno ciascuno. */
-export const PARALLELE = Math.max(1, Math.floor(availableParallelism() / 4));
+export const FPS = stileUnito().formati.verticale.fps;
+/** Quante scene si rendono insieme: una ogni `parallelismo.processori_per_lavoro` processori dello stile, perché Chrome e x264 ne usano già più d'uno ciascuno. */
+export const paralleleSu = (processori: number, stile: Stile = stileUnito()): number => Math.max(1, Math.floor(processori / stile.parallelismo.processori_per_lavoro));
+export const PARALLELE = paralleleSu(availableParallelism());
 
 /** `lavoro` su ogni voce, `quanti` alla volta; al primo errore si ferma e lo restituisce. */
 export async function aGruppi<T>(voci: readonly T[], quanti: number, lavoro: (voce: T, indice: number) => Promise<void>): Promise<void> {

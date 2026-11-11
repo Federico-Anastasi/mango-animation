@@ -1,5 +1,5 @@
 // Le rotte della chat (`docs/CHAT.md`): l'interfaccia parla solo col server.
-import { chiedi, ErroreApi } from "../api"
+import { chiedi, ErroreApi, leggiRisposta } from "../api"
 import type { AllegatoInviato, ComandoChat, ContestoChat, DettaglioConversazione, ImpostazioniChat, ModelloChat, SceltaRisposta, VoceConversazione } from "./tipi"
 import { t } from "../lingua"
 
@@ -38,7 +38,7 @@ export async function caricaAllegato(file: File): Promise<string> {
   }).catch(() => null)
   if (!risposta) throw new ErroreApi(t("Mango Animation non risponde. Controlla che sia acceso sul computer e riprova.", "Mango Animation is not responding. Check that it is running on your computer and try again."), 0)
   const testo = await risposta.text()
-  const dati: unknown = testo ? JSON.parse(testo) : null
+  const dati = leggiRisposta(testo, risposta.status)
   if (!risposta.ok) throw new ErroreApi(typeof dati === "object" && dati !== null && "errore" in dati ? String(dati.errore) : nonCaricato(), risposta.status)
   const percorso = typeof dati === "object" && dati !== null && "percorso" in dati ? dati.percorso : null
   if (typeof percorso !== "string") throw new ErroreApi(nonCaricato(), risposta.status)

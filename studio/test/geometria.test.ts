@@ -36,6 +36,35 @@ describe("geometria della timeline", () => {
     expect(g.aggancia(1.2, null, "inizio")).toBe(1.2)
   })
 
+  describe("le parole come le conta il motore", () => {
+    const grezze = [
+      { p: "ciao", da: 1.0, a: 1.4 },
+      { p: "mondo", da: 1.5, a: 2.0 },
+    ]
+    const conParole = (parole: { p: string; da: number; a: number; tratto: number; nella_sorgente: number }[]) => ({ ...risoltoDiProva(), tratti: [{ ...risoltoDiProva().tratti[0]!, sorgente: "a" }, { ...risoltoDiProva().tratti[0]!, sorgente: "b" }], parole: parole.map((w) => ({ ...w, voto: 0.9 })) })
+
+    it("senza parole del risolto sono quelle grezze con lo sfasamento del piano", () => {
+      expect(g.paroleDelMotore(grezze, 0.5, conParole([]), "a")).toEqual([
+        { p: "ciao", da: 1.5, a: 1.9 },
+        { p: "mondo", da: 2.0, a: 2.5 },
+      ])
+    })
+
+    it("una parola che il risolto ha allineata prende i tempi del risolto, e le altre restano", () => {
+      const risolto = conParole([{ p: "mondo", da: 3, a: 3.35, tratto: 0, nella_sorgente: 2.1 }])
+      expect(g.paroleDelMotore(grezze, 0.5, risolto, "a")).toEqual([
+        { p: "ciao", da: 1.5, a: 1.9 },
+        { p: "mondo", da: 2.1, a: 2.45 },
+      ])
+    })
+
+    it("le parole di un'altra sorgente non contano; senza parole grezze non c'è niente da agganciare", () => {
+      const risolto = conParole([{ p: "mondo", da: 3, a: 3.35, tratto: 1, nella_sorgente: 2.1 }])
+      expect(g.paroleDelMotore(grezze, 0, risolto, "a")).toEqual(grezze)
+      expect(g.paroleDelMotore(null, 0, risolto, "a")).toBeNull()
+    })
+  })
+
   it("sceglie la parola più vicina quando ce n'è più d'una nel raggio", () => {
     const strette = [
       { p: "a", da: 1.0, a: 1.1 },

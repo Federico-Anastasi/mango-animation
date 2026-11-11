@@ -6,6 +6,7 @@ import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
 import { z } from "zod"
 import { COMANDI_DEL_VIDEO, SLUG } from "../rotte"
+import { SIGLA, type RisultatoSceneFoto } from "../sceneFoto"
 import { righeDaVtt } from "../vtt"
 import { chiamaApi, ErroreStrumento } from "./api"
 import { aspettaFine, statoDelLavoro } from "./lavori"
@@ -13,7 +14,6 @@ import type { OpzioniMcp } from "./opzioni"
 import { erroreDi, lancia, rimpicciolisci } from "./processi"
 
 const SECONDI_MOTORE = 120
-const SECONDI_SCENE_FOTO = 300
 const ATTESA_PREDEFINITA = 60
 const ATTESA_MASSIMA = 300
 const FOTO_MASSIME = 8
@@ -56,6 +56,7 @@ interface DettaglioDelVideo {
   lavoro: { id: string; comando: string; stato: "in corso" | "in coda" } | null
   montato: { file: string; quando: string } | null
   piano_dopo_montato: boolean
+  fase: { passo: number; azione: string } | null
 }
 
 export function creaServerMcp(o: OpzioniMcp): McpServer {
@@ -92,7 +93,7 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     "video_leggi",
     {
       description:
-        "Reads a video: the card (`scheda`: title, state, proposal, notes), the plan (`piano.json`: the single source of truth of an edit; change it only with piano_scrivi or piano_ritocca, never by writing the file, because they validate before saving; the format is in docs/PIANO.md) and a summary of the resolved plan (the real timings): duration, scenes with name, frame layout (`quadro`), start, duration and animation, plus the warnings. Words and segments are not included (too many): use `parole` for those. `risolto_aggiornato` false means the plan changed after the last `risolvi`: the summary belongs to the previous plan. `montato` is the edited video to watch, or null if there is none: `file` (path in the archive), `fatto_il` (when it was made), `segue_il_piano` (false: the plan or the style changed after the edit, so the video does not follow them yet and needs re-editing) and `con_copertina` (true: the file is the one with the cover as its first frame). `lavoro` is the job running or queued for this video, if any. `problemi` says why the card or the plan written in the file is not used (not valid against the schema, or not JSON): the server keeps the last valid card, and a plan with problems cannot be used until it is fixed: the server refuses every job on it, with the same reasons. Empty lists mean all is well.",
+        "Reads a video: the card (`scheda`: title, state, proposal, notes), the plan (`piano.json`: the single source of truth of an edit; change it only with piano_scrivi or piano_ritocca, never by writing the file, because they validate before saving; the format is in docs/PIANO.md) and a summary of the resolved plan (the real timings): duration, scenes with name, frame layout (`quadro`), start, duration and animation, plus the warnings. Words and segments are not included (too many): use `parole` for those. `risolto_aggiornato` false means the plan changed after the last `risolvi`: the summary belongs to the previous plan. `montato` is the edited video to watch, or null if there is none: `file` (path in the archive), `fatto_il` (when it was made), `segue_il_piano` (false: the plan or the style changed after the edit, so the video does not follow them yet and needs re-editing) and `con_copertina` (true: the file is the one with the cover as its first frame). `lavoro` is the job running or queued for this video, if any. `fase` is the step of the method (1 to 8) the video has reached and the action that comes next, or null if the steps do not apply (a carousel, a discarded video). `problemi` says why the card or the plan written in the file is not used (not valid against the schema, or not JSON): the server keeps the last valid card, and a plan with problems cannot be used until it is fixed: the server refuses every job on it, with the same reasons. Empty lists mean all is well.",
       inputSchema: { slug },
       annotations: SOLA_LETTURA,
     },
@@ -105,7 +106,7 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
           avvisi: v.risolto.avvisi,
         }
         const montato = v.montato && { file: v.montato.file, fatto_il: v.montato.quando, segue_il_piano: !v.piano_dopo_montato, con_copertina: v.montato.file.endsWith("/con-copertina.mp4") }
-        return json({ slug: v.slug, scheda: v.scheda, piano: v.piano, problemi: v.problemi, risolto, risolto_aggiornato: v.risolto_aggiornato, montato, lavoro: v.lavoro })
+        return json({ slug: v.slug, scheda: v.scheda, piano: v.piano, problemi: v.problemi, risolto, risolto_aggiornato: v.risolto_aggiornato, montato, lavoro: v.lavoro, fase: v.fase })
       }),
   )
 
@@ -123,11 +124,11 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     "piano_ritocca",
     {
       description:
-        "Changes only some fields of the plan of a video, by path, instead of rewriting it whole with piano_scrivi: the way for a correction (a `dice`, a `rifila`, a scene's animation, one piece more or less). Each touch-up is `{ op, path, value }`: `op` is «replace» (the field must exist), «add» (a new field; in a list, inserted at that index, or at the end with «-») or «remove»; `path` is a JSON Pointer into piano.json (e.g. «/scene/3/pezzi/0/dice», «/scene/2/pezzi/-»). They are applied in order to the plan written in the file (read it with video_leggi), then the whole result is validated as with piano_scrivi: if a path does not exist or the result is invalid, the answer says what to fix and the file does not change. If valid, the previous version is kept (piano_annulla) and `risolvi` is queued. Returns the new plan.",
+        "Changes only some fields of the plan of a video, by path, instead of rewriting it whole with piano_scrivi: the way for a correction (a `dice`, a `rifila`, a scene's animation, one piece more or less). Each touch-up is `{ op, path, value }`: `op` is «replace» (the field must exist), «add» (a new field; in a list, inserted at that index, or at the end with «-»), «remove» or «test» (changes nothing: the answer is a conflict if the field is not the given `value`, for a touch-up that must not overwrite someone else's change: put it before the `replace`); `path` is a JSON Pointer into piano.json (e.g. «/scene/3/pezzi/0/dice», «/scene/2/pezzi/-»). They are applied in order to the plan written in the file (read it with video_leggi), then the whole result is validated as with piano_scrivi: if a path does not exist or the result is invalid, the answer says what to fix and the file does not change. If valid, the previous version is kept (piano_annulla) and `risolvi` is queued. Returns the new plan.",
       inputSchema: {
         slug,
         ritocchi: z
-          .array(z.object({ op: z.enum(["replace", "add", "remove"]), path: z.string().describe("Where, as a JSON Pointer (e.g. «/scene/0/pezzi/1/dice»)."), value: z.unknown().optional().describe("The new value; not for «remove».") }).strict())
+          .array(z.object({ op: z.enum(["replace", "add", "remove", "test"]), path: z.string().describe("Where, as a JSON Pointer (e.g. «/scene/0/pezzi/1/dice»)."), value: z.unknown().optional().describe("The new value (for «test»: the value the field must have); not for «remove».") }).strict())
           .min(1)
           .describe("The touch-ups, applied in order."),
       },
@@ -177,7 +178,7 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     "apri",
     {
       description:
-        "Opens a page of the studio or a file of the archive in the creator's browser, already signed in: the only way to show the creator something in the browser (the studio's addresses do not open by themselves). Give `video` (the slug) for the video's page, with `scheda` for one of its tabs (e.g. «slide», «montaggio»), or `percorso` for a file of the archive written relative to it (e.g. «video/orto-in-numeri/uscite/con-copertina.mp4»). It only opens: then wait for the creator. To show a folder in Windows Explorer, ask the creator.",
+        "Shows the creator a page of the studio or a file of the archive: in the app's own window when the app is running, else in the browser, already signed in. It is the only way to bring the creator to something (the studio's addresses do not open by themselves). Give `video` (the slug) for the video's page, with `scheda` for one of its tabs (e.g. «slide», «montaggio»), or `percorso` for a file of the archive written relative to it (e.g. «video/orto-in-numeri/uscite/con-copertina.mp4»). It only opens: then wait for the creator. To show a folder in Windows Explorer, ask the creator.",
       inputSchema: z
         .object({
           video: slug.optional(),
@@ -371,19 +372,21 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     "scene_foto",
     {
       description:
-        "The key frames of an animated scene (scenes live in animazioni/), as shrunk images, with the outcome of the automatic checks: text under 40 px, text or drawings outside the usable band, a background that stays still. `controlli: \"falliti\"` is a result, not an error: each report says what to fix in the scene. It draws the scene in a browser on the graphics card: it takes from a few tens of seconds to a few minutes.",
-      inputSchema: { sigla: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, "La sigla ha solo lettere, numeri, trattini e trattini bassi.").describe("The scene code, as in the plan (e.g. «l1», «a3»).") },
+        `The key frames of an animated scene (scenes live in animazioni/), as shrunk images, with the outcome of the automatic checks: text under 40 px, text or drawings outside the usable band, a background that stays still. controlli: "falliti" is a result, not an error: each report says what to fix in the scene. It draws the scene in a browser on the graphics card: it takes from a few tens of seconds to a few minutes, plus the wait if another job is running (it goes through the same queue as the engine jobs, one at a time, and shows in the creator's jobs panel). If it runs out of time (${ATTESA_MASSIMA} seconds) it answers with the id of the job: call it again with that lavoro to collect the result without drawing the scene again.`,
+      inputSchema: {
+        sigla: z.string().regex(SIGLA, "La sigla ha solo lettere, numeri, trattini e trattini bassi.").describe("The scene code, as in the plan (e.g. «l1», «a3»)."),
+        lavoro: z.string().min(1).optional().describe("The id of the job from a previous call that ran out of time."),
+      },
     },
-    ({ sigla }) =>
+    ({ sigla, lavoro }) =>
       comeStrumento(async () => {
-        const esito = await lancia([...o.comandoSceneFoto, sigla], { cwd: o.codice, env: {}, secondi: SECONDI_SCENE_FOTO })
-        const righe = esito.stdout.split("\n")
-        const inizio = righe.findIndex((r) => /^\d+ segnalazioni:$/.test(r))
-        const segnalazioni = inizio < 0 ? [] : righe.slice(inizio + 1).join("\n").trim().slice(2).split("\n- ")
-        // Esce con 1 anche se un controllo fallisce: senza segnalazioni è invece un errore vero (sigla che non c'è, browser che non parte).
-        if (esito.codice !== 0 && segnalazioni.length === 0) throw erroreDi(`animazioni foto ${sigla}`, esito)
+        const id = lavoro ?? (await chiamaApi<{ id: string }>(o.api, "POST", "/api/animazioni/foto", { sigla })).id
+        const fine = await aspettaFine(o.api, id, ATTESA_MASSIMA)
+        if (fine.stato !== "finito") throw new ErroreStrumento(`La resa della scena «${sigla}» è ancora ${fine.stato} dopo ${ATTESA_MASSIMA} secondi: richiama «scene_foto» con lavoro «${id}» per averla quando è finita.`)
+        if (fine.esito !== "riuscito") throw new ErroreStrumento(fine.errore ?? `La resa della scena «${sigla}» non è riuscita (${fine.esito}).`)
+        const { png, segnalazioni } = fine.risultato as RisultatoSceneFoto
         const contenuto: CallToolResult["content"] = [{ type: "text", text: JSON.stringify({ sigla, controlli: segnalazioni.length === 0 ? "superati" : "falliti", segnalazioni }) }]
-        for (const percorso of righe.slice(0, inizio < 0 ? undefined : inizio).filter((r) => r.endsWith(".png"))) contenuto.push({ type: "text", text: basename(percorso) }, await rimpicciolisci(o.ffmpeg, resolve(o.codice, percorso)))
+        for (const percorso of png) contenuto.push({ type: "text", text: basename(percorso) }, await rimpicciolisci(o.ffmpeg, resolve(o.codice, percorso)))
         return { content: contenuto }
       }),
   )

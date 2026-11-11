@@ -30,6 +30,10 @@ run it in a virtual machine.
   picture and is not cleaned: it is on by default and you can turn it off in the dialog. Transcripts, chats and the
   files of your working folder are never attached. A build without a reporting address saves the text to a file and
   opens a pre-filled GitHub issue page instead.
+- Every connection the app makes to the internet is checked against the certificates Windows trusts, and goes through
+  the proxy Windows is set to use (or `HTTPS_PROXY` / `NO_PROXY`), never for the computer's own addresses. The app never
+  installs a certificate and has no option to skip the check: behind a company filter whose certificate Windows does
+  not know, downloads stop with a message instead of continuing unchecked.
 - Updates are checked once, at start. Nothing is installed without your click, and the downloaded installer is accepted
   only if its signature matches the public key built into the app. The installer itself has no paid Windows code-signing
   certificate, which is why Windows shows "Windows protected your PC" on the first install.

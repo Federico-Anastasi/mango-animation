@@ -13,7 +13,10 @@ export interface Contesto {
 export type Esito = { ok: true; piano: Piano } | { ok: false; motivo: string }
 
 const EPSILON = 0.005
-const SCHEMA_ZOOM_MAX = 4
+/** Quanto una divisione deve stare lontana dai bordi del tratto, in secondi. */
+const DIVISIONE_DAL_BORDO_S = 0.05
+/** Lo zoom più grande che lo schema del piano ammette. */
+export const ZOOM_MASSIMO = 4
 
 const ok = (piano: Piano): Esito => ({ ok: true, piano })
 const no = (motivo: string): Esito => ({ ok: false, motivo })
@@ -29,10 +32,10 @@ export function mmss(secondi: number): string {
 
 const fineTratto = (t: Tratto): number => t.da + t.durata
 
-export const aTempo = (pezzo: Pezzo): boolean => pezzo.dice === undefined
+const aTempo = (pezzo: Pezzo): boolean => pezzo.dice === undefined
 
 /** I tratti di un pezzo, in ordine, come indici del risolto. */
-export function trattiDelPezzo(risolto: Risolto, scena: number, pezzo: number): number[] {
+function trattiDelPezzo(risolto: Risolto, scena: number, pezzo: number): number[] {
   return risolto.tratti.flatMap((t, i) => (t.scena === scena && t.pezzo === pezzo ? [i] : []))
 }
 
@@ -110,7 +113,7 @@ function senzaPezzo(b: Bersaglio): Esito {
   return ok(b.piano)
 }
 
-export function togliPezzo(ctx: Contesto, indiceScena: number, indicePezzo: number): Esito {
+function togliPezzo(ctx: Contesto, indiceScena: number, indicePezzo: number): Esito {
   const b = bersaglio(ctx, indiceScena, indicePezzo)
   if (typeof b === "string") return no(b)
   return senzaPezzo(b)
@@ -135,13 +138,13 @@ function bordoFraParole(ctx: Contesto, b: Bersaglio, tratto: Tratto, lato: "iniz
 }
 
 /** Trascinare un bordo di un tratto al secondo `nuovo` della sorgente. */
-export function bordo(ctx: Contesto, indiceTratto: number, lato: "inizio" | "fine", nuovo: number, opzioni: { durataSorgente?: number; minimo?: number } = {}): Esito {
+export function bordo(ctx: Contesto, indiceTratto: number, lato: "inizio" | "fine", nuovo: number, opzioni: { durataSorgente?: number; minimo: number }): Esito {
   const tratto = ctx.risolto.tratti[indiceTratto]
-  if (!tratto) return no(t("Questo tratto non c'è più: aspetta il montaggio aggiornato.", "This segment is gone: wait for the edit to update."))
+  if (!tratto) return no(t("Questo pezzo non c'è più: aspetta il montaggio aggiornato.", "This clip is gone: wait for the edit to update."))
   if (tratto.sorgente === null) return no(motivoSenzaVoce())
   const b = bersaglio(ctx, tratto.scena, tratto.pezzo)
   if (typeof b === "string") return no(b)
-  const minimo = opzioni.minimo ?? 0.1
+  const { minimo } = opzioni
   const tetto = opzioni.durataSorgente ?? Infinity
   const gruppo = trattiDelPezzo(ctx.risolto, tratto.scena, tratto.pezzo)
   const posizione = gruppo.indexOf(indiceTratto)
@@ -209,7 +212,7 @@ const dicePerParole = (parole: Array<{ parola: ParolaRisolta }>): string => paro
 export function dividi(ctx: Contesto, secondo: number): Esito {
   const indice = trattoA(ctx.risolto, secondo)
   const tratto = ctx.risolto.tratti[indice]
-  if (!tratto) return no(t("La linea rossa non è su un tratto: portala su un pezzo del montaggio e riprova.", "The red line is not on a segment: move it onto a clip of the edit and try again."))
+  if (!tratto) return no(t("La linea rossa non è su un pezzo del montaggio: portala su uno e riprova.", "The red line is not on a clip of the edit: move it onto one and try again."))
   if (tratto.sorgente === null) return no(motivoSenzaVoce())
   const b = bersaglio(ctx, tratto.scena, tratto.pezzo)
   if (typeof b === "string") return no(b)
@@ -220,7 +223,7 @@ export function dividi(ctx: Contesto, secondo: number): Esito {
 
   if (aTempo(b.pezzo)) {
     const s = arrotonda(tratto.da + (secondo - tratto.esce), 100)
-    if (s - tratto.da < 0.05 || fineTratto(tratto) - s < 0.05) return no(t("La linea rossa è troppo vicina al bordo del tratto: spostala un po' e riprova.", "The red line is too close to the edge of the segment: move it a little and try again."))
+    if (s - tratto.da < DIVISIONE_DAL_BORDO_S || fineTratto(tratto) - s < DIVISIONE_DAL_BORDO_S) return no(t("La linea rossa è troppo vicina al bordo del pezzo: spostala un po' e riprova.", "The red line is too close to the edge of the clip: move it a little and try again."))
     const uno: Pezzo = { ...copia(b.pezzo), a: s }
     const due: Pezzo = { ...copia(b.pezzo), da: s }
     const via = b.pezzo.via ?? []
@@ -329,7 +332,7 @@ function togliParoleDelPezzo(ctx: Contesto, indiceScena: number, indicePezzo: nu
 /** Togliere un tratto: i suoi secondi (pezzo a tempo) o le sue parole (pezzo a parole). */
 export function togliTratto(ctx: Contesto, indiceTratto: number): Esito {
   const tratto = ctx.risolto.tratti[indiceTratto]
-  if (!tratto) return no(t("Questo tratto non c'è più: aspetta il montaggio aggiornato.", "This segment is gone: wait for the edit to update."))
+  if (!tratto) return no(t("Questo pezzo non c'è più: aspetta il montaggio aggiornato.", "This clip is gone: wait for the edit to update."))
   const b = bersaglio(ctx, tratto.scena, tratto.pezzo)
   if (typeof b === "string") return no(b)
   if (tratto.sorgente === null) return senzaPezzo(b)
@@ -410,7 +413,7 @@ export function zoomPezzo(ctx: Contesto, indiceScena: number, indicePezzo: numbe
     return ok(b.piano)
   }
   const valori = [zoom.scala, zoom.da, zoom.a].filter((v): v is number => v !== undefined)
-  if (valori.length === 0 || valori.some((v) => !Number.isFinite(v) || v < 1 || v > SCHEMA_ZOOM_MAX)) return no(t("Lo zoom va da 1 a {max}.", "Zoom goes from 1 to {max}.", { max: SCHEMA_ZOOM_MAX }))
+  if (valori.length === 0 || valori.some((v) => !Number.isFinite(v) || v < 1 || v > ZOOM_MASSIMO)) return no(t("Lo zoom va da 1 a {max}.", "Zoom goes from 1 to {max}.", { max: ZOOM_MASSIMO }))
   if (zoom.centro && zoom.centro.some((c) => c < 0 || c > 1)) return no(t("Il centro dello zoom sta dentro il fotogramma: valori fra 0 e 1.", "The zoom center is inside the frame: values between 0 and 1."))
   const scritto: Zoom = zoom.scala !== undefined ? { scala: arrotonda(zoom.scala, 100) } : { da: arrotonda(zoom.da!, 100), a: arrotonda(zoom.a!, 100) }
   if (zoom.centro) scritto.centro = [arrotonda(zoom.centro[0]), arrotonda(zoom.centro[1])]

@@ -11,7 +11,7 @@ The creator publishes by themselves: here what they need is prepared and the arc
 ## When the creator approves a video
 
 1. Card: `stato: "pronto"`.
-2. Caption: short, makes people want to watch, does not summarize; relevant hashtags. Length, closing, number of hashtags and tone are
+2. Caption (`.claude/metodo/contenuto.md`, «Around the video»): short, makes people want to watch, does not summarize; relevant hashtags. Length, closing, number of hashtags and tone are
    the creator's (profile, rules on channels; for YouTube `.claude/metodo/youtube.md`, «Around»). Two variants to the creator, written in full in the question; the chosen one goes in
    `didascalia` and `hashtag`.
 3. Tell the creator which file to upload (`uscite/finale.mp4`, or `con-copertina.mp4` if it has the cover; for a carousel the slides

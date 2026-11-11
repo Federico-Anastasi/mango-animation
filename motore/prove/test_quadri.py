@@ -376,11 +376,11 @@ def test_le_misure_di_un_video_ruotato_sono_quelle_a_schermo(tmp_path):
     assert (info(ruotato)["largo"], info(ruotato)["alto"]) == (240, 320)
 
 
-def test_inquadra_riempie_tenendo_il_centro_e_contiene_senza_tagliare():
+def test_inquadra_riempie_attorno_al_centro_e_contiene_senza_tagliare():
     rect, misure, _ = inquadra(2160, 3840, None, (1080, 1920), "riempi")
     assert rect == (0, 0, 2160, 3840) and misure == (1080, 1920)
-    rect, misure, _ = inquadra(1920, 1080, None, (1080, 1920), "riempi", (0.75, 0.5))
-    assert rect[2] / rect[3] == pytest.approx(1080 / 1920, abs=0.01) and rect[0] + rect[2] / 2 == pytest.approx(0.75 * 1920, abs=2)
+    rect, misure, _ = inquadra(1920, 1080, None, (1080, 1920), "riempi")
+    assert rect[2] / rect[3] == pytest.approx(1080 / 1920, abs=0.01) and rect[0] + rect[2] / 2 == pytest.approx(1920 / 2, abs=2)
     rect, misure, _ = inquadra(1920, 1080, None, (1080, 1160), "contieni")
     assert rect == (0, 0, 1920, 1080) and misure == (1080, 608)
     rect, misure, _ = inquadra(1920, 1080, [720, 280, 960, 720], (1080, 810), "contieni")
@@ -388,9 +388,9 @@ def test_inquadra_riempie_tenendo_il_centro_e_contiene_senza_tagliare():
 
 
 def test_lo_zoom_resta_dentro_il_rettangolo():
-    rect, _, _ = inquadra(1920, 1080, [720, 280, 960, 720], (1080, 810), "contieni", None, 2.0, (0.0, 0.0))
+    rect, _, _ = inquadra(1920, 1080, [720, 280, 960, 720], (1080, 810), "contieni", 2.0, (0.0, 0.0))
     assert rect == (720, 280, 480, 360)
-    rect, _, _ = inquadra(1920, 1080, [720, 280, 960, 720], (1080, 810), "contieni", None, 2.0, (1.0, 1.0))
+    rect, _, _ = inquadra(1920, 1080, [720, 280, 960, 720], (1080, 810), "contieni", 2.0, (1.0, 1.0))
     assert rect == (1200, 640, 480, 360)
 
 

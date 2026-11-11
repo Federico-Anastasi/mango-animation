@@ -243,3 +243,42 @@ def test_una_persona_misurata_alla_vecchia_maniera_si_rifa(archivio, fonti, tmp_
     file.write_text(json.dumps({"misure_al_secondo": 5, "x": [0.9] * 40}), encoding="utf-8")
     prepara.misura_persona(fonti / "larga.mp4", file, [[1.0, 2.0]], archivio.stile)
     assert json.loads(file.read_text(encoding="utf-8"))["x"] == [None] * 5 + [0.5] * 5
+
+
+def test_la_trascrizione_senza_memoria_sulla_scheda_dice_cosa_fare_e_non_da_un_traceback(archivio, tmp_path, monkeypatch):
+    scrivi_profilo(tmp_path, monkeypatch, {"trascrizione": {"dove": "processore"}})
+    monkeypatch.setitem(sys.modules, "faster_whisper", FasterWhisperFinto(RuntimeError("CUDA failed with error out of memory")))
+    monkeypatch.setattr(prepara, "_voci", {})
+    with pytest.raises(Errore, match=r"non ha memoria libera.*trascrizione.*macchina.scheda_video"):
+        prepara.modello_voce(archivio.stile)
+
+
+def test_lo_scontorno_senza_memoria_sulla_scheda_dice_cosa_fare(archivio, tmp_path, monkeypatch):
+    def apri(stile):
+        raise RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
+
+    monkeypatch.setattr(prepara, "scontornatore", apri)
+    with pytest.raises(Errore, match=r"non ha memoria libera.*scontorno.*macchina.scheda_video"):
+        prepara.scontorna_intervalli(tmp_path / "x.mp4", tmp_path / "sagoma", [(0.0, 1.0)], archivio.stile, lambda pezzo: None)
+
+
+def test_lo_scontorno_rifiuta_una_ripresa_che_non_e_in_verticale_invece_di_stirarla(archivio, fonti, tmp_path, monkeypatch):
+    def non_si_apre(stile):
+        raise AssertionError("lo scontornatore non deve aprirsi per una ripresa che non si scontorna")
+
+    monkeypatch.setattr(prepara, "scontornatore", non_si_apre)
+    with pytest.raises(Errore, match=r"larga\.mp4 è 1920×1080") as it:
+        prepara.sagoma_dei_tratti(fonti / "larga.mp4", tmp_path / "sagoma", [(0.5, 1.0)], archivio.stile)
+    assert "larga.mp4 is 1920×1080" in it.value.en and "1080×1920" in it.value.en and not (tmp_path / "sagoma").exists()
+
+
+def test_lo_scontornatore_si_carica_una_volta_per_processo_e_libera_lo_toglie(archivio, monkeypatch):
+    from motore import scontorno
+
+    aperti = []
+    monkeypatch.setattr(scontorno, "Scontornatore", lambda stile: aperti.append(stile) or object())
+    monkeypatch.setattr(prepara, "_reti", {})
+    prima = prepara.scontornatore(archivio.stile)
+    assert prepara.scontornatore(archivio.stile) is prima and len(aperti) == 1
+    prepara.libera()
+    assert prepara.scontornatore(archivio.stile) is not prima and len(aperti) == 2

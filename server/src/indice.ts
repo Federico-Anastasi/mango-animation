@@ -2,8 +2,9 @@
 // dall'osservatore (`elaboratore.ts`): le rotte di lettura rispondono da qui e non toccano il disco.
 import { IndiceCanali } from "./canale"
 import type { RichiestaLavoro } from "./coda"
+import { faseDelVideo, type Fase } from "./fasi"
 import { decimiDi, fotogrammaDi } from "./miniature"
-import { applicaBase, fileDelPiano, type Piano } from "./piano"
+import { applicaBase, fileDelPiano, quadriDelPiano, type Piano } from "./piano"
 import type { PezzoSagoma } from "./sagoma"
 import { Frase, type Testo } from "./lingua"
 
@@ -66,6 +67,8 @@ export interface VoceVideo {
   uscite: Uscita[]
   /** `materiali/anteprima.<estensione>`: l'immagine con cui la proposta si presenta nell'elenco. Il più recente, se ce n'è più d'uno. */
   anteprima: Anteprima | null
+  /** C'è `materiali/testo-registrato.md`: il testo del video, battuta per battuta, approvato dal creator. */
+  testoRegistrato: boolean
   durata: number | null
   /** La durata di ogni scena del risolto, per nome. */
   durataScene: Record<string, number>
@@ -135,6 +138,7 @@ export const voceVuota = (slug: string): VoceVideo => ({
   pianoConBase: null,
   uscite: [],
   anteprima: null,
+  testoRegistrato: false,
   durata: null,
   durataScene: {},
   durataUscita: null,
@@ -242,16 +246,16 @@ export class Indice {
    * da trascrivere, per l'anteprima la scena o il pezzo, per gli altri comandi di un video la durata del risolto.
    */
   secondiDaLavorare({ comando, argomenti, slug, file }: RichiestaLavoro): number | null {
-    const daPreparare = (files: string[]): number | null => {
+    const daPreparare = (files: string[], rifai = false): number | null => {
       const durate = files.map((f) => {
         const [giorno = "", nome = ""] = f.replaceAll("\\", "/").split("/")
-        if (this.preparatoDi(giorno, nome).parole !== null) return 0
+        if (!rifai && this.preparatoDi(giorno, nome).parole !== null) return 0
         const durata = this.grezzo.get(giorno)?.get(nome)?.scheda?.["durata"]
         return typeof durata === "number" ? durata : null
       })
       return durate.includes(null) ? null : durate.reduce((somma: number, d) => somma + d!, 0)
     }
-    if (slug === null) return file === null ? null : daPreparare([file])
+    if (slug === null) return file === null ? null : daPreparare([file], argomenti.includes("--ritrascrivi"))
     const voce = this.video.get(slug)
     if (!voce) return null
     if (comando === "prepara") return voce.pianoConBase ? daPreparare(fileDelPiano(voce.pianoConBase)) : null
@@ -272,6 +276,11 @@ export class Indice {
 
   puoRifare(voce: VoceVideo): boolean {
     return voce.storia.posizione < voce.storia.ultimo
+  }
+
+  /** A che passo del metodo è il video (`fasi.ts`); `null` per un carosello o uno scartato. */
+  faseDi(voce: VoceVideo): Fase | null {
+    return faseDelVideo(voce, this.pianoPiuNuovoDelFinale(voce))
   }
 
   /** Ciò che il video fa vedere nell'elenco: prima quello che è uscito, poi l'anteprima scelta apposta, poi i fotogrammi presi da sé. */
@@ -301,7 +310,9 @@ export class Indice {
         miniatura: this.miniaturaDi(voce),
         anteprima: voce.anteprima?.file ?? null,
         ha_piano: voce.pianoTesto !== null,
+        quadri: quadriDelPiano(voce.pianoConBase),
         ha_finale: voce.uscite.some((u) => u.file.endsWith("/uscite/finale.mp4")),
+        fase: this.faseDi(voce),
         ultimo_cambio: new Date(voce.ultimoCambio).toISOString(),
       }))
   }

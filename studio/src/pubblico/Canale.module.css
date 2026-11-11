@@ -1,0 +1,19 @@
+/* A blocchi, non in colonna flessibile: le pagine delle schede si centrano da sole con margini automatici, e in una colonna flessibile una tabella larga le allargherebbe oltre lo schermo. */
+.pagina {
+  container: pagina / inline-size;
+  /* Tanto larga quanto la scheda: la fila delle schede e il contenuto stanno sullo stesso filo. */
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+.pagina[data-scheda="pubblico"] {
+  max-width: 78rem;
+}
+
+.pagina h1 {
+  margin: 0 0 0.75rem;
+}
+
+.schede {
+  margin-bottom: 1rem;
+}

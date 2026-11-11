@@ -1,8 +1,8 @@
-// La cartella dei dati nella barra, con un ponte finto al posto di quello dell'app (`app/src/dati.rs`).
+// La cartella dei dati nelle impostazioni, con un ponte finto al posto di quello dell'app (`app/src/dati.rs`).
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { Cornice } from "../src/cornice/Cornice"
-import type { DatiCartella } from "../src/cornice/cartellaDati"
+import { Generali } from "../src/impostazioni/Generali"
+import type { DatiCartella } from "../src/impostazioni/cartellaDati"
 import { installaEventi, installaRete } from "./rete"
 
 const PRIMA: DatiCartella = { attuale: "C:\Utenti\io\Documenti\Mango Animation", prossima: null, forzata: false }
@@ -15,12 +15,7 @@ function ponteFinto(iniziali: DatiCartella, dopoIlGesto: DatiCartella | null) {
 
 beforeEach(() => {
   installaEventi()
-  window.location.hash = ""
-  installaRete({
-    "GET /api/registrazione": { disponibile: true, motivo: null, dispositivi: { microfoni: [], camere: [] }, in_corso: null, ultima: null },
-    "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
-    "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: null },
-  })
+  installaRete({})
 })
 afterEach(() => {
   delete window.__MANGO_ANIMATION__
@@ -28,15 +23,15 @@ afterEach(() => {
 })
 
 const apri = async () => {
-  render(<Cornice vista="video" />)
-  fireEvent.click(await screen.findByRole("button", { name: "Cartella dei dati" }))
-  return screen.findByRole("dialog", { name: "Cartella dei dati" })
+  render(<Generali />)
+  return screen.findByRole("region", { name: "Cartella dei dati" })
 }
 
 describe("la cartella dei dati", () => {
   it("nel browser, senza l'app, non c'è", () => {
-    render(<Cornice vista="video" />)
-    expect(screen.queryByRole("button", { name: "Cartella dei dati" })).toBeNull()
+    render(<Generali />)
+    expect(screen.queryByRole("heading", { name: "Cartella dei dati" })).toBeNull()
+    expect(screen.getByRole("heading", { name: "Lingua e tema" })).toBeInTheDocument()
   })
 
   it("dice dove stanno i dati e, cambiata, quale vale dal prossimo avvio senza spostare niente", async () => {

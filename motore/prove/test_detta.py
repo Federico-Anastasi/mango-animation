@@ -10,11 +10,12 @@ import pytest
 from motore import detta as modulo
 from motore.__main__ import main
 from motore.archivio import REPO, leggi_stile
-from motore.detta import CAMPIONI, Frasi, servi
+from motore.detta import Frasi, servi
+from motore.media import FREQUENZA
 from motore.errori import Errore
 
 CFG = leggi_stile(REPO)["dettatura"]
-PEZZO = CAMPIONI // 10
+PEZZO = FREQUENZA // 10
 
 
 def voce_finta(audio, pausa):
@@ -24,7 +25,7 @@ def voce_finta(audio, pausa):
     tratti = [[int(a), int(b)] for a, b in zip(bordi[::2], bordi[1::2])]
     uniti = []
     for tratto in tratti:
-        if uniti and tratto[0] - uniti[-1][1] < pausa * CAMPIONI:
+        if uniti and tratto[0] - uniti[-1][1] < pausa * FREQUENZA:
             uniti[-1][1] = tratto[1]
         else:
             uniti.append(tratto)
@@ -36,12 +37,12 @@ class Prova:
 
     def __init__(self):
         self.eventi, self.chiamate, self.fed = [], [], 0
-        self.frasi = Frasi(CFG, self.trascrivi, voce_finta, lambda e: self.eventi.append((self.fed / CAMPIONI, e)))
+        self.frasi = Frasi(CFG, self.trascrivi, voce_finta, lambda e: self.eventi.append((self.fed / FREQUENZA, e)))
         self.frasi.nuova(7)
 
     def trascrivi(self, audio, fasci):
-        secondi = round(float((np.abs(audio) > 0.1).sum()) / CAMPIONI, 1)
-        self.chiamate.append((len(audio) / CAMPIONI, fasci))
+        secondi = round(float((np.abs(audio) > 0.1).sum()) / FREQUENZA, 1)
+        self.chiamate.append((len(audio) / FREQUENZA, fasci))
         return f" {secondi} s "
 
     def dai(self, *blocchi):
@@ -61,11 +62,11 @@ class Prova:
 
 
 def parlato(secondi):
-    return np.full(int(secondi * CAMPIONI), 0.5, np.float32)
+    return np.full(int(secondi * FREQUENZA), 0.5, np.float32)
 
 
 def silenzio(secondi):
-    return np.zeros(int(secondi * CAMPIONI), np.float32)
+    return np.zeros(int(secondi * FREQUENZA), np.float32)
 
 
 def test_nuova_dettatura_dice_ascolto_con_il_suo_id():
@@ -77,7 +78,7 @@ def test_nuova_dettatura_dice_ascolto_con_il_suo_id():
 def test_senza_voce_non_si_trascrive_niente_e_non_si_tiene_audio():
     p = Prova().dai(silenzio(5))
     assert p.tipi() == ["ascolto"] and p.chiamate == []
-    assert len(p.frasi.audio) <= CFG["prima"] * CAMPIONI
+    assert len(p.frasi.audio) <= CFG["prima"] * FREQUENZA
 
 
 def test_la_frase_cresce_e_si_chiude_dopo_il_silenzio_non_prima():
@@ -88,7 +89,7 @@ def test_la_frase_cresce_e_si_chiude_dopo_il_silenzio_non_prima():
     assert p.testi("definitiva") == ["3.0 s"]
     quando = [t for t, e in p.eventi if e["tipo"] == "definitiva"][0]
     assert 3 + CFG["silenzio_fine"] - 0.05 <= quando <= 3 + CFG["silenzio_fine"] + 0.25, f"chiusa a {quando} s"
-    assert p.frasi.in_frase is False and len(p.frasi.audio) <= CFG["prima"] * CAMPIONI
+    assert p.frasi.in_frase is False and len(p.frasi.audio) <= CFG["prima"] * FREQUENZA
 
 
 def test_il_parziale_arriva_ogni_secondo_di_audio_e_con_meno_fasci_della_definitiva():
@@ -181,7 +182,7 @@ def audio_b64(x):
 
 def esegui(messaggi):
     eventi = []
-    frasi = Frasi(CFG, lambda audio, fasci: f"{round(float((np.abs(audio) > 0.1).sum()) / CAMPIONI, 1)} s", voce_finta, eventi.append)
+    frasi = Frasi(CFG, lambda audio, fasci: f"{round(float((np.abs(audio) > 0.1).sum()) / FREQUENZA, 1)} s", voce_finta, eventi.append)
     servi(righe(*messaggi), frasi)
     return eventi
 
@@ -350,7 +351,7 @@ def test_sulla_scheda_prima_di_dire_pronto_si_trascrive_mezzo_secondo_di_silenzi
     finto_ctranslate2(monkeypatch, schede=1)
     modulo.carica(CFG)
     (audio, opzioni), = modello_finto.prove
-    assert len(audio) == CAMPIONI // 2 and not audio.any() and audio.dtype == np.float32
+    assert len(audio) == FREQUENZA // 2 and not audio.any() and audio.dtype == np.float32
     assert opzioni["language"] == CFG["lingua"] and opzioni["vad_filter"] is False
 
 

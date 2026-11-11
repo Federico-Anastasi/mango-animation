@@ -269,3 +269,47 @@ def test_il_copione_senza_profilo_non_dichiara_una_lingua_e_mostra_gli_spezzoni(
     pagina = (archivio.uscite("s") / "copione.html").read_text(encoding="utf-8")
     assert "<html>" in pagina and "lang=" not in pagina
     assert pagina.index(">Un sottotitolo tradotto.<") < pagina.index(">Prima frase.<") < pagina.index(">E tu?<")
+
+
+def test_una_scena_col_girato_lo_fa_scorrere_muto_sotto_le_frasi_nel_posto_del_suo_quadro(archivio, scheda, monkeypatch):
+    """Un girato d'altri che il creator racconta con la sua voce: sotto le frasi della scena scorre dal secondo `da`, senza audio, nel posto
+    del girato del quadro della scena; le altre frasi restano col cartello del creator."""
+    file_podcast = "2026-11-09/podcast.mp4"
+    archivio.grezzo(file_podcast).parent.mkdir(parents=True, exist_ok=True)
+    # Rosso nei primi 2 secondi, verde dopo: dal secondo 2 deve vedersi il verde.
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=1920x1080:r=30:d=2", "-f", "lavfi", "-i", "color=c=green:s=1920x1080:r=30:d=8",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=10", "-filter_complex", "[0:v][1:v]concat=n=2:v=1[v]", "-map", "[v]", "-map", "2:a",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(archivio.grezzo(file_podcast))], check=True)
+    scheda("g", {"aggancio": "Prima frase.", "centro": CENTRO, "chiusa": "E tu?", "quadro": "sagoma-al-centro",
+                 "scene": [{"animazione": None, "dalla": "Seconda", "quadro": "girato-e-sagoma", "girato": {"file": file_podcast, "da": 2}},
+                           {"animazione": None, "dalla": "E tu"}]})
+    file = prova.prova(archivio, "g", avanza=lambda *_: None)
+    frasi = prova.tempi(prova.frasi_del_copione(json.loads((archivio.video("g") / "scheda.json").read_text(encoding="utf-8"))["proposta"]), archivio.stile)
+    girato = next(s["area"] for s in archivio.stile["quadri"]["girato-e-sagoma"]["strati"] if s["tipo"] == "girato")
+    centro = (girato[1] + girato[3] // 2, girato[0] + girato[2] // 2)
+    fondo_creator = archivio.colore(archivio.stile["prova"]["fondo_senza_scena"])
+    assert vicino(fotogramma(file, frasi[1]["da"] + 0.3)[centro], (0, 128, 0))
+    assert vicino(fotogramma(file, frasi[0]["da"] + 0.3)[centro], fondo_creator)
+    assert vicino(fotogramma(file, frasi[4]["da"] + 0.3)[centro], fondo_creator)
+    assert not info(file)["ha_audio"]
+
+
+def test_una_scena_con_animazione_e_girato_insieme_lo_dice(archivio):
+    frasi = prova.tempi(["Una frase.", "Un'altra."], archivio.stile)
+    with pytest.raises(Errore, match="sia un'animazione sia un girato"):
+        prova.sequenze(frasi, [{"animazione": "a1", "dalla": "Un'altra", "girato": {"file": "x.mp4", "da": 0}}])
+
+
+def test_il_quadro_di_una_scena_senza_girato_non_e_una_scheda_valida(archivio, scheda):
+    scheda("q", {"aggancio": "Prima frase.", "centro": CENTRO, "chiusa": "E tu?", "scene": [{"animazione": None, "dalla": "Seconda", "quadro": "girato-e-sagoma"}]})
+    with pytest.raises(Errore, match="non è valid"):
+        archivio.scheda("q")
+
+
+@pytest.mark.parametrize("fermo", [True, False])
+def test_il_suono_di_uno_spezzone_ha_i_campioni_dello_stile(archivio, monkeypatch, tmp_path, fermo):
+    archivio.stile["voce"]["campioni_audio"] = 44100
+    comandi = []
+    monkeypatch.setattr(prova, "ffmpeg", lambda *argomenti: comandi.append(" ".join(map(str, argomenti))))
+    prova._pezzo_di_spezzone(archivio, {"fondo": "nero"}, [0, 0, 1080, 1920], {"largo": 1080, "alto": 1920, "fps": 30}, tmp_path, 1, 1.0, "f.mp4", 0.0, fermo)
+    assert "44100" in comandi[0] and "48000" not in comandi[0]

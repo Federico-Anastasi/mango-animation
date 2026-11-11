@@ -4,7 +4,11 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from .archivio import scrivi_con
 from .errori import Errore
+
+# La frequenza dell'audio che il motore ascolta (livello della voce, trascrizione, allineamento, dettatura).
+FREQUENZA = 16000
 
 
 def ffmpeg(*argomenti):
@@ -20,13 +24,12 @@ def ffmpeg(*argomenti):
 
 def ffmpeg_su(uscita, *argomenti):
     """Come `ffmpeg`, ma l'uscita si scrive a parte e va al suo posto solo a lavoro finito: un lavoro interrotto non lascia un file a metà."""
-    parziale = uscita.with_name(f".{uscita.stem}.parziale{uscita.suffix}")
-    try:
-        ffmpeg(*argomenti, "-y", parziale)
-    except BaseException:
-        parziale.unlink(missing_ok=True)
-        raise
-    os.replace(parziale, uscita)
+    scrivi_con(uscita, lambda dest: ffmpeg(*argomenti, "-y", dest))
+
+
+def scrivi_elenco(elenco, file):
+    """L'elenco di file per il `-f concat` di ffmpeg, una riga `file '<percorso>'` ciascuno: un apostrofo nel percorso (una cartella D'Angelo) si scrive `'\''`."""
+    elenco.write_text("".join("file '" + f.as_posix().replace("'", "'\\''") + "'\n" for f in file), encoding="utf-8")
 
 
 def pcm_16k(file, da=None, durata=None):
@@ -34,7 +37,7 @@ def pcm_16k(file, da=None, durata=None):
     import numpy as np
 
     taglio = [] if da is None else ["-ss", f"{da:.3f}", "-t", f"{durata:.3f}"]
-    esito = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", *taglio, "-i", str(file), "-vn", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], capture_output=True)
+    esito = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", *taglio, "-i", str(file), "-vn", "-ac", "1", "-ar", str(FREQUENZA), "-f", "s16le", "-"], capture_output=True)
     if esito.returncode != 0 and not info(file)["ha_audio"]:
         raise Errore(f"{Path(file).name} non ha una traccia audio", f"{Path(file).name} has no audio track")
     if esito.returncode != 0:
@@ -42,7 +45,7 @@ def pcm_16k(file, da=None, durata=None):
                      f"I cannot read the audio of {file}: {esito.stderr.decode(errors='replace').strip()[-300:]}")
     x = np.frombuffer(esito.stdout, dtype=np.int16).astype(np.float32) / 32768
     if da is None:
-        x = np.concatenate([np.zeros(round(info(file)["audio_parte"] * 16000), dtype=np.float32), x])
+        x = np.concatenate([np.zeros(round(info(file)["audio_parte"] * FREQUENZA), dtype=np.float32), x])
     return x
 
 
@@ -77,11 +80,12 @@ def info(file):
     }
 
 
-# Un lavoro ogni quattro processori: ffmpeg e x264 ne usano già più d'uno ciascuno.
-PARALLELI = max(1, (os.cpu_count() or 1) // 4)
+def paralleli(stile):
+    """Quanti lavori insieme: uno ogni `parallelismo.processori_per_lavoro` processori, perché ffmpeg e x264 ne usano già più d'uno ciascuno."""
+    return max(1, (os.cpu_count() or 1) // stile["parallelismo"]["processori_per_lavoro"])
 
 
-def in_parallelo(funzione, voci, quanti=PARALLELI):
+def in_parallelo(funzione, voci, quanti):
     """`funzione` su ogni voce, `quanti` alla volta; i risultati escono nell'ordine delle voci, il primo errore si ripropaga."""
     with ThreadPoolExecutor(max_workers=quanti) as gruppo:
         yield from gruppo.map(funzione, voci)

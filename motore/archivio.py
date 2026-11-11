@@ -6,7 +6,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from .errori import Errore, Frase
+from .errori import Errore, FormatiMescolati, Frase
 
 REPO = Path(__file__).resolve().parent.parent
 VARIABILE_LAVORO = "MANGO_ANIMATION_LAVORO"
@@ -46,11 +46,15 @@ def leggi_json(percorso, cosa, cosa_en):
 
 
 def scrivi_con(destinazione, scrivi):
-    """Scrive in un file accanto, con la stessa estensione, e lo mette a posto alla fine: chi osserva la cartella non vede mai un file a metà."""
+    """Scrive in un file accanto, con la stessa estensione, e lo mette a posto alla fine: chi osserva la cartella non vede mai un file a metà, e un lavoro che fallisce non ne lascia uno."""
     destinazione = Path(destinazione)
     destinazione.parent.mkdir(parents=True, exist_ok=True)
     parziale = destinazione.with_name(f".{destinazione.stem}.parziale{destinazione.suffix}")
-    scrivi(parziale)
+    try:
+        scrivi(parziale)
+    except BaseException:
+        parziale.unlink(missing_ok=True)
+        raise
     os.replace(parziale, destinazione)
 
 
@@ -162,7 +166,7 @@ class Archivio:
                              f"the frame «{nome_quadro}» (of scene «{scena['nome']}») is not in stile.json: the frames are {', '.join(self.stile['quadri'])}")
             formati.setdefault(quadro.get("formato", "verticale"), []).append(f"«{scena['nome']}» ({nome_quadro})")
         if len(formati) > 1:
-            raise Errore("le scene mescolano formati: " + "; ".join(f"{nome}: {', '.join(scene)}" for nome, scene in formati.items()) + ". Tutte le scene di un video hanno lo stesso formato: scegli quadri dello stesso formato",
+            raise FormatiMescolati("le scene mescolano formati: " + "; ".join(f"{nome}: {', '.join(scene)}" for nome, scene in formati.items()) + ". Tutte le scene di un video hanno lo stesso formato: scegli quadri dello stesso formato",
                          "the scenes mix formats: " + "; ".join(f"{nome}: {', '.join(scene)}" for nome, scene in formati.items()) + ". All the scenes of a video have the same format: choose frames of the same format")
         nome = next(iter(formati))
         return {**self.formato_di({"formato": nome}), "nome": nome}
@@ -175,11 +179,16 @@ class Archivio:
         return tuple(int(esadecimale[k:k + 2], 16) for k in (1, 3, 5))
 
     def font(self, nome):
+        """Il file di un carattere dello stile: prima nella cartella di lavoro del creator (dove finiscono quelli che aggiunge), poi in quella del prodotto."""
         percorso = self.stile["caratteri"].get(nome)
         if percorso is None:
             raise Errore(f"lo stile non ha il carattere «{nome}»: aggiungilo a `caratteri` in stile.json",
                          f"the style has no font «{nome}»: add it to `caratteri` in stile.json")
-        return self.repo / percorso
+        for cartella in (self.radice.parent, self.repo):
+            if (cartella / percorso).is_file():
+                return cartella / percorso
+        raise Errore(f"il file del carattere «{nome}» ({percorso}) non c'è: rimettilo nella cartella `font` o scegli un altro carattere in stile.json",
+                     f"the file of the font «{nome}» ({percorso}) is not there: put it back in the `font` folder or choose another font in stile.json")
 
     def schema(self, nome):
         return leggi_json(Path(__file__).parent / "schemi" / f"{nome}.schema.json", f"lo schema {nome}", f"the schema {nome}")
@@ -400,9 +409,10 @@ def valida(archivio, slug, controlla_animazioni=True):
                                         f"{qui_en}: {e.en}"))
     try:
         archivio.formato_del_piano(piano)
-    except Errore as e:
-        if "mescolano" in e.it:
-            errori.append(Frase(e.it, e.en))
+    except FormatiMescolati as e:
+        errori.append(Frase(e.it, e.en))
+    except Errore:
+        pass  # un quadro o un formato che non c'è lo ha già detto il controllo dei quadri, qui sopra
     for sigla, nomi in animazioni.items():
         if len(nomi) > 1:
             errori.append(Frase(f"le scene {', '.join(nomi)} usano la stessa animazione «{sigla}»: ognuna deve avere la sua",

@@ -1,6 +1,6 @@
-import { useId, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react"
 import { useCopia } from "../dati"
-import { leggiBozza, ricordaBozza } from "./bozza"
+import { ascoltaProposte, leggiBozza, ricordaBozza } from "./bozza"
 import { comandoDelloStudio, elencoComandi, filtra, nomeInScrittura, type ComandoDelloStudio, type VoceComando } from "./comandi"
 import { contestoDa, useSguardo } from "./contesto"
 import { fraseDelRifiuto, ponteAppunti } from "./appunti"
@@ -19,6 +19,8 @@ import { t } from "../lingua"
 type Allegati = ReturnType<typeof useAllegati>
 
 const come = (testo: string) => testo.trim().toLowerCase().replace(/\s+/g, " ")
+/** Su un telefono o un tablet la tastiera non ha Maiusc+Invio: Invio va a capo e si manda col pulsante. */
+const tastieraSulloSchermo = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches
 const messaggioDi = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; allegati: Allegati; onLista: (aperta: boolean) => void }) {
@@ -35,6 +37,16 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
   }
   const [errore, setErrore] = useState<string | null>(null)
   const campo = useRef<HTMLTextAreaElement>(null)
+  // Una pagina che propone una frase: il campo la mostra e prende il cursore.
+  useEffect(
+    () =>
+      ascoltaProposte((proposta) => {
+        attuale.current = proposta
+        scriviTesto(proposta)
+        campo.current?.focus()
+      }),
+    [],
+  )
   const idTendina = useId()
   const [sceltaTendina, setSceltaTendina] = useState<{ nome: string; indice: number } | null>(null)
   // Il testo per cui il creator ha chiuso la tendina con Esc: finché non cambia resta chiusa.
@@ -199,7 +211,7 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
         return
       }
     }
-    if (e.key !== "Enter" || e.shiftKey) return
+    if (e.key !== "Enter" || e.shiftKey || tastieraSulloSchermo()) return
     e.preventDefault()
     invia()
   }
@@ -263,7 +275,7 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
           <IconaChat nome="allegato" />
         </button>
         {microfono.bottone}
-        <span className={styles.aiuto}>{allegati.staSalendo ? t("Sto caricando i file…", "Uploading files…") : t("Invio manda, Maiusc+Invio va a capo", "Enter sends, Shift+Enter adds a line")}</span>
+        <span className={styles.aiuto}>{allegati.staSalendo ? t("Sto caricando i file…", "Uploading files…") : tastieraSulloSchermo() ? t("Il pulsante manda, Invio va a capo", "The button sends, Enter adds a line") : t("Invio manda, Maiusc+Invio va a capo", "Enter sends, Shift+Enter adds a line")}</span>
         {lavora && (
           <button type="button" className={styles.ferma} onClick={ferma}>
             <IconaChat nome="ferma" dimensione={16} />

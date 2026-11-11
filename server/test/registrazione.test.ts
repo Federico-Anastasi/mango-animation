@@ -76,6 +76,16 @@ describe("la registrazione", () => {
     eventi.chiudi()
   })
 
+  test("due richieste di avvio insieme: parte una registrazione sola, l'altra riceve 409", async () => {
+    const { a, righe } = await ambiente()
+    const risposte = await Promise.all([chiama<Stato>(a, "POST", "/api/registrazione", { modo: "schermo" }), chiama<Stato>(a, "POST", "/api/registrazione", { modo: "schermo" })])
+    expect(risposte.map((r) => r.stato).sort()).toEqual([201, 409])
+    await aspetta(async () => ((await righe()).length > 0 ? true : null))
+    await Bun.sleep(300)
+    expect(await righe()).toHaveLength(1)
+    expect((await chiama(a, "DELETE", "/api/registrazione")).stato).toBe(200)
+  })
+
   test("la scheda di codifica segue il profilo del creator anche se cambia mentre il server gira", async () => {
     const { a, righe } = await ambiente()
     const registra = async (): Promise<string[]> => {

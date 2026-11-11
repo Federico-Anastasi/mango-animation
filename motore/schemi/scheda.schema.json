@@ -27,10 +27,21 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["animazione", "dalla"],
+            "dependentRequired": { "quadro": ["girato"] },
             "properties": {
               "animazione": { "type": ["string", "null"], "minLength": 1 },
               "dalla": { "type": "string", "minLength": 1 },
-              "parole": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+              "parole": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "quadro": { "type": "string", "minLength": 1 },
+              "girato": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["file", "da"],
+                "properties": {
+                  "file": { "type": "string", "minLength": 1 },
+                  "da": { "type": "number", "minimum": 0 }
+                }
+              }
             }
           }
         },

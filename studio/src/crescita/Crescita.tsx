@@ -1,13 +1,13 @@
 // «Dove sono, dove devo arrivare, e come?»: la strategia del canale scritta in archivio, messa accanto alle letture vere.
 import { api } from "../api"
 import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
-import { Caricamento, Errore } from "../comuni/Stati"
+import { Caricamento, DatiVecchi, Errore } from "../comuni/Stati"
 import { Tessera, Tessere } from "../comuni/Tessere"
 import { canaleTiktok, creaCopia, elencoVideo, useCopia } from "../dati"
 import { t } from "../lingua"
-import { data, dataOra, numero } from "../testo"
+import { data, dataOra, GIORNO, numero } from "../testo"
 import type { Crescita as DatiCrescita, CrescitaCanale, PuntoAndamento, StatoCanale } from "../tipi"
-import { GIORNO, inSecondi, nomeGiorno, percorso, perTipo, serie, settimana, ultimiGiorni, type Punto } from "./calcoli"
+import { inSecondi, nomeGiorno, percorso, perTipo, serie, settimana, ultimiGiorni, type Punto } from "./calcoli"
 import { Grafico, type Etichetta } from "./Grafico"
 import styles from "./Crescita.module.css"
 
@@ -226,17 +226,18 @@ const giudizi = (): Array<{ giudizio: DatiCrescita["novita"][number]["giudizio"]
 
 export function Crescita() {
   const { dato, errore, caricato } = useCopia(crescita)
-  const punti = useCopia(andamento).dato ?? []
+  const letture = useCopia(andamento)
+  const punti = letture.dato ?? []
   const stato = useCopia(canaleTiktok).dato
   if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void crescita.rileggi()} />
-  if (!caricato || !dato) return <Caricamento />
-  if (dato.quando === null) return <PaginaDiCanaleVuota pagina="crescita" titolo={t("Crescita", "Growth")} />
+  if (!caricato || !dato || !letture.caricato) return <Caricamento />
+  if (dato.quando === null) return <PaginaDiCanaleVuota pagina="crescita" />
 
   const vere = serie(punti)
   return (
     <div className={styles.pagina}>
+      <DatiVecchi errore={errore} dal={data(dato.quando)} onRiprova={() => void crescita.rileggi()} />
       <header>
-        <h1>{t("Crescita", "Growth")}</h1>
         <p className={styles.sotto}>
           {t("Dove sei su TikTok, dove andare fra tre mesi, sei mesi e un anno, e come. Piano scritto il {quando}; i numeri veri si aggiornano a ogni lettura del canale.", "Where you are on TikTok, where to go in three months, six months and a year, and how. Plan written on {quando}; the real numbers update with every channel read.", { quando: data(dato.quando) })}
         </p>

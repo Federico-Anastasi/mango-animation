@@ -1,6 +1,9 @@
 // Il corpo `multipart/form-data` letto a pezzi, mai intero in memoria: un video pesa gigabyte. Ferma
 // il primo campo che porta un nome di file e lo passa a chi scrive; gli altri campi si saltano.
+import { frase } from "../lingua"
 import { ErroreArrivo } from "./errore"
+
+const MODULO_ILLEGGIBILE = frase("Il modulo mandato non si legge.", "The form that was sent cannot be read.")
 
 export interface ParteFile {
   nome: string
@@ -66,7 +69,7 @@ export async function leggiMultipart(
         }
         const a = buf.indexOf("\r\n")
         if (a < 0) {
-          if (buf.length > 1024) throw new ErroreArrivo(400, "Il modulo mandato non si legge.")
+          if (buf.length > 1024) throw new ErroreArrivo(400, MODULO_ILLEGGIBILE)
           return
         }
         buf = buf.subarray(a + 2)
@@ -74,7 +77,7 @@ export async function leggiMultipart(
       } else if (fase === "intestazioni") {
         const i = buf.indexOf("\r\n\r\n")
         if (i < 0) {
-          if (buf.length > MAX_INTESTAZIONI) throw new ErroreArrivo(400, "Il modulo mandato non si legge.")
+          if (buf.length > MAX_INTESTAZIONI) throw new ErroreArrivo(400, MODULO_ILLEGGIBILE)
           return
         }
         const intestazioni = buf.subarray(0, i).toString("utf8")

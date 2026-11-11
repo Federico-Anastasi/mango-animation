@@ -18,9 +18,6 @@ export function controllaStile(s: Stile): string[] {
   const crf = (valore: number, nome: string) => (valore >= 0 && valore <= 51) || nota(t("{nome} va da 0 a 51: più è basso, più la qualità è alta.", "{nome} goes from 0 to 51: the lower it is, the higher the quality.", { nome }))
   const colore = (nome: string, dove: string) => nome in s.colori || nota(t("{dove}: il colore «{nome}» non è fra i colori dello stile.", "{dove}: the color «{nome}» is not among the style's colors.", { dove, nome }))
 
-  positivo(s.formato.largo, t("La larghezza del fotogramma", "The frame width"))
-  positivo(s.formato.alto, t("L'altezza del fotogramma", "The frame height"))
-  positivo(s.formato.fps, t("I fotogrammi al secondo", "The frames per second"))
   for (const [nome, valore] of Object.entries(s.colori)) ESADECIMALE.test(valore) || nota(t("Il colore «{nome}» si scrive come #RRGGBB, per esempio #17171B.", "The color «{nome}» is written as #RRGGBB, for example #17171B.", { nome }))
 
   decibel(s.voce.lufs, t("Il volume della voce", "The voice volume"))
@@ -31,7 +28,7 @@ export function controllaStile(s: Stile): string[] {
   nonNegativo(tg.a_tempo.prima, t("Il margine prima, nei tagli a tempo", "The margin before, in timed cuts"))
   nonNegativo(tg.a_tempo.dopo, t("Il margine dopo, nei tagli a tempo", "The margin after, in timed cuts"))
   nonNegativo(tg.a_tempo.pausa, t("La pausa, nei tagli a tempo", "The pause, in timed cuts"))
-  positivo(tg.a_tempo.tratto_minimo, t("Il tratto minimo", "The minimum segment"))
+  positivo(tg.a_tempo.tratto_minimo, t("Il pezzo minimo", "The minimum clip"))
   nonNegativo(tg.a_parole.pausa, t("La pausa, nei tagli a parole", "The pause, in word cuts"))
   nonNegativo(tg.a_parole.stacco, t("Lo stacco, nei tagli a parole", "The gap, in word cuts"))
   nonNegativo(tg.a_parole.vicine, t("Le parole vicine", "The close words"))
@@ -54,7 +51,7 @@ export function controllaStile(s: Stile): string[] {
   positivo(s.titolo.corpo, t("Il corpo del titolo", "The title size"))
   nonNegativo(s.titolo.margine, t("Il margine del titolo", "The title margin"))
   positivo(s.titolo.largo, t("La larghezza del titolo", "The title width"))
-  s.titolo.largo <= Math.max(s.formato.largo, ...Object.values(s.formati ?? {}).map((f) => f.largo)) || nota(t("Il titolo non può essere più largo del fotogramma.", "The title cannot be wider than the frame."))
+  s.titolo.largo <= Math.max(...Object.values(s.formati).map((f) => f.largo)) || nota(t("Il titolo non può essere più largo del fotogramma.", "The title cannot be wider than the frame."))
   colore(s.titolo.fondo, t("Titolo, fondo", "Title, background"))
   colore(s.titolo.colore, t("Titolo, colore", "Title, color"))
 
@@ -67,9 +64,10 @@ export function controllaStile(s: Stile): string[] {
   positivo(s.uscita.leggero.alto, t("L'altezza della copia leggera", "The light copy height"))
   crf(s.uscita.leggero.crf, t("La qualità della copia leggera", "The light copy quality"))
 
-  for (const [nome, f] of Object.entries(s.formati ?? {})) {
+  for (const [nome, f] of Object.entries(s.formati)) {
     positivo(f.largo, t("La larghezza del formato {nome}", "The width of format {nome}", { nome }))
     positivo(f.alto, t("L'altezza del formato {nome}", "The height of format {nome}", { nome }))
+    positivo(f.fps, t("I fotogrammi al secondo del formato {nome}", "The frames per second of format {nome}", { nome }))
   }
   const dentroIlFotogramma = (r: Rettangolo, dove: string, formato: Formato) => {
     const [x, y, l, a] = r
@@ -78,7 +76,7 @@ export function controllaStile(s: Stile): string[] {
   }
   for (const [nome, q] of Object.entries(s.quadri)) {
     const dove = t("Quadro «{nome}»", "Layout «{nome}»", { nome: nomeQuadro(nome) })
-    if (q.formato !== undefined && !s.formati?.[q.formato]) {
+    if (q.formato !== undefined && !s.formati[q.formato]) {
       nota(t("{dove}: il formato «{formato}» non è fra i formati dello stile.", "{dove}: the format «{formato}» is not among the style's formats.", { dove, formato: q.formato }))
       continue
     }

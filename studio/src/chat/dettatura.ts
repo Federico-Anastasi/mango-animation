@@ -1,10 +1,11 @@
 // La dettatura: il ponte che l'app Mango Animation mette nella pagina (`window.__MANGO_ANIMATION__.voce`) e il
 // testo che ne arriva. Nel browser il ponte non c'è, e il microfono non compare.
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { PonteCartella } from "../cornice/cartellaDati"
+import type { PonteCartella } from "../impostazioni/cartellaDati"
 import type { PonteComputer } from "../motori/computer"
 import type { PonteSegnalazione } from "../segnalazione/ponte"
 import type { PonteAppunti } from "./appunti"
+import type { PonteTrascinamento } from "./trascinamento"
 import { lingua, t, type Lingua } from "../lingua"
 
 /** Ogni evento porta l'`id` della dettatura a cui appartiene: quello che `avvia` restituisce. */
@@ -25,11 +26,11 @@ export interface PonteVoce {
 
 declare global {
   interface Window {
-    __MANGO_ANIMATION__?: { voce?: PonteVoce; cartellaDati?: PonteCartella; appunti?: PonteAppunti; computer?: PonteComputer; segnalazione?: PonteSegnalazione }
+    __MANGO_ANIMATION__?: { voce?: PonteVoce; cartellaDati?: PonteCartella; appunti?: PonteAppunti; computer?: PonteComputer; segnalazione?: PonteSegnalazione; trascinamento?: PonteTrascinamento }
   }
 }
 
-export const ponteVoce = (): PonteVoce | null => window.__MANGO_ANIMATION__?.voce ?? null
+const ponteVoce = (): PonteVoce | null => window.__MANGO_ANIMATION__?.voce ?? null
 
 const codiceDi = (e: unknown): unknown => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined)
 
@@ -168,8 +169,9 @@ export function useDettatura(scrivi: ScriviDettato) {
     ponte.stato(lingua()).then((s) => s.in_ascolto && fasePronta.current === "ferma" && setFase("ascolta"), () => undefined)
     return () => {
       smetti()
-      // Chiusa la chat il microfono non resta acceso.
+      // Chiusa la chat il microfono non resta acceso, nemmeno se si sta ancora aprendo.
       if (fasePronta.current === "ascolta") ponte.ferma(lingua()).catch(() => undefined)
+      else if (fasePronta.current === "avvio") daSpegnere.current = true
     }
   }, [ponte, tratta])
 

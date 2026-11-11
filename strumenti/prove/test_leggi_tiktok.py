@@ -1,6 +1,10 @@
 import json
+import sys
 from datetime import datetime
 
+import pytest
+
+from motore.errori import Errore
 from strumenti import leggi_tiktok as t
 
 
@@ -26,8 +30,13 @@ def test_ore_minuti_e_secondi():
 
 
 def test_il_giorno_e_la_durata():
-    assert t.quando("4 ott 13:25") == f"{datetime.now().year}-10-04T13:25"
+    assert t.quando("4 ott 13:25", datetime(2026, 11, 10)) == "2026-10-04T13:25"
     assert t.quando("Niente") is None
+    # Letto a gennaio, un video di dicembre è dell'anno prima; un mese in un'altra lingua non è un errore grezzo.
+    assert t.quando("28 dic 10:00", datetime(2027, 1, 5)) == "2026-12-28T10:00"
+    assert t.quando("5 gen 10:00", datetime(2027, 1, 5, 10, 0)) == "2027-01-05T10:00"
+    with pytest.raises(Errore, match="mese «Dec».*italiano"):
+        t.quando("28 Dec 10:00")
     assert t.durata("02:10") == 130
 
 
@@ -64,9 +73,6 @@ def test_senza_profilo_chrome_si_cerca_dove_windows_lo_mette(tmp_path, monkeypat
 
 
 def test_chrome_non_in_ascolto_dice_come_aprirlo_e_dove_cambiare_il_profilo(tmp_path):
-    import pytest
-    from motore.errori import Errore
-
     with pytest.raises(Errore, match=r"--remote-debugging-port.*macchina\.profilo_chrome"):
         t.connetti(tmp_path)
     (tmp_path / "DevToolsActivePort").write_text("9222\n/devtools/browser/abc", encoding="utf-8")
@@ -74,9 +80,6 @@ def test_chrome_non_in_ascolto_dice_come_aprirlo_e_dove_cambiare_il_profilo(tmp_
 
 
 def test_il_canale_viene_dal_profilo_del_creator(tmp_path):
-    import pytest
-    from motore.errori import Errore
-
     (tmp_path / "profilo.json").write_text(json.dumps({"canali": [{"piattaforma": "youtube", "nome": "@altro"}, {"piattaforma": "tiktok", "nome": "@una_creator"}]}), encoding="utf-8")
     assert t.account_tiktok(tmp_path) == "una_creator"
     (tmp_path / "profilo.json").write_text(json.dumps({"canali": [{"piattaforma": "youtube", "nome": "@altro"}]}), encoding="utf-8")
@@ -144,3 +147,9 @@ def test_le_conversazioni_di_prima_vengono_dall_ultima_lettura(tmp_path):
     (canale / "letture" / "2026-11-05-2122" / "messaggi.json").write_text(json.dumps({"conversazioni": [{"con": "A", "messaggi": []}]}), encoding="utf-8")
     assert t.conversazioni_precedenti(tmp_path) == {"A": {"con": "A", "messaggi": []}}
     assert t.conversazioni_precedenti(tmp_path / "vuoto") == {}
+
+
+def test_senza_playwright_la_frase_dice_come_installarlo(monkeypatch):
+    monkeypatch.setitem(sys.modules, "playwright", None)
+    with pytest.raises(Errore, match=r"manca il pacchetto Python playwright.*uv pip install --python"):
+        t.playwright()

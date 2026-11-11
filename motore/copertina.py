@@ -6,8 +6,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from .archivio import scrivi_con
 from .errori import Errore, dice
 from .media import ffmpeg
-from .prepara import sagoma_dei_tratti
-from .sagoma import pezzo_della_sagoma
+from .prepara import libera, sagoma_dei_tratti
+from .sagoma import formato_della_sagoma, pezzo_della_sagoma
 from .quadri import Compositore
 from .risolvi import risolvi
 from .sottotitoli import cartelli_del_titolo
@@ -20,10 +20,13 @@ def _sagoma_a_sinistra(archivio, slug, comp, spec, o, L, A):
     if spec["sorgente"] not in comp.piano["sorgenti"]:
         raise Errore(f"la copertina prende la sagoma dalla sorgente «{spec['sorgente']}», che il piano non dichiara fra le `sorgenti`",
                      f"the cover takes the silhouette from the source «{spec['sorgente']}», which the plan does not declare among the `sorgenti`")
-    sorgente, fps = comp.sorgente(spec["sorgente"]), stile["formato"]["fps"]
+    sorgente, fps = comp.sorgente(spec["sorgente"]), formato_della_sagoma(stile)["fps"]
     da = spec["istante"]
     if pezzo_della_sagoma(sorgente.preparati, da, da + 1 / fps, stile["sagoma"]["margine"]) is None:
-        sagoma_dei_tratti(sorgente.percorso, sorgente.preparati, [(da, da + 1 / fps)], stile)
+        try:
+            sagoma_dei_tratti(sorgente.percorso, sorgente.preparati, [(da, da + 1 / fps)], stile)
+        finally:
+            libera()
     file, nel_file = comp.pezzo_sagoma(spec["sorgente"], da, da)
     foto = archivio.lavoro(slug) / "copertina-sagoma.png"
     ffmpeg("-c:v", "libvpx-vp9", "-ss", f"{nel_file:.4f}", "-i", file, "-frames:v", "1", "-y", foto)

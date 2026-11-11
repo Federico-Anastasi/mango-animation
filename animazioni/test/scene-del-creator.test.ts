@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { caricaRegistro } from "../script/catalogo";
-import { ANIMAZIONI } from "../script/percorsi";
+import { ANIMAZIONI, CODICE, fileDelCarattere } from "../script/percorsi";
 
 const SCENA = `import { createElement } from "react";
 import { tra, type ScenaProps, type Video } from "@animazioni/impianto";
 import { Numero } from "@animazioni/standard/numero";
 import stile from "virtual:stile";
 
-const Prova = ({ t }: ScenaProps) => createElement("div", { style: { opacity: tra(t, 0, 1, 0, 1) } }, createElement(Numero, { testo: String(stile.formato.fps), unita: "fps", corpo: 80 }));
+const Prova = ({ t }: ScenaProps) => createElement("div", { style: { opacity: tra(t, 0, 1, 0, 1) } }, createElement(Numero, { testo: String(stile.formati.verticale.fps), unita: "fps", corpo: 80 }));
 
 export const video: Video = {
   titolo: "Prova del creator",
@@ -79,6 +79,29 @@ describe("le scene del creator, nella sua cartella dei dati", () => {
       expect(js.some((codice) => codice.includes("ZZ1 · Titolo di prova del creator"))).toBe(true);
       expect(js.some((codice) => codice.includes('fps:24'))).toBe(true);
     } finally {
+      await rm(uscita, { recursive: true, force: true });
+    }
+  }, 180_000);
+
+  test("un carattere che il creator ha messo nella sua cartella entra nella pagina costruita, anche se è un .woff2", async () => {
+    const mio = await mkdtemp(join(tmpdir(), "lavoro-carattere-"));
+    const uscita = await mkdtemp(join(tmpdir(), "pagina-carattere-"));
+    try {
+      const sorgente = join(CODICE, "studio", "src", "assets", "fonts", "ChivoMono-400.woff2");
+      await mkdir(join(mio, "font"));
+      await copyFile(sorgente, join(mio, "font", "mio.woff2"));
+      await writeFile(join(mio, "stile.json"), '{"caratteri":{"titoli":"font/mio.woff2"}}');
+      expect(fileDelCarattere("font/mio.woff2", mio)).toBe(join(mio, "font", "mio.woff2"));
+      expect(fileDelCarattere("font/Archivo-700.ttf", mio)).toBe(join(CODICE, "font", "Archivo-700.ttf"));
+      const processo = lancia(["x", "vite", "build", "--logLevel", "error", "--outDir", uscita], { MANGO_ANIMATION_LAVORO: mio });
+      const [errori, codice] = await Promise.all([new Response(processo.stderr).text(), processo.exited]);
+      expect(errori).toBe("");
+      expect(codice).toBe(0);
+      expect(new Uint8Array(await readFile(join(uscita, "font-titoli.woff2")))).toEqual(new Uint8Array(await readFile(sorgente)));
+      expect(await readFile(join(uscita, "index.html"), "utf8")).toContain('url("/font-titoli.woff2") format("woff2")');
+      expect(await readFile(join(uscita, "index.html"), "utf8")).toContain('url("/font-titolo.ttf") format("truetype")');
+    } finally {
+      await rm(mio, { recursive: true, force: true });
       await rm(uscita, { recursive: true, force: true });
     }
   }, 180_000);

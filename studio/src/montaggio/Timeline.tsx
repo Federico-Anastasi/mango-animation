@@ -1,12 +1,12 @@
 // La timeline del montaggio: righello, scene, tratti (miniatura, onda della voce, bordi che si trascinano e si
-// agganciano ai confini delle parole), parole, battute dei sottotitoli, titolo e suoni, e la testina che segue
+// agganciano ai confini delle parole come le conta il motore), parole, battute dei sottotitoli, titolo e suoni, e la testina che segue
 // l'anteprima. Qui si disegna e si capisce il gesto; cosa scrive nel piano lo decide `ritocchi.ts`.
 import { useEffect, useMemo, useRef, useState, type PointerEvent as EventoPuntatore, type RefObject } from "react"
 import { urlMedia } from "../api"
 import { t } from "../lingua"
 import type { ParolaGrezzo, PianoCompleto, Piano, Risolto } from "../tipi"
-import { centesimi, tempoLeggibile } from "../testo"
-import { aggancia, gruppiDiPezzi, MAX_PX_AL_SECONDO, MIN_PX_AL_SECONDO, passoRighello, posizioneDopoTrascinamento, posizioneInAltraScena, pxPerAdattare, scenaA } from "./geometria"
+import { centesimi, nomeFile, tempoLeggibile } from "../testo"
+import { aggancia, gruppiDiPezzi, paroleDelMotore, MAX_PX_AL_SECONDO, MIN_PX_AL_SECONDO, passoRighello, posizioneDopoTrascinamento, posizioneInAltraScena, pxPerAdattare, scenaA } from "./geometria"
 import { ereditata } from "./ritocchi"
 import { indiceDelTratto, selezioneDelTratto, type Selezione } from "./selezione"
 import { dellaSorgente, type InfoSorgente } from "./sorgenti"
@@ -37,11 +37,13 @@ export interface PropsTimeline {
 
 const ALTEZZA_ONDA = 28
 const SOGLIA_TRASCINAMENTO_PX = 5
+/** Sotto questo ingrandimento le parole sono troppo strette per leggerle. */
+const PX_AL_SECONDO_PER_LE_PAROLE = 8
 const ONDE_AL_SECONDO = 100
 
 type Gesto = { tipo: "inizio" | "fine" | "sposta"; tratto: number; x0: number; delta: number; mosso: boolean }
 
-const nomeFile = (file: string) => (file.split("/").pop() ?? file).replace(/\.[^.]+$/, "")
+const senzaEstensione = (file: string) => nomeFile(file).replace(/\.[^.]+$/, "")
 
 function Onda({ da, durata, larghezza, onda }: { da: number; durata: number; larghezza: number; onda: Uint8Array }) {
   const tela = useRef<HTMLCanvasElement>(null)
@@ -65,8 +67,8 @@ function Onda({ da, durata, larghezza, onda }: { da: number; durata: number; lar
 }
 
 function Testina({ trasporto, pxAlSecondo, scorri }: { trasporto: Trasporto; pxAlSecondo: number; scorri: RefObject<HTMLDivElement | null> }) {
-  const t = useTempo(trasporto)
-  const x = t * pxAlSecondo
+  const secondo = useTempo(trasporto)
+  const x = secondo * pxAlSecondo
   useEffect(() => {
     const el = scorri.current
     if (!el || !trasporto.inRiproduzione()) return
@@ -118,22 +120,37 @@ export function Timeline(p: PropsTimeline) {
     const lascia = () => {
       bersaglio.removeEventListener("pointermove", muovi)
       bersaglio.removeEventListener("pointerup", lascia)
+      bersaglio.removeEventListener("pointercancel", lascia)
     }
     bersaglio.addEventListener("pointermove", muovi)
     bersaglio.addEventListener("pointerup", lascia)
+    bersaglio.addEventListener("pointercancel", lascia)
   }
+
+  // I bordi si agganciano alle parole come le conta il motore (con lo sfasamento e i tempi allineati del risolto), non ai tempi grezzi della trascrizione.
+  const { paroleSorgente } = p
+  const paroleDelMotoreDi = useMemo(() => {
+    const fatte = new Map<string, ParolaGrezzo[] | null>()
+    return (nome: string): ParolaGrezzo[] | null => {
+      if (!fatte.has(nome)) {
+        const f = sorgenti[nome]
+        fatte.set(nome, f ? paroleDelMotore(paroleSorgente(f.file), f.sfasamento, risolto, nome) : null)
+      }
+      return fatte.get(nome) ?? null
+    }
+  }, [risolto, sorgenti, paroleSorgente])
 
   /** Dove cadrebbe il bordo trascinato: in secondi della sorgente, agganciato e dentro i limiti del file. */
   const bordoProposto = (g: Gesto): number | null => {
     if (g.tipo === "sposta") return null
-    const t = risolto.tratti[g.tratto]
-    if (!t || t.sorgente === null) return null
-    const file = sorgenti[t.sorgente]
-    const parole = file ? p.paroleSorgente(file.file) : null
+    const tr = risolto.tratti[g.tratto]
+    if (!tr || tr.sorgente === null) return null
+    const file = sorgenti[tr.sorgente]
+    const parole = paroleDelMotoreDi(tr.sorgente)
     const d = g.delta / pxAlSecondo
-    if (g.tipo === "inizio") return Math.min(Math.max(aggancia(t.da + d, parole, "inizio"), 0), t.da + t.durata - p.minimoTratto)
+    if (g.tipo === "inizio") return Math.min(Math.max(aggancia(tr.da + d, parole, "inizio"), 0), tr.da + tr.durata - p.minimoTratto)
     const massimo = file?.durata ?? Infinity
-    return Math.max(Math.min(aggancia(t.da + t.durata + d, parole, "fine"), massimo), t.da + p.minimoTratto)
+    return Math.max(Math.min(aggancia(tr.da + tr.durata + d, parole, "fine"), massimo), tr.da + p.minimoTratto)
   }
 
   const inizia = (e: EventoPuntatore<HTMLElement>, tipo: Gesto["tipo"], tratto: number) => {
@@ -148,13 +165,14 @@ export function Timeline(p: PropsTimeline) {
     const delta = e.clientX - g.x0
     setGesto({ ...g, delta, mosso: g.mosso || Math.abs(delta) > SOGLIA_TRASCINAMENTO_PX })
   }
+  const annulla = () => setGesto(null)
   const lascia = (e: EventoPuntatore<HTMLElement>) => {
     const g = gestoOra.current
     setGesto(null)
     if (!g) return
     e.currentTarget.releasePointerCapture?.(e.pointerId)
-    const t = risolto.tratti[g.tratto]
-    if (!t) return
+    const tr = risolto.tratti[g.tratto]
+    if (!tr) return
     if (!g.mosso) {
       p.onSeleziona(selezioneDelTratto(risolto, g.tratto))
       if (g.tipo === "sposta") {
@@ -165,17 +183,17 @@ export function Timeline(p: PropsTimeline) {
     }
     if (bloccata) return
     if (g.tipo === "sposta") {
-      const gruppo = gruppi.find((x) => x.scena === t.scena && x.pezzo === t.pezzo)
+      const gruppo = gruppi.find((x) => x.scena === tr.scena && x.pezzo === tr.pezzo)
       if (!gruppo) return
       const centro = (gruppo.da + gruppo.a) / 2 + g.delta / pxAlSecondo
       const destinazione = scenaA(risolto.scene, centro)
-      if (destinazione !== t.scena) {
-        p.onPortaInScena(t.scena, t.pezzo, destinazione, posizioneInAltraScena(gruppi, destinazione, centro))
+      if (destinazione !== tr.scena) {
+        p.onPortaInScena(tr.scena, tr.pezzo, destinazione, posizioneInAltraScena(gruppi, destinazione, centro))
         return
       }
-      const nuova = posizioneDopoTrascinamento(gruppi, t.scena, t.pezzo, centro)
-      const attuale = gruppi.filter((x) => x.scena === t.scena).findIndex((x) => x.pezzo === t.pezzo)
-      if (nuova !== attuale) p.onSposta(t.scena, t.pezzo, nuova)
+      const nuova = posizioneDopoTrascinamento(gruppi, tr.scena, tr.pezzo, centro)
+      const attuale = gruppi.filter((x) => x.scena === tr.scena).findIndex((x) => x.pezzo === tr.pezzo)
+      if (nuova !== attuale) p.onSposta(tr.scena, tr.pezzo, nuova)
       return
     }
     const nuovo = bordoProposto(g)
@@ -201,7 +219,7 @@ export function Timeline(p: PropsTimeline) {
         <div className={styles.etichette} aria-hidden="true">
           <span className={styles.rigaRighello} />
           <span className={styles.rigaScene}>{t("Scene", "Scenes")}</span>
-          <span className={styles.rigaTratti}>{t("Tratti", "Segments")}</span>
+          <span className={styles.rigaTratti}>{t("Pezzi", "Clips")}</span>
           <span className={styles.rigaParole}>{t("Parole", "Words")}</span>
           <span className={styles.rigaBattute}>{t("Battute", "Lines")}</span>
           <span className={styles.rigaExtra}>{t("Titolo e suoni", "Title and sounds")}</span>
@@ -254,7 +272,7 @@ export function Timeline(p: PropsTimeline) {
                 const eredita = ereditata(proprio, piano, tr.scena)
                 const onda = info ? p.onde(info.file) : null
                 const fotogramma = p.fotogrammi[i] ? urlMedia(p.fotogrammi[i]) : info?.miniatura
-                const nome = tr.sorgente === null ? t("Senza voce", "No voice") : info ? nomeFile(info.file) : tr.sorgente
+                const nome = tr.sorgente === null ? t("Senza voce", "No voice") : info ? senzaEstensione(info.file) : tr.sorgente
                 return (
                   <div
                     key={i}
@@ -265,32 +283,35 @@ export function Timeline(p: PropsTimeline) {
                     onPointerDown={(e) => inizia(e, "sposta", i)}
                     onPointerMove={muovi}
                     onPointerUp={lascia}
+                    onPointerCancel={annulla}
                     title={senzaVoce ? `${nome}: ${centesimi(tr.durata)} s` : t("{nome}: dal secondo {da} al {a} del girato", "{nome}: from second {da} to {a} of the footage", { nome, da: centesimi(tr.da), a: centesimi(tr.da + tr.durata) })}
                   >
                     <span className={`${styles.miniatura} ${senzaVoce ? styles.senzaVoce : ""}`} style={fotogramma ? { backgroundImage: `url("${fotogramma}")` } : undefined} aria-hidden="true" />
                     {onda && <Onda da={tr.da} durata={tr.durata} larghezza={larga} onda={onda} />}
                     <span className={styles.nome}>{nome}</span>
-                    {tr.legato[0] !== null && <span className={`${styles.taglio} ${styles.taglioInizio}`} title={t("Il taglio d'inizio cade nel parlato ({db} dB)", "The start cut falls inside speech ({db} dB)", { db: tr.legato[0] })} />}
-                    {tr.legato[1] !== null && <span className={`${styles.taglio} ${styles.taglioFine}`} title={t("Il taglio di fine cade nel parlato ({db} dB)", "The end cut falls inside speech ({db} dB)", { db: tr.legato[1] })} />}
+                    {tr.legato[0] !== null && <span className={`${styles.taglio} ${styles.taglioInizio}`} title={t("Il taglio d'inizio cade dentro una parola", "The start cut falls inside a word")} />}
+                    {tr.legato[1] !== null && <span className={`${styles.taglio} ${styles.taglioFine}`} title={t("Il taglio di fine cade dentro una parola", "The end cut falls inside a word")} />}
                     {!senzaVoce && (
                       <>
                         <span
                           className={`${styles.maniglia} ${styles.manigliaInizio}`}
                           role="separator"
-                          aria-label={t("Accorcia o allunga l'inizio del tratto", "Shorten or lengthen the start of the segment")}
+                          aria-label={t("Accorcia o allunga l'inizio del pezzo", "Shorten or lengthen the start of the clip")}
                           aria-disabled={bloccata}
                           onPointerDown={(e) => !bloccata && inizia(e, "inizio", i)}
                           onPointerMove={muovi}
                           onPointerUp={lascia}
+                          onPointerCancel={annulla}
                         />
                         <span
                           className={`${styles.maniglia} ${styles.manigliaFine}`}
                           role="separator"
-                          aria-label={t("Accorcia o allunga la fine del tratto", "Shorten or lengthen the end of the segment")}
+                          aria-label={t("Accorcia o allunga la fine del pezzo", "Shorten or lengthen the end of the clip")}
                           aria-disabled={bloccata}
                           onPointerDown={(e) => !bloccata && inizia(e, "fine", i)}
                           onPointerMove={muovi}
                           onPointerUp={lascia}
+                          onPointerCancel={annulla}
                         />
                       </>
                     )}
@@ -301,7 +322,7 @@ export function Timeline(p: PropsTimeline) {
             </div>
 
             <div className={`${styles.riga} ${styles.rigaParole}`} onPointerDown={scorriCon}>
-              {pxAlSecondo >= 8 &&
+              {pxAlSecondo >= PX_AL_SECONDO_PER_LE_PAROLE &&
                 risolto.parole.map((w, i) => {
                   const dentro = selezione?.tipo === "parole" && i >= Math.min(selezione.da, selezione.a) && i <= Math.max(selezione.da, selezione.a)
                   return (
@@ -342,8 +363,8 @@ export function Timeline(p: PropsTimeline) {
                 </span>
               )}
               {risolto.suoni.map((s, i) => (
-                <span key={i} className={styles.suono} style={{ left: s.esce * pxAlSecondo }} title={`${nomeFile(s.file)}, ${s.guadagno} dB`}>
-                  {nomeFile(s.file)}
+                <span key={i} className={styles.suono} style={{ left: s.esce * pxAlSecondo }} title={`${senzaEstensione(s.file)}, ${s.guadagno} dB`}>
+                  {senzaEstensione(s.file)}
                 </span>
               ))}
             </div>

@@ -2,6 +2,7 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./theme.css"
 import { App } from "./App"
+import { ConfineErrore } from "./comuni/ConfineErrore"
 import { useLingua } from "./lingua"
 import { applicaTema, leggiTema } from "./tema"
 
@@ -16,6 +17,8 @@ function Radice() {
 
 createRoot(radice).render(
   <StrictMode>
-    <Radice />
+    <ConfineErrore>
+      <Radice />
+    </ConfineErrore>
   </StrictMode>,
 )

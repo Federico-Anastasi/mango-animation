@@ -33,17 +33,6 @@ fn tipi(eventi: &[Value]) -> Vec<&str> {
 }
 
 #[test]
-fn il_ponte_i_permessi_e_la_capability_dicono_gli_stessi_comandi() {
-    let (build, capability) = (include_str!("../../build.rs"), include_str!("../../capabilities/default.json"));
-    for comando in COMANDI {
-        assert!(PONTE.contains(&format!("\"{comando}\"")), "{comando} non è nel ponte");
-        assert!(build.contains(&format!("\"{comando}\"")), "{comando} non è nei permessi di build.rs");
-    }
-    assert!(build.contains("\"mango-animation-voce\"") && capability.contains("mango-animation-voce:default"));
-    assert!(PONTE.contains("plugin:mango-animation-voce|"));
-}
-
-#[test]
 fn nel_codice_non_si_legge_nessun_login() {
     let sorgenti = [include_str!("mod.rs"), include_str!("locale.rs"), include_str!("audio.rs"), include_str!("../../Cargo.toml")];
     for testo in sorgenti {
@@ -70,39 +59,27 @@ fn ambiente(coppie: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
 #[test]
 fn di_base_il_comando_e_python_col_motore_lanciato_dalla_radice() {
     let r = finta_radice();
-    let sotto = r.path().join("app").join("target").join("release");
-    std::fs::create_dir_all(&sotto).unwrap();
-    let c = comando_del_motore(&ambiente(&[]), &sotto, None).unwrap();
+    let c = comando_del_motore(&ambiente(&[]), Some(r.path()), None).unwrap();
     assert_eq!((c.exe.to_str().unwrap(), c.cwd.as_path(), c.di_base), ("python", r.path(), true));
     assert_eq!(c.args, ["-m", "motore", "detta"]);
-    let c = comando_del_motore(&ambiente(&[("MANGO_ANIMATION_PYTHON", "C:\\py\\python.exe"), ("MANGO_ANIMATION_MODULO", "altro")]), &sotto, None).unwrap();
+    let c = comando_del_motore(&ambiente(&[("MANGO_ANIMATION_PYTHON", "C:\\py\\python.exe"), ("MANGO_ANIMATION_MODULO", "altro")]), Some(r.path()), None).unwrap();
     assert_eq!((c.exe.to_str().unwrap(), c.args), ("C:\\py\\python.exe", vec!["-m".into(), "altro".into(), "detta".into()]));
 }
 
 #[test]
 fn il_python_preparato_dall_app_prende_il_posto_di_quello_del_percorso_ma_non_di_un_motore_indicato_dal_creator() {
     let r = finta_radice();
-    let di_base = Motore::nuovo(comando_del_motore(&ambiente(&[]), r.path(), None), r.path().join("d.log"));
+    let di_base = Motore::nuovo(comando_del_motore(&ambiente(&[]), Some(r.path()), None), r.path().join("d.log"));
     di_base.usa_python(Path::new("python-dell-app.exe"));
     assert_eq!(di_base.comando_attuale().unwrap().exe, OsString::from("python-dell-app.exe"));
-    let privato = Motore::nuovo(comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, "privato.exe detta")]), r.path(), None), r.path().join("d.log"));
+    let privato = Motore::nuovo(comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, "privato.exe detta")]), Some(r.path()), None), r.path().join("d.log"));
     privato.usa_python(Path::new("python-dell-app.exe"));
     assert_eq!(privato.comando_attuale().unwrap().exe, OsString::from("privato.exe"));
     // Un motore che non si trova resta com'è: lo dirà quando si accende.
     let altrove = tempfile::tempdir().unwrap();
-    let mancante = Motore::nuovo(comando_del_motore(&ambiente(&[]), altrove.path(), None), r.path().join("d.log"));
+    let mancante = Motore::nuovo(comando_del_motore(&ambiente(&[]), Some(altrove.path()), None), r.path().join("d.log"));
     mancante.usa_python(Path::new("python-dell-app.exe"));
     assert!(mancante.comando_attuale().is_err());
-}
-
-#[test]
-fn nell_app_installata_il_motore_sta_in_codice_accanto_all_eseguibile() {
-    let t = tempfile::tempdir().unwrap();
-    let codice = t.path().join("codice");
-    std::fs::create_dir_all(codice.join("motore")).unwrap();
-    std::fs::write(codice.join("motore").join("__main__.py"), "").unwrap();
-    let c = comando_del_motore(&ambiente(&[]), t.path(), None).unwrap();
-    assert_eq!(c.cwd, codice);
 }
 
 #[test]
@@ -110,11 +87,11 @@ fn la_cartella_dei_dati_arriva_al_motore_della_dettatura() {
     let r = finta_radice();
     let dati = tempfile::tempdir().unwrap();
     let voluta = (OsString::from("MANGO_ANIMATION_LAVORO"), dati.path().as_os_str().to_owned());
-    let c = comando_del_motore(&ambiente(&[]), r.path(), Some(dati.path())).unwrap();
+    let c = comando_del_motore(&ambiente(&[]), Some(r.path()), Some(dati.path())).unwrap();
     assert!(c.ambiente.contains(&voluta));
-    let c = comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, "privato.exe detta")]), r.path(), Some(dati.path())).unwrap();
+    let c = comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, "privato.exe detta")]), Some(r.path()), Some(dati.path())).unwrap();
     assert!(c.ambiente.contains(&voluta));
-    assert!(!comando_del_motore(&ambiente(&[]), r.path(), None).unwrap().ambiente.iter().any(|(k, _)| k == "MANGO_ANIMATION_LAVORO"));
+    assert!(!comando_del_motore(&ambiente(&[]), Some(r.path()), None).unwrap().ambiente.iter().any(|(k, _)| k == "MANGO_ANIMATION_LAVORO"));
 }
 
 #[test]
@@ -122,23 +99,20 @@ fn la_cartella_scelta_dopo_l_accensione_dell_app_arriva_al_motore_e_sostituisce_
     let r = finta_radice();
     let (prima, dopo) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let cartella = |m: &Motore| m.comando_attuale().unwrap().ambiente.iter().filter(|(k, _)| k == "MANGO_ANIMATION_LAVORO").map(|(_, v)| v.clone()).collect::<Vec<_>>();
-    let senza = Motore::nuovo(comando_del_motore(&ambiente(&[]), r.path(), None), r.path().join("d.log"));
+    let senza = Motore::nuovo(comando_del_motore(&ambiente(&[]), Some(r.path()), None), r.path().join("d.log"));
     assert!(cartella(&senza).is_empty());
     senza.usa_lavoro(dopo.path());
     assert_eq!(cartella(&senza), vec![dopo.path().as_os_str().to_owned()]);
-    let con = Motore::nuovo(comando_del_motore(&ambiente(&[]), r.path(), Some(prima.path())), r.path().join("d.log"));
+    let con = Motore::nuovo(comando_del_motore(&ambiente(&[]), Some(r.path()), Some(prima.path())), r.path().join("d.log"));
     con.usa_lavoro(dopo.path());
     assert_eq!(cartella(&con), vec![dopo.path().as_os_str().to_owned()]);
 }
 
 #[test]
-fn la_radice_indicata_vince_e_senza_motore_lo_dice() {
-    let r = finta_radice();
+fn senza_la_radice_del_codice_o_senza_motore_dentro_lo_dice() {
     let altrove = tempfile::tempdir().unwrap();
-    let c = comando_del_motore(&ambiente(&[("MANGO_ANIMATION_RADICE", r.path().to_str().unwrap())]), altrove.path(), None).unwrap();
-    assert_eq!(c.cwd, r.path());
-    for senza in [ambiente(&[]), ambiente(&[("MANGO_ANIMATION_RADICE", altrove.path().to_str().unwrap())])] {
-        let e = comando_del_motore(&senza, altrove.path(), None).unwrap_err();
+    for radice in [None, Some(altrove.path())] {
+        let e = comando_del_motore(&ambiente(&[]), radice, None).unwrap_err();
         assert_eq!(e.code, "motore_mancante");
         assert!(e.message.contains("motore/"), "{}", e.message);
     }
@@ -146,13 +120,12 @@ fn la_radice_indicata_vince_e_senza_motore_lo_dice() {
 
 #[test]
 fn una_variabile_cambia_il_motore_e_non_serve_la_radice() {
-    let altrove = tempfile::tempdir().unwrap();
     let riga = r#""C:\Program Files\Motore\privato.exe" detta --lingua it"#;
-    let c = comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, riga)]), altrove.path(), None).unwrap();
+    let c = comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, riga)]), None, None).unwrap();
     assert_eq!(c.exe.to_str().unwrap(), r"C:\Program Files\Motore\privato.exe");
     assert_eq!(c.args, ["detta", "--lingua", "it"]);
     assert!(!c.di_base);
-    assert_eq!(comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, "\"aperta")]), altrove.path(), None).unwrap_err().code, "comando_non_valido");
+    assert_eq!(comando_del_motore(&ambiente(&[(VARIABILE_COMANDO, "\"aperta")]), None, None).unwrap_err().code, "comando_non_valido");
 }
 
 #[test]
@@ -491,7 +464,7 @@ fn il_motore_acceso_dall_app_muore_con_lei_anche_se_va_in_crash() {
 // ---------------------------------------------------------------- il motore vero
 
 /// Il motore vero (`python -m motore detta`, il modello scelto in `stile.json`) su un WAV del creator a 16 bit, suonato in tempo reale.
-/// `MANGO_ANIMATION_PROVA_WAV=<file> cargo test -- --ignored --nocapture`; per la scheda, `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=<n>`.
+/// `MANGO_ANIMATION_PROVA_WAV=<file> cargo test il_motore_vero -- --ignored --nocapture`; per la scheda, `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=<n>`.
 #[test]
 #[ignore = "carica il modello vero e usa la scheda video o il processore (un minuto o più)"]
 fn il_motore_vero_trascrive_la_voce_del_creator_in_tempo_reale() {
@@ -499,7 +472,9 @@ fn il_motore_vero_trascrive_la_voce_del_creator_in_tempo_reale() {
     let (campioni, rate) = audio::leggi_wav(&wav).unwrap();
     let durata = Duration::from_secs_f64(campioni.len() as f64 / rate as f64);
     let t = tempfile::tempdir().unwrap();
-    let voce = Voce::nuova(t.path().to_path_buf(), None);
+    let partenza = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
+    let radice = crate::radice::trova_radice(&partenza, std::env::var("MANGO_ANIMATION_RADICE").ok().as_deref()).unwrap();
+    let voce = Voce::nuova(t.path().to_path_buf(), Some(&radice), None);
     assert_eq!(voce.stato(Lingua::It)["disponibile"], json!(true), "{}", voce.stato(Lingua::It));
     let ordine = Arc::new(Mutex::new(Vec::<(Duration, Value)>::new()));
     let (inizio, dentro) = (Instant::now(), ordine.clone());

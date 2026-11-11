@@ -35,8 +35,6 @@ export function scegliTema(tema: Tema): void {
   applicaTema(tema)
 }
 
-export const prossimoTema = (tema: Tema): Tema => ordine[(ordine.indexOf(tema) + 1) % ordine.length]!
-
 export function useTema(): Tema {
   return useSyncExternalStore(
     (ascolta) => {

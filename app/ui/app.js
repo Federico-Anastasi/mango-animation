@@ -24,7 +24,6 @@ function testiFissi() {
     "Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.",
     "Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.",
   );
-  $("mango-code").textContent = t("Ho trovato anche Mango Code: potrai usarlo come motore nella chat.", "I also found Mango Code: you will be able to use it as an engine in the chat.");
   $("piani-link").textContent = t("Guarda i piani", "See the plans");
   $("alternativa-testo").textContent = t("Se preferisci, incolla questo comando in PowerShell:", "If you prefer, paste this command into PowerShell:");
   $("riprova").textContent = t("Riprova", "Try again");
@@ -93,7 +92,8 @@ function titoloDi(s) {
   if (s.fase !== "errore") return t("Sto preparando tutto", "Getting everything ready");
   if (s.lavoro) return t("La cartella dei dati non va", "The data folder has a problem");
   if (s.radice) return t("Non trovo il codice di Mango Animation", "I can't find the code of Mango Animation");
-  return s.fermato ? t("Il server si è fermato", "The server has stopped") : t("Il server non parte", "The server won't start");
+  if (s.fermato) return t("Il server si è fermato", "The server has stopped");
+  return s.log ? t("Il server non parte", "The server won't start") : t("Non riesco a preparare l'app", "I can't get the app ready");
 }
 
 function dettaglioDi(s) {
@@ -378,7 +378,6 @@ function mostra(s) {
 
   const daInstallare = claude && !s.claude.trovato;
   $("abbonamento").hidden = !claude;
-  $("mango-code").hidden = !(claude && s.claude.mango_code);
   $("installa").hidden = !daInstallare;
   $("installa").textContent = s.claude?.messaggio ? t("Riprova", "Try again") : t("Installa Claude Code", "Install Claude Code");
   $("alternativa").hidden = !daInstallare;

@@ -24,6 +24,8 @@ export async function leggiTesto(percorso: string): Promise<string | null> {
 /** Perché un file che non è JSON non vale: la frase che lo studio mostra, senza gergo. */
 export const NON_SI_LEGGE = frase("il file è scritto male e non si legge", "the file is badly written and cannot be read")
 
+export const eOggetto = (valore: unknown): valore is Record<string, unknown> => typeof valore === "object" && valore !== null && !Array.isArray(valore)
+
 export function jsonDaTesto(testo: string): { valore: unknown } | null {
   try {
     return { valore: JSON.parse(testo) }

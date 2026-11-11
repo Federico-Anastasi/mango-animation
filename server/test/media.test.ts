@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { avviaAmbiente, chiama, fermaTutti, piano, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
+import { aspetta, avviaAmbiente, ascolta, chiama, fermaTutti, piano, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
 
 afterEach(fermaTutti)
 
@@ -264,6 +264,45 @@ describe("POST /api/apri", () => {
     expect(a.apertiInEsplora).toEqual([])
   })
 
+  describe("dentro l'app", () => {
+    const nellApp = () =>
+      avviaAmbiente({ nellApp: true }, async (c) => {
+        await scriviVideo(c, "v")
+        await mkdir(join(c.archivio, "video", "v", "uscite"), { recursive: true })
+        await writeFile(join(c.archivio, "video", "v", "uscite", "finale.mp4"), CONTENUTO)
+        await scriviGrezzo(c, "2026-10-06/a.mp4")
+        await mkdir(join(c.archivio, "canali"), { recursive: true })
+        await writeFile(join(c.archivio, "canali", "nota.txt"), "x")
+      })
+
+    test("«browser» manda la finestra dell'app sulla pagina o sul file con un messaggio vai, e non apre il browser", async () => {
+      const a = await nellApp()
+      const studio = await ascolta(a)
+      expect((await chiama(a, "POST", "/api/apri", { dove: "browser", video: "v", scheda: "slide" })).corpo).toEqual({ ok: true, aperto: "/#/video/v/slide" })
+      await chiama(a, "POST", "/api/apri", { dove: "browser", percorso: "video/v/uscite/finale.mp4" })
+      await chiama(a, "POST", "/api/apri", { dove: "browser", percorso: "grezzo/2026-10-06/a.mp4" })
+      await aspetta(() => studio.messaggi.length === 3 || undefined)
+      expect(studio.messaggi).toEqual([
+        { tipo: "vai", video: "v", scheda: "slide" },
+        { tipo: "vai", percorso: "video/v/uscite/finale.mp4" },
+        { tipo: "vai", percorso: "grezzo/2026-10-06/a.mp4" },
+      ])
+      expect(a.apertiNelBrowser).toEqual([])
+      studio.chiudi()
+    })
+
+    test("se nessuno studio è collegato, o il file non ha una vista, apre il browser come fuori dall'app", async () => {
+      const a = await nellApp()
+      await chiama(a, "POST", "/api/apri", { dove: "browser", video: "v" })
+      expect(a.apertiNelBrowser).toHaveLength(1)
+      const studio = await ascolta(a)
+      await chiama(a, "POST", "/api/apri", { dove: "browser", percorso: "canali/nota.txt" })
+      expect(a.apertiNelBrowser).toHaveLength(2)
+      expect(studio.messaggi).toEqual([])
+      studio.chiudi()
+    })
+  })
+
   test("fuori dall'archivio, assoluto, con «..» o che non esiste: rifiutato e non apre niente", async () => {
     const a = await conFile()
     for (const percorso of ["../segreto.txt", "video/../../segreto.txt", join(a.radice, "segreto.txt"), "C:\\Windows", "/Windows", "video\\..\\..\\segreto.txt"]) {
@@ -283,8 +322,9 @@ describe("lo stile", () => {
       await scriviGrezzo(c, "2026-10-06/a.mp4")
       await scriviVideo(c, "v", undefined, piano())
     })
-    const stile = (await chiama<{ quadri: Record<string, unknown>; formato: { largo: number } }>(a, "GET", "/api/stile")).corpo
-    expect(stile.formato.largo).toBe(1080)
+    const stile = (await chiama<{ quadri: Record<string, unknown>; formati: { verticale: { largo: number } } }>(a, "GET", "/api/stile")).corpo
+    expect(stile.formati.verticale.largo).toBe(1080)
+    expect(stile).not.toHaveProperty("formato")
     expect(Object.keys(stile.quadri)).toContain("girato-pieno")
 
     const senzaIlQuadro = { ...stile, quadri: Object.fromEntries(Object.entries(stile.quadri).filter(([n]) => n !== "girato-pieno")) }
@@ -293,9 +333,9 @@ describe("lo stile", () => {
     expect(rifiutato.corpo.errore).toContain("«girato-pieno» è usato da «v»")
     expect(JSON.parse(await readFile(a.stile, "utf-8")).quadri["girato-pieno"]).toBeDefined()
 
-    const senzaFormato = await chiama<{ errore: string }>(a, "PUT", "/api/stile", { quadri: stile.quadri })
-    expect(senzaFormato.stato).toBe(400)
-    expect(senzaFormato.corpo.errore).toContain("formato")
+    const senzaFormati = await chiama<{ errore: string }>(a, "PUT", "/api/stile", { quadri: stile.quadri })
+    expect(senzaFormati.stato).toBe(400)
+    expect(senzaFormati.corpo.errore).toContain("formati")
     expect((await chiama(a, "PUT", "/api/stile", [])).stato).toBe(400)
 
     const nuovo = { ...stile, sottotitoli: { corpo: 60 } }
@@ -326,10 +366,10 @@ describe("lo stile", () => {
 
   test("uno stile del creator che non si legge lascia lo stile di prima e non ferma il server", async () => {
     const a = await avviaAmbiente()
-    const prima = (await chiama<{ formato: { largo: number } }>(a, "GET", "/api/stile")).corpo
+    const prima = (await chiama<{ formati: { verticale: { largo: number } } }>(a, "GET", "/api/stile")).corpo
     await writeFile(join(a.radice, "stile.json"), "{ non json")
     await Bun.sleep(400)
-    expect((await chiama<{ formato: { largo: number } }>(a, "GET", "/api/stile")).corpo).toEqual(prima)
+    expect((await chiama<{ formati: { verticale: { largo: number } } }>(a, "GET", "/api/stile")).corpo).toEqual(prima)
   })
 })
 

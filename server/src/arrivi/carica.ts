@@ -1,16 +1,40 @@
 // La pagina per mandare i video dall'iPhone senza passare dalla Scorciatoia: si sceglie dalla libreria e ogni file parte
 // com'è, uno dopo l'altro, verso la stessa rotta della Scorciatoia. Il file non si legge in memoria: lo passa il browser.
+import { frase, type Lingua } from "../lingua"
 import { ESTENSIONI } from "./nomi"
-import { STILE_BASE } from "./pagine"
+import { inScript, localeDi, STILE_BASE } from "./pagine"
 
 // L'iPhone non riconosce i memo vocali (.m4a) come audio/*: le estensioni vanno dette una per una.
 const SCEGLIBILI = ["video/*", "image/*", "audio/*", ...ESTENSIONI.audio.map((e) => `.${e}`)].join(",")
 
-export function paginaCarica(chiave: string): string {
+const TESTI = {
+  titolo: frase("Carica su Mango Animation", "Upload to Mango Animation"),
+  scegli: frase("Carica video", "Upload videos"),
+  opzioni: frase(
+    "Quando l'iPhone mostra la scelta del video, tocca «Opzioni» in alto e scegli «Attuale»: così il video parte com'è, senza essere convertito.",
+    "When the iPhone shows the video picker, tap «Options» at the top and choose «Current»: the video is sent as it is, without being converted.",
+  ),
+  schermo: frase("Tieni lo schermo acceso e questa pagina aperta finché non è finito. I file partono uno dopo l'altro.", "Keep the screen on and this page open until it is done. Files are sent one after the other."),
+}
+
+/** Le frasi che lo script della pagina scrive da sé, mentre i file partono. */
+const NELLO_SCRIPT = {
+  inAttesa: frase("In attesa", "Waiting"),
+  parte: frase("Parte…", "Starting…"),
+  inviato: frase("Inviato: il computer lo sta salvando…", "Sent: the computer is saving it…"),
+  di: frase("di", "of"),
+  inMedia: frase("MB/s in media.", "MB/s on average."),
+  nonCapisco: frase("Il computer ha risposto in un modo che non capisco ({stato}). Riprova.", "The computer answered in a way I do not understand ({stato}). Try again."),
+  nonArrivato: frase("Non è arrivato: controlla di essere sul Wi-Fi di casa e che il computer sia acceso. Riprova.", "It did not arrive: check that you are on your home Wi-Fi and that the computer is on. Try again."),
+}
+
+export function paginaCarica(chiave: string, lingua: Lingua): string {
   const indirizzo = JSON.stringify(`/arrivi/contenuti-video?chiave=${encodeURIComponent(chiave)}`)
+  const t = (nome: keyof typeof TESTI) => TESTI[nome].in(lingua)
+  const testiDelloScript = inScript(Object.fromEntries(Object.entries(NELLO_SCRIPT).map(([nome, f]) => [nome, f.in(lingua)])))
   return `<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="referrer" content="no-referrer"><title>Carica su base</title>
+<html lang="${lingua}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>${t("titolo")}</title>
 <style>
 ${STILE_BASE}
 h1{font-size:26px;margin:0 0 12px}p{margin:8px 0}.piccolo{color:var(--grigio);font-size:15px}
@@ -24,17 +48,18 @@ li b{display:block;font-weight:600;overflow-wrap:anywhere}
 .dati{color:var(--grigio);font-size:15px}
 .ok .barra i{background:#2E8B57}.no .dati{color:var(--rosso);font-weight:600}
 </style></head><body>
-<h1>Carica su base</h1>
-<label class="scegli">Carica video<input id="scelta" type="file" accept="${SCEGLIBILI}" multiple></label>
-<p class="piccolo">Quando l'iPhone mostra la scelta del video, tocca «Opzioni» in alto e scegli «Attuale»: così il video parte com'è, senza essere convertito.</p>
-<p class="piccolo">Tieni lo schermo acceso e questa pagina aperta finché non è finito. I file partono uno dopo l'altro.</p>
+<h1>${t("titolo")}</h1>
+<label class="scegli">${t("scegli")}<input id="scelta" type="file" accept="${SCEGLIBILI}" multiple></label>
+<p class="piccolo">${t("opzioni")}</p>
+<p class="piccolo">${t("schermo")}</p>
 <ul id="elenco"></ul>
 <script>
 var INDIRIZZO = ${indirizzo};
+var T = ${testiDelloScript};
 var MB = 1024 * 1024;
 var coda = [];
 var inCorso = false;
-var numero = function (n) { return n.toLocaleString("it-IT", { maximumFractionDigits: 1, minimumFractionDigits: 1 }); };
+var numero = function (n) { return n.toLocaleString(${JSON.stringify(localeDi(lingua))}, { maximumFractionDigits: 1, minimumFractionDigits: 1 }); };
 
 function riga(file) {
   var li = document.createElement("li");
@@ -49,7 +74,7 @@ function riga(file) {
   barra.appendChild(riempimento);
   var dati = document.createElement("div");
   dati.className = "dati";
-  dati.textContent = "In attesa";
+  dati.textContent = T.inAttesa;
   li.append(nome, barra, dati);
   document.getElementById("elenco").appendChild(li);
   return { li: li, barra: barra, riempimento: riempimento, dati: dati };
@@ -72,8 +97,8 @@ function manda(file, r) {
       r.riempimento.style.width = percento + "%";
       r.barra.setAttribute("aria-valuenow", String(percento));
       r.dati.textContent = e.loaded >= e.total
-        ? "Inviato: il computer lo sta salvando…"
-        : percento + "% · " + numero(e.loaded / MB) + " di " + numero(e.total / MB) + " MB · " + numero(ultimo.velocita) + " MB/s";
+        ? T.inviato
+        : percento + "% · " + numero(e.loaded / MB) + " " + T.di + " " + numero(e.total / MB) + " MB · " + numero(ultimo.velocita) + " MB/s";
     };
     xhr.onload = function () {
       var corpo = {};
@@ -83,13 +108,13 @@ function manda(file, r) {
       if (bene) r.riempimento.style.width = "100%";
       var secondi = Math.max((Date.now() - inizio) / 1000, 0.1);
       r.dati.textContent = bene
-        ? corpo.messaggio + " " + numero(file.size / MB / secondi) + " MB/s in media."
-        : corpo.errore || "Il computer ha risposto in un modo che non capisco (" + xhr.status + "). Riprova.";
+        ? corpo.messaggio + " " + numero(file.size / MB / secondi) + " " + T.inMedia
+        : corpo.errore || T.nonCapisco.replace("{stato}", xhr.status);
       fine();
     };
     xhr.onerror = xhr.ontimeout = xhr.onabort = function () {
       r.li.className = "no";
-      r.dati.textContent = "Non è arrivato: controlla di essere sul Wi-Fi di casa e che il computer sia acceso. Riprova.";
+      r.dati.textContent = T.nonArrivato;
       fine();
     };
     xhr.send(file);
@@ -101,7 +126,7 @@ async function svuota() {
   inCorso = true;
   while (coda.length) {
     var voce = coda.shift();
-    voce.riga.dati.textContent = "Parte…";
+    voce.riga.dati.textContent = T.parte;
     await manda(voce.file, voce.riga);
   }
   inCorso = false;

@@ -52,7 +52,7 @@ function esegui(bridgeEsistenti: Ponte = {}) {
   return console
 }
 
-const righe = () => chiamate.filter((c) => c.comando === "plugin:mango-animation-segnalazione|scrivi_ui_log").map((c) => c.argomenti)
+const righe = () => chiamate.filter((c) => c.comando === "plugin:mango-animation|scrivi_ui_log").map((c) => c.argomenti)
 
 beforeEach(() => {
   invokeRifiuta = false
@@ -141,7 +141,7 @@ describe("«Segnala un problema»", () => {
     const inviata = await (ponte().segnalazione!.invia!({ nota: "non parte", errore: "Il server non parte", schermata: true }) as Promise<unknown>)
     expect(inviata).toEqual({ inviata: true })
     expect(chiamate.at(-1)).toEqual({
-      comando: "plugin:mango-animation-segnalazione|segnala_problema",
+      comando: "plugin:mango-animation|segnala_problema",
       argomenti: { errore: "Il server non parte", nota: "non parte", schermata: true, pagina: "/#/motori" },
     })
   })
@@ -155,7 +155,7 @@ describe("«Segnala un problema»", () => {
   test("chiede all'app se l'invio è attivo, per mostrare l'interruttore della schermata solo allora", async () => {
     esegui()
     await ponte().segnalazione!.invioAttivo!()
-    expect(chiamate.at(-1)).toEqual({ comando: "plugin:mango-animation-segnalazione|segnalazione_invio_attivo", argomenti: undefined })
+    expect(chiamate.at(-1)).toEqual({ comando: "plugin:mango-animation|segnalazione_invio_attivo", argomenti: undefined })
   })
 
   test("gli altri ponti restano dove erano", () => {

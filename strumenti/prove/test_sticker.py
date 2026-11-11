@@ -4,6 +4,8 @@ from PIL import Image, ImageDraw
 
 from strumenti import sticker as s
 
+MISURE = s.misure_dello_sticker()
+
 
 def persona(capello_sparso=False):
     """Un fotogramma di sagoma finto: testa tonda, spalle fino ai bordi e al fondo, fuori trasparente."""
@@ -17,7 +19,7 @@ def persona(capello_sparso=False):
 
 
 def test_lo_sticker_e_il_busto_con_un_bordo_bianco_pieno_e_fuori_trasparente():
-    st = s.sticker(persona())
+    st = s.sticker(persona(), MISURE)
     alfa = st.getchannel("A")
     assert st.height < 1920, "il busto si taglia sul petto"
     assert alfa.getpixel((0, 0)) == 0
@@ -25,12 +27,18 @@ def test_lo_sticker_e_il_busto_con_un_bordo_bianco_pieno_e_fuori_trasparente():
     centro = larghezza // 2
     cima = next(y for y in range(st.height) if alfa.getpixel((centro, y)) == 255)
     assert st.getpixel((centro, cima + 3))[:3] == (255, 255, 255), "sopra la testa c'è il bordo bianco"
-    assert st.getpixel((centro, cima + s.BORDO + 60))[:3] == (200, 150, 120), "dentro c'è la persona com'era"
+    assert st.getpixel((centro, cima + MISURE["bordo"] + 60))[:3] == (200, 150, 120), "dentro c'è la persona com'era"
     assert set(alfa.get_flattened_data()) <= {0, 255}, "nessun alone: il bordo è pieno o non c'è"
 
 
+def test_le_misure_dello_sticker_vengono_dallo_stile():
+    largo = s.sticker(persona(), {**MISURE, "bordo": 60})
+    assert largo.width == s.sticker(persona(), MISURE).width + 60 and largo.height == s.sticker(persona(), MISURE).height + 60
+    assert s.sticker(persona(), {**MISURE, "lati": 0.2}).width < s.sticker(persona(), MISURE).width
+
+
 def test_un_ciuffo_isolato_non_si_porta_dietro_il_bordo():
-    pulito, sparso = s.sticker(persona()), s.sticker(persona(capello_sparso=True))
+    pulito, sparso = s.sticker(persona(), MISURE), s.sticker(persona(capello_sparso=True), MISURE)
     assert pulito.size == sparso.size
 
 

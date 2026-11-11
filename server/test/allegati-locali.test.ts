@@ -1,13 +1,19 @@
 // Un file del computer (copiato in Esplora risorse) entra fra gli allegati della chat per percorso: il server lo copia, o lo collega se è grande.
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { isAbsolute, join } from "node:path"
 import { risolviAllegati } from "../src/chat/allegati"
-import { avviaAmbiente, chiama, fermaTutti } from "./aiuti"
+import { avviaAmbiente, chiama, fermaTutti, sceltiDallApp } from "./aiuti"
 
 afterEach(fermaTutti)
 
-const copia = (a: Awaited<ReturnType<typeof avviaAmbiente>>, percorso: unknown) => chiama<{ percorso?: string; errore?: string }>(a, "POST", "/api/chat/allegati/locale", { percorso })
+type Ambiente = Awaited<ReturnType<typeof avviaAmbiente>>
+
+/** Il file l'ha scelto il creator (lo dice l'app) e poi la chat lo chiede. */
+async function copia(a: Ambiente, percorso: unknown) {
+  if (typeof percorso === "string" && isAbsolute(percorso)) await sceltiDallApp(a, [percorso])
+  return chiama<{ percorso?: string; errore?: string }>(a, "POST", "/api/chat/allegati/locale", { percorso })
+}
 
 describe("POST /api/chat/allegati/locale", () => {
   test("copia il file fra gli allegati, col suo nome; uno già preso non si sovrascrive", async () => {
@@ -58,10 +64,24 @@ describe("POST /api/chat/allegati/locale", () => {
     expect(await risolviAllegati(a.archivio, [{ percorso: ".chat/allegati/grande.mov" }])).toMatchObject([{ percorso: ".chat/allegati/grande.mov", byte: 16 * 1024 ** 2 + 1 }])
   })
 
+  test("un file che il creator non ha scelto con un gesto non si copia: la chiave delle API non basta, e un percorso vale una volta sola", async () => {
+    const a = await avviaAmbiente()
+    const file = join(a.radice, "segreto.txt")
+    await writeFile(file, "x")
+    const senza = await chiama<{ errore?: string }>(a, "POST", "/api/chat/allegati/locale", { percorso: file })
+    expect(senza.stato).toBe(403)
+    expect(senza.corpo.errore).toContain("non l'hai scelto")
+    expect(await Bun.file(join(a.archivio, ".chat", "allegati", "segreto.txt")).exists()).toBe(false)
+
+    expect((await copia(a, file)).stato).toBe(201)
+    expect((await chiama(a, "POST", "/api/chat/allegati/locale", { percorso: file })).stato).toBe(403)
+  })
+
   test("un corpo che non dichiara di essere JSON (come quello di una pagina di un altro sito) non copia", async () => {
     const a = await avviaAmbiente()
     const file = join(a.radice, "segreto.txt")
     await writeFile(file, "x")
+    await sceltiDallApp(a, [file])
     const r = await fetch(`${a.url}/api/chat/allegati/locale`, { method: "POST", headers: { ...a.accesso, "Content-Type": "text/plain" }, body: JSON.stringify({ percorso: file }) })
     expect(r.status).toBe(400)
     expect((await Bun.file(join(a.archivio, ".chat", "allegati", "segreto.txt")).exists())).toBe(false)

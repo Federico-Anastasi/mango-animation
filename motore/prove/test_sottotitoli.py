@@ -234,3 +234,16 @@ def test_una_battuta_che_comincia_sul_cambio_di_scena_prende_il_posto_della_scen
     assert _scena_a(risolto, 41.833) == 1
     assert _scena_a(risolto, 41.80) == 0
     assert _scena_a(risolto, 60) == 1
+
+
+def test_su_un_fondo_chiaro_il_contorno_e_piu_sottile_e_su_uno_scuro_resta_com_e(archivio):
+    """Il contorno nero attorno a lettere bianche, a sei pixel, su un fondo chiaro riempie gli occhielli delle lettere: i quadri chiari lo vogliono più sottile."""
+    stile, base = archivio.stile, archivio.stile["sottotitoli"]["contorno"]
+    luminosita = lambda nome: sum(c * k for c, k in zip(archivio.colore(nome), (0.2126, 0.7152, 0.0722))) / 255
+    chiari = {n: q for n, q in stile["quadri"].items() if luminosita(q["fondo"]) > 0.6}
+    scuri = {n: q for n, q in stile["quadri"].items() if luminosita(q["fondo"]) < 0.4}
+    assert chiari and scuri
+    for nome, q in chiari.items():
+        assert scheda_cartello(stile, "sottotitoli", archivio.colore, q["sottotitoli"])["contorno"] == base // 2, nome
+    for nome, q in scuri.items():
+        assert scheda_cartello(stile, "sottotitoli", archivio.colore, q["sottotitoli"])["contorno"] == base, nome

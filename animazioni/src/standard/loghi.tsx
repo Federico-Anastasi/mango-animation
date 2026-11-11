@@ -1,4 +1,5 @@
 import claude from "./loghi/claude.svg?raw";
+import meta from "./loghi/meta.svg?raw";
 import openai from "./loghi/openai.svg?raw";
 
 // Ogni file in `loghi/` ha accanto il suo `.txt`: da dove viene, la licenza, il giorno in cui è stato scaricato.
@@ -21,6 +22,9 @@ export const CLAUDE = simbolo(claude, claude.match(/fill="([^"]+)"/)?.[1]);
 
 /** Il simbolo di OpenAI, cioè di ChatGPT (`loghi/openai.txt`: Commons, pubblico dominio, marchio registrato). */
 export const CHATGPT = simbolo(openai, "var(--inchiostro)");
+
+/** Il simbolo di Meta (`loghi/meta.txt`: Commons, pubblico dominio, marchio di Meta Platforms), nel suo blu. */
+export const META = simbolo(meta, meta.match(/fill="([^"]+)"/)?.[1]);
 
 /** Un logo centrato in (x, y), largo `lato` pixel, girato di `ruota` gradi. */
 export function Logo({ simbolo: s, x, y, lato, ruota = 0, opacita = 1 }: { simbolo: Simbolo; x: number; y: number; lato: number; ruota?: number; opacita?: number }) {

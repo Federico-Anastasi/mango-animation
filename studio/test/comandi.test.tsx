@@ -153,7 +153,7 @@ describe("la tendina dei comandi", () => {
   it("scrivendo «/» si apre con i comandi dello studio e quelli del server, ognuno con argomenti e descrizione", async () => {
     await apri()
     await scriviBarra("/")
-    expect(opzioni()).toEqual(["/clear", "/exit", "/resume", "/model [modello]", "/effort [livello]", "/compact <optional custom summarization instructions>", "/context", "/rename <name>"])
+    await waitFor(() => expect(opzioni()).toEqual(["/clear", "/exit", "/resume", "/model [modello]", "/effort [livello]", "/compact <optional custom summarization instructions>", "/context", "/rename <name>"]))
     const compact = within(screen.getByRole("listbox")).getByRole("option", { name: /\/compact/ })
     expect(compact).toHaveTextContent("Clear conversation history but keep a summary in context")
     expect(within(screen.getByRole("listbox")).getByRole("option", { name: /\/exit/ })).toHaveTextContent("Chiude la conversazione")
@@ -162,7 +162,7 @@ describe("la tendina dei comandi", () => {
   it("si filtra mentre si scrive e si chiude con uno spazio o senza corrispondenze", async () => {
     await apri()
     await scriviBarra("/co")
-    expect(opzioni()).toEqual(["/compact <optional custom summarization instructions>", "/context", "/resume"])
+    await waitFor(() => expect(opzioni()).toEqual(["/compact <optional custom summarization instructions>", "/context", "/resume"]))
     scrivi(campo(), "/zzz")
     expect(screen.queryByRole("listbox")).toBeNull()
     scrivi(campo(), "/context ")
@@ -264,7 +264,7 @@ describe("la tendina dei comandi", () => {
   it("quando il server dice che i comandi sono cambiati, la tendina si aggiorna", async () => {
     await apri()
     await scriviBarra("/ren")
-    expect(opzioni()).toEqual(["/rename <name>"])
+    await waitFor(() => expect(opzioni()).toEqual(["/rename <name>"]))
     rete({ "GET /api/chat/comandi": [...COMANDI, { nome: "renew", descrizione: "Renew", argomenti: "", alias: [] }] })
     await act(() => eventi.istanze.at(-1)!.manda({ tipo: "comandi" }))
     await waitFor(() => expect(opzioni()).toEqual(["/rename <name>", "/renew"]))
@@ -306,7 +306,7 @@ describe("i comandi dello studio, mandati", () => {
     tasto(campo(), "Enter")
     await waitFor(() => expect(screen.getByRole("complementary", { name: "Chat" })).toHaveTextContent(/Chiusa/))
     expect(negozio.leggi()).toMatchObject({ id: "c1", attiva: false })
-    expect(campo()).toHaveValue("")
+    await waitFor(() => expect(campo()).toHaveValue(""))
     expect(post("/api/chat/c1/messaggi")).toHaveLength(0)
   })
 

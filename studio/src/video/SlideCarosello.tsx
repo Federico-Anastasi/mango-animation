@@ -11,7 +11,7 @@ import type { PropsScheda } from "./PaginaVideo"
 import styles from "./SlideCarosello.module.css"
 
 /** Le slide di un carosello, `uscite/slide-<n>.png`, in ordine di numero. */
-export function slideDelCarosello(uscite: Uscita[]): Array<Uscita & { numero: number }> {
+function slideDelCarosello(uscite: Uscita[]): Array<Uscita & { numero: number }> {
   return uscite
     .flatMap((u) => {
       const trovato = /\/uscite\/slide-(\d+)\.png$/.exec(u.file)
@@ -27,7 +27,7 @@ export interface AvvisoSlide {
 }
 
 /** Le righe «attenzione: …» che il lavoro `carosello` ha scritto, senza la parola d'ordine e con la maiuscola. */
-export function avvisiDelLavoro(righe: string[] = []): AvvisoSlide[] {
+function avvisiDelLavoro(righe: string[] = []): AvvisoSlide[] {
   return righe.flatMap((riga) => {
     const trovato = /^attenzione: (.+)$/.exec(riga)
     if (!trovato) return []

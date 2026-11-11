@@ -1,0 +1,109 @@
+.riga {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--filo);
+  min-width: 0;
+}
+
+.passi {
+  display: flex;
+  gap: 0.35rem 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--grigio);
+}
+
+.segno {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1px solid var(--filo);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.passo[data-stato="fatto"] .segno {
+  border-color: var(--inchiostro);
+  background: var(--inchiostro);
+  color: var(--carta);
+}
+
+.passo[data-stato="adesso"] {
+  color: var(--inchiostro);
+  font-weight: 600;
+}
+
+.passo[data-stato="adesso"] .segno {
+  border: 2px solid var(--rosso);
+  color: var(--inchiostro);
+}
+
+.corto {
+  display: none;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.adesso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+}
+
+.adesso p {
+  margin: 0;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+/* Sotto i ~700 px della pagina (anche con la chat accanto, o sul telefono) restano gli otto segni e la forma corta: «Passo 3 di 8 · Prova». */
+@container pagina (max-width: 700px) {
+  .passi {
+    gap: 0.25rem;
+  }
+
+  .passo {
+    flex: 1 1 0;
+    height: 0.4rem;
+    border-radius: 2px;
+    background: var(--filo);
+  }
+
+  .passo[data-stato="fatto"] {
+    background: var(--inchiostro);
+  }
+
+  .passo[data-stato="adesso"] {
+    background: var(--rosso);
+  }
+
+  .segno,
+  .nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .corto {
+    display: block;
+  }
+}

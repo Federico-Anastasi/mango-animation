@@ -1,6 +1,6 @@
 (() => {
   if (window.top !== window) return;
-  const invoca = (comando, argomenti) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-segnalazione|" + comando, argomenti);
+  const invoca = (comando, argomenti) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|" + comando, argomenti);
 
   // Ciò che va storto nella pagina finisce in logs\ui.log: gli errori non gestiti, i console.error e le chiamate all'app più lente di 1 s o senza risposta.
   // Il tetto di righe al minuto lo mette l'app.

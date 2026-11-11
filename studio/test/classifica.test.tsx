@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Classifica } from "../src/classifica/Classifica"
-import { Cornice } from "../src/cornice/Cornice"
 import type { ClassificaCanale } from "../src/tipi"
 import { installaEventi, installaRete } from "./rete"
 
@@ -24,6 +23,18 @@ beforeEach(() => {
   window.location.hash = ""
 })
 afterEach(() => vi.unstubAllGlobals())
+
+describe("Classifica con la rilettura fallita", () => {
+  it("se la rilettura fallisce e restano i dati di prima, lo dice con la data dei dati", async () => {
+    const { imposta } = installaRete({ "GET /api/canale/tiktok/classifica": classifica() })
+    render(<Classifica />)
+    await waitFor(() => expect(nomi()).toEqual(["@grande", "@visto", "@mio_canale"]))
+    imposta("GET /api/canale/tiktok/classifica", () => new Response(JSON.stringify({ errore: "Il server non risponde." }), { status: 500 }))
+    act(() => eventi.istanze.at(-1)!.manda({ tipo: "canale" }))
+    expect(await screen.findByText("Dati del 8 ott 2026: l'ultima rilettura non è riuscita.")).toBeInTheDocument()
+    expect(nomi()).toEqual(["@grande", "@visto", "@mio_canale"])
+  })
+})
 
 describe("Classifica", () => {
   it("mostra i profili in ordine di punteggio, con i numeri all'italiana e le date delle due letture", async () => {
@@ -73,17 +84,9 @@ describe("Classifica", () => {
   })
 
   it("senza classifica in archivio dice cosa fare", async () => {
-    installaRete({ "GET /api/profilo": { valido: true, presente: true, canali: [], problemi: [] }, "GET /api/canale/tiktok/classifica": classifica({ quando: null, io: null, quando_io: null, come: [], righe: [] }) })
+    installaRete({ "GET /api/profilo": { valido: true, presente: true, canali: [], profilo: {}, problemi: [] }, "GET /api/canale/tiktok/classifica": classifica({ quando: null, io: null, quando_io: null, come: [], righe: [] }) })
     render(<Classifica />)
     expect(await screen.findByText(/Qui ti confronti con altri profili/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Collega un canale" })).toBeInTheDocument()
-  })
-
-  it("la barra in alto porta alla classifica", async () => {
-    installaRete({ "GET /api/registrazione": { disponibile: true, motivo: null, dispositivi: { microfoni: [], camere: [] }, in_corso: null, ultima: null }, "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] }, "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: null } })
-    render(<Cornice vista="classifica" />)
-    const voce = screen.getByRole("link", { name: "Classifica" })
-    expect(voce).toHaveAttribute("href", "#/classifica")
-    expect(voce).toHaveAttribute("aria-current", "page")
   })
 })

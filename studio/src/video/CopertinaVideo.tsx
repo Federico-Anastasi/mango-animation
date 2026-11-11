@@ -1,18 +1,16 @@
 import { urlMedia, urlUscita } from "../api"
 import { Vuoto } from "../comuni/Stati"
 import { t } from "../lingua"
-import type { DettaglioVideo } from "../tipi"
+import { nomeFile } from "../testo"
 import type { PropsScheda } from "./PaginaVideo"
+import { uscitaDi } from "./liste"
 import styles from "./CopertinaVideo.module.css"
 
 const IMMAGINE = /\.(png|jpe?g|webp|gif|svg)$/i
-const nomeDi = (percorso: string) => percorso.split("/").pop() ?? percorso
-
-export const uscitaPer = (video: DettaglioVideo, nome: string) => video.uscite.find((u) => nomeDi(u.file) === nome)
 
 export function CopertinaVideo({ video }: PropsScheda) {
-  const copertina = uscitaPer(video, "copertina.png")
-  const conCopertina = uscitaPer(video, "con-copertina.mp4")
+  const copertina = uscitaDi(video, "copertina.png")
+  const conCopertina = uscitaDi(video, "con-copertina.mp4")
   const delMontato = conCopertina !== undefined && video.montato?.file === conCopertina.file
   const copertinaNuova = delMontato && copertina !== undefined && Date.parse(copertina.cambiato) > Date.parse(conCopertina.cambiato)
   const materiali = video.materiali.map((m) => m.file)
@@ -39,8 +37,8 @@ export function CopertinaVideo({ video }: PropsScheda) {
           <ul className={styles.griglia}>
             {immagini.map((m) => (
               <li key={m}>
-                <img src={urlMedia(m)} alt={nomeDi(m)} loading="lazy" />
-                <span>{nomeDi(m)}</span>
+                <img src={urlMedia(m)} alt={nomeFile(m)} loading="lazy" />
+                <span>{nomeFile(m)}</span>
               </li>
             ))}
           </ul>
@@ -48,7 +46,7 @@ export function CopertinaVideo({ video }: PropsScheda) {
         {altri.length > 0 && (
           <ul className={styles.altri}>
             {altri.map((m) => (
-              <li key={m}>{nomeDi(m)}</li>
+              <li key={m}>{nomeFile(m)}</li>
             ))}
           </ul>
         )}

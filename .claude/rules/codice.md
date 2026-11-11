@@ -28,6 +28,8 @@ For anyone who changes `motore/`, `animazioni/`, `server/`, `studio/`, `app/`, `
 - **No deferred work**: no placeholders, no unwired functions, no dead files.
 - **The contract lives in the documents** (`docs/PIANO.md`, `docs/API.md`, `docs/MOTORE.md`, the schemas): whoever changes a shape
   changes the document and the schema at the same moment.
+- **Method or creator?** If another creator used the product, would the sentence still be true? Yes: method (rules, skills). The rule holds but
+  the value is a taste: style (`stile.json`). No: the creator's profile (`docs/PROFILO.md`).
 
 ## Comments
 
@@ -36,7 +38,7 @@ Default: none. At most one or two lines on a non-obvious why. Never the what, ne
 ## Boundaries
 
 - No measure, color or threshold in the code of the engine and the animations: they live in `stile.json`.
-- The engine writes only to `lavoro/`, `uscite/` and `archivio/preparati/`; `pagina` also to `materiali/` (web captures are not redone identical).
+- The engine writes only to `lavoro/`, `uscite/` and `archivio/preparati/`; `pagina`, `anteprima-proposta` and `carosello --nuovo` also to `materiali/` (captures, previews and first drafts are not redone identical).
 - The server does no synchronous I/O and launches no processes on a read route; state derived from disk has a single owner in
   memory, updated by the watcher.
 - No polling, neither in the server nor in the interface.
@@ -55,8 +57,5 @@ Default: none. At most one or two lines on a non-obvious why. Never the what, ne
 ## Machine
 
 - Never stop a process by name: only by PID, of what you started.
-- To restart or stop the desktop app: `bun run --cwd server riavvia-app [--ferma]` from a terminal outside the app (`docs/APP.md`), not a hand-written PowerShell.
 - Video card drivers are not touched.
-- One job at a time on the video card.
 - A heavy job (cutout, transcription, render) works only on what the edit uses, never on the whole footage when a piece is enough.
-- Large videos are linked, not copied; if the profile says the disk is nearly full (`macchina.disco_quasi_pieno`), that is a hard limit.

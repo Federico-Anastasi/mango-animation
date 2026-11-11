@@ -1,19 +1,21 @@
 // «Com'è montato, e cosa cambio?»: l'anteprima, il pannello del tratto scelto, il parlato e la timeline. Ogni
 // gesto passa da `ritocchi.ts` e si manda al server come piano nuovo; il montaggio ricalcolato torna da sé.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { api, urlMedia, urlUscita } from "../api"
+import { api, ErroreApi, urlMedia, urlUscita } from "../api"
 import { Bottone } from "../comuni/Bottone"
 import { Colonne } from "../comuni/Colonne"
 import { Icona } from "../comuni/icone"
 import { t } from "../lingua"
 import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
-import { animazioni, grezzo, lavori, stile as copiaStile, useCopia } from "../dati"
+import { animazioni, copiaVideo, grezzo, lavori, stile as copiaStile, useCopia } from "../dati"
 import { dataOra, tempoLeggibile } from "../testo"
 import type { DettaglioVideo, GiornoGrezzo, Piano, PianoCompleto, Stile, Zoom } from "../tipi"
+import { FILE_FINITI, uscitaDi } from "../video/liste"
 import { AnteprimaPiano } from "./AnteprimaPiano"
 import type { DatiPiano, ZoomProvvisorio } from "./motore"
 import type { Azione } from "./azione"
 import { soloAnimazione } from "./composizione"
+import { ritocchiTra } from "./differenze"
 import { ElencoParole } from "./ElencoParole"
 import { PannelloParole } from "./PannelloParole"
 import { PannelloScena } from "./PannelloScena"
@@ -23,6 +25,7 @@ import { bordo, dividi, muoviPezzo, portaPezzoInScena, togliParole, togliTratto,
 import { indiceDelTratto, selezioneDelTratto, selezioneValida, type Selezione } from "./selezione"
 import { dellaSorgente, infoSorgenti } from "./sorgenti"
 import { Timeline } from "./Timeline"
+import { Versioni } from "./Versioni"
 import { uguali } from "./uguali"
 import { useSorgentiPreparate } from "./useSorgentiPreparate"
 import { useTeste } from "./teste"
@@ -55,10 +58,8 @@ function Trasporti({ trasporto }: { trasporto: Trasporto }) {
   )
 }
 
-// Il file uscito vale più di quello con la copertina, che vale più del montato: è ciò che il creator ha caricato o caricherà.
-const FILE_FINITI = ["pubblicato.mp4", "con-copertina.mp4", "finale.mp4"]
-
-const uscita = (video: DettaglioVideo, nome: string) => video.uscite.find((u) => u.file.split("/").pop() === nome)
+/** Dopo un salvataggio riuscito, quanto si aspetta il piano nuovo prima di rileggerlo. */
+const ATTESA_DEL_PIANO_MS = 5000
 
 function dopoIlMontaggio(video: DettaglioVideo): string {
   return video.piano_cambiato ? ` (${dataOra(video.piano_cambiato)})` : ""
@@ -66,11 +67,11 @@ function dopoIlMontaggio(video: DettaglioVideo): string {
 
 function SenzaPiano({ video }: { video: DettaglioVideo }) {
   const [misure, setMisure] = useState<{ largo: number; alto: number } | null>(null)
-  const finito = FILE_FINITI.map((nome) => uscita(video, nome)).find((u) => u !== undefined)
+  const finito = FILE_FINITI.map((nome) => uscitaDi(video, nome)).find((u) => u !== undefined)
   if (!finito) {
     return (
       <div className={styles.senza}>
-        <Vuoto>{video.scheda.stato === "pronto" || video.scheda.stato === "pubblicato" ? t("Il file di questo video non è nell'archivio.", "The file of this video is not in the archive.") : t("Questo video non ha ancora un montaggio.", "This video has no edit yet.")}</Vuoto>
+        <Vuoto>{video.scheda.stato === "pronto" || video.scheda.stato === "pubblicato" ? t("Il file di questo video non è nell'archivio.", "The file of this video is not in the archive.") : video.fase ? t("Questo video non ha ancora un montaggio: la riga dei passi qui sopra dice cosa viene prima.", "This video has no edit yet: the row of steps above says what comes first.") : t("Questo video non ha ancora un montaggio. Prima viene il copione, nella scheda «Scheda».", "This video has no edit yet. The script comes first, in the «Card» tab.")}</Vuoto>
       </div>
     )
   }
@@ -89,6 +90,8 @@ function SenzaPiano({ video }: { video: DettaglioVideo }) {
   )
 }
 
+/** Una maniglia che si allarga con le frecce le usa per sé: la testina non si muove. */
+const eUnaManiglia = (el: EventTarget | null) => el instanceof Element && el.closest('[role="separator"]') !== null
 const eUnCampo = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
 
 export function Montaggio({ video, tempoIniziale }: { video: DettaglioVideo; tempoIniziale: string | null }) {
@@ -106,6 +109,7 @@ export function Montaggio({ video, tempoIniziale }: { video: DettaglioVideo; tem
     return (
       <div className={styles.senza}>
         <Vuoto>{t("Il piano di questo video ha un errore (è scritto sopra). Appena è sistemato il montaggio riappare.", "The plan of this video has an error (written above). As soon as it is fixed the edit reappears.")}</Vuoto>
+        <Versioni video={video} />
       </div>
     )
   }
@@ -153,7 +157,7 @@ function Aperto({
   // Il piano e la base ci sono: `Montaggio` non apre questa vista altrimenti.
   const video = dettaglio as DettaglioVideo & { piano: Piano; piano_risolto_da_base: PianoCompleto }
   const { slug } = video
-  const trasporto = useTrasporto(risolto.durata)
+  const trasporto = useTrasporto(risolto.durata, risolto.formato.fps)
   const [modo, setModo] = useState<"piano" | "montato">(() => (dettaglio.montato ? "montato" : "piano"))
   const [selezione, setSelezione] = useState<Selezione | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
@@ -165,7 +169,7 @@ function Aperto({
 
   const sorgenti = useMemo(() => infoSorgenti(video.piano_risolto_da_base.sorgenti, giorni), [video.piano_risolto_da_base.sorgenti, giorni])
   const preparate = useSorgentiPreparate(Object.values(sorgenti))
-  const finale = uscita(video, "finale.mp4")
+  const finale = uscitaDi(video, "finale.mp4")
   const montato = video.uscite.find((u) => u.file === video.montato?.file)
   const conSagoma = risolto.scene.some((sc) => stile.quadri[sc.quadro]?.strati.some((x) => x.tipo === "sagoma"))
   const teste = useTeste(slug, finale?.cambiato ?? "", video.piano_risolto_da_base.sorgenti, conSagoma && finale !== undefined)
@@ -201,6 +205,13 @@ function Aperto({
     if (attesa !== null && attesa !== pianoAdesso) setAttesa(null)
   }, [attesa, pianoAdesso])
 
+  // Il piano salvato non è arrivato (l'evento si è perso, o il server ha tenuto lo stesso testo): si rilegge e i gesti si riaprono.
+  useEffect(() => {
+    if (attesa === null) return
+    const scaduta = setTimeout(() => void copiaVideo(slug).rileggi().finally(() => setAttesa(null)), ATTESA_DEL_PIANO_MS)
+    return () => clearTimeout(scaduta)
+  }, [attesa, slug])
+
   useEffect(() => {
     const secondi = tempoIniziale === null ? NaN : Number(tempoIniziale)
     if (Number.isFinite(secondi)) trasporto.vai(secondi)
@@ -215,11 +226,14 @@ function Aperto({
       setErrore(null)
       if (uguali(esito.piano, video.piano)) return
       setInvio(true)
+      // Solo ciò che il gesto ha cambiato, sul piano che c'è nel file adesso: se Claude (o altro) ha scritto nel frattempo, il suo cambio resta.
       api
-        .scriviPiano(slug, esito.piano)
+        .ritoccaPiano(slug, ritocchiTra(video.piano, esito.piano))
         .then(() => setAttesa(JSON.stringify(video.piano)))
         .catch((e: Error) => {
-          setErrore(e.message)
+          const cambiato = e instanceof ErroreApi && e.codice === 409
+          setErrore(cambiato ? t("Il piano è cambiato nel frattempo: l'ho riletto, rifai il gesto.", "The plan changed in the meantime: I have read it again, redo the gesture.") : e.message)
+          if (cambiato) void copiaVideo(slug).rileggi()
           setZoomProv(null)
         })
         .finally(() => setInvio(false))
@@ -264,10 +278,10 @@ function Aperto({
         if (e.target instanceof HTMLButtonElement) return
         e.preventDefault()
         trasporto.alterna()
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !eUnaManiglia(e.target)) {
         e.preventDefault()
         trasporto.ferma()
-        trasporto.passo((e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 15 : 1))
+        trasporto.passo((e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? Math.round(trasporto.fps() / 2) : 1))
       } else if (e.key.toLowerCase() === "s") {
         if (!u.bloccato) u.esegui(dividi(u.ctx, trasporto.t()))
       } else if (e.key === "Delete" || e.key === "Backspace") {
@@ -416,19 +430,23 @@ function Aperto({
           <Icona nome="rifai" />
           {t("Rifai", "Redo")}
         </Bottone>
-        {occupato ? <span className={styles.suggerimento}>{t("Sto montando…", "Editing…")}</span> : <span className={styles.suggerimento}>{t("Per montare, rimontare o cambiare il video, chiedilo nella chat.", "To edit, re-edit or change the video, ask in the chat.")}</span>}
+        {occupato && <span className={styles.suggerimento}>{t("Sto montando…", "Editing…")}</span>}
       </div>
+      <Versioni video={video} />
       {!video.risolto_aggiornato && (
         <p className={styles.avviso} role="status">
           {ricalcolando
-            ? t("Il montaggio si sta ricalcolando dopo l'ultimo ritocco: i tratti che vedi sono quelli di prima. Finché non è pronto non si possono fare altri ritocchi.", "The edit is being recalculated after the last tweak: the segments you see are the previous ones. Until it is ready no more tweaks can be made.")
-            : t("Il montaggio non segue ancora il piano o lo stile di adesso: i tratti che vedi sono quelli di prima. Per ricalcolarlo chiedilo nella chat. Finché non è pronto non si possono fare altri ritocchi.", "The edit does not follow the current plan or style yet: the segments you see are the previous ones. To recalculate it, ask in the chat. Until it is ready no more tweaks can be made.")}
+            ? t("Il montaggio si sta ricalcolando dopo l'ultimo ritocco: i pezzi che vedi sono quelli di prima. Finché non è pronto non si possono fare altri ritocchi.", "The edit is being recalculated after the last tweak: the clips you see are the previous ones. Until it is ready no more tweaks can be made.")
+            : t("Il montaggio non segue ancora il piano o lo stile di adesso: i pezzi che vedi sono quelli di prima. Per ricalcolarlo chiedilo nella chat. Finché non è pronto non si possono fare altri ritocchi.", "The edit does not follow the current plan or style yet: the clips you see are the previous ones. To recalculate it, ask in the chat. Until it is ready no more tweaks can be made.")}
         </p>
       )}
       {errore && (
         <p className={styles.errore} role="alert">
           {errore}
         </p>
+      )}
+      {preparate.fallite.length > 0 && (
+        <Errore messaggio={t("Le parole di questo video non si sono caricate: i bordi non si agganciano alle parole.", "The words of this video did not load: the edges do not snap to the words.")} onRiprova={preparate.riprova} />
       )}
       <Colonne chiave="montaggio" fissa="prima" iniziale={420} minimaFissa={250} minimaLibera={320} unaSolaSotto={820} sotto="impila" onStretta={setStretta} etichetta={t("Larghezza dell'anteprima", "Preview width")} prima={<div className={styles.colonna}>{anteprima}{stretta && timeline}</div>} seconda={pannello} />
       {!stretta && timeline}

@@ -16,9 +16,11 @@ def _relativo_a_grezzo(archivio, file):
         try:
             return percorso.resolve().relative_to((archivio.radice / "grezzo").resolve()).as_posix()
         except ValueError:
-            raise Errore(f"{file} non sta in {archivio.radice / 'grezzo'}: il girato si prepara da lì",
-                         f"{file} is not in {archivio.radice / 'grezzo'}: footage is prepared from there")
-    return percorso.as_posix()
+            pass
+    elif ".." not in percorso.parts:
+        return percorso.as_posix()
+    raise Errore(f"{file} non sta in {archivio.radice / 'grezzo'}: il girato si prepara da lì",
+                 f"{file} is not in {archivio.radice / 'grezzo'}: footage is prepared from there")
 
 
 def _valida(archivio, a):

@@ -14,15 +14,11 @@ pub const PONTE: &str = r#"
   window.__MANGO_ANIMATION__ = Object.freeze({
     ...window.__MANGO_ANIMATION__,
     appunti: Object.freeze({
-      percorsi: () => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-appunti|appunti_percorsi"),
+      percorsi: () => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|appunti_percorsi"),
     }),
   });
 })();
 "#;
-
-/// I comandi del plugin: gli stessi in `build.rs` (permessi), in `PONTE` e in `capabilities/`.
-#[cfg(test)]
-const COMANDI: [&str; 1] = ["appunti_percorsi"];
 
 /// Delle voci della lista dei file negli appunti, quelle che sono file: una cartella copiata non si allega.
 fn solo_file(percorsi: Vec<String>) -> Vec<String> {
@@ -38,16 +34,14 @@ fn leggi() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-async fn appunti_percorsi() -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(leggi).await.map_err(|e| e.to_string())?
-}
-
-pub fn installa(app: &tauri::App) -> tauri::Result<()> {
-    app.handle().plugin(
-        tauri::plugin::Builder::<tauri::Wry>::new("mango-animation-appunti")
-            .invoke_handler(tauri::generate_handler![appunti_percorsi])
-            .build(),
-    )
+pub(crate) async fn appunti_percorsi(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let percorsi = leggi()?;
+        crate::registra_percorsi(&app, &percorsi)?;
+        Ok(percorsi)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]
@@ -67,15 +61,6 @@ mod prove {
         assert!(solo_file(Vec::new()).is_empty());
     }
 
-    #[test]
-    fn il_ponte_i_permessi_e_la_capability_dicono_gli_stessi_comandi() {
-        let (build, capability) = (include_str!("../build.rs"), include_str!("../capabilities/default.json"));
-        for comando in COMANDI {
-            assert!(PONTE.contains(&format!("\"plugin:mango-animation-appunti|{comando}\"")), "{comando} non è nel ponte");
-            assert!(build.contains(&format!("\"{comando}\"")), "{comando} non è nei permessi di build.rs");
-        }
-        assert!(build.contains("\"mango-animation-appunti\"") && capability.contains("mango-animation-appunti:default"));
-    }
 
     #[test]
     fn il_ponte_ha_il_nome_che_lo_studio_cerca() {

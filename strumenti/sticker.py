@@ -1,40 +1,41 @@
 """Uno sticker del creator: il busto da un fotogramma della sagoma, con un bordo bianco pieno, in archivio/sticker/<nome>.png.
 Uso: python -m strumenti.sticker <giorno/file del girato> <istante in secondi> <nome>
      python -m strumenti.sticker --provini [giorno]   (i fogli da cui scegliere l'espressione, in archivio/sticker/provini/)"""
-import argparse, io, json, math, subprocess
+import argparse, io, json, math, os, subprocess
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from motore.archivio import archivio_di_lavoro
+from motore.archivio import VARIABILE_LAVORO, archivio_di_lavoro, leggi_stile
 from motore.errori import Errore
 from motore.sagoma import pezzi_della_sagoma, pezzo_della_sagoma
 
-BORDO = 30
-# In frazioni della larghezza del fotogramma: quanto busto sotto la cima della testa, e quanto si toglie ai lati
-# (le mani che entrano dai bordi).
-ALTEZZA_BUSTO = 0.74
-LATI = 0.083
-# I provini: quanti fotogrammi per ripresa, quanti per foglio e su quante colonne, e quanto è grande ognuno (lato lungo).
-PER_RIPRESA = 8
+REPO = Path(__file__).resolve().parent.parent
+# I provini: quanti per foglio e su quante colonne, e quanto è grande ognuno (lato lungo).
 PER_FOGLIO = 24
 COLONNE = 6
 CELLA = 300
 
 
-def sticker(fotogramma):
+def misure_dello_sticker():
+    """La sezione `sticker` dello stile: `bordo` in pixel; `altezza_busto` e `lati` in frazioni della larghezza del fotogramma (quanto busto sotto la cima della testa, e quanto si toglie ai lati: le mani che entrano dai bordi); `per_ripresa`, quanti provini per ripresa."""
+    return leggi_stile(REPO, os.environ.get(VARIABILE_LAVORO))["sticker"]
+
+
+def sticker(fotogramma, misure):
     largo, alto = fotogramma.size
+    spessore, busto, lati = misure["bordo"], misure["altezza_busto"], misure["lati"]
     # Il bordo segue la forma: i ciuffi isolati e le sfumature dello scontorno non contano.
     sagoma = fotogramma.getchannel("A").point(lambda v: 255 if v > 128 else 0).filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(5))
     cima = sagoma.getbbox()[1]
-    taglio = (round(largo * LATI), max(cima - 10, 0), round(largo * (1 - LATI)), min(cima + round(largo * ALTEZZA_BUSTO), alto))
+    taglio = (round(largo * lati), max(cima - 10, 0), round(largo * (1 - lati)), min(cima + round(largo * busto), alto))
     persona, sagoma = fotogramma.crop(taglio), sagoma.crop(taglio)
     sinistra, _, destra, _ = sagoma.getbbox()
     persona, sagoma = persona.crop((sinistra, 0, destra, persona.height)), sagoma.crop((sinistra, 0, destra, sagoma.height))
 
-    misura = (persona.width + 2 * BORDO, persona.height + 2 * BORDO)
+    misura = (persona.width + 2 * spessore, persona.height + 2 * spessore)
     bordo = Image.new("L", misura, 0)
-    bordo.paste(sagoma, (BORDO, BORDO))
+    bordo.paste(sagoma, (spessore, spessore))
     for _ in range(6):
         bordo = bordo.filter(ImageFilter.MaxFilter(9))
     bordo = bordo.filter(ImageFilter.GaussianBlur(9)).point(lambda v: 255 if v > 110 else 0)
@@ -42,7 +43,7 @@ def sticker(fotogramma):
     risultato = Image.new("RGBA", misura, (0, 0, 0, 0))
     risultato.paste(Image.new("RGBA", misura, (255, 255, 255, 255)), (0, 0), bordo)
     sopra = Image.new("RGBA", misura, (0, 0, 0, 0))
-    sopra.paste(persona, (BORDO, BORDO))
+    sopra.paste(persona, (spessore, spessore))
     risultato = Image.alpha_composite(risultato, sopra)
     risultato.putalpha(bordo)
     return risultato
@@ -52,7 +53,7 @@ def salva(fotogramma, nome, archivio, origine):
     cartella = Path(archivio) / "sticker"
     cartella.mkdir(parents=True, exist_ok=True)
     destinazione = cartella / f"{nome}.png"
-    sticker(fotogramma).save(destinazione)
+    sticker(fotogramma, misure_dello_sticker()).save(destinazione)
     (cartella / f"{nome}.json").write_text(json.dumps(origine, ensure_ascii=False), encoding="utf-8")
     return destinazione
 
@@ -87,10 +88,11 @@ def istanti_da_provare(pezzi, quanti):
     return istanti
 
 
-def provini(archivio, giorno=None, per_ripresa=PER_RIPRESA):
-    """Per ogni ripresa scontornata (o solo quelle di `giorno`), `per_ripresa` sticker di prova numerati, in fogli
+def provini(archivio, giorno=None, per_ripresa=None):
+    """Per ogni ripresa scontornata (o solo quelle di `giorno`), `per_ripresa` (di serie quelli dello stile) sticker di prova numerati, in fogli
     `sticker/provini/provini-<n>.jpg`; `provini.json` dice di ogni numero ripresa e istante, da dare al comando dello sticker."""
-    archivio = Path(archivio)
+    archivio, misure = Path(archivio), misure_dello_sticker()
+    per_ripresa = per_ripresa or misure["per_ripresa"]
     cartella = archivio / "sticker" / "provini"
     cartella.mkdir(parents=True, exist_ok=True)
     for vecchio in cartella.glob("provini-*.jpg"):
@@ -101,7 +103,7 @@ def provini(archivio, giorno=None, per_ripresa=PER_RIPRESA):
         file = preparato.relative_to(archivio / "preparati").as_posix()
         for istante in istanti_da_provare(pezzi, per_ripresa) if pezzi else []:
             try:
-                prova = sticker(fotogramma_della_sagoma(file, istante, archivio))
+                prova = sticker(fotogramma_della_sagoma(file, istante, archivio), misure)
             except SenzaFotogramma:
                 # sagoma.json promette più di quanto il webm porta: quell'istante si salta
                 continue

@@ -27,7 +27,9 @@ const voce = (slug: string, titolo: string, extra: Partial<VoceElenco["scheda"]>
   miniatura: null,
   anteprima: null,
   ha_piano: true,
+  quadri: [],
   ha_finale: false,
+  fase: null,
   ultimo_cambio: "2026-10-09T10:00:00",
 })
 
@@ -67,8 +69,8 @@ const assesta = () => act(() => new Promise<void>((ok) => setTimeout(ok, 20)))
 
 const manda = (evento: object) => act(() => eventi.istanze.at(-1)!.manda({ tipo: "chat", ...evento }))
 
-async function apriConversazione(dettaglio: Partial<DettaglioConversazione> = {}) {
-  rete({ "GET /api/chat/c1": conversazione(dettaglio) })
+async function apriConversazione(dettaglio: Partial<DettaglioConversazione> = {}, extra: Record<string, unknown> = {}) {
+  rete({ "GET /api/chat/c1": conversazione(dettaglio), ...extra })
   negozio.apri("c1")
   render(<PannelloChat />)
   await screen.findByRole("log", { name: "La conversazione" })
@@ -185,6 +187,7 @@ describe("i collegamenti ai video", () => {
     ])
     expect(collega("l'ai non è un video")).toEqual(["l'ai non è un video"])
     expect(collega("archivio/video/orto-balcone/uscite/slide-3.png")).toEqual([{ testo: "archivio/video/orto-balcone/uscite/slide-3.png", href: "#/video/orto-balcone/slide" }])
+    expect(collega("archivio/video/orto-balcone/uscite/finale.mp4")).toEqual([{ testo: "archivio/video/orto-balcone/uscite/finale.mp4", href: "#/video/orto-balcone/montaggio" }])
   })
 })
 
@@ -211,6 +214,9 @@ describe("la conversazione", () => {
     expect(screen.getByText("due").tagName).toBe("STRONG")
     const pensiero = screen.getByText("Ha ragionato").closest("details")!
     expect(pensiero).not.toHaveAttribute("open")
+    // I due strumenti finiti di fila stanno in una riga chiusa; quello fallito e quello con le immagini si vedono comunque.
+    expect(screen.queryByRole("button", { name: /Legge docs\/PIANO\.md/ })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: /Ha lavorato · 2 passi/ }))
     expect(screen.getByRole("button", { name: /Legge docs\/PIANO\.md/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Lancia: bun test/ })).toBeInTheDocument()
     expect(screen.getByText("non riuscito")).toBeInTheDocument()
@@ -227,6 +233,71 @@ describe("la conversazione", () => {
     expect(within(piena).getByRole("img")).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgo=")
     fireEvent.keyDown(document, { key: "Escape" })
     expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  describe("i passi dell'agente raccolti in una riga", () => {
+    const passo = (id: string, comando: string, extra: Record<string, unknown> = {}) => ({ tipo: "strumento" as const, id, nome: "Bash", ingresso: { command: comando }, esito: "ok", ...extra })
+    const riga = () => screen.getByRole("button", { name: /Ha lavorato/ })
+
+    it("gli strumenti finiti di fila stanno in una riga chiusa, con il numero dei passi e la durata, che si apre con un clic", async () => {
+      await apriConversazione({
+        messaggi: [
+          claude(
+            "m2",
+            passo("t1", "bun test", { iniziato: "2026-11-02T10:00:00.000Z", finito: "2026-11-02T10:00:10.000Z" }),
+            { tipo: "strumento", id: "t2", nome: "Read", ingresso: { file_path: "a.md" }, esito: "ok", iniziato: "2026-11-02T10:00:10.000Z", finito: "2026-11-02T10:01:08.000Z" },
+            { tipo: "testo", testo: "Ecco." },
+          ),
+        ],
+      })
+      expect(riga()).toHaveTextContent("Ha lavorato · 2 passi · 1 min 8 s")
+      expect(riga()).toHaveAttribute("aria-expanded", "false")
+      expect(screen.queryByRole("button", { name: /Lancia: bun test/ })).toBeNull()
+      fireEvent.click(riga())
+      expect(riga()).toHaveAttribute("aria-expanded", "true")
+      expect(screen.getByRole("button", { name: /Lancia: bun test/ })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Legge a\.md/ })).toBeInTheDocument()
+      fireEvent.click(riga())
+      expect(screen.queryByRole("button", { name: /Lancia: bun test/ })).toBeNull()
+    })
+
+    it("un passo solo resta una riga a sé", async () => {
+      await apriConversazione({ messaggi: [claude("m2", passo("t1", "bun test"), { tipo: "testo", testo: "Ecco." })] })
+      expect(screen.queryByRole("button", { name: /Ha lavorato/ })).toBeNull()
+      expect(screen.getByRole("button", { name: /Lancia: bun test/ })).toBeInTheDocument()
+    })
+
+    it("lo strumento in corso si vede fuori dal gruppo, e a esito arrivato entra nel gruppo", async () => {
+      await apriConversazione({ stato: "lavora", attiva: true, messaggi: [fa("m1", "Controlla"), claude("m2", passo("t1", "uno"), passo("t2", "due"), passo("t3", "tre", { esito: undefined }))] })
+      expect(riga()).toHaveTextContent("Ha lavorato · 2 passi")
+      expect(screen.getByRole("button", { name: /Lancia: tre/ })).toHaveTextContent("in corso…")
+      await manda({ id: "c1", evento: "parte", messaggio: "m2", indice: 2, parte: passo("t3", "tre") })
+      expect(riga()).toHaveTextContent("Ha lavorato · 3 passi")
+      expect(screen.queryByRole("button", { name: /Lancia: tre/ })).toBeNull()
+    })
+
+    it("un passo fallito si vede senza aprire il gruppo", async () => {
+      await apriConversazione({ messaggi: [claude("m2", passo("t1", "uno"), passo("t2", "due"), passo("t3", "rm -rf x", { esito: undefined, errore: "permesso negato" }), passo("t4", "quattro"))] })
+      expect(riga()).toHaveTextContent("Ha lavorato · 2 passi")
+      expect(screen.getByText("non riuscito")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Lancia: rm -rf x/ })).toBeInTheDocument()
+    })
+
+    it("una richiesta di permesso o una domanda a scelta resta fuori dal gruppo, sempre", async () => {
+      const permesso = { id: "r1", tipo: "permesso" as const, strumento: "Bash", ingresso: { command: "ls" }, frase: "Claude vuole lanciare: ls" }
+      const domanda = { id: "r2", tipo: "domanda" as const, domande: [{ domanda: "Quale tono?", opzioni: [{ etichetta: "Serio" }, { etichetta: "Ironico" }] }] }
+      await apriConversazione({ stato: "aspetta", attiva: true, in_attesa: [permesso, domanda], messaggi: [claude("m2", passo("t1", "uno"), passo("t2", "due"), { tipo: "strumento", id: "t3", nome: "AskUserQuestion", ingresso: {} })] })
+      expect(riga()).toHaveTextContent("Ha lavorato · 2 passi")
+      expect(screen.getByRole("button", { name: "Consenti" })).toBeInTheDocument()
+      expect(screen.getByText("Quale tono?")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Ti fa una domanda/ })).toBeInTheDocument()
+    })
+
+    it("la scheda di un lavoro in coda non si nasconde nel gruppo", async () => {
+      await apriConversazione({ messaggi: [claude("m1", passo("t1", "uno"), passo("t2", "due"), { tipo: "strumento", id: "t3", nome: "mcp__video__lavoro", ingresso: { slug: "orto-balcone", comando: "monta" }, esito: "Messo in coda (id 7)" })] })
+      expect(riga()).toHaveTextContent("Ha lavorato · 2 passi")
+      expect(screen.getByRole("button", { name: /Video · lavoro monta orto-balcone/ })).toBeInTheDocument()
+    })
   })
 
   it("una conversazione caduta dice l'errore una volta sola, nel giro che è finito male", async () => {
@@ -446,6 +517,32 @@ describe("il modello e l'effort", () => {
     expect(menu("Modello").closest("header")).not.toBeNull()
   })
 
+  describe("l'elenco lungo", () => {
+    const LUNGO: ModelloChat[] = [
+      ...MODELLI,
+      { id: "sonnet", nome: "Sonnet 4.6", descrizione: "", effort: [...TUTTI], reale: "claude-sonnet-4-6" },
+      { id: "claude-opus-4-1", nome: "Opus 4.1", descrizione: "", effort: [], reale: "claude-opus-4-1" },
+      { id: "claude-haiku-3-5", nome: "Haiku 3.5", descrizione: "", effort: [], reale: "claude-haiku-3-5" },
+    ]
+
+    it("mostra «Predefinito» e i tre modelli più recenti; gli altri si aprono con «Altri…» e restano raggiungibili", async () => {
+      await apriConversazione({ modello: "opus" }, { "GET /api/chat/modelli": LUNGO })
+      expect(nomi(menu("Modello"))).toEqual(["Predefinito (Sonnet 5.5)", "Opus 5.5", "Opus 4.6", "Sonnet 4.6", "Altri…"])
+      fireEvent.change(menu("Modello"), { target: { value: [...menu("Modello").options].find((o) => o.textContent === "Altri…")!.value } })
+      expect(nomi(menu("Modello"))).toEqual(["Predefinito (Sonnet 5.5)", "Opus 5.5", "Opus 4.6", "Sonnet 4.6", "Haiku 4.5", "Opus 4.1", "Haiku 3.5"])
+      expect(menu("Modello").querySelector("optgroup")?.label).toBe("Altri")
+      expect(menu("Modello").value).toBe("opus")
+      expect(chiamate.some((c) => c.percorso === "/api/chat/c1/impostazioni")).toBe(false)
+    })
+
+    it("il modello scelto che sta fra gli «Altri» resta visibile e selezionato, con gli altri già aperti", async () => {
+      await apriConversazione({ modello: "claude-opus-4-1" }, { "GET /api/chat/modelli": LUNGO })
+      expect(menu("Modello").value).toBe("claude-opus-4-1")
+      expect(nomi(menu("Modello"))).toContain("Opus 4.1")
+      expect(nomi(menu("Modello"))).not.toContain("Altri…")
+    })
+  })
+
   it("il modello vero che Claude Code ha acceso trova la sua riga; senza scelta si vede «Predefinito»", async () => {
     await apriConversazione({ modello: "claude-opus-5-5", effort: null })
     expect(menu("Modello").value).toBe("opus")
@@ -584,6 +681,20 @@ describe("il campo di testo", () => {
     expect(localStorage.getItem("mango-animation.chat.corrente")).toBe("c9")
   })
 
+  it("dal telefono Invio va a capo e si manda col pulsante, e l'aiuto lo dice", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(pointer: coarse)", media: query, addEventListener: () => undefined, removeEventListener: () => undefined }))
+    await apriConversazione()
+    rete({ "GET /api/chat/c1": conversazione(), "POST /api/chat/c1/messaggi": {} })
+    const campo = screen.getByRole("textbox", { name: "Messaggio" })
+    expect(screen.getByText("Il pulsante manda, Invio va a capo")).toBeInTheDocument()
+    scrivi(campo, "Prima riga")
+    const fermato = fireEvent.keyDown(campo, { key: "Enter" })
+    expect(fermato).toBe(true)
+    expect(chiamate.some((c) => c.metodo === "POST")).toBe(false)
+    fireEvent.click(screen.getByRole("button", { name: "Manda" }))
+    await waitFor(() => expect(chiamate.find((c) => c.percorso === "/api/chat/c1/messaggi")?.corpo).toMatchObject({ testo: "Prima riga" }))
+  })
+
   it("mentre Claude lavora si può mandare (va in coda) e «Ferma» lo interrompe", async () => {
     await apriConversazione({ stato: "lavora", attiva: true, messaggi: [fa("m1", "Monta"), claude("m2", { tipo: "testo", testo: "Monto." })] })
     rete({ "GET /api/chat/c1": conversazione({ stato: "lavora" }), "POST /api/chat/c1/messaggi": {}, "POST /api/chat/c1/ferma": {} })
@@ -630,7 +741,7 @@ describe("il campo di testo", () => {
   })
 
   it("un'immagine incollata sale al server, si vede in anteprima, si toglie con la x e parte con il messaggio", async () => {
-    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:anteprima-1" }))
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:anteprima-1", revokeObjectURL: () => undefined }))
     await apriConversazione()
     rete({ "GET /api/chat/c1": conversazione(), "POST /api/chat/allegati": { percorso: "archivio/chat/tmp/foto.png" }, "POST /api/chat/c1/messaggi": {} })
     const campo = screen.getByRole("textbox", { name: "Messaggio" })
@@ -836,9 +947,10 @@ describe("il contesto usato", () => {
     expect(misura).toHaveAttribute("aria-valuenow", "52")
     expect(misura).toHaveAttribute("aria-valuetext", "68 mila token su 131 mila, 52%")
     expect(misura).toHaveAttribute("data-livello", "normale")
+    expect(misura).not.toHaveTextContent("conversazione nuova")
     expect(misura.title).toContain("68.485 token su 131.072")
     await manda({ id: "c1", evento: "contesto_usato", contesto_usato: { usati: 100_000, totale: 131_072 } })
-    expect(misura).toHaveTextContent("Contesto 76%")
+    expect(misura).toHaveTextContent("Contesto 76% · meglio una conversazione nuova")
     expect(misura).toHaveAttribute("data-livello", "alto")
     await manda({ id: "c1", evento: "contesto_usato", contesto_usato: { usati: 125_000, totale: 131_072 } })
     expect(misura).toHaveAttribute("data-livello", "pieno")
@@ -938,6 +1050,8 @@ describe("i tempi nella chat", () => {
       ],
     })
     const riga = (nome: RegExp) => screen.getByRole("button", { name: nome })
+    expect(riga(/Ha lavorato/)).toHaveTextContent("Ha lavorato · 2 passi · 2 min 6 s")
+    fireEvent.click(riga(/Ha lavorato/))
     expect(riga(/Lancia: bun test/)).toHaveTextContent("2 min 5 s")
     expect(riga(/Legge a\.md/)).not.toHaveTextContent(/\d s$/)
     expect(riga(/Lancia: bun run monta/)).toHaveTextContent(/in corso · 0:4[2-4]/)

@@ -101,7 +101,7 @@ export function dellaScheda(funzione: NomeMotore, computer: ComputerLetto, macch
   return { stato: "ok", frase: t("Gira sulla scheda {nome}, con {liberi} liberi.", "It runs on the card {nome}, with {liberi} free.", { nome: scheda.nome, liberi: memoria(scheda.libera_mb) }) }
 }
 
-export function delProcessore(funzione: NomeMotore, computer: ComputerLetto): Giudizio {
+function delProcessore(funzione: NomeMotore, computer: ComputerLetto): Giudizio {
   if (funzione === "sagoma" && computer.thread < THREAD_PER_LA_SAGOMA) {
     return {
       stato: "avviso",
@@ -119,7 +119,7 @@ export function delProcessore(funzione: NomeMotore, computer: ComputerLetto): Gi
 }
 
 /** Dove va una funzione senza scelta: la scheda se il profilo non la esclude e una ce n'è che i modelli possono usare, altrimenti il processore. */
-export function sceltoDalComputer(funzione: NomeMotore, computer: ComputerLetto, macchina: MacchinaDelProfilo): Giudizio {
+function sceltoDalComputer(funzione: NomeMotore, computer: ComputerLetto, macchina: MacchinaDelProfilo): Giudizio {
   const scheda = dellaScheda(funzione, computer, macchina)
   const giudizio = scheda.stato === "no" ? delProcessore(funzione, computer) : scheda
   return { ...giudizio, frase: t("Decide il computer. {frase}", "The computer decides. {frase}", { frase: giudizio.frase }) }

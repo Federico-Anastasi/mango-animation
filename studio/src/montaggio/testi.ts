@@ -1,5 +1,6 @@
 // Sottotitoli e titolo disegnati sulla tela dell'anteprima «Piano», con lo stesso carattere (il file del motore), gli
 // stessi a capo e gli stessi istanti del montato: la scelta di cosa si vede è di `cartelli.ts`, qui si misura e si disegna.
+import { t } from "../lingua"
 import type { Stile } from "../tipi"
 import { cartelliDelTitolo, disponi, fotogrammaA, misureVisibili, postoDelCartello, schedaCartello, sottotitoloAl, titoloAl, type Disposizione, type Misura, type Scheda } from "./cartelli"
 import type { DatiPiano } from "./motore"
@@ -12,9 +13,9 @@ export class Testi {
   constructor(private readonly alCambio: () => void) {}
 
   /** La famiglia da usare per un carattere dello stile: il suo file, servito dal server, appena è arrivato; prima, un carattere qualunque. */
-  private famiglia(stile: Stile, chiave: string): string {
+  famiglia(stile: Stile, chiave: string): string {
     const file = stile.caratteri[chiave]
-    if (file === undefined) throw new Error(`Il carattere «${chiave}» non è nello stile.`)
+    if (file === undefined) throw new Error(t("Il carattere «{chiave}» non è nello stile.", "The font «{chiave}» is not in the style.", { chiave }))
     const nome = `mango:${file}`
     if (this.caricati.has(nome)) return `"${nome}"`
     if (!this.inCarico.has(nome)) {
@@ -42,10 +43,10 @@ export class Testi {
     return d
   }
 
-  /** I sottotitoli e il titolo al secondo `t`, sopra tutto il resto, nelle misure del palco (la tela è già in scala). */
-  disegna(ctx: CanvasRenderingContext2D, dati: DatiPiano, t: number): void {
+  /** I sottotitoli e il titolo al secondo `secondo`, sopra tutto il resto, nelle misure del palco (la tela è già in scala). */
+  disegna(ctx: CanvasRenderingContext2D, dati: DatiPiano, secondo: number): void {
     const { risolto, stile, piano } = dati
-    const f = fotogrammaA(t, risolto.formato.fps)
+    const f = fotogrammaA(secondo, risolto.formato.fps)
     const modo = piano.sottotitoli?.modo ?? stile.sottotitoli.modo
     const sott = sottotitoloAl(risolto, stile, modo, f)
     if (sott) {
@@ -63,7 +64,7 @@ export class Testi {
   }
 }
 
-const misuraCon =
+export const misuraCon =
   (ctx: CanvasRenderingContext2D, famiglia: string): Misura =>
   (testo, corpo) => {
     ctx.font = `${corpo}px ${famiglia}`
@@ -72,7 +73,7 @@ const misuraCon =
   }
 
 /** Un cartello con le prime `dette` parole (tutte se `null`), con l'angolo in alto a sinistra in (`x`, `y`): il riquadro, il bordo, poi le parole col filo. */
-function disegnaCartello(ctx: CanvasRenderingContext2D, famiglia: string, d: Disposizione, scheda: Scheda, x: number, y: number, dette: number | null): void {
+export function disegnaCartello(ctx: CanvasRenderingContext2D, famiglia: string, d: Disposizione, scheda: Scheda, x: number, y: number, dette: number | null): void {
   const visibile = misureVisibili(d, scheda, dette)
   if (!visibile) return
   ctx.save()

@@ -5,23 +5,26 @@
 // Tutto il resto è lo studio: se l'accesso dalla rete è acceso e la richiesta ha una sessione, si gira al server interno (`studio.ts`).
 // Il file in arrivo si scrive a pezzi su un temporaneo e si rinomina a fine corsa: mai intero in memoria.
 import { randomUUID } from "node:crypto"
-import { mkdir, readdir, rm, statfs } from "node:fs/promises"
+import { mkdir, readdir, rm } from "node:fs/promises"
 import type { NetworkInterfaceInfo } from "node:os"
 import { join } from "node:path"
 import type { Percorsi } from "../configurazione"
 import { aggiungiRiga, jsonDaTesto, leggiTesto, rinomina, scrivi, statistica, testoJson } from "../disco"
 import type { Eventi } from "../eventi"
-import { frase, type Frase } from "../lingua"
+import { frase, nellaLingua, type Frase, type Lingua } from "../lingua"
 import { percorsoSicuro, serviFile } from "../media"
 import { leggiFile } from "../sonda"
 import { giornoLocale, isoLocale } from "../tempo"
+import { linguaDellaPagina } from "../accesso"
 import { AccessoStudio } from "./accessoStudio"
+import type { ContestoAggiungi } from "./aggiungi"
 import { chiaveArrivi, chiaveGiusta } from "./chiave"
 import { ErroreArrivo, grandezza, motivoDelRifiuto } from "./errore"
+import { ACCETTATI, MARGINE_DISCO, Scrittura, spazioDelDisco } from "./ingresso"
 import type { ControlloFirewall, GiudizioFirewall } from "./firewall"
 import { paginaCarica } from "./carica"
 import { paginaGuarda, type VideoDaGuardare } from "./guarda"
-import { delimitatoreDi, leggiMultipart, type Scrittore } from "./multipart"
+import { delimitatoreDi, leggiMultipart } from "./multipart"
 import { nomeDestinazione, nomePulito, tipoDi, type TipoArrivo } from "./nomi"
 import { paginaInstallazione } from "./pagina"
 import { indirizziLocali, indirizziTailscale, indirizzoNumerico } from "./rete"
@@ -29,13 +32,26 @@ import { qrSvg } from "./qr"
 import { Ricezione } from "./ricezione"
 import { entraConLaChiave, giraAlloStudio } from "./studio"
 
-const MARGINE_DISCO = 512 * 1024 ** 2
-const CONTROLLO_DISCO_OGNI = 256 * 1024 ** 2
 const PARZIALI_VECCHI_MS = 24 * 3600_000
 const ARRIVI_RICORDATI = 10
-const ACCETTATI: TipoArrivo[] = ["video", "audio", "immagine"]
-const NOME_TIPO: Record<TipoArrivo, string> = { video: "video", immagine: "foto", audio: "registrazioni audio", documento: "documenti" }
-const ELENCO_ACCETTATI = ACCETTATI.map((t) => NOME_TIPO[t]).join(", ")
+const RIGHE_MASSIME_NEL_REGISTRO = 1000
+const NOME_TIPO: Record<TipoArrivo, Frase> = {
+  video: frase("video", "videos"),
+  immagine: frase("foto", "photos"),
+  audio: frase("registrazioni audio", "audio recordings"),
+  documento: frase("documenti", "documents"),
+}
+const ELENCO_ACCETTATI = frase(ACCETTATI.map((t) => NOME_TIPO[t].it).join(", "), ACCETTATI.map((t) => NOME_TIPO[t].en).join(", "))
+
+const NIENTE_QUI = frase("Qui non c'è niente.", "There is nothing here.")
+const METODO_NON_AMMESSO = frase("Metodo non ammesso qui.", "This method is not allowed here.")
+const FILE_VUOTO = frase("Il file è vuoto.", "The file is empty.")
+const FILE_A_META = frase("Il file è arrivato a metà: riprova.", "The file arrived only in part: try again.")
+const MANCANTE = {
+  montato: frase("Questo video non è ancora montato.", "This video is not edited yet."),
+  prova: frase("Questo video non ha una prova.", "This video has no rehearsal."),
+  copione: frase("Questo video non ha una pagina da registrare.", "This video has no script page to record from."),
+}
 
 export interface Arrivo {
   file: string
@@ -52,6 +68,8 @@ export interface ContestoGestore {
   /** Byte liberi sul disco che contiene `cartella`; sostituibile per provare un disco pieno. */
   spazioLibero?: (cartella: string) => number | Promise<number>
   adesso?: () => Date
+  /** Una riga in `registro.jsonl`. */
+  registra: (riga: Record<string, unknown>) => Promise<void>
   /** Il file è arrivato per intero e la risposta al telefono sta per partire: da qui in poi si occupa chi lo colloca. */
   arrivato: (atteso: Atteso, da: string | undefined) => void
   /** Chi ha aperto la guida: serve a sapere se un telefono è mai arrivato fin qui. */
@@ -68,11 +86,6 @@ export interface InfoRichiesta {
   da?: string
   /** Toglie il limite di silenzio alla connessione di questa richiesta: serve a uno stream che resta aperto. */
   senzaScadenza?: () => void
-}
-
-async function spazioDelDisco(cartella: string): Promise<number> {
-  const s = await statfs(cartella)
-  return Number(s.bavail) * Number(s.bsize)
 }
 
 const risposta = (stato: number, corpo: Record<string, unknown>): Response => Response.json(corpo, { status: stato, headers: { "Cache-Control": "no-store" } })
@@ -121,12 +134,14 @@ const SUFFISSO_ATTESA = /\.[0-9a-f]{8}\.attesa$/
 export interface ContestoColloca {
   percorsi: Percorsi
   ffprobe: string | null
+  /** Cosa dice la scheda di un file che arriva: di base una ripresa dal telefono. */
+  scheda?: { tipo: string; origine: string }
   registra: (riga: Record<string, unknown>) => Promise<void>
   collocato: (arrivo: Arrivo) => Promise<void>
 }
 
 /** Misura il file, scrive la scheda e poi lo sposta nel giorno in cui è arrivato. */
-export async function collocaArrivo(c: ContestoColloca, atteso: Atteso): Promise<void> {
+export async function collocaArrivo(c: ContestoColloca, atteso: Atteso): Promise<Arrivo> {
   const percorso = join(c.percorsi.arrivi, ".in-corso", atteso.attesa)
   const lettura = c.ffprobe ? await leggiFile(c.ffprobe, percorso, atteso.nome) : null
   const giorno = giornoLocale(atteso.quando)
@@ -134,15 +149,17 @@ export async function collocaArrivo(c: ContestoColloca, atteso: Atteso): Promise
   await mkdir(cartella, { recursive: true })
   const nome = await nomeLibero(cartella, atteso.nome)
   // La scheda prima del file: chi guarda la cartella non vede mai un file del telefono senza la sua scheda.
-  await scrivi(join(cartella, `${nome}.scheda.json`), testoJson({ tipo: "ripresa", origine: "telefono", arrivato: isoLocale(atteso.quando), note: "", ...lettura?.misure }))
+  await scrivi(join(cartella, `${nome}.scheda.json`), testoJson({ ...(c.scheda ?? { tipo: "ripresa", origine: "telefono" }), arrivato: isoLocale(atteso.quando), note: "", ...lettura?.misure }))
   await rinomina(percorso, join(cartella, nome))
   const arrivo = { file: `${giorno}/${nome}`, quando: atteso.quando.toISOString(), byte: atteso.byte }
   await c.registra({ esito: "collocato", ...arrivo })
   await c.collocato(arrivo)
+  return arrivo
 }
 
+/** Solo i `.parziale`: un `.attesa` è già confermato al telefono e aspetta di essere collocato. */
 async function toglieParzialiVecchi(cartella: string, adesso: number): Promise<void> {
-  const voci = await readdir(cartella)
+  const voci = (await readdir(cartella)).filter((voce) => voce.endsWith(".parziale"))
   await Promise.all(
     voci.map(async (voce) => {
       const stato = await statistica(join(cartella, voce))
@@ -151,14 +168,33 @@ async function toglieParzialiVecchi(cartella: string, adesso: number): Promise<v
   )
 }
 
-/** La funzione che risponde a ogni richiesta arrivata dalla rete. Separata dal server per provarla. */
+/** Il registro degli arrivi: la porta è sulla rete di casa e chiunque può bussare, quindi il file ha un tetto e, superato, tiene le ultime righe. */
+function creaRegistro(percorso: string, righeNelFile: number): ContestoGestore["registra"] {
+  let righe = righeNelFile
+  let scrittura: Promise<unknown> = Promise.resolve()
+  return (riga) => {
+    const questa = scrittura.then(async () => {
+      await aggiungiRiga(percorso, JSON.stringify({ at: new Date().toISOString(), ...riga }))
+      if (++righe <= RIGHE_MASSIME_NEL_REGISTRO) return
+      const tenute = (await leggiRegistro(percorso)).slice(-RIGHE_MASSIME_NEL_REGISTRO / 2)
+      await scrivi(percorso, tenute.map((r) => `${JSON.stringify(r)}\n`).join(""))
+      righe = tenute.length
+    })
+    scrittura = questa.catch(() => undefined)
+    return questa
+  }
+}
+
+/**
+ * La funzione che risponde a ogni richiesta arrivata dalla rete. Separata dal server per provarla.
+ * Le frasi e le pagine escono nella lingua del telefono che chiede (`Accept-Language`; lo studio dalla rete manda `X-Lingua`): italiano se parla italiano o se manca, inglese altrimenti.
+ */
 export function creaGestore(contesto: ContestoGestore): (req: Request, info?: InfoRichiesta) => Promise<Response> {
   const spazioLibero = contesto.spazioLibero ?? spazioDelDisco
   const adesso = contesto.adesso ?? (() => new Date())
-  const registro = join(contesto.percorsi.arrivi, "registro.jsonl")
-  const registra = (riga: Record<string, unknown>): Promise<void> => aggiungiRiga(registro, JSON.stringify({ at: new Date().toISOString(), ...riga }))
+  const { registra } = contesto
 
-  return async (req, info = {}) => {
+  const gestisci = async (req: Request, info: InfoRichiesta, lingua: Lingua): Promise<Response> => {
     const url = new URL(req.url)
     const arrivo = /^\/arrivi\/contenuti-video\/?$/.test(url.pathname)
     const guida = /^\/installa\/contenuti-video\/?$/.test(url.pathname)
@@ -170,31 +206,37 @@ export function creaGestore(contesto: ContestoGestore): (req: Request, info?: In
     const delTelefono = arrivo || guida || elenco || video || prova || copione || carica
     if (!delTelefono) {
       const studio = contesto.studio
-      if (!studio.accesso.acceso) return risposta(404, { errore: "Qui non c'è niente." })
+      if (!studio.accesso.acceso) return risposta(404, { errore: NIENTE_QUI })
       // Lo studio si apre solo all'indirizzo numerico del computer: un nome è quello di un altro sito che punta qui (DNS rebinding).
-      if (!indirizzoNumerico(url.hostname)) return risposta(403, { errore: "Lo studio si apre solo all'indirizzo del computer, quello del link nel riquadro «Lo studio dal telefono»." })
+      if (!indirizzoNumerico(url.hostname)) {
+        return risposta(403, {
+          errore: frase(
+            "Lo studio si apre solo all'indirizzo del computer, quello del link nel riquadro «Lo studio dal telefono».",
+            "The studio opens only at the address of the computer, the one in the link in the «The studio on your phone» box.",
+          ),
+        })
+      }
       if (!/^\/studio\/?$/.test(url.pathname)) return giraAlloStudio(studio.accesso, studio.porta(), studio.chiaveApi, req, url, info.senzaScadenza ?? (() => {}))
       const esito = await entraConLaChiave(studio.accesso, req, url)
       await registra({ esito: esito.riuscito ? "studio-entrato" : "studio-rifiutato", da: info.da })
       return esito.risposta
     }
-    if (!contesto.ricezioneAccesa()) return risposta(404, { errore: "Qui non c'è niente." })
+    if (!contesto.ricezioneAccesa()) return risposta(404, { errore: NIENTE_QUI })
     const metodoGiusto = arrivo ? req.method === "POST" : video || prova || copione ? req.method === "GET" || req.method === "HEAD" : req.method === "GET"
-    if (!metodoGiusto) return risposta(405, { errore: "Metodo non ammesso qui." })
+    if (!metodoGiusto) return risposta(405, { errore: METODO_NON_AMMESSO })
 
     if (!chiaveGiusta(contesto.chiave, chiaveDellaRichiesta(req, url))) {
       await registra({ esito: "rifiutato", motivo: "chiave sbagliata", da: info.da })
-      return risposta(401, { errore: "La chiave non è giusta: riapri il codice QR in Mango Animation e rifai la Scorciatoia." })
+      return risposta(401, { errore: frase("La chiave non è giusta: riapri il codice QR in Mango Animation e rifai la Scorciatoia.", "The key is not right: open the QR code in Mango Animation again and redo the Shortcut.") })
     }
 
-    if (elenco) return new Response(paginaGuarda(contesto.video(), contesto.chiave), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } })
-    if (carica) return new Response(paginaCarica(contesto.chiave), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } })
+    if (elenco) return new Response(paginaGuarda(contesto.video(), contesto.chiave, lingua), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } })
+    if (carica) return new Response(paginaCarica(contesto.chiave, lingua), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } })
     if (video || prova || copione) {
       const genere = video ? "montato" : prova ? "prova" : "copione"
       const scelto = contesto.video().find((v) => v.slug === (video ?? prova ?? copione) && v.genere === genere)
       const percorso = scelto ? percorsoSicuro(contesto.percorsi.archivio, scelto.file) : null
-      const mancante = { montato: "Questo video non è ancora montato.", prova: "Questo video non ha una prova.", copione: "Questo video non ha una pagina da registrare." }
-      return percorso ? serviFile(req, percorso, "no-cache") : risposta(404, { errore: mancante[genere] })
+      return percorso ? serviFile(req, percorso, "no-cache") : risposta(404, { errore: MANCANTE[genere] })
     }
 
     if (guida) {
@@ -203,7 +245,7 @@ export function creaGestore(contesto: ContestoGestore): (req: Request, info?: In
       const host = req.headers.get("host") ?? ""
       const indirizzo = /^[\w.[\]:-]+$/.test(host) ? host : `localhost:${contesto.porta()}`
       const indirizzoRicezione = `http://${indirizzo}/arrivi/contenuti-video?chiave=${encodeURIComponent(contesto.chiave)}`
-      return new Response(paginaInstallazione({ indirizzoRicezione, limiteGb: Math.round(contesto.limiteByte / 1024 ** 3) }), {
+      return new Response(paginaInstallazione({ indirizzoRicezione, limiteGb: Math.round(contesto.limiteByte / 1024 ** 3) }, lingua), {
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
       })
     }
@@ -212,97 +254,81 @@ export function creaGestore(contesto: ContestoGestore): (req: Request, info?: In
     const parziali = join(contesto.percorsi.arrivi, ".in-corso")
     const parziale = join(parziali, `${randomUUID()}.parziale`)
     const inizio = Date.now()
-    let scritti = 0
+    let scrittura: Scrittura | null = null
     const ricevuto: { nome: string | null } = { nome: null }
     try {
       const dichiarati = Number(req.headers.get("content-length"))
       const lunghezza = Number.isFinite(dichiarati) && dichiarati > 0 ? dichiarati : null
       if (lunghezza !== null && lunghezza > contesto.limiteByte) {
-        throw new ErroreArrivo(413, `Il file pesa ${grandezza(lunghezza)}, più del massimo di ${grandezza(contesto.limiteByte)}.`)
+        throw new ErroreArrivo(413, frase(`Il file pesa ${grandezza(lunghezza)}, più del massimo di ${grandezza(contesto.limiteByte)}.`, `The file is ${grandezza(lunghezza, "en")}, over the ${grandezza(contesto.limiteByte, "en")} limit.`))
       }
       await mkdir(parziali, { recursive: true })
       await toglieParzialiVecchi(parziali, quando.getTime())
       const libero = await spazioLibero(parziali)
       if (libero < (lunghezza ?? 0) + MARGINE_DISCO) {
-        throw new ErroreArrivo(507, `Sul computer non c'è abbastanza spazio libero: ce ne sono ${grandezza(libero)}, per questo file ne servono ${grandezza((lunghezza ?? 0) + MARGINE_DISCO)}. Libera spazio e riprova.`)
+        const serve = (lunghezza ?? 0) + MARGINE_DISCO
+        throw new ErroreArrivo(
+          507,
+          frase(
+            `Sul computer non c'è abbastanza spazio libero: ce ne sono ${grandezza(libero)}, per questo file ne servono ${grandezza(serve)}. Libera spazio e riprova.`,
+            `There is not enough free space on the computer: ${grandezza(libero, "en")} free, ${grandezza(serve, "en")} needed for this file. Free some space and try again.`,
+          ),
+        )
       }
-      if (!req.body) throw new ErroreArrivo(400, "Non è arrivato nessun file.")
+      if (!req.body) throw new ErroreArrivo(400, frase("Non è arrivato nessun file.", "No file arrived."))
 
       const contentType = req.headers.get("content-type") ?? ""
-      const file = Bun.file(parziale).writer({ highWaterMark: 4 * 1024 ** 2 })
-      let ultimoControllo = 0
-      const spazioFinito = new ErroreArrivo(507, "Lo spazio sul computer è finito mentre il file arrivava. Libera spazio e riprova.")
-      const scrittore: Scrittore = {
-        async scrivi(pezzo) {
-          scritti += pezzo.byteLength
-          if (scritti > contesto.limiteByte) throw new ErroreArrivo(413, `Il file supera il massimo di ${grandezza(contesto.limiteByte)}.`)
-          if (scritti - ultimoControllo >= CONTROLLO_DISCO_OGNI) {
-            ultimoControllo = scritti
-            if ((await spazioLibero(parziali)) < MARGINE_DISCO / 2) throw spazioFinito
-          }
-          try {
-            file.write(pezzo)
-            await file.flush()
-          } catch (errore) {
-            if ((errore as NodeJS.ErrnoException).code === "ENOSPC") throw spazioFinito
-            throw errore
-          }
-        },
-      }
+      const corrente = new Scrittura(parziale, contesto.limiteByte, spazioLibero, parziali)
+      scrittura = corrente
       const controllaTipo = (nome: string, mime: string | null): string => {
         const pulito = nomePulito(nome, mime)
         const tipo = tipoDi(pulito, mime)
-        if (!tipo) throw new ErroreArrivo(415, `Non riconosco che file sia («${pulito}»). Questa pagina accetta: ${ELENCO_ACCETTATI}.`)
-        if (!ACCETTATI.includes(tipo)) throw new ErroreArrivo(415, `Questa pagina accetta solo ${ELENCO_ACCETTATI}, non ${NOME_TIPO[tipo]}.`)
+        if (!tipo) throw new ErroreArrivo(415, frase(`Non riconosco che file sia («${pulito}»). Questa pagina accetta: ${ELENCO_ACCETTATI.it}.`, `I do not recognise what file this is («${pulito}»). This page accepts: ${ELENCO_ACCETTATI.en}.`))
+        if (!ACCETTATI.includes(tipo)) throw new ErroreArrivo(415, frase(`Questa pagina accetta solo ${ELENCO_ACCETTATI.it}, non ${NOME_TIPO[tipo].it}.`, `This page accepts only ${ELENCO_ACCETTATI.en}, not ${NOME_TIPO[tipo].en}.`))
         return pulito
       }
 
       try {
         if (contentType.toLowerCase().startsWith("multipart/form-data")) {
           const delimitatore = delimitatoreDi(contentType)
-          if (!delimitatore) throw new ErroreArrivo(400, "Il modulo mandato non si legge.")
+          if (!delimitatore) throw new ErroreArrivo(400, frase("Il modulo mandato non si legge.", "The form that was sent cannot be read."))
           const esito = await leggiMultipart(req.body, delimitatore, async (parte) => {
             ricevuto.nome = controllaTipo(parte.nome, parte.tipo)
-            return scrittore
+            return corrente.scrittore
           })
-          if (ricevuto.nome === null) throw new ErroreArrivo(400, "Nel modulo non c'è nessun file: il campo deve essere di tipo «File».")
-          if (!esito.file || !esito.chiuso) throw new ErroreArrivo(400, "Il file è arrivato a metà: riprova.")
+          if (ricevuto.nome === null) throw new ErroreArrivo(400, frase("Nel modulo non c'è nessun file: il campo deve essere di tipo «File».", "There is no file in the form: the field must be of type «File»."))
+          if (!esito.file || !esito.chiuso) throw new ErroreArrivo(400, FILE_A_META)
         } else {
           ricevuto.nome = controllaTipo(nomeDichiarato(req, url) ?? "", contentType)
-          const lettore = req.body.getReader()
-          for (;;) {
-            const { done, value } = await lettore.read()
-            if (done) break
-            await scrittore.scrivi(value)
-          }
-          if (lunghezza !== null && scritti !== lunghezza) throw new ErroreArrivo(400, "Il file è arrivato a metà: riprova.")
+          await corrente.daFlusso(req.body)
+          if (lunghezza !== null && corrente.scritti !== lunghezza) throw new ErroreArrivo(400, FILE_A_META)
         }
       } finally {
-        try {
-          await file.end()
-        } catch (errore) {
-          if ((errore as NodeJS.ErrnoException).code === "ENOSPC") throw spazioFinito
-          throw errore
-        }
+        await corrente.chiudi()
       }
       const nomeOriginale = ricevuto.nome
-      if (scritti === 0 || nomeOriginale === null) throw new ErroreArrivo(400, "Il file è vuoto.")
+      if (corrente.scritti === 0 || nomeOriginale === null) throw new ErroreArrivo(400, FILE_VUOTO)
 
       const nome = nomeDestinazione(quando, nomeOriginale)
       const attesa = `${nome}.${randomUUID().slice(0, 8)}.attesa`
       await rinomina(parziale, join(parziali, attesa))
       const secondi = Math.round((Date.now() - inizio) / 100) / 10
-      await registra({ esito: "ricevuto", file: nome, nome_originale: nomeOriginale, byte: scritti, secondi, da: info.da })
-      contesto.arrivato({ attesa, nome, quando, byte: scritti }, info.da)
-      return risposta(201, { ok: true, messaggio: `Ricevuto: ${nomeOriginale} (${grandezza(scritti)}).`, file: nome, byte: scritti })
+      await registra({ esito: "ricevuto", file: nome, nome_originale: nomeOriginale, byte: corrente.scritti, secondi, da: info.da })
+      contesto.arrivato({ attesa, nome, quando, byte: corrente.scritti }, info.da)
+      return risposta(201, { ok: true, messaggio: frase(`Ricevuto: ${nomeOriginale} (${grandezza(corrente.scritti)}).`, `Received: ${nomeOriginale} (${grandezza(corrente.scritti, "en")}).`), file: nome, byte: corrente.scritti })
     } catch (errore) {
       await rm(parziale, { force: true })
-      const { stato, frase, dettaglio, interrotto } = motivoDelRifiuto(errore)
+      const { stato, frase: motivo, dettaglio, interrotto } = motivoDelRifiuto(errore)
       if (dettaglio !== null && !interrotto) console.error(`arrivi: ${dettaglio}${errore instanceof Error && errore.stack ? `
 ${errore.stack}` : ""}`)
-      await registra({ esito: "rifiutato", motivo: frase, ...(dettaglio === null ? {} : { dettaglio }), nome_originale: ricevuto.nome, byte: scritti, da: info.da })
-      return risposta(stato, { ok: false, errore: frase })
+      await registra({ esito: "rifiutato", motivo: motivo.it, ...(dettaglio === null ? {} : { dettaglio }), nome_originale: ricevuto.nome, byte: scrittura?.scritti ?? 0, da: info.da })
+      return risposta(stato, { ok: false, errore: motivo })
     }
+  }
+
+  return (req, info = {}) => {
+    const lingua = linguaDellaPagina(req)
+    return nellaLingua(lingua, () => gestisci(req, info, lingua))
   }
 }
 
@@ -382,6 +408,8 @@ export class Ricevitore {
   private errore: Frase | null = null
   private telefonoVisto = false
   private fila: Promise<void> = Promise.resolve()
+  /** Ciò che serve a mettere nel girato un file del computer (`aggiungi.ts`). */
+  aggiunta!: Pick<ContestoAggiungi, "percorsi" | "limiteByte" | "spazioLibero" | "adesso" | "colloca" | "registra">
   private gestore: ReturnType<typeof creaGestore> | null = null
   /** Gli accendi e spegni uno dopo l'altro: l'ultimo detto è quello che vale. */
   private cambi: Promise<void> = Promise.resolve()
@@ -397,6 +425,7 @@ export class Ricevitore {
     const ricevitore = new Ricevitore(opzioni, await chiaveArrivi(opzioni.percorsi.arrivi), await AccessoStudio.carica(opzioni.percorsi.arrivi), await Ricezione.carica(opzioni.percorsi.arrivi))
     const registro = join(opzioni.percorsi.arrivi, "registro.jsonl")
     const righe = await leggiRegistro(registro)
+    const registra = creaRegistro(registro, righe.length)
     ricevitore.ultimi = righe
       .filter((r) => r.esito === "collocato" && typeof r.file === "string" && typeof r.quando === "string" && typeof r.byte === "number")
       .slice(-ARRIVI_RICORDATI)
@@ -404,18 +433,34 @@ export class Ricevitore {
       .map((r) => ({ file: String(r.file), quando: String(r.quando), byte: Number(r.byte) }))
     ricevitore.telefonoVisto = righe.some((r) => (r.esito === "pagina" || r.esito === "ricevuto") && !eLocale(typeof r.da === "string" ? r.da : undefined))
 
+    const dopo = (arrivo: Arrivo) => opzioni.dopoArrivo([`grezzo/${arrivo.file}.scheda.json`, `grezzo/${arrivo.file}`])
     const contesto: ContestoColloca = {
       percorsi: opzioni.percorsi,
       ffprobe: opzioni.ffprobe,
-      registra: (riga) => aggiungiRiga(registro, JSON.stringify({ at: new Date().toISOString(), ...riga })),
+      registra,
       collocato: async (arrivo) => {
         ricevitore.ultimi = [arrivo, ...ricevitore.ultimi].slice(0, ARRIVI_RICORDATI)
-        await opzioni.dopoArrivo([`grezzo/${arrivo.file}.scheda.json`, `grezzo/${arrivo.file}`])
+        await dopo(arrivo)
         opzioni.eventi.emetti({ tipo: "arrivi" })
       },
     }
+    // I file messi nel girato dal computer non sono arrivi dal telefono: non entrano fra gli ultimi arrivi, né nel registro come tali.
+    const contestoDelComputer: ContestoColloca = { ...contesto, scheda: { tipo: "ripresa", origine: "altro" }, registra: (riga) => registra({ ...riga, esito: "aggiunto" }), collocato: dopo }
+    const colloca = (atteso: Atteso, c: ContestoColloca): Promise<Arrivo> => {
+      const fatto = ricevitore.fila.then(() => collocaArrivo(c, atteso))
+      ricevitore.fila = fatto.then(() => undefined, () => undefined)
+      return fatto
+    }
     const metti = (atteso: Atteso): void => {
-      ricevitore.fila = ricevitore.fila.then(() => collocaArrivo(contesto, atteso)).catch((errore) => console.error(`arrivi: «${atteso.nome}» resta in .in-corso e si riprova al prossimo avvio (${errore instanceof Error ? errore.message : String(errore)}).`))
+      colloca(atteso, contesto).catch((errore) => console.error(`arrivi: «${atteso.nome}» resta in .in-corso e si riprova al prossimo avvio (${errore instanceof Error ? errore.message : String(errore)}).`))
+    }
+    ricevitore.aggiunta = {
+      percorsi: opzioni.percorsi,
+      limiteByte: opzioni.limiteByte,
+      spazioLibero: opzioni.spazioLibero ?? spazioDelDisco,
+      adesso: opzioni.adesso ?? (() => new Date()),
+      colloca: (atteso) => colloca(atteso, contestoDelComputer),
+      registra,
     }
     for (const attesa of (await readdir(join(opzioni.percorsi.arrivi, ".in-corso")).catch(() => [])).filter((n) => SUFFISSO_ATTESA.test(n))) {
       const nome = attesa.replace(SUFFISSO_ATTESA, "")
@@ -426,6 +471,7 @@ export class Ricevitore {
 
     const gestore = creaGestore({
       percorsi: opzioni.percorsi,
+      registra,
       chiave: ricevitore.chiave,
       limiteByte: opzioni.limiteByte,
       porta: () => ricevitore.server?.port ?? opzioni.porta,

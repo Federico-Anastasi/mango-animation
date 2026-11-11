@@ -109,6 +109,16 @@ class FintaQuery implements QueryChat {
     return this.rifiutaLaMisura !== null ? Promise.reject(new Error(this.rifiutaLaMisura)) : Promise.resolve(this.misura)
   }
 
+  /** Le richieste di collegamento all'app di Claude (`enableRemoteControl`, che l'SDK ha ma non dichiara nei tipi). */
+  readonly collegamenti: unknown[][] = []
+  /** Se è scritto, il collegamento fallisce con questa frase. */
+  rifiutaIlCollegamento: string | null = null
+  enableRemoteControl = (acceso: boolean, nome?: string): Promise<unknown> => {
+    this.collegamenti.push([acceso, nome])
+    if (this.rifiutaIlCollegamento !== null) return Promise.reject(new Error(this.rifiutaIlCollegamento))
+    return Promise.resolve({ session_url: "https://claude.ai/code/SESSIONE-SEGRETA", bridge_session_id: "SESSIONE-SEGRETA", bridge_epoch: 1 })
+  }
+
   close = (): void => {
     this.chiusa = true
     const fine = this.attende
@@ -238,7 +248,11 @@ describe("una conversazione nuova", () => {
     expect(q.opzioni.includePartialMessages).toBe(true)
     expect(q.opzioni.permissionMode).toBe("bypassPermissions")
     expect(q.opzioni.extraArgs).toEqual({ chrome: null })
-    expect(q.opzioni.systemPrompt).toMatchObject({ preset: "claude_code", append: expect.stringContaining("creator.lingua") })
+    const { append } = q.opzioni.systemPrompt as { append: string }
+    expect(q.opzioni.systemPrompt).toMatchObject({ preset: "claude_code" })
+    expect(append).toContain("creator.lingua")
+    expect(append).toContain("description of the commands you run")
+    expect(append).toContain("use the AskUserQuestion tool")
     expect(q.opzioni.model).toBeUndefined()
     expect(q.opzioni.effort).toBeUndefined()
     expect(q.opzioni.sessionId).toBe(id)
@@ -881,6 +895,19 @@ describe("le conversazioni vecchie", () => {
     expect((await dettaglio(c, id)).corpo.lavoro).toEqual({ ms: 151_000, da: null })
   })
 
+  test("una conversazione ripresa chiede il collegamento all'app di Claude come le altre", async () => {
+    const c = await avvia()
+    const id = vecchia(c, c.a.archivio)
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "E la copertina?" })
+    const q = await aspetta(() => c.finto.queries[0])
+    expect(q.opzioni.resume).toBe(id)
+    q.emetti(init)
+    await aspetta(() => q.collegamenti.length > 0)
+    expect(q.collegamenti).toHaveLength(1)
+    expect(q.collegamenti[0]?.[0]).toBe(true)
+  })
+
+
   test("un messaggio la riapre con resume, e la storia resta", async () => {
     const c = await avvia()
     const id = vecchia(c, c.a.archivio)
@@ -1252,12 +1279,37 @@ describe("quando Claude Code si rompe", () => {
     expect(d.corpo.messaggi.map((m) => m.ruolo)).toEqual(["utente", "claude", "utente"])
   })
 
-  test("un errore del giro (non autenticato) diventa una frase che dice cosa fare", async () => {
+  test("un errore del giro (non autenticato) dice di riaprire l'app, che porta ad accedere, e non manda a un terminale", async () => {
     const c = await avvia()
     const { id, q } = await nuova(c)
     q.emetti(init, { type: "assistant", parent_tool_use_id: null, error: "authentication_failed", message: { id: "m", content: [{ type: "text", text: "Not logged in" }] } }, risultato({ is_error: true, result: "Not logged in" }))
     await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
-    expect((await dettaglio(c, id)).corpo.messaggi[1]?.parti.at(-1)).toMatchObject({ tipo: "fine", errore: expect.stringContaining("/login") })
+    const fine = (await dettaglio(c, id)).corpo.messaggi[1]?.parti.at(-1)
+    expect(fine).toMatchObject({ tipo: "fine", errore: expect.stringContaining("riaprila") })
+    expect(JSON.stringify(fine)).not.toContain("terminale")
+  })
+
+  const limiteRaggiunto = (extra: object[] = []) => [...extra, { type: "assistant", parent_tool_use_id: null, error: "rate_limit", message: { id: "m", content: [{ type: "text", text: "limit" }] } }, risultato({ is_error: true, result: "limit" })] as const
+
+  test("un limite dell'abbonamento raggiunto dice a che ora torna, se Claude Code lo dà", async () => {
+    const c = await avvia()
+    const { id, q } = await nuova(c)
+    const torna = Math.floor(Date.now() / 1000) + 3 * 3600
+    q.emetti(init, ...limiteRaggiunto([{ type: "rate_limit_event", rate_limit_info: { status: "rejected", resetsAt: torna }, uuid: "u", session_id: "s" }]))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+    expect((await dettaglio(c, id)).corpo.messaggi[1]?.parti.at(-1)).toMatchObject({ tipo: "fine", errore: expect.stringMatching(/si libera .*\d\d:\d\d/) })
+  })
+
+  test("un limite raggiunto senza l'ora dice che di solito passano alcune ore, e un limite di una volta prima non conta", async () => {
+    const c = await avvia()
+    const prima = await nuova(c)
+    prima.q.emetti(init, ...limiteRaggiunto())
+    await aspetta(async () => (await dettaglio(c, prima.id)).corpo.stato === "pronta")
+    expect((await dettaglio(c, prima.id)).corpo.messaggi[1]?.parti.at(-1)).toMatchObject({ errore: expect.stringContaining("alcune ore") })
+    const scaduto = await nuova(c)
+    scaduto.q.emetti(init, ...limiteRaggiunto([{ type: "rate_limit_event", rate_limit_info: { status: "rejected", resetsAt: Math.floor(Date.now() / 1000) - 60 }, uuid: "u", session_id: "s" }]))
+    await aspetta(async () => (await dettaglio(c, scaduto.id)).corpo.stato === "pronta")
+    expect((await dettaglio(c, scaduto.id)).corpo.messaggi[1]?.parti.at(-1)).toMatchObject({ errore: expect.stringContaining("alcune ore") })
   })
 
   test("chiudere il server chiude le conversazioni aperte", async () => {
@@ -1518,6 +1570,58 @@ describe("i comandi con la barra", () => {
   })
 })
 
+describe("il collegamento con l'app di Claude", () => {
+  test("una conversazione nuova chiede il collegamento appena Claude Code è partito, col titolo come nome, una volta sola", async () => {
+    const c = await avvia()
+    const { q } = await nuova(c, "Rispondi solo: pronto")
+    expect(q.collegamenti).toEqual([])
+    q.emetti(init, ...testoAPezzi("msg_1", ["pronto"]), risultato(), init)
+    await aspetta(() => q.collegamenti.length > 0)
+    q.emetti(init)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(q.collegamenti).toEqual([[true, "Mango Animation · Rispondi solo: pronto"]])
+  })
+
+  test("se non si collega, la chat va avanti e il registro dice perché, senza il collegamento", async () => {
+    const c = await avvia()
+    const { id, q } = await nuova(c)
+    q.rifiutaIlCollegamento = "remote_control_auth"
+    const registro = spyOn(console, "error").mockImplementation(() => undefined)
+    try {
+      q.emetti(init, ...testoAPezzi("msg_1", ["ok"]), risultato())
+      await aspetta(() => registro.mock.calls.length > 0)
+      expect(registro.mock.calls.map((riga) => riga.join(" ")).join(" | ")).toContain("remote_control_auth")
+    } finally {
+      registro.mockRestore()
+    }
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+  })
+
+  test("l'indirizzo della sessione remota non esce: né nel registro né nella chat", async () => {
+    const c = await avvia()
+    const ascolto = await ascolta(c.a)
+    const registro = spyOn(console, "error").mockImplementation(() => undefined)
+    const scritto = spyOn(console, "log").mockImplementation(() => undefined)
+    try {
+      const { id, q } = await nuova(c)
+      q.emetti(init, { type: "system", subtype: "bridge_state", bridge_epoch: 1 }, ...testoAPezzi("msg_1", ["ok"]), risultato())
+      await aspetta(() => q.collegamenti.length > 0)
+      await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+      expect(JSON.stringify([registro.mock.calls, scritto.mock.calls, (await dettaglio(c, id)).corpo, ascolto.messaggi])).not.toContain("SEGRETA")
+    } finally {
+      registro.mockRestore()
+      scritto.mockRestore()
+    }
+    ascolto.chiudi()
+  })
+
+  test("l'SDK installato sa ancora accendere il collegamento (non è nei suoi tipi: se una versione nuova lo toglie, qui si vede)", async () => {
+    const sdk = await Bun.file(join(import.meta.dir, "..", "node_modules", "@anthropic-ai", "claude-agent-sdk", "sdk.mjs")).text()
+    expect(sdk).toContain("async enableRemoteControl(")
+    expect(sdk).toContain('subtype:"remote_control"')
+  })
+})
+
 describe("chiudere una conversazione", () => {
   /** Una conversazione aperta qui che ha anche il suo file, come tutte quelle vere: dopo la chiusura si rilegge da lì. */
   async function conFile(c: Avvio, testo = "Ciao") {
@@ -1626,5 +1730,83 @@ describe("chiudere una conversazione", () => {
     const [uno, due] = await Promise.all([chiudi(c, id), chiudi(c, id)])
     expect([uno.stato, due.stato]).toEqual([200, 200])
     expect(q.interrotta).toBe(1)
+  })
+})
+
+describe("in inglese", () => {
+  const inInglese = (c: Avvio) => chiama(c.a, "GET", "/api/video", undefined, "en")
+  const ultimaParte = async (c: Avvio, id: string) => (await dettaglio(c, id)).corpo.messaggi[1]?.parti.at(-1)
+
+  test("gli errori delle rotte escono in inglese se lo studio lo chiede, in italiano altrimenti", async () => {
+    const c = await avvia()
+    const { id } = await nuova(c)
+    const errore = async (corpo: unknown, percorso = "/api/chat", lingua?: "it" | "en") => (await chiama<{ errore: string }>(c.a, "POST", percorso, corpo, lingua)).corpo.errore
+    expect(await errore({ testo: "   " }, "/api/chat", "en")).toBe("The message is empty: write something or attach a file.")
+    expect(await errore({ testo: "   " })).toBe("Il messaggio è vuoto: scrivi qualcosa o allega un file.")
+    expect(await errore({ testo: "Ciao", modello: "gpt-9" }, "/api/chat", "en")).toMatch(/^«gpt-9» is not a model the chat offers\. The available ones: /)
+    expect(await errore({ effort: "enorme" }, `/api/chat/${id}/impostazioni`, "en")).toBe("The effort «enorme» does not exist. The levels are: low, medium, high, xhigh, max.")
+    expect(await errore({ scelta: "forse" }, `/api/chat/${id}/risposte/toolu_x`, "en")).toBe("This request is gone: it has already been answered, or withdrawn.")
+    expect(await errore({ testo: "/model opus" }, `/api/chat/${id}/messaggi`, "en")).toBe("The model is not changed with «/model»: choose it from the model menu, so the chat knows.")
+    expect(await errore({}, "/api/chat/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ferma", "en")).toBe("There is no conversation with this id: look at the list of conversations.")
+    expect(await errore({}, `/api/chat/${ID_FINTO}/background`, "en")).toBe("There is no conversation with this id: look at the list of conversations.")
+    const senzaTipo = await fetch(`${c.a.url}/api/chat`, { method: "POST", headers: { ...c.a.accesso, "X-Lingua": "en" }, body: "{}" })
+    expect(((await senzaTipo.json()) as { errore: string }).errore).toBe("Send the body as JSON, with the header Content-Type: application/json.")
+  })
+
+  test("la conversazione chiusa e il titolo senza testo hanno la loro frase nelle due lingue", async () => {
+    const c = await avvia()
+    const { id } = await nuova(c)
+    c.sessioni.voci = [{ id, titolo: "", aggiornata: 1 }, { id: ID_FINTO, titolo: "", aggiornata: 0 }]
+    c.sessioni.file.set(id, [])
+    await chiama(c.a, "POST", `/api/chat/${id}/chiudi`)
+    const ferma = async (lingua: "it" | "en") => (await chiama<{ errore: string }>(c.a, "POST", `/api/chat/${id}/ferma`, undefined, lingua)).corpo.errore
+    expect(await ferma("en")).toBe("This conversation is closed: nothing is running. Write a message to reopen it.")
+    expect(await ferma("it")).toBe("Questa conversazione è chiusa: non sta facendo niente. Scrivi un messaggio per riaprirla.")
+    const titoli = async (lingua: "it" | "en") => (await chiama<{ id: string; titolo: string }[]>(c.a, "GET", "/api/chat", undefined, lingua)).corpo.filter((v) => v.id === ID_FINTO).map((v) => v.titolo)
+    expect(await titoli("en")).toEqual(["Untitled conversation"])
+    expect(await titoli("it")).toEqual(["Conversazione senza titolo"])
+  })
+
+  test("un giro andato male, un collegamento interrotto e il limite escono nella lingua che lo studio ha usato per ultima", async () => {
+    const c = await avvia()
+    await inInglese(c)
+    const { id, q } = await nuova(c)
+    q.emetti(init, ...testoAPezzi("msg_1", ["comincio"]), risultato({ subtype: "error_during_execution", is_error: true, errors: ["no network"] }))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+    expect(await ultimaParte(c, id)).toMatchObject({ tipo: "fine", errore: "It stopped: no network." })
+
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "ancora" })
+    q.emetti({ type: "assistant", parent_tool_use_id: null, error: "authentication_failed", message: { id: "m", content: [{ type: "text", text: "Not logged in" }] } }, risultato({ is_error: true, result: "Not logged in" }))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.messaggi.length === 4)
+    expect((await dettaglio(c, id)).corpo.messaggi[3]?.parti.at(-1)).toMatchObject({ tipo: "fine", errore: expect.stringContaining("close Mango Animation and open it again") })
+
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "e poi" })
+    q.emetti(...testoAPezzi("msg_3", ["di nuovo"]))
+    q.rompi(new Error("process exited with code 1"))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "errore")
+    const messaggi = (await dettaglio(c, id)).corpo.messaggi
+    expect(messaggi.at(-1)?.parti.at(-1)).toMatchObject({ tipo: "fine", errore: "The connection with Claude Code was interrupted (process exited with code 1): write the message again." })
+  })
+
+  test("il limite dell'abbonamento dice in inglese quando torna", async () => {
+    const c = await avvia()
+    await inInglese(c)
+    const { id, q } = await nuova(c)
+    const torna = Math.floor(Date.now() / 1000) + 3 * 3600
+    q.emetti(init, { type: "rate_limit_event", rate_limit_info: { status: "rejected", resetsAt: torna }, uuid: "u", session_id: "s" }, { type: "assistant", parent_tool_use_id: null, error: "rate_limit", message: { id: "m", content: [{ type: "text", text: "limit" }] } }, risultato({ is_error: true, result: "limit" }))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+    expect(await ultimaParte(c, id)).toMatchObject({ tipo: "fine", errore: expect.stringMatching(/^You have used all the messages your subscription allows for now: it resets (at|\w+ at) \d\d:\d\d\.$/) })
+  })
+
+  test("la richiesta di un permesso e il rifiuto che torna a Claude parlano la lingua dello studio", async () => {
+    const c = await avvia()
+    await inInglese(c)
+    const { id, q } = await nuova(c)
+    q.emetti(init)
+    const risposta = q.chiediPermesso("Bash", { command: "rm prova.txt" }, "toolu_p1")
+    await aspetta(async () => (await dettaglio(c, id)).corpo.in_attesa.length === 1)
+    expect((await dettaglio(c, id)).corpo.in_attesa[0]?.["frase"]).toBe("Claude Code wants to use Bash: rm prova.txt")
+    await chiama(c.a, "POST", `/api/chat/${id}/risposte/toolu_p1`, { scelta: "no", motivo: "meglio di no" })
+    expect(await risposta).toEqual({ behavior: "deny", message: "Permission to use Bash was not given: meglio di no" })
   })
 })

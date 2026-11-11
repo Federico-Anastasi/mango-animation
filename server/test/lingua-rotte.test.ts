@@ -233,11 +233,11 @@ describe("gli errori delle rotte, in italiano e in inglese", () => {
       "/api/stile",
       {},
       400,
-      "Lo stile non è valido: formato: servono «largo», «alto» e «fps», numeri maggiori di zero. · quadri: serve almeno un quadro.",
-      "The style is not valid: formato: «largo», «alto» and «fps» are needed, numbers greater than zero. · quadri: at least one frame is needed.",
+      "Lo stile non è valido: formati: serve il «verticale», e ogni formato vuole «largo», «alto» e «fps», numeri maggiori di zero. · quadri: serve almeno un quadro.",
+      "The style is not valid: formati: the «verticale» is needed, and every format needs «largo», «alto» and «fps», numbers greater than zero. · quadri: at least one frame is needed.",
     )
     const inglese = await chiama<Errore>(a, "PUT", "/api/stile", {}, "en")
-    expect(inglese.corpo.problemi).toEqual(["formato: «largo», «alto» and «fps» are needed, numbers greater than zero.", "quadri: at least one frame is needed."])
+    expect(inglese.corpo.problemi).toEqual(["formati: the «verticale» is needed, and every format needs «largo», «alto» and «fps», numbers greater than zero.", "quadri: at least one frame is needed."])
     await nelleDueLingue(a, "DELETE", "/api/lavori/nessuno", undefined, 404, "Questo lavoro non c'è più: è già finito o è stato tolto.", "This job is no longer there: it has already finished or been removed.")
   })
 

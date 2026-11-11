@@ -13,7 +13,9 @@ const voce = (slug: string, scheda: Partial<Scheda>, ultimoCambio = fa(1)): Voce
   miniatura: null,
   anteprima: null,
   ha_piano: true,
+  quadri: [],
   ha_finale: true,
+  fase: null,
   ultimo_cambio: ultimoCambio,
 })
 

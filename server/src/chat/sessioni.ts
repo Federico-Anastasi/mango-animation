@@ -3,9 +3,9 @@ import { getSessionInfo, getSessionMessages, listSessions, type SDKSessionInfo, 
 import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join, resolve } from "node:path"
-import { leggiTesto } from "../disco"
+import { eOggetto, leggiTesto } from "../disco"
 import { osserva } from "../osservatore"
-import { eOggetto } from "./traduzione"
+
 import type { MessaggioSessione, Sessioni, VoceSessione } from "./tipi"
 
 /** Come Claude Code chiama la cartella di un progetto: ogni carattere che non è lettera o cifra diventa un trattino. */

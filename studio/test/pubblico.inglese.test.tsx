@@ -4,6 +4,7 @@ import { Classifica } from "../src/classifica/Classifica"
 import { Crescita } from "../src/crescita/Crescita"
 import { scegliLingua } from "../src/lingua"
 import { Produzione } from "../src/produzione/Produzione"
+import { Canale } from "../src/pubblico/Canale"
 import { Pubblico } from "../src/pubblico/Pubblico"
 import type { ClassificaCanale, ConsumiDiClaude, Crescita as DatiCrescita, PuntoAndamento, StatoCanale, VoceElenco } from "../src/tipi"
 import { installaEventi, installaRete } from "./rete"
@@ -39,8 +40,7 @@ describe("Audience, in English", () => {
       "GET /api/video": [],
     })
     render(<Pubblico />)
-    expect(await screen.findByRole("heading", { name: "Audience" })).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "Videos out" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Videos out" })).toBeInTheDocument()
     expect(screen.getByRole("columnheader", { name: "Watched to the end" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Views" })).toBeInTheDocument()
     expect(screen.getByText("Pick a video from the table to read its comments.")).toBeInTheDocument()
@@ -50,10 +50,11 @@ describe("Audience, in English", () => {
     expect(screen.queryByText(/Messaggi privati/)).toBeNull()
   })
 
-  it("says so when there is no read yet", async () => {
-    installaRete({ "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] }, "GET /api/video": [] })
-    render(<Pubblico />)
+  it("with no read yet the Channel page says what it is for", async () => {
+    installaRete({ "GET /api/profilo": { valido: true, presente: true, canali: [], profilo: {}, problemi: [] }, "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] }, "GET /api/video": [] })
+    render(<Canale scheda="pubblico" video={undefined} />)
     expect(await screen.findByText(/Here you see how your released videos are doing/)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1, name: "Channel" })).toBeInTheDocument()
   })
 })
 
@@ -63,8 +64,7 @@ describe("Ranking, in English", () => {
     const dato: ClassificaCanale = { quando: "2026-10-08", io: "mio_canale", quando_io: "2026-10-13T19:19", come: [], righe: [riga(1, "grande", 5), riga(2, "mio_canale", 8)] }
     installaRete({ "GET /api/canale/tiktok/classifica": dato })
     render(<Classifica />)
-    expect(await screen.findByRole("heading", { name: "Ranking" })).toBeInTheDocument()
-    const mio = screen.getByRole("complementary", { name: "Your position" })
+    const mio = await screen.findByRole("complementary", { name: "Your position" })
     expect(within(mio).getByText("score").parentElement).toHaveTextContent("#2 of 2")
     expect(screen.getByRole("button", { name: /followers/ })).toBeInTheDocument()
     expect(screen.getByText("Sort by")).toBeInTheDocument()
@@ -147,7 +147,9 @@ describe("Production, in English", () => {
       miniatura: null,
       anteprima: null,
       ha_piano: true,
+      quadri: [],
       ha_finale: true,
+      fase: null,
       ultimo_cambio: fa(1),
     })
     const conti: ConsumiDiClaude = {

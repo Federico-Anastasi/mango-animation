@@ -5,8 +5,8 @@ description: Checks an edited video before sending it to the creator or calling 
 
 # Controlla
 
-Goal: to know, with proof, whether the edited video is clean and says right things. The rules: `.claude/rules/montaggio.md`, last
-section. Before the check read `.claude/metodo/problemi-gia-visti.md` (the defects already met, with cause and remedy): what it lists
+Goal: to know, with proof, whether the edited video is clean and says right things. Before the check read `.claude/metodo/montaggio.md` (the rules; what is looked at
+in the frames is in «Voice and screen») and `.claude/metodo/problemi-gia-visti.md` (the defects already met, with cause and remedy): what it lists
 is looked for in this video too.
 
 ## How

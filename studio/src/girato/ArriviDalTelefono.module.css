@@ -1,0 +1,37 @@
+.riquadro {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.riquadro p {
+  margin: 0;
+}
+
+.spento {
+  color: var(--rosso);
+}
+
+.tenue {
+  font-size: 0.85rem;
+  color: var(--grigio);
+}
+
+.ultimi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+}
+
+.ultimi li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  overflow-wrap: anywhere;
+}

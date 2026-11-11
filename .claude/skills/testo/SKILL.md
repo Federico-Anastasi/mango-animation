@@ -25,7 +25,7 @@ before an animation or a cut is touched.
    (the words show it twice). Also mark what the creator said in
    addition off the cuff that is worth keeping, and the sentences of the script they did not say.
 4. **Propose to the creator** the edited text, in a few lines per sentence: the sentence as it is said, the take and the seconds, what
-   changes with respect to the script; then what stays out and why. Reread what it states looking for errors (`contenuto.md`, «What is
+   changes with respect to the script; then what stays out and why. Reread what it states looking for errors (`.claude/metodo/contenuto.md`, «What is
    stated»).
 5. **Discuss until the creator fixes it.** Then write `materiali/testo-registrato.md` (below) and bring into `proposta` the hook,
    center and close of the fixed text.

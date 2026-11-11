@@ -1,6 +1,6 @@
 // I modelli che Claude Code offre e le scelte di modello ed effort di una conversazione (`docs/CHAT.md`, «Modello ed effort»).
 import type { ModelInfo } from "@anthropic-ai/claude-agent-sdk"
-import { frase } from "../lingua"
+import { frase, nellaLinguaDi } from "../lingua"
 import type { LetturaDiClaudeCode } from "./lettura"
 import type { Oggetto } from "./traduzione"
 import { ErroreChat, LIVELLI_EFFORT, MODELLO_PREDEFINITO, type ImpostazioniChat, type LivelloEffort, type ModelloChat } from "./tipi"
@@ -59,18 +59,26 @@ export class ElencoModelli {
    */
   async verifica(corpo: Oggetto, corrente: ImpostazioniChat): Promise<Cambi> {
     for (const campo of Object.keys(corpo)) {
-      if (campo !== "modello" && campo !== "effort") throw new ErroreChat(400, `«${campo}» non è un'impostazione: ci sono «modello» e «effort».`)
+      if (campo !== "modello" && campo !== "effort") throw new ErroreChat(400, frase(`«${campo}» non è un'impostazione: ci sono «modello» e «effort».`, `«${campo}» is not a setting: the settings are «modello» and «effort».`))
     }
     const { modello, effort } = corpo
-    if (modello === undefined && effort === undefined) throw new ErroreChat(400, "Manca cosa cambiare: scrivi «modello» o «effort».")
-    if (modello !== undefined && typeof modello !== "string") throw new ErroreChat(400, "Il «modello» è il nome di uno dei modelli dell'elenco (GET /api/chat/modelli).")
+    if (modello === undefined && effort === undefined) throw new ErroreChat(400, frase("Manca cosa cambiare: scrivi «modello» o «effort».", "Nothing to change: write «modello» or «effort»."))
+    if (modello !== undefined && typeof modello !== "string") {
+      throw new ErroreChat(400, frase("Il «modello» è il nome di uno dei modelli dell'elenco (GET /api/chat/modelli).", "The «modello» is the name of one of the models in the list (GET /api/chat/modelli)."))
+    }
     if (effort !== undefined && effort !== null && !eLivello(effort)) {
-      throw new ErroreChat(400, typeof effort === "string" ? `L'effort «${effort}» non esiste. I livelli sono: ${ELENCO_LIVELLI}.` : `L'«effort» è uno dei livelli (${ELENCO_LIVELLI}) oppure null per quello predefinito.`)
+      throw new ErroreChat(
+        400,
+        typeof effort === "string"
+          ? frase(`L'effort «${effort}» non esiste. I livelli sono: ${ELENCO_LIVELLI}.`, `The effort «${effort}» does not exist. The levels are: ${ELENCO_LIVELLI}.`)
+          : frase(`L'«effort» è uno dei livelli (${ELENCO_LIVELLI}) oppure null per quello predefinito.`, `The «effort» is one of the levels (${ELENCO_LIVELLI}) or null for the default one.`),
+      )
     }
 
     const elenco = await this.elenca()
     if (modello !== undefined && !elenco.some((m) => m.id === modello)) {
-      throw new ErroreChat(400, `«${modello}» non è un modello che la chat offre. Quelli che ci sono: ${elenco.map((m) => m.nome).join(", ")}.`)
+      const nomi = (lingua: "it" | "en") => elenco.map((m) => nellaLinguaDi(m.nome, lingua)).join(", ")
+      throw new ErroreChat(400, frase(`«${modello}» non è un modello che la chat offre. Quelli che ci sono: ${nomi("it")}.`, `«${modello}» is not a model the chat offers. The available ones: ${nomi("en")}.`))
     }
     const cambi: Cambi = {}
     if (modello !== undefined) cambi.modello = modello
@@ -79,7 +87,13 @@ export class ElencoModelli {
     const scelto = ElencoModelli.trova(elenco, modello ?? corrente.modello)
     if (!scelto) return cambi
     if (effort !== undefined && effort !== null && !scelto.effort.includes(effort)) {
-      throw new ErroreChat(400, scelto.effort.length === 0 ? `${scelto.nome} non ha livelli di effort.` : `${scelto.nome} non ha l'effort «${effort}». I suoi livelli sono: ${scelto.effort.join(", ")}.`)
+      const [nomeIt, nomeEn] = [nellaLinguaDi(scelto.nome, "it"), nellaLinguaDi(scelto.nome, "en")]
+      throw new ErroreChat(
+        400,
+        scelto.effort.length === 0
+          ? frase(`${nomeIt} non ha livelli di effort.`, `${nomeEn} has no effort levels.`)
+          : frase(`${nomeIt} non ha l'effort «${effort}». I suoi livelli sono: ${scelto.effort.join(", ")}.`, `${nomeEn} does not have the effort «${effort}». Its levels are: ${scelto.effort.join(", ")}.`),
+      )
     }
     if (effort === undefined && modello !== undefined && corrente.effort !== null && !scelto.effort.includes(corrente.effort)) cambi.effort = null
     return cambi

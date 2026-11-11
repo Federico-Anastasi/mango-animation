@@ -1,42 +1,62 @@
 // I messaggi di una conversazione e la traduzione dei messaggi che l'SDK emette in Parti. Un messaggio di Claude è un giro intero:
 // tutto ciò che Claude fa fra un messaggio del creator e il risultato; ogni cambio di una Parte è un evento.
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk"
-import { conEsito, eOggetto, parteStrumento, partiDeiBlocchi, risultatiDegliStrumenti, uscitaLocale, type Oggetto } from "./traduzione"
+import { frase, type Frase, type Lingua } from "../lingua"
+import { conEsito, parteStrumento, partiDeiBlocchi, risultatiDegliStrumenti, uscitaLocale, type Oggetto } from "./traduzione"
 import type { DatiEventoChat, MessaggioChat, Parte } from "./tipi"
+import { eOggetto } from "../disco"
 
 export interface FineDelGiro {
   /** I messaggi del creator già in coda che avranno un altro giro. */
   inCoda: number
 }
 
-const ERRORI_DI_CLAUDE: Record<string, string> = {
-  authentication_failed: "Claude Code non è collegato all'account: apri un terminale, lancia «claude» e fai «/login».",
-  rate_limit: "Hai finito i messaggi che l'abbonamento permette per ora: riprova più tardi.",
-  overloaded: "Claude è sovraccarico in questo momento: riprova fra poco.",
-  billing_error: "L'account di Claude ha un problema di pagamento: controllalo da un terminale con «claude».",
-  account_on_hold: "L'account di Claude è sospeso: controllalo da un terminale con «claude».",
-  oauth_org_not_allowed: "L'organizzazione di questo account non può usare Claude Code.",
-  verification_required: "L'account di Claude chiede una verifica: aprila da un terminale con «claude».",
-  max_output_tokens: "La risposta era troppo lunga e si è fermata: chiedi di continuare.",
+const ERRORI_DI_CLAUDE: Record<string, Frase> = {
+  authentication_failed: frase(
+    "Claude Code non è più collegato all'account: chiudi Mango Animation e riaprila, ti porta ad accedere di nuovo.",
+    "Claude Code is no longer connected to the account: close Mango Animation and open it again, it will take you to sign in again.",
+  ),
+  overloaded: frase("Claude è sovraccarico in questo momento: riprova fra poco.", "Claude is overloaded right now: try again in a moment."),
+  billing_error: frase("L'account di Claude ha un problema di pagamento: controllalo da un terminale con «claude».", "The Claude account has a billing problem: check it from a terminal with «claude»."),
+  account_on_hold: frase("L'account di Claude è sospeso: controllalo da un terminale con «claude».", "The Claude account is on hold: check it from a terminal with «claude»."),
+  oauth_org_not_allowed: frase("L'organizzazione di questo account non può usare Claude Code.", "The organization of this account cannot use Claude Code."),
+  verification_required: frase("L'account di Claude chiede una verifica: aprila da un terminale con «claude».", "The Claude account needs to be verified: open it from a terminal with «claude»."),
+  max_output_tokens: frase("La risposta era troppo lunga e si è fermata: chiedi di continuare.", "The answer was too long and stopped: ask it to continue."),
 }
 
-/** La frase in italiano di un giro finito male. */
-function fraseDelGiro(risultato: Oggetto, erroreDiClaude: string | null, nome: string | null): string | undefined {
+/** Quando si libera il limite dell'abbonamento: l'ora se è oggi, altrimenti il giorno e l'ora. `resetsAt` è in secondi dal 1970, come lo dà Claude Code. */
+function quandoSiLibera(resetsAt: number, adesso: Date): Frase | null {
+  const quando = new Date(resetsAt * 1000)
+  if (Number.isNaN(quando.getTime()) || quando <= adesso) return null
+  const ora = (locale: string) => quando.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+  if (quando.toDateString() === adesso.toDateString()) return frase(`alle ${ora("it-IT")}`, `at ${ora("en-GB")}`)
+  return frase(`${quando.toLocaleDateString("it-IT", { weekday: "long" })} alle ${ora("it-IT")}`, `${quando.toLocaleDateString("en-GB", { weekday: "long" })} at ${ora("en-GB")}`)
+}
+
+/** La frase di un giro finito male, nelle due lingue. */
+function fraseDelGiro(risultato: Oggetto, erroreDiClaude: string | null, nome: string | null, limiteFinoA: number | null, adesso: Date): Frase | undefined {
   if (risultato["subtype"] === "success" && risultato["is_error"] !== true) return undefined
-  if (erroreDiClaude) return ERRORI_DI_CLAUDE[erroreDiClaude] ?? `Claude non ha risposto (${erroreDiClaude}).`
+  if (erroreDiClaude === "rate_limit") {
+    const quando = limiteFinoA === null ? null : quandoSiLibera(limiteFinoA, adesso)
+    return frase(
+      `Hai finito i messaggi che l'abbonamento permette per ora: ${quando ? `si libera ${quando.it}` : "di solito passano alcune ore"}.`,
+      `You have used all the messages your subscription allows for now: ${quando ? `it resets ${quando.en}` : "it usually takes a few hours"}.`,
+    )
+  }
+  if (erroreDiClaude) return ERRORI_DI_CLAUDE[erroreDiClaude] ?? frase(`Claude non ha risposto (${erroreDiClaude}).`, `Claude did not answer (${erroreDiClaude}).`)
   const dettagli = Array.isArray(risultato["errors"]) ? risultato["errors"].filter((e): e is string => typeof e === "string").join(" · ") : ""
   const motivo = typeof risultato["result"] === "string" ? risultato["result"] : ""
   const causa = (dettagli || motivo).trim().replace(/[.\s]+$/, "")
-  const fermato = nome ? `${nome} si è fermato` : "Si è fermato"
+  const fermato = frase(nome ? `${nome} si è fermato` : "Si è fermato", nome ? `${nome} stopped` : "It stopped")
   switch (risultato["subtype"]) {
     case "error_max_turns":
-      return `${fermato}: ha fatto troppi passaggi in un solo giro. Scrivi «continua» per andare avanti.`
+      return frase(`${fermato.it}: ha fatto troppi passaggi in un solo giro. Scrivi «continua» per andare avanti.`, `${fermato.en}: it took too many steps in a single round. Write «continue» to go on.`)
     case "error_max_budget_usd":
-      return `${fermato}: ha raggiunto il limite di spesa del giro.`
+      return frase(`${fermato.it}: ha raggiunto il limite di spesa del giro.`, `${fermato.en}: it reached the spending limit for the round.`)
     case "success":
-      return `${fermato}: ${causa || "senza dire altro"}.`
+      return frase(`${fermato.it}: ${causa || "senza dire altro"}.`, `${fermato.en}: ${causa || "without saying more"}.`)
     default:
-      return `${fermato}${causa ? `: ${causa}` : " con un errore"}.`
+      return frase(`${fermato.it}${causa ? `: ${causa}` : " con un errore"}.`, `${fermato.en}${causa ? `: ${causa}` : " with an error"}.`)
   }
 }
 
@@ -84,6 +104,8 @@ export class Trascrizione {
   private readonly arrivatiAPezzi = new Set<string>()
   private readonly strumenti = new Map<string, { messaggio: MessaggioChat; indice: number }>()
   private erroreDiClaude: string | null = null
+  /** Quando Claude Code ha detto che il limite si libera (secondi dal 1970), dall'ultimo avviso di limite raggiunto. */
+  private limiteFinoA: number | null = null
   /** Il creator ha fermato il giro: il risultato che segue non è un errore. */
   fermata = false
 
@@ -95,6 +117,8 @@ export class Trascrizione {
     private readonly nome: string | null,
     /** Il lavoro del giro che finisce, senza le attese del creator: chi lo misura ricomincia da zero. */
     private readonly chiudiIlLavoro: () => number,
+    /** La lingua dello studio: le frasi nascono quando il giro finisce, non dentro una richiesta. */
+    private readonly lingua: () => Lingua,
   ) {
     this.progressivo = messaggi.length
   }
@@ -132,8 +156,8 @@ export class Trascrizione {
   }
 
   /** Un errore che non viene da Claude (il processo si è chiuso): finisce il giro con la sua frase. */
-  finisciConErrore(frase: string): void {
-    this.chiudiGiro({ tipo: "fine", durata_ms: 0, lavoro_ms: this.chiudiIlLavoro(), errore: frase })
+  finisciConErrore(testo: Frase): void {
+    this.chiudiGiro({ tipo: "fine", durata_ms: 0, lavoro_ms: this.chiudiIlLavoro(), errore: testo.in(this.lingua()) })
   }
 
   private chiudiGiro(parte: Parte): void {
@@ -153,6 +177,9 @@ export class Trascrizione {
         return null
       case "user":
         this.esiti(m.message)
+        return null
+      case "rate_limit_event":
+        if (m.rate_limit_info.status === "rejected") this.limiteFinoA = m.rate_limit_info.resetsAt ?? null
         return null
       case "result":
         return this.fine(m)
@@ -230,12 +257,12 @@ export class Trascrizione {
     for (const risultato of risultatiDegliStrumenti(messaggio["content"])) {
       const dove = this.strumenti.get(String(risultato["tool_use_id"]))
       const parte = dove?.messaggio.parti[dove.indice]
-      if (dove && parte?.tipo === "strumento") this.sostituisci(dove.messaggio, dove.indice, conEsito(parte, risultato, this.adesso().toISOString()))
+      if (dove && parte?.tipo === "strumento") this.sostituisci(dove.messaggio, dove.indice, conEsito(parte, risultato, this.lingua(), this.adesso().toISOString()))
     }
   }
 
   private fine(risultato: Oggetto): FineDelGiro {
-    const errore = this.fermata ? undefined : fraseDelGiro(risultato, this.erroreDiClaude, this.nome)
+    const errore = this.fermata ? undefined : fraseDelGiro(risultato, this.erroreDiClaude, this.nome, this.limiteFinoA, this.adesso())
     const costo = risultato["total_cost_usd"]
     const durata = risultato["duration_ms"]
     this.chiudiGiro({
@@ -243,9 +270,10 @@ export class Trascrizione {
       ...(typeof costo === "number" ? { costo } : {}),
       durata_ms: typeof durata === "number" ? durata : 0,
       lavoro_ms: this.chiudiIlLavoro(),
-      ...(errore === undefined ? {} : { errore }),
+      ...(errore === undefined ? {} : { errore: errore.in(this.lingua()) }),
     })
     this.erroreDiClaude = null
+    this.limiteFinoA = null
     this.fermata = false
     const inCoda = risultato["queued_turn_count"]
     return { inCoda: typeof inCoda === "number" ? inCoda : 0 }

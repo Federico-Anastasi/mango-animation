@@ -1,4 +1,4 @@
-//! Spostare la cartella dei dati in un'altra (`docs/APP.md`, «La cartella di lavoro»): copia di tutto, verifica di cosa e quanto è arrivato, e solo allora si tolgono gli originali.
+//! Spostare la cartella dei dati in un'altra (`docs/APP.md`, «La cartella di lavoro»): copia di tutto sul disco, verifica di cosa e quanto è arrivato, la nuova cartella ricordata, e solo allora si tolgono gli originali.
 //! Se qualcosa non torna gli originali restano dove sono e ciò che era stato copiato si toglie. Succede all'avvio dell'app, prima del server: nessun file è in uso.
 
 use crate::cartella::{inizia_con, libero_in};
@@ -247,10 +247,11 @@ fn copia_file(da: &Path, a: &Path, annulla: &AtomicBool, cadenza: &mut Cadenza) 
         cadenza.avanzamento.fatti_byte += letti as u64;
         cadenza.aggiorna();
     }
-    scrittura.flush().map_err(|e| errore_su(a, e))?;
     if let Some(quando) = modificato {
         scrittura.set_modified(quando).map_err(|e| errore_su(a, e))?;
     }
+    // Gli originali si tolgono dopo: il file deve stare sul disco, non solo nella memoria di Windows.
+    scrittura.sync_all().map_err(|e| errore_su(a, e))?;
     Ok(())
 }
 
@@ -350,8 +351,9 @@ fn togli_gli_originali(origine: &Path, elenco: &Elenco) -> Vec<PathBuf> {
 }
 
 /// Sposta tutto ciò che sta in `origine` dentro `destinazione`. `progresso` riceve l'avanzamento; `annulla` si accende dal creator e ferma la copia.
-/// Se non finisce (`Fallita`), `origine` è com'era e `destinazione` anche.
-pub fn sposta(origine: &Path, destinazione: &Path, annulla: &AtomicBool, progresso: &mut dyn FnMut(Avanzamento)) -> Result<Spostata, Fallita> {
+/// `ricorda` scrive la nuova cartella come quella in uso: si chiama a copia verificata e prima di togliere un solo originale, così un blocco in qualunque momento lascia
+/// una cartella con tutto, e quella ricordata la ha. Se non finisce (`Fallita`, anche perché `ricorda` non riesce), `origine` è com'era e `destinazione` anche.
+pub fn sposta(origine: &Path, destinazione: &Path, annulla: &AtomicBool, progresso: &mut dyn FnMut(Avanzamento), ricorda: &mut dyn FnMut() -> Result<(), String>) -> Result<Spostata, Fallita> {
     controlla_destinazione(origine, destinazione).map_err(Fallita::Errore)?;
     let elenco = scansiona(origine).map_err(Fallita::Errore)?;
     let (byte, file) = elenco.iter().fold((0u64, 0u64), |(b, f), (_, v)| match v {
@@ -372,7 +374,8 @@ pub fn sposta(origine: &Path, destinazione: &Path, annulla: &AtomicBool, progres
             return Err(Fallita::Annullata);
         }
         verifica(destinazione, &elenco)
-    });
+    })
+    .and_then(|()| ricorda().map_err(Fallita::Errore));
     if let Err(fallita) = esito {
         creato.disfa();
         return Err(fallita);
@@ -387,6 +390,10 @@ pub fn sposta(origine: &Path, destinazione: &Path, annulla: &AtomicBool, progres
 mod prove {
     use super::*;
     use std::os::windows::fs::OpenOptionsExt;
+
+    fn sposta(origine: &Path, destinazione: &Path, annulla: &AtomicBool, progresso: &mut dyn FnMut(Avanzamento)) -> Result<Spostata, Fallita> {
+        super::sposta(origine, destinazione, annulla, progresso, &mut || Ok(()))
+    }
 
     /// Una cartella dei dati di prova: file di misure diverse, una cartella vuota, file annidati.
     fn cartella_di_prova(radice: &Path) {
@@ -430,6 +437,36 @@ mod prove {
         let fine_copia = visti.iter().rfind(|a| a.fase == Fase::Copia).unwrap();
         assert_eq!((fine_copia.fatti_byte, fine_copia.file_fatti), (totale, 4));
         assert!(visti.iter().map(|a| a.fatti_byte).collect::<Vec<_>>().windows(2).all(|c| c[0] <= c[1]));
+    }
+
+    #[test]
+    fn la_nuova_cartella_si_ricorda_a_copia_verificata_e_prima_di_togliere_un_originale() {
+        let t = tempfile::tempdir().unwrap();
+        let (origine, destinazione) = (t.path().join("vecchia"), t.path().join("nuova"));
+        cartella_di_prova(&origine);
+        let prima = contenuto(&origine);
+        let mut al_momento = None;
+        super::sposta(&origine, &destinazione, &nessun_annullo(), &mut |_| {}, &mut || {
+            let mut arrivato = contenuto(&destinazione);
+            arrivato.retain(|(relativo, _)| relativo != Path::new(SEGNO_DI_SPOSTAMENTO));
+            al_momento = Some((contenuto(&origine), arrivato));
+            Ok(())
+        })
+        .unwrap();
+        // Alla chiamata gli originali ci sono ancora tutti e la destinazione ha già tutto.
+        assert_eq!(al_momento, Some((prima.clone(), prima)));
+    }
+
+    #[test]
+    fn se_la_nuova_cartella_non_si_riesce_a_ricordare_gli_originali_restano_e_la_copia_si_toglie() {
+        let t = tempfile::tempdir().unwrap();
+        let (origine, destinazione) = (t.path().join("vecchia"), t.path().join("nuova"));
+        cartella_di_prova(&origine);
+        let prima = contenuto(&origine);
+        let esito = super::sposta(&origine, &destinazione, &nessun_annullo(), &mut |_| {}, &mut || Err("il disco è pieno".into()));
+        assert_eq!(esito, Err(Fallita::Errore("il disco è pieno".into())));
+        assert_eq!(contenuto(&origine), prima);
+        assert!(!destinazione.exists());
     }
 
     #[test]

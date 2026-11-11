@@ -1,3 +1,4 @@
+import gc
 import json
 import math
 import subprocess
@@ -9,16 +10,17 @@ from contextlib import suppress
 import numpy as np
 
 from .archivio import leggi_json, scrivi_con, scrivi_json
-from .dispositivo import dispositivo, errore_di_libreria_cuda, librerie_cuda, prova_della_scheda
+from .dispositivo import dispositivo, errore_di_libreria_cuda, errore_di_memoria, librerie_cuda, prova_della_scheda
 from .errori import Errore, dice
 from .foto import e_foto, prepara_foto
-from .media import ffmpeg, info, pcm_16k
+from .media import FREQUENZA, ffmpeg, info, pcm_16k
 from .persona import Visi
 from .profilo import attiva, motore, richiedi
-from .sagoma import copre, pezzi_della_sagoma
+from .sagoma import copre, formato_della_sagoma, pezzi_della_sagoma
 from .voce import leggi_onda, scrivi_onda
 
 _voci = {}
+_reti = {}
 
 
 def _lato_lungo(lato):
@@ -45,7 +47,7 @@ def modello_voce(stile):
                 prova_della_scheda(modello, p["lingua"])
             _voci[dove] = modello
         except RuntimeError as e:
-            if errore := errore_di_libreria_cuda(e):
+            if errore := errore_di_memoria(e, f"il modello di trascrizione «{nome}»", f"the transcription model «{nome}»") or errore_di_libreria_cuda(e):
                 raise errore from e
             raise
         except ValueError as e:
@@ -76,7 +78,7 @@ def trascrivi(sorgente, stile, nomi=(), lingua=None):
     modello, suggerimento = modello_voce(stile), (", ".join(nomi) + ".") if nomi else None
 
     def ascolta(inizio, fine):
-        scarto = inizio / 16000
+        scarto = inizio / FREQUENZA
         segmenti, _ = modello.transcribe(x[inizio:fine], language=lingua or p["lingua"], word_timestamps=True, vad_filter=False, condition_on_previous_text=False,
                                          initial_prompt=suggerimento, beam_size=p["fasci_trascrizione"], temperature=0.0)
         return [{"p": w.word.strip(), "da": round(w.start + scarto, 2), "a": round(w.end + scarto, 2)} for s in segmenti for w in s.words]
@@ -84,7 +86,7 @@ def trascrivi(sorgente, stile, nomi=(), lingua=None):
     def separata(w):
         if w["a"] - w["da"] <= p["parola_lunga"]:
             return [w]
-        rilette = ascolta(round(w["da"] * 16000), round(w["a"] * 16000))
+        rilette = ascolta(round(w["da"] * FREQUENZA), round(w["a"] * FREQUENZA))
         return rilette if len(rilette) > 1 else [w]
 
     parole, righe = [], []
@@ -105,14 +107,19 @@ def fuori_dal_silenzio(parole, db, stile):
 
 def libera():
     _voci.clear()
+    _reti.clear()
+    gc.collect()
     if "torch" in sys.modules:
         sys.modules["torch"].cuda.empty_cache()
 
 
 def scontornatore(stile):
-    from .scontorno import Scontornatore
+    """Lo scontornatore, caricato una volta sola per processo: caricare i modelli e catturare i grafi CUDA costa, e ogni sorgente userebbe lo stesso."""
+    if "rete" not in _reti:
+        from .scontorno import Scontornatore
 
-    return Scontornatore(stile)
+        _reti["rete"] = Scontornatore(stile)
+    return _reti["rete"]
 
 
 def unisci(intervalli, fps):
@@ -129,7 +136,8 @@ def unisci(intervalli, fps):
 def _scontorna(sorgente, destinazione, da, quanti, rete, stile):
     """`quanti` fotogrammi della sorgente da `da`, senza sfondo, in un VP9 con alfa grande quanto il fotogramma: il primo fotogramma del file è quello a `da`.
     La codifica gira in un filo a parte, così lo scontorno non aspetta l'encoder."""
-    L, A, fps, c = stile["formato"]["largo"], stile["formato"]["alto"], stile["formato"]["fps"], stile["sagoma"]["codifica"]
+    formato, c = formato_della_sagoma(stile), stile["sagoma"]["codifica"]
+    L, A, fps = formato["largo"], formato["alto"], formato["fps"]
     scrittore = subprocess.Popen(["ffmpeg", "-v", "error", "-nostdin", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{L}x{A}", "-r", str(fps), "-i", "-",
                                   "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-deadline", c["deadline"], "-cpu-used", str(c["cpu_used"]), "-row-mt", "1",
                                   "-crf", str(c["crf"]), "-b:v", "0", "-auto-alt-ref", "0", "-f", "webm", str(destinazione)], stdin=subprocess.PIPE)
@@ -172,30 +180,59 @@ def _scontorna(sorgente, destinazione, da, quanti, rete, stile):
                      f"the cutout of {sorgente.name} failed")
 
 
+FOTOGRAMMI_FRA_I_TENTATIVI = 3
+
+
+def _primo_con_persona(sorgente, primo, tratto, rete, stile):
+    """Il primo fotogramma, da `primo` in poi e non oltre l'inizio del tratto (`tratto`, secondi), in cui lo scontornatore vede una persona. Il margine prima di un tratto serve
+    solo a scaldare la memoria del modello, e lì chi parla può ancora entrare nell'inquadratura (si siede, si avvicina al telefono): lo scontorno parte da
+    dove c'è qualcuno, ma mai dopo l'inizio del tratto. Se fino ad allora non c'è nessuno si parte da `primo`, e lo scontorno dà il suo errore."""
+    formato = formato_della_sagoma(stile)
+    L, A, fps = formato["largo"], formato["alto"], formato["fps"]
+    for n in range(primo, math.floor(tratto * fps) + 1, FOTOGRAMMI_FRA_I_TENTATIVI):
+        dati = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-ss", f"{n / fps:.4f}", "-i", str(sorgente), "-an", "-frames:v", "1",
+                               "-vf", f"scale={L}:{A}:flags=lanczos", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
+        if len(dati) == L * A * 3 and rete.vede_persona(np.frombuffer(dati, dtype=np.uint8).reshape(A, L, 3)):
+            return n
+    return primo
+
+
 def scontorna_intervalli(sorgente, cartella, intervalli, stile, scritto):
     """La persona senza sfondo nei soli `intervalli` della sorgente, nell'ordine della ripresa, coi modelli caricati una volta: un file per intervallo
-    in `cartella` (`<primo>-<ultimo>.webm`, in fotogrammi). A ogni file finito chiama `scritto` col suo pezzo."""
-    fps = stile["formato"]["fps"]
+    in `cartella` (`<primo>-<ultimo>.webm`, in fotogrammi). Ogni intervallo è `(da, a, tratto)`: `tratto` è dove comincia il suo primo tratto montato. A ogni file
+    finito chiama `scritto` col suo pezzo: `da` è l'inizio chiesto, `inizio` quello del file, più avanti se all'inizio chiesto non si vedeva nessuno (`_primo_con_persona`)."""
+    fps = formato_della_sagoma(stile)["fps"]
     cartella.mkdir(parents=True, exist_ok=True)
-    rete = scontornatore(stile)
-    for da, a in intervalli:
-        primo, ultimo = round(da * fps), round(a * fps)
-        file = cartella / f"{primo}-{ultimo}.webm"
-        scrivi_con(file, lambda dest: _scontorna(sorgente, dest, primo / fps, ultimo - primo, rete, stile))
-        scritto({"da": da, "a": a, "file": f"{cartella.name}/{file.name}", "inizio": da})
+    try:
+        rete = scontornatore(stile)
+        for da, a, tratto in intervalli:
+            primo, ultimo = _primo_con_persona(sorgente, round(da * fps), tratto, rete, stile), round(a * fps)
+            file = cartella / f"{primo}-{ultimo}.webm"
+            scrivi_con(file, lambda dest: _scontorna(sorgente, dest, primo / fps, ultimo - primo, rete, stile))
+            scritto({"da": da, "a": a, "file": f"{cartella.name}/{file.name}", "inizio": round(primo / fps, 4)})
+    except RuntimeError as e:
+        if errore := errore_di_memoria(e, "lo scontorno", "the cutout"):
+            raise errore from e
+        raise
 
 
 def sagoma_dei_tratti(sorgente, cartella, tratti, stile, avanza=print):
     """La sagoma di una sorgente per i tratti (da, a) che un montaggio mette in sagoma. Un tratto già portato da un pezzo (`motore/sagoma.py`) non
     si rifà; gli altri, ognuno allargato di `sagoma.margine` perché lo scontorno arrivi al suo primo fotogramma con la memoria calda, si scontornano
     in un passaggio solo, un file per intervallo di ripresa continua. `sagoma.json` elenca i pezzi e si aggiorna a ogni file finito."""
-    fps, margine, durata = stile["formato"]["fps"], stile["sagoma"]["margine"], info(sorgente)["durata"]
+    formato, margine, misure = formato_della_sagoma(stile), stile["sagoma"]["margine"], info(sorgente)
+    fps, durata = formato["fps"], misure["durata"]
     pezzi = pezzi_della_sagoma(cartella)
-    mancanti = unisci([(max(0.0, a - margine), min(durata, b + margine)) for a, b in tratti if not any(copre(p, a, b, margine) for p in pezzi)], fps)
+    fuori = [(a, b) for a, b in tratti if not any(copre(p, a, b, margine) for p in pezzi)]
+    mancanti = [(da, b, min(a for a, _ in fuori if a > da - 0.001)) for da, b in unisci([(max(0.0, a - margine), min(durata, b + margine)) for a, b in fuori], fps)]
     if not mancanti:
         return
+    # Lo scontorno porta la ripresa al fotogramma della sagoma: una che non ha la sua proporzione (a un pixel di larghezza) si stirerebbe.
+    if abs(misure["largo"] * formato["alto"] - misure["alto"] * formato["largo"]) > formato["alto"]:
+        raise Errore(f"lo scontorno vuole una ripresa in verticale, della proporzione di {formato['largo']}×{formato['alto']}: {sorgente.name} è {misure['largo']}×{misure['alto']}, e non si stira",
+                     f"the cutout needs a vertical recording with the proportion of {formato['largo']}×{formato['alto']}: {sorgente.name} is {misure['largo']}×{misure['alto']}, and it is not stretched")
     richiedi("sagoma", f"il video mette in sagoma tratti di {sorgente.name} che non l'hanno", f"the video cuts out stretches of {sorgente.name} that have no silhouette")
-    avanza(dice(f"{sorgente.name}: sagoma di {sum(b - a for a, b in mancanti):.0f} s su {durata:.0f}", f"{sorgente.name}: silhouette of {sum(b - a for a, b in mancanti):.0f} s out of {durata:.0f}"))
+    avanza(dice(f"{sorgente.name}: sagoma di {sum(b - a for a, b, _ in mancanti):.0f} s su {durata:.0f}", f"{sorgente.name}: silhouette of {sum(b - a for a, b, _ in mancanti):.0f} s out of {durata:.0f}"))
     elenco = [{**p, "a": min(p["a"], durata)} for p in pezzi]
 
     def scritto(pezzo):

@@ -1,16 +1,18 @@
 import numpy as np
 
-from .media import pcm_16k
+from .media import FREQUENZA, pcm_16k
 
 # Il livello della voce sta in onda.bin: un byte per centesimo di secondo, a passi di mezzo dB da -100.
-MINIMO_DB, PASSI_PER_DB, CAMPIONI = -100.0, 2, 160
+MINIMO_DB, PASSI_PER_DB = -100.0, 2
 PASSO = 0.01
+# Campioni di un centesimo di secondo.
+PER_PASSO = round(FREQUENZA * PASSO)
 
 
 def livello(x):
     """Il livello (dB) di ogni centesimo di secondo di un audio a 16 kHz."""
-    n = len(x) // CAMPIONI
-    finestre = x[:n * CAMPIONI].reshape(n, CAMPIONI)
+    n = len(x) // PER_PASSO
+    finestre = x[:n * PER_PASSO].reshape(n, PER_PASSO)
     return 20 * np.log10(np.sqrt((finestre ** 2).mean(axis=1)) + 1e-7)
 
 

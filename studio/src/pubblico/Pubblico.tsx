@@ -1,13 +1,13 @@
 // «Cosa dice il pubblico, e come vanno i video usciti?»: ciò che l'ultima lettura del canale ha portato in archivio.
 import { useEffect, useState } from "react"
-import { api, urlMedia } from "../api"
+import { api, ErroreApi, urlMedia } from "../api"
 import { ascoltaCanale } from "../canale"
-import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
-import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
+import { IntestazioneOrdinabile } from "../comuni/IntestazioneOrdinabile"
+import { Caricamento, DatiVecchi, Errore, Vuoto } from "../comuni/Stati"
 import { canaleTiktok, creaCopia, elencoVideo, useCopia } from "../dati"
 import { scriviIndirizzo, vai } from "../indirizzo"
 import { t } from "../lingua"
-import { dataOra, durata, numero } from "../testo"
+import { cifra, dataOra, durata, numero } from "../testo"
 import type { Commento, CommentiDelVideo, MessaggiDelCanale, VideoDelCanale } from "../tipi"
 import { ordina, rapporti, totali, type CampoOrdine } from "./rapporti"
 import styles from "./Pubblico.module.css"
@@ -16,7 +16,7 @@ const CANALE = "tiktok"
 
 /** Le colonne numeriche della tabella dei rapporti, nell'ordine in cui si mostrano. */
 const colonne = (): Array<{ campo: CampoOrdine; nome: string }> => [
-  { campo: "visualizzazioni", nome: t("Visite", "Views") },
+  { campo: "visualizzazioni", nome: t("Visualizzazioni", "Views") },
   { campo: "mi_piace", nome: t("Mi piace", "Likes") },
   { campo: "commenti", nome: t("Commenti", "Comments") },
   { campo: "condivisioni", nome: t("Condivisioni", "Shares") },
@@ -25,12 +25,16 @@ const colonne = (): Array<{ campo: CampoOrdine; nome: string }> => [
 ]
 const titoloDi = (video: VideoDelCanale): string => video.titolo ?? video.didascalia ?? t("Video senza titolo", "Untitled video")
 
-const messaggi = creaCopia<MessaggiDelCanale>(
-  () => api.messaggiCanale(CANALE),
+/** `null`: il server non ha nessuna lettura dei messaggi (404); ogni altro errore resta un errore. */
+const messaggi = creaCopia<MessaggiDelCanale | null>(
+  () =>
+    api.messaggiCanale(CANALE).catch((e: unknown) => {
+      if (e instanceof ErroreApi && e.codice === 404) return null
+      throw e
+    }),
   (e) => e.tipo === "canale",
 )
 
-const cifra = (n: number | undefined) => (n === undefined ? "—" : numero(n))
 const crescita = (n: number | null | undefined) => (n ? `+${numero(n)}` : "")
 
 function Numero({ nome, valore }: { nome: string; valore: number | undefined }) {
@@ -42,10 +46,13 @@ function Numero({ nome, valore }: { nome: string; valore: number | undefined }) 
   )
 }
 
-function RigaVideo({ video, scelto, miniatura }: { video: VideoDelCanale; scelto: boolean; miniatura: string | null }) {
+const sceglie = (video: VideoDelCanale) => vai(scriviIndirizzo({ vista: "canale", parte: "pubblico", parametri: { video: video.id } }))
+
+/** La miniatura e il titolo di un video: il titolo porta alla sua scheda, il resto della riga sceglie il video. */
+function CelleVideo({ video, miniatura }: { video: VideoDelCanale; miniatura: string | null }) {
   const titolo = titoloDi(video)
   return (
-    <tr className={scelto ? styles.scelta : undefined} onClick={() => vai(scriviIndirizzo({ vista: "pubblico", parametri: { video: video.id } }))}>
+    <>
       <td className={styles.immagine}>{miniatura ? <img src={urlMedia(miniatura)} alt="" loading="lazy" /> : <span />}</td>
       <td className={styles.titolo}>
         {video.slug ? (
@@ -56,6 +63,14 @@ function RigaVideo({ video, scelto, miniatura }: { video: VideoDelCanale; scelto
           titolo
         )}
       </td>
+    </>
+  )
+}
+
+function RigaVideo({ video, scelto, miniatura }: { video: VideoDelCanale; scelto: boolean; miniatura: string | null }) {
+  return (
+    <tr className={scelto ? styles.scelta : undefined} onClick={() => sceglie(video)}>
+      <CelleVideo video={video} miniatura={miniatura} />
       <td>{video.pubblicato ? dataOra(video.pubblicato) : "—"}</td>
       <td className={styles.num}>
         {cifra(video.visualizzazioni)} <span className={styles.piu}>{crescita(video.variazione?.visualizzazioni)}</span>
@@ -74,29 +89,17 @@ function RigaVideo({ video, scelto, miniatura }: { video: VideoDelCanale; scelto
   )
 }
 
-const mille = (n: number | null) => (n === null ? "—" : numero(n, 1))
-
 function RigaRapporti({ video, miniatura }: { video: VideoDelCanale; miniatura: string | null }) {
   const r = rapporti(video)
-  const titolo = titoloDi(video)
   return (
-    <tr onClick={() => vai(scriviIndirizzo({ vista: "pubblico", parametri: { video: video.id } }))}>
-      <td className={styles.immagine}>{miniatura ? <img src={urlMedia(miniatura)} alt="" loading="lazy" /> : <span />}</td>
-      <td className={styles.titolo}>
-        {video.slug ? (
-          <a href={scriviIndirizzo({ vista: "video", slug: video.slug, scheda: "scheda" })} onClick={(e) => e.stopPropagation()}>
-            {titolo}
-          </a>
-        ) : (
-          titolo
-        )}
-      </td>
+    <tr onClick={() => sceglie(video)}>
+      <CelleVideo video={video} miniatura={miniatura} />
       <td className={styles.num}>{cifra(video.visualizzazioni)}</td>
-      <td className={styles.num}>{mille(r.mi_piace)}</td>
-      <td className={styles.num}>{mille(r.commenti)}</td>
-      <td className={styles.num}>{mille(r.condivisioni)}</td>
-      <td className={styles.num}>{mille(r.salvati)}</td>
-      <td className={styles.num}>{mille(r.nuovi_follower)}</td>
+      <td className={styles.num}>{cifra(r.mi_piace, 1)}</td>
+      <td className={styles.num}>{cifra(r.commenti, 1)}</td>
+      <td className={styles.num}>{cifra(r.condivisioni, 1)}</td>
+      <td className={styles.num}>{cifra(r.salvati, 1)}</td>
+      <td className={styles.num}>{cifra(r.nuovi_follower, 1)}</td>
     </tr>
   )
 }
@@ -118,21 +121,30 @@ function UnCommento({ commento, nuovo }: { commento: Commento; nuovo: boolean })
 function CommentiDi({ video }: { video: VideoDelCanale }) {
   const [dati, setDati] = useState<CommentiDelVideo | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
+  const [tentativo, setTentativo] = useState(0)
   useEffect(() => {
+    // La risposta di un video che non è più quello scelto si butta.
+    let vivo = true
     const leggi = () =>
       api.commentiCanale(CANALE, video.id).then(
         (c) => {
+          if (!vivo) return
           setDati(c)
           setErrore(null)
         },
-        (e: Error) => setErrore(e.message),
+        (e: Error) => vivo && setErrore(e.message),
       )
     setDati(null)
+    setErrore(null)
     void leggi()
-    return ascoltaCanale({ evento: (e) => e.tipo === "canale" && void leggi() })
-  }, [video.id])
+    const smetti = ascoltaCanale({ evento: (e) => e.tipo === "canale" && void leggi() })
+    return () => {
+      vivo = false
+      smetti()
+    }
+  }, [video.id, tentativo])
 
-  if (errore) return <Errore messaggio={errore} />
+  if (errore) return <Errore messaggio={errore} onRiprova={() => setTentativo(tentativo + 1)} />
   if (!dati) return <Caricamento />
   if (dati.commenti.length === 0) return <Vuoto>{t("Di questo video non è stato letto nessun commento. Chiedilo nella chat: «aggiorna i dati di TikTok».", "No comments have been read for this video. Ask in the chat: \"update the TikTok data\".")}</Vuoto>
   const dichiarati = video.commenti ?? 0
@@ -154,8 +166,9 @@ function CommentiDi({ video }: { video: VideoDelCanale }) {
 
 function Messaggi() {
   const { dato, errore, caricato } = useCopia(messaggi)
-  if (errore && !dato) return <Vuoto>{t("Nessun messaggio privato in archivio.", "No private messages in the archive.")}</Vuoto>
-  if (!caricato || !dato) return <Caricamento />
+  if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void messaggi.rileggi()} />
+  if (!caricato) return <Caricamento />
+  if (!dato) return <Vuoto>{t("Nessun messaggio privato in archivio.", "No private messages in the archive.")}</Vuoto>
   if (dato.conversazioni.length === 0) return <Vuoto>{t("Nessun messaggio privato nell'ultima lettura.", "No private messages in the last read.")}</Vuoto>
   return (
     <ul className={styles.conversazioni}>
@@ -183,7 +196,7 @@ export function Pubblico({ video }: { video?: string }) {
   const [ordine, setOrdine] = useState<{ campo: CampoOrdine; rovescio: boolean } | null>(null)
   if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void canaleTiktok.rileggi()} />
   if (!caricato || !dato) return <Caricamento />
-  if (!dato.ultima) return <PaginaDiCanaleVuota pagina="pubblico" titolo={t("Pubblico", "Audience")} />
+  if (!dato.ultima) return null // la pagina «Canale» che ci ospita dice già come avere la prima lettura
 
   const ultima = dato.letture.find((l) => l.lettura === dato.ultima?.lettura)
   const scelto = dato.video.find((v) => v.id === video) ?? null
@@ -193,9 +206,9 @@ export function Pubblico({ video }: { video?: string }) {
   const righe = ordine ? ordina(conNumeri, ordine.campo, ordine.rovescio) : conNumeri
   return (
     <div className={styles.pagina}>
+      <DatiVecchi errore={errore} dal={dataOra(dato.ultima.quando)} onRiprova={() => void canaleTiktok.rileggi()} />
       <header className={styles.testata}>
         <div>
-          <h1>{t("Pubblico", "Audience")}</h1>
           <p className={styles.sotto}>
             {dato.profilo?.nome ?? "TikTok"} · {t("letto il {quando}. Per dati freschi chiedilo nella chat: «aggiorna i dati di TikTok».", "read on {quando}. For fresh data ask in the chat: \"update the TikTok data\".", { quando: dataOra(dato.ultima.quando) })}
           </p>
@@ -220,7 +233,7 @@ export function Pubblico({ video }: { video?: string }) {
 
       <section>
         <h2>{t("I video usciti", "Videos out")}</h2>
-        <div className={styles.scorri}>
+        <div className="scorri-con-segno">
           <table className={styles.tabella}>
             <thead>
               <tr>
@@ -253,7 +266,7 @@ export function Pubblico({ video }: { video?: string }) {
             t(": {ore} ore viste in tutto, {tempo} per visualizzazione", ": {ore} hours watched in total, {tempo} per view", { ore: numero(somme.ore, 0), tempo: durata(somme.secondi_per_visualizzazione) })}
           {t(". Tocca l'intestazione di una colonna per ordinare.", ". Tap a column header to sort.")}
         </p>
-        <div className={styles.scorri}>
+        <div className="scorri-con-segno">
           <table className={styles.tabella}>
             <thead>
               <tr>
@@ -261,14 +274,7 @@ export function Pubblico({ video }: { video?: string }) {
                 {colonne().map((c) => {
                   const scelta = ordine?.campo === c.campo
                   const rovescio = scelta && (ordine?.rovescio ?? false)
-                  return (
-                    <th key={c.campo} className={styles.num} aria-sort={scelta ? (rovescio ? "ascending" : "descending") : "none"}>
-                      <button type="button" className={styles.ordinaColonna} onClick={() => setOrdine({ campo: c.campo, rovescio: scelta ? !rovescio : false })}>
-                        {c.nome}
-                        {scelta && <span aria-hidden="true"> {rovescio ? "↑" : "↓"}</span>}
-                      </button>
-                    </th>
-                  )
+                  return <IntestazioneOrdinabile key={c.campo} nome={c.nome} scelta={scelta} rovescio={rovescio} className={styles.num} onOrdina={() => setOrdine({ campo: c.campo, rovescio: scelta ? !rovescio : false })} />
                 })}
               </tr>
             </thead>
@@ -276,11 +282,11 @@ export function Pubblico({ video }: { video?: string }) {
               <tr className={styles.medie}>
                 <td colSpan={2}>{t("Tutti i video con i numeri ({n})", "All videos with numbers ({n})", { n: numero(somme.video) })}</td>
                 <td className={styles.num}>{cifra(somme.visualizzazioni)}</td>
-                <td className={styles.num}>{mille(somme.rapporti.mi_piace)}</td>
-                <td className={styles.num}>{mille(somme.rapporti.commenti)}</td>
-                <td className={styles.num}>{mille(somme.rapporti.condivisioni)}</td>
-                <td className={styles.num}>{mille(somme.rapporti.salvati)}</td>
-                <td className={styles.num}>{mille(somme.rapporti.nuovi_follower)}</td>
+                <td className={styles.num}>{cifra(somme.rapporti.mi_piace, 1)}</td>
+                <td className={styles.num}>{cifra(somme.rapporti.commenti, 1)}</td>
+                <td className={styles.num}>{cifra(somme.rapporti.condivisioni, 1)}</td>
+                <td className={styles.num}>{cifra(somme.rapporti.salvati, 1)}</td>
+                <td className={styles.num}>{cifra(somme.rapporti.nuovi_follower, 1)}</td>
               </tr>
               {righe.map((v) => (
                 <RigaRapporti key={v.id} video={v} miniatura={archivio?.find((a) => a.slug === v.slug)?.miniatura ?? null} />

@@ -9,16 +9,16 @@ from PIL import Image, ImageDraw
 from .archivio import leggi_json, scrivi_json
 from .errori import Errore, dice
 from .media import ffmpeg, ffmpeg_su
-from .prepara import misura_persona, sagoma_dei_tratti
+from .prepara import libera, misura_persona, sagoma_dei_tratti
 from .profilo import richiedi
-from .sagoma import pezzi_della_sagoma, pezzo_della_sagoma
+from .sagoma import formato_della_sagoma, pezzi_della_sagoma, pezzo_della_sagoma
 from .segui import espressione, liscia
 from .sorgenti import Sorgente
 
 # Il filtro cambia quando cambia questo numero: i tratti già resi con una versione vecchia non servono più.
 VERSIONE = 1
-# Fotogrammi di coda tenuti uguali all'ultimo se l'animazione finisce un soffio prima del suo tratto.
-CODA_ANIMAZIONE = 2
+# Secondi di coda tenuti uguali all'ultimo fotogramma se l'animazione finisce prima del suo tratto (il tratto li taglia a misura).
+CODA_ANIMAZIONE_S = 2
 TIPI_DI_STRATO = ("animazione", "girato", "sagoma", "riquadro", "inserto", "viso")
 # Un pezzo di sagoma più corto di così non porta una testa nuova.
 PEZZO_MINIMO = 0.01
@@ -32,12 +32,12 @@ def _tra(x, minimo, massimo):
     return max(minimo, min(massimo, x))
 
 
-def inquadra(largo, alto, taglio, area, adatta, centro=None, scala=1.0, centro_zoom=None):
+def inquadra(largo, alto, taglio, area, adatta, scala=1.0, centro_zoom=None):
     """Quale rettangolo del fotogramma si vede in un'`area` [largo, alto]: ((x, y, w, h) del fotogramma, (w, h) con cui sta nell'area, centro dello zoom nel rettangolo).
-    `taglio` è la vista (o il fotogramma intero); `riempi` toglie il di più tenendo il `centro`, `contieni` lascia tutto e centra."""
+    `taglio` è la vista (o il fotogramma intero); `riempi` toglie il di più attorno al suo centro, `contieni` lascia tutto e centra."""
     aw, ah = area
     x, y, w, h = taglio or (0, 0, largo, alto)
-    cx, cy = (centro[0] * largo, centro[1] * alto) if centro else (x + w / 2, y + h / 2)
+    cx, cy = x + w / 2, y + h / 2
     if adatta == "riempi":
         nw, nh = (h * aw / ah, h) if w / h > aw / ah else (w, w * ah / aw)
         x, y = _tra(cx - nw / 2, x, x + w - nw), _tra(cy - nh / 2, y, y + h - nh)
@@ -168,7 +168,7 @@ class Compositore:
             usi = [(t["da"], t["durata"]) for t in self.risolto["tratti"] if t["sorgente"] == nome]
             file = self.lavoro / "misure.json"
             misure = leggi_json(file, "le misure", "the measurements") if file.exists() else {}
-            chiave = hashlib.md5(json.dumps([sorgente.file, sorgente.percorso.stat().st_size, usi]).encode()).hexdigest()[:16]
+            chiave = hashlib.md5(json.dumps([sorgente.file, sorgente.firma, usi]).encode()).hexdigest()[:16]
             if chiave not in misure:
                 misure[chiave] = misura_lufs(sorgente, usi)
                 scrivi_json(file, misure)
@@ -247,9 +247,12 @@ class Compositore:
             if self.sagoma_di(t["scena"]):
                 nome, da = self.sagoma_del_tratto(t)
                 usi.setdefault(nome, []).append((da, da + t["durata"]))
-        for nome, tratti in usi.items():
-            sorgente = self.sorgente(nome)
-            sagoma_dei_tratti(sorgente.percorso, sorgente.preparati, tratti, self.stile, avanza)
+        try:
+            for nome, tratti in usi.items():
+                sorgente = self.sorgente(nome)
+                sagoma_dei_tratti(sorgente.percorso, sorgente.preparati, tratti, self.stile, avanza)
+        finally:
+            libera()
         self.persone(avanza)
 
     def immagine_del_tratto(self, t):
@@ -292,7 +295,8 @@ class Compositore:
         """Le misure della sagoma: la scala è una per video, la più piccola per cui il girato, da sopra la testa, arriva al fondo."""
         chiave = json.dumps(strato, sort_keys=True)
         if chiave not in self._scale:
-            L, A = self.stile["formato"]["largo"], self.stile["formato"]["alto"]
+            formato = formato_della_sagoma(self.stile)
+            L, A = formato["largo"], formato["alto"]
             nomi = {self.sagoma_del_tratto(t)[0] for t in self.risolto["tratti"] if self.sagoma_di(t["scena"]) == strato}
             scale = [(A - strato["testa"]) / (A - max(0, self.cima(n, strato) - strato["aria"]) - strato["aria"]) + strato["scala_margine"] for n in nomi]
             if strato["x"] == "testa":
@@ -302,7 +306,8 @@ class Compositore:
         return self._scale[chiave]
 
     def geometria_sagoma(self, nome, strato):
-        L, A = self.stile["formato"]["largo"], self.stile["formato"]["alto"]
+        formato = formato_della_sagoma(self.stile)
+        L, A = formato["largo"], formato["alto"]
         s = self.sagoma(strato)
         taglio, y = max(0, self.cima(nome, strato) - strato["aria"]), round(strato["testa"] - strato["aria"] * s)
         righe = min(A - taglio, round((A - y) / s) + 2)
@@ -413,10 +418,10 @@ class Compositore:
                 video = f"[{i}:v]trim=end_frame=1,setpts=PTS-STARTPTS,fps={fps},tpad=stop_mode=clone:stop_duration={durata + 1 / fps:.4f}"
             elif altro:
                 i = ingresso("-ss", f"{altro['da']:.4f}", "-t", f"{durata * altro['passo'] + 1 / fps:.4f}", "-an", "-i", visto.percorso, file=visto.percorso)
-                video = f"[{i}:v]setpts=(PTS-STARTPTS)/{altro['passo']},fps={fps},tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE}"
+                video = f"[{i}:v]setpts=(PTS-STARTPTS)/{altro['passo']},fps={fps},tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE_S}"
             elif immagine:
                 i = ingresso("-ss", f"{immagine['da']:.4f}", "-t", f"{durata * immagine['passo'] + 1 / fps:.4f}", "-an", "-i", sorgente.percorso)
-                video = f"[{i}:v]setpts=(PTS-STARTPTS)/{immagine['passo']},fps={fps},tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE}"
+                video = f"[{i}:v]setpts=(PTS-STARTPTS)/{immagine['passo']},fps={fps},tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE_S}"
             filtri.append(f"{video},setsar=1," + (f"split={consumatori}" + "".join(f"[v{n}]" for n in range(consumatori)) if consumatori > 1 else "null[v0]"))
         corrente, usate, girato = "b0", 0, None
         for n, strato in enumerate(quadro["strati"], 1):
@@ -443,7 +448,7 @@ class Compositore:
                 else:
                     _, (fw, fh), _ = inquadra(L, A, None, (w, h), "contieni")
                     scala = "" if (fw, fh) == (L, A) else f",scale={fw}:{fh}:flags=lanczos"
-                passo = f"fps={fps}:start_time=0,tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE},setsar=1"
+                passo = f"fps={fps}:start_time=0,tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE_S},setsar=1"
                 filtri.append(f"[{i}:v]{passo}{scala}[a{n}]")
                 animazione = f"a{n}"
                 # Una scena trasparente ha accanto la sua maschera: fuori da ciò che disegna resta visibile lo strato sotto.
@@ -533,13 +538,13 @@ class Compositore:
         return round(t["esce"] - suoi[0]["esce"], 4), round(suoi[-1]["esce"] + suoi[-1]["durata"] - suoi[0]["esce"], 4)
 
     def _girato(self, t, strato, vista, sorgente, entrata, nome, corrente, dove, k):
-        fps = self.stile["formato"]["fps"]
+        fps = self.risolto["formato"]["fps"]
         taglio = vista["taglio"] if vista else None
         adatta = strato.get("adatta", "contieni" if taglio else "riempi")
         zoom = t["zoom"] or {}
         x, y, w, h = strato["area"]
         info = sorgente.info
-        rect, (fw, fh), fra = inquadra(info["largo"], info["alto"], taglio, (w, h), adatta, strato.get("centro"), zoom.get("scala", 1.0), zoom.get("centro"))
+        rect, (fw, fh), fra = inquadra(info["largo"], info["alto"], taglio, (w, h), adatta, zoom.get("scala", 1.0), zoom.get("centro"))
         rx, ry, rw, rh = rect
         taglia = f"crop={rw}:{rh}:{rx}:{ry}"
         if vista and vista.get("segui"):

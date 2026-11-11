@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from "react"
 
 export const LARGHEZZA_MINIMA = 320
-export const LARGHEZZA_INIZIALE = 420
+const LARGHEZZA_INIZIALE = 420
 /** Sotto questa larghezza della finestra la chat occupa tutto lo schermo, sopra la vista. */
 export const SOGLIA_STRETTA = 640
 

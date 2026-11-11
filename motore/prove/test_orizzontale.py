@@ -34,8 +34,8 @@ def pezzo(sorgente="l"):
     return {"sorgente": sorgente, "da": 0.6, "a": 2.4}
 
 
-def test_lo_stile_ha_i_due_formati_e_il_verticale_e_quello_di_prima(archivio):
-    assert archivio.stile["formati"]["verticale"] == archivio.stile["formato"]
+def test_lo_stile_ha_i_due_formati(archivio):
+    assert archivio.stile["formati"]["verticale"] == {"largo": 1080, "alto": 1920, "fps": 30}
     assert archivio.stile["formati"]["orizzontale"] == {"largo": 1920, "alto": 1080, "fps": 30}
 
 
@@ -246,7 +246,9 @@ def test_sul_processore_la_trascrizione_non_prova_niente(archivio, monkeypatch, 
 
 @pytest.mark.parametrize("scheda, atteso", [(0, "cuda"), (None, "cpu")])
 def test_i_modelli_vanno_sul_processore_se_il_profilo_lo_chiede(archivio, monkeypatch, tmp_path, scheda, atteso):
+    # Il motore scrive la variabile: la prova la lascia com'era.
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES")
     (tmp_path / "profilo.json").write_text(json.dumps({"macchina": {"scheda_video": scheda}}), encoding="utf-8")
     monkeypatch.setenv("MANGO_ANIMATION_LAVORO", str(tmp_path))
     monkeypatch.setattr("motore.dispositivo.cuda_disponibile", lambda: True)

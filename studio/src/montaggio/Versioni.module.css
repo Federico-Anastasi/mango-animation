@@ -1,0 +1,103 @@
+.versioni {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.apri {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.3rem;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--inchiostro);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.elenco {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.riga {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.7rem;
+  min-width: 0;
+}
+
+.riga + .riga {
+  border-top: 1px solid var(--filo);
+}
+
+.riga[data-in-uso] {
+  background: var(--carta-scura);
+}
+
+.intesta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.9rem;
+}
+
+.quando {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tenue {
+  font-size: 0.82rem;
+  color: var(--grigio);
+}
+
+.gesti {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.conferma {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--inchiostro);
+  border-radius: 6px;
+  font-size: 0.88rem;
+}
+
+.conferma span {
+  flex: 1 1 18rem;
+}
+
+.contorno {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+}
+
+.contorno ul {
+  margin: 0.15rem 0 0.4rem;
+  padding-left: 1rem;
+  color: var(--grigio);
+}
+
+.errore {
+  margin: 0;
+  color: var(--rosso);
+  font-size: 0.88rem;
+}

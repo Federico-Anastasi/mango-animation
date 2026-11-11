@@ -2,6 +2,7 @@ import datetime
 import math
 import os
 import re
+import shutil
 import subprocess
 import time
 
@@ -11,7 +12,7 @@ from PIL import Image
 from . import animazioni, copertina
 from .archivio import leggi_json, scrivi_con, scrivi_json
 from .errori import Errore, dice
-from .media import ffmpeg, in_parallelo, info
+from .media import ffmpeg, in_parallelo, info, paralleli, scrivi_elenco
 from .profilo import attiva
 from .pulizia import voce_pulita
 from .quadri import Compositore
@@ -144,12 +145,12 @@ def _rifatti(prima, dopo):
     return sum(dopo[nome] != data for nome, data in prima.items())
 
 
-def _una_volta(funzione, file, avanza, cosa):
+def _una_volta(funzione, file, avanza, cosa, quanti):
     """Compone in parallelo ogni file una volta sola: due lavori sullo stesso nome si pesterebbero il file provvisorio."""
     primi = {}
     for k, f in enumerate(file):
         primi.setdefault(f, k)
-    for n, _ in enumerate(in_parallelo(funzione, primi.values()), 1):
+    for n, _ in enumerate(in_parallelo(funzione, primi.values(), quanti), 1):
         avanza(f"{cosa} {n}/{len(primi)}")
 
 
@@ -233,21 +234,20 @@ def _monta(archivio, slug, avanza):
     da_fare = {f for f in file if not f.exists()}
     in_un_passaggio = bool(da_fare) and comp.stima_mb() > u["tratti_massimo_mb"]
     elenco = lavoro / "tratti.txt"
-    (lavoro / "unito.mkv").unlink(missing_ok=True)
     if in_un_passaggio:
         avanza(dice("i tratti occuperebbero troppo spazio: li compongo mentre codifico (il suono si prepara prima, tratto per tratto)",
                     "the stretches would take too much space: I compose them while encoding (the sound is prepared first, stretch by stretch)"))
         file = [comp.file_tratto(k, "wav") for k in range(len(tratti))]
         da_fare = {f for f in file if not f.exists()}
-        _una_volta(comp.tratto_audio, file, avanza, dice("suono", "sound"))
+        _una_volta(comp.tratto_audio, file, avanza, dice("suono", "sound"), paralleli(comp.stile))
         comandi = [comp.comando_video(k) for k in range(len(tratti))]
     else:
-        _una_volta(comp.tratto, file, avanza, dice("tratto", "stretch"))
+        _una_volta(comp.tratto, file, avanza, dice("tratto", "stretch"), paralleli(comp.stile))
         comandi = [["ffmpeg", "-v", "error", "-nostdin", "-f", "concat", "-safe", "0", "-i", str(elenco), "-an", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]]
     fasi.segna("tratti", inizio, len(da_fare), len(set(file)) - len(da_fare))
     stesso_piano()
     inizio = time.perf_counter()
-    elenco.write_text("".join(f"file '{f.as_posix()}'\n" for f in file), encoding="utf-8")
+    scrivi_elenco(elenco, file)
     quanti = [round(sum(t["durata"] for t in tratti) * fps)] if not in_un_passaggio else [round(t["durata"] * fps) for t in tratti]
     parziale = uscite / ".finale.parziale.mp4"
     dichiarata = piano.get("copertina")
@@ -265,10 +265,13 @@ def _monta(archivio, slug, avanza):
     scrivi_capitoli(uscite / "capitoli.txt", risolto["capitoli"])
     os.replace(parziale, uscite / "finale.mp4")
     if immagine:
-        # Il video con la copertina è quello stesso file: un secondo nome, nessun'altra codifica.
+        # Il video con la copertina è quello stesso file: un secondo nome, nessun'altra codifica (una copia, dove il disco non ha collegamenti fisici).
         collegamento = uscite / ".con-copertina.parziale.mp4"
         collegamento.unlink(missing_ok=True)
-        os.link(uscite / "finale.mp4", collegamento)
+        try:
+            os.link(uscite / "finale.mp4", collegamento)
+        except OSError:
+            shutil.copy2(uscite / "finale.mp4", collegamento)
         os.replace(collegamento, uscite / "con-copertina.mp4")
     fasi.uscite["finale"] = risolto["impronta"]
     fasi.tratti_del_montaggio(f.name for f in file)
@@ -368,9 +371,9 @@ def anteprima(archivio, slug, da=None, a=None, scena=None, avanza=print):
     comp = Compositore(archivio, slug, piano, risolto)
     comp.sagome(avanza)
     file = [comp.file_tratto(k, "mkv") for k in dentro]
-    _una_volta(lambda j: comp.tratto(dentro[j]), file, avanza, dice("tratto", "stretch"))
+    _una_volta(lambda j: comp.tratto(dentro[j]), file, avanza, dice("tratto", "stretch"), paralleli(comp.stile))
     elenco = lavoro / "anteprima.txt"
-    elenco.write_text("".join(f"file '{f.as_posix()}'\n" for f in file), encoding="utf-8")
+    scrivi_elenco(elenco, file)
     comando = ["ffmpeg", "-v", "error", "-nostdin", "-f", "concat", "-safe", "0", "-i", str(elenco), "-an", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     quanti = round(sum(tratti[k]["durata"] for k in dentro) * fps)
     uscite.mkdir(parents=True, exist_ok=True)

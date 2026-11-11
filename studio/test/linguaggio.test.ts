@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { DIVIETI, testiVisibili } from "./linguaggio"
+import { DIVIETI, testiTradotti, testiVisibili } from "./linguaggio"
 
 describe("linguaggio dei testi a schermo", () => {
   const testi = testiVisibili()
@@ -21,9 +21,19 @@ describe("linguaggio dei testi a schermo", () => {
   })
 
   it("fuori dalla chat nessun testo nomina Claude: la chat può parlare con un altro programma (contano solo le sue conversazioni)", () => {
-    const dellaChat = (file: string) => file.startsWith("chat/") || file.startsWith("produzione/") || file === "video/LavoroDiClaude.tsx"
+    const dellaChat = (file: string) => file.startsWith("chat/") || file.startsWith("produzione/")
     const colpevoli = testi.filter((t) => !dellaChat(t.file) && /Claude/.test(t.testo)).map((t) => `${t.file}: «${t.testo}»`)
     expect(colpevoli).toEqual([])
+  })
+
+  it("una parola sola per ogni cosa: «Prova», «pezzo» (in inglese «clip»), «Visualizzazioni» e «Saves»", () => {
+    const { tradotti } = testiTradotti()
+    const italiani = [/\bProva per registrare\b/, /\btratt[oi]\b/i, /\bvisit[ae]\b/i]
+    const inglesi = [/\bsegments?\b/i, /\bRehearsal for\b/i, /\bvisits?\b/i]
+    const colpevoli = tradotti.flatMap((x) => [...italiani.filter((r) => r.test(x.italiano)).map(() => `${x.file}: «${x.italiano}»`), ...inglesi.filter((r) => r.test(x.inglese)).map(() => `${x.file}: «${x.inglese}»`)])
+    expect(colpevoli).toEqual([])
+    // «Salvati» sono i salvataggi di un video, non il messaggio «Salvato».
+    expect(tradotti.filter((x) => /^Salvati$/i.test(x.italiano) && x.inglese !== "Saves").map((x) => `${x.file}: «${x.inglese}»`)).toEqual([])
   })
 
   it("i testi sono in italiano, con gli accenti dove servono", () => {

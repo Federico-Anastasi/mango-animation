@@ -29,11 +29,12 @@ PIATTAFORMA = "x86_64-pc-windows-msvc"
 # Licenza e fonte dei pacchetti Python, letti dai pacchetti stessi (metadati e file LICENSE) con le versioni in uso.
 PACCHETTI_PYTHON: dict[str, tuple[str, str]] = {
     "jsonschema": ("MIT", "https://pypi.org/project/jsonschema/"),
+    "nvidia-cublas-cu12": ("Licenza proprietaria di NVIDIA (CUDA Toolkit EULA); l'app lo scarica da PyPI sul computer di chi lo usa, solo per la trascrizione sulla scheda NVIDIA senza PyTorch, e non lo ridistribuisce", "https://pypi.org/project/nvidia-cublas-cu12/"),
     "numpy": ("BSD-3-Clause (e le licenze di ciò che porta: 0BSD, MIT, Zlib, CC0-1.0)", "https://pypi.org/project/numpy/"),
     "pillow": ("MIT-CMU (HPND)", "https://pypi.org/project/pillow/"),
     "pillow-heif": ("BSD-3-Clause (la ruota porta librerie a parte: libheif e libde265 LGPL-3.0, x265 GPL-2.0)", "https://pypi.org/project/pillow-heif/"),
-    "soundfile": ("BSD-3-Clause (la ruota porta libsndfile, LGPL-2.1, come libreria a parte)", "https://pypi.org/project/soundfile/"),
     "yt-dlp": ("Unlicense", "https://github.com/yt-dlp/yt-dlp"),
+    "playwright": ("Apache-2.0 (la ruota porta il driver di Playwright e Node.js, con le loro licenze; i browser non si scaricano: `leggi_tiktok` pilota il Chrome del creator)", "https://pypi.org/project/playwright/"),
     "faster-whisper": ("MIT", "https://pypi.org/project/faster-whisper/"),
     "requests": ("Apache-2.0", "https://pypi.org/project/requests/"),
     "transformers": ("Apache-2.0", "https://pypi.org/project/transformers/"),
@@ -113,6 +114,19 @@ def npm(spazio: str) -> list[tuple[str, str, str]]:
     return righe
 
 
+def portati(grafo: dict) -> set[str]:
+    """Gli id dei crate che l'app porta: quelli a cui si arriva dalla radice senza passare da una dipendenza delle sole prove."""
+    archi = {n["id"]: [d["pkg"] for d in n["deps"] if any(t["kind"] != "dev" for t in d["dep_kinds"])] for n in grafo["nodes"]}
+    visti: set[str] = set()
+    da_vedere = list(archi[grafo["root"]])
+    while da_vedere:
+        crate = da_vedere.pop()
+        if crate not in visti:
+            visti.add(crate)
+            da_vedere.extend(archi[crate])
+    return visti
+
+
 def crate() -> list[tuple[str, str, str]]:
     """(nome, versione, licenza) dei crate dell'app per Windows, con `cargo metadata` sul blocco."""
     if shutil.which("cargo") is None:
@@ -125,7 +139,7 @@ def crate() -> list[tuple[str, str, str]]:
         raise Mancanza(f"`cargo metadata` non è riuscito: {uscita.stderr.strip()[:400]}")
     dati = json.loads(uscita.stdout)
     radice = dati["resolve"]["root"]
-    nel_grafo = {n["id"] for n in dati["resolve"]["nodes"]}
+    nel_grafo = portati(dati["resolve"])
     righe = []
     for p in sorted(dati["packages"], key=lambda p: (p["name"], p["version"])):
         if p["id"] == radice or p["id"] not in nel_grafo:
@@ -230,7 +244,7 @@ def genera() -> str:
             raise Mancanza(f"«{nome}» è installato senza versione in piano.rs: fissala, o aggiungilo a SENZA_VERSIONE con il motivo.")
         r.append(f"| {nome} | {versione or SENZA_VERSIONE[nome]} | {licenza} | <{fonte}> |")
     r.append("")
-    r.append("Solo per chi sviluppa o usa gli strumenti: `pytest` (MIT), `playwright` per Python (Apache-2.0, `strumenti/leggi_tiktok.py`), `pypdfium2` (Apache-2.0 o BSD-3-Clause, con PDFium BSD-3-Clause, `strumenti/immagini.py`). Non li installa l'app.\n")
+    r.append("Solo per chi sviluppa o usa gli strumenti: `pytest` (MIT). Non lo installa l'app.\n")
 
     r.append("## Caratteri\n")
     r.append("`font/Archivo-700.ttf`: Archivo, SIL Open Font License 1.1, <https://github.com/Omnibus-Type/Archivo>. `font/Metropolis-Medium.ttf`: Metropolis, Unlicense (pubblico dominio), <https://github.com/dw5/Metropolis>; il testo è in `font/Metropolis-UNLICENSE.txt`. "

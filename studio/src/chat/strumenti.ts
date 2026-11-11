@@ -34,7 +34,7 @@ const RADICE = String.raw`(?:[A-Za-z]:|/|~)`
 const CD_ASSOLUTO = new RegExp(String.raw`(^|&&|;)\s*cd\s+(?:"${RADICE}[^"]*"|'${RADICE}[^']*'|${RADICE}[^\s&;|]*)\s*(?:&&|;)\s*`)
 
 /** Il comando senza i `cd` a una cartella intera davanti: si legge cosa fa, non dove sta il lavoro. Un `cd` relativo resta. */
-export function senzaCdIniziale(comando: string): string {
+function senzaCdIniziale(comando: string): string {
   let corrente = comando.trim()
   for (let precedente = ""; precedente !== corrente; ) {
     precedente = corrente

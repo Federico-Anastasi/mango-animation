@@ -1,0 +1,32 @@
+.schede {
+  display: flex;
+  gap: 0.2rem;
+  border-bottom: 1px solid var(--filo);
+  overflow-x: auto;
+}
+
+.scheda {
+  padding: 0.45rem 0.8rem;
+  border-bottom: 2px solid transparent;
+  color: var(--grigio);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.scheda:hover {
+  color: var(--inchiostro);
+}
+
+.scheda[aria-current="page"] {
+  border-bottom-color: var(--inchiostro);
+  color: var(--inchiostro);
+  font-weight: 600;
+}
+
+/* Conta la larghezza della pagina, non quella dello schermo: la chat aperta le toglie metà. Il contenitore `pagina` lo dichiara chi le ospita. */
+@container pagina (max-width: 480px) {
+  .scheda {
+    padding: 0.45rem 0.4rem;
+    font-size: 0.85rem;
+  }
+}

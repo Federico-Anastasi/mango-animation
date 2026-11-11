@@ -8,7 +8,7 @@
 // Oltre ai lati e alla didascalia: il testo troppo piccolo (`piccolo`), tagliato dal suo riquadro o dalla slide (`tagliato`), sopra un altro
 // testo (`accavallato`) e la slide quasi vuota o di un solo colore (`vuota`); `dettaglio` porta il numero o il testo che serve a dirlo.
 // Le misure: `carosello` e `telefono.margine_lati` dello stile (di serie, con sopra quello del creator).
-import { chromium } from "../studio/node_modules/@playwright/test/index.mjs";
+import { apriChrome } from "./chrome.mjs";
 import { renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -124,7 +124,7 @@ const DIVERSO = async ([png, differenza]) => {
   return diversi / (w * h);
 };
 
-const browser = await chromium.launch({ channel: "chrome" });
+const browser = await apriChrome();
 try {
   const scheda = await browser.newPage({ viewport: { width: LARGO, height: ALTO } });
   await scheda.goto(pathToFileURL(pagina).href, { waitUntil: "load" });

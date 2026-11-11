@@ -109,6 +109,17 @@ describe("video", () => {
     expect((await chiama<Errore>(a, "PUT", "/api/video/carosello/scheda", { ...scheda, formato: "libro" })).stato).toBe(400)
   })
 
+  test("l'elenco dice i quadri che il piano usa: quello di base e quelli delle scene, senza doppioni", async () => {
+    const a = await avviaAmbiente({}, async (c) => {
+      await scriviGrezzo(c, "2026-10-06/a.mp4")
+      await scriviVideo(c, "con-piano", { titolo: "Con piano", stato: "pronto", creato: "2026-10-07" }, { ...piano(), scene: [{ nome: "s", pezzi: [{ sorgente: "a", da: 0, a: 2 }] }, { nome: "t", quadro: "solo-animazione", pezzi: [{ sorgente: "a", da: 2, a: 4 }] }, { nome: "u", quadro: "solo-animazione", pezzi: [{ sorgente: "a", da: 4, a: 5 }] }] })
+      await scriviVideo(c, "proposta", { titolo: "Solo proposta", stato: "proposta", creato: "2026-10-08" })
+    })
+    const elenco = await chiama<{ slug: string; quadri: string[] }[]>(a, "GET", "/api/video")
+    expect(elenco.corpo.find((v) => v.slug === "con-piano")!.quadri.sort()).toEqual(["girato-pieno", "solo-animazione"])
+    expect(elenco.corpo.find((v) => v.slug === "proposta")!.quadri).toEqual([])
+  })
+
   test("l'elenco e il dettaglio dicono ciò che c'è: scheda, piano, risolto, uscite, materiali", async () => {
     const a = await avviaAmbiente({}, async (c) => {
       await scriviGrezzo(c, "2026-10-06/a.mp4")

@@ -1,6 +1,6 @@
 // Le forme di `docs/CHAT.md` e le dipendenze che il gestore riceve da fuori (la funzione `query` dell'SDK e la lettura delle sessioni).
 import type { EffortLevel, ModelInfo, Options, SDKMessage, SDKUserMessage, SlashCommand } from "@anthropic-ai/claude-agent-sdk"
-import type { Testo } from "../lingua"
+import { ErroreConFrase, type Frase, type Testo } from "../lingua"
 import type { MangoCode } from "./mangocode"
 
 export interface ImmagineDelloStrumento {
@@ -82,7 +82,7 @@ export interface ModelloChat {
   id: string
   /** Nelle due lingue dove il nome è del prodotto («Predefinito»); gli altri sono quelli di Claude Code. */
   nome: Testo
-  descrizione: string
+  descrizione: Testo
   /** Vuoto se il modello non ha livelli di effort. */
   effort: LivelloEffort[]
   /** Il modello vero a cui `id` rimanda: è ciò che Claude Code dice di aver acceso. */
@@ -113,14 +113,15 @@ export type EventoChat = { tipo: "chat"; id: string } & DatiEventoChat
 
 export interface VoceElenco {
   id: string
-  titolo: string
+  /** Il titolo scritto, o la frase che ne fa le veci (nelle due lingue). */
+  titolo: Testo
   aggiornata: string
   attiva: boolean
 }
 
 export interface DettaglioChat extends ImpostazioniChat {
   id: string
-  titolo: string
+  titolo: Testo
   attiva: boolean
   stato: StatoChat
   /** Da quando Claude lavora al giro in corso (ISO); `null` se non lavora. */
@@ -145,6 +146,8 @@ export interface QueryChat extends AsyncIterable<SDKMessage> {
   stopTask: (idLavoro: string) => Promise<void>
   backgroundTasks: (idStrumento?: string) => Promise<boolean>
   getContextUsage: (opzioni: { detail: "summary" }) => Promise<MisuraDelContesto>
+  /** Il collegamento all'app di Claude (Remote Control): Claude Code lo apre da sé con il suo login. L'SDK ce l'ha ma non lo dichiara nei tipi; Mango Code non l'ha. */
+  enableRemoteControl?: (acceso: boolean, nome?: string) => Promise<unknown>
 }
 
 export type FunzioneQuery = (parametri: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => QueryChat
@@ -186,11 +189,13 @@ export interface OpzioniChat {
   mangoCode: MangoCode
 }
 
-export class ErroreChat extends Error {
+/** Una frase per il creator, sempre nelle due lingue: `testo` è una `Frase` perché una frase in una lingua sola non si può scrivere. */
+export class ErroreChat extends ErroreConFrase {
+  declare readonly testo: Frase
   constructor(
     readonly stato: number,
-    messaggio: string,
+    testo: Frase,
   ) {
-    super(messaggio)
+    super(testo)
   }
 }

@@ -141,6 +141,21 @@ describe("il girato", () => {
     expect((await chiama(a, "PATCH", "/api/grezzo/scheda?file=2026-10-06/non-c-e.mp4", { lingua: "en" })).stato).toBe(404)
   })
 
+  test("PATCH della scheda di un file: due modifiche insieme si sommano, e una scheda scritta male nel file lo dice invece di partire da zero", async () => {
+    const a = await avviaAmbiente({}, async (c) => {
+      await scriviGrezzo(c, "2026-10-06/a.mp4", "x", { tipo: "altro", origine: "scaricato" })
+      await scriviGrezzo(c, "2026-10-06/rotta.mp4", "x", { tipo: "altro", origine: "scaricato", inventato: 1 })
+    })
+    const url = "/api/grezzo/scheda?file=2026-10-06/a.mp4"
+    const insieme = await Promise.all([chiama(a, "PATCH", url, { lingua: "en" }), chiama(a, "PATCH", url, { note: "un keynote" })])
+    expect(insieme.map((r) => r.stato)).toEqual([200, 200])
+    const scheda = (await chiama<GiornoGrezzo[]>(a, "GET", "/api/grezzo")).corpo[0]!.file.find((f) => f.file.endsWith("/a.mp4"))!.scheda as Record<string, unknown>
+    expect([scheda["lingua"], scheda["note"]]).toEqual(["en", "un keynote"])
+
+    const rotta = await chiama<{ errore: string }>(a, "PATCH", "/api/grezzo/scheda?file=2026-10-06/rotta.mp4", { lingua: "en" })
+    expect([rotta.stato, rotta.corpo.errore]).toEqual([409, expect.stringContaining("non è valida")])
+  })
+
   test("prepara un file per ritrascriverlo: il motore riceve --ritrascrivi", async () => {
     const a = await avviaAmbiente({}, async (c) => {
       await scriviGrezzo(c, "2026-10-06/a.mp4")

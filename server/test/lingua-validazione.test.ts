@@ -133,7 +133,7 @@ describe("i ritocchi rifiutati", () => {
     [[{ op: "remove", path: "/scene/0/pezzi/7" }], "ritocco 1: in «/scene/0/pezzi/7» l'indice «7» non c'è: la lista ha 1 elementi (da 0).", "tweak 1: in «/scene/0/pezzi/7» the index «7» does not exist: the list has 1 items (from 0)."],
     [[], "I ritocchi sono una lista non vuota di { op, path, value }.", "The tweaks are a non-empty list of { op, path, value }."],
     [[1], "ritocco 1: è un oggetto { op, path, value }.", "tweak 1: it is an object { op, path, value }."],
-    [[{ op: "move", path: "/quadro" }], "ritocco 1: «op» è uno fra replace, add, remove.", "tweak 1: «op» is one of replace, add, remove."],
+    [[{ op: "move", path: "/quadro" }], "ritocco 1: «op» è uno fra replace, add, remove, test.", "tweak 1: «op» is one of replace, add, remove, test."],
     [[{ op: "replace", path: "/quadro" }], "ritocco 1: «replace» vuole «value».", "tweak 1: «replace» needs «value»."],
     [
       [{ op: "add", path: "/scene/0/pezzi/0/via/0", value: [1, 2] }],

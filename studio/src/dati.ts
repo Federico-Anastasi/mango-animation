@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react"
 import { api } from "./api"
 import { ascoltaCanale } from "./canale"
-import type { AnimazioneDisponibile, ConsumiDiClaude, DettaglioVideo, Evento, GiornoGrezzo, StatoArrivi, StatoCanale, StatoLavori, StatoProfilo, StatoRegistrazione, StatoStudioRemoto, Stile, VoceElenco } from "./tipi"
+import type { AnimazioneDisponibile, ConsumiDiClaude, DettaglioVideo, Evento, GiornoGrezzo, StatoArrivi, StatoCanale, StatoLavori, StatoProfilo, StatoRegistrazione, StatoStudioRemoto, Stile, StileDiPartenza, VoceElenco, Carattere } from "./tipi"
 
 export interface StatoCopia<T> {
   dato: T | null
@@ -86,6 +86,9 @@ export function useCopia<T>(copia: Copia<T>): StatoCopia<T> {
 export const elencoVideo = creaCopia<VoceElenco[]>(api.elencoVideo, (e) => e.tipo === "video")
 export const grezzo = creaCopia<GiornoGrezzo[]>(api.grezzo, (e) => e.tipo === "grezzo")
 export const stile = creaCopia<Stile>(api.stile, (e) => e.tipo === "stile")
+/** I tre stili di partenza e i caratteri che lo stile può nominare: non cambiano da soli, i caratteri si rileggono quando se ne aggiunge uno. */
+export const stiliDiPartenza = creaCopia<StileDiPartenza[]>(api.stiliDiPartenza, () => false)
+export const caratteri = creaCopia<Carattere[]>(api.caratteri, () => false)
 export const lavori = creaCopia<StatoLavori>(api.lavori, (e) => e.tipo === "lavori")
 export const arrivi = creaCopia<StatoArrivi>(api.arrivi, (e) => e.tipo === "arrivi")
 export const accessoStudio = creaCopia<StatoStudioRemoto>(api.accessoStudio, (e) => e.tipo === "accesso-studio" || e.tipo === "arrivi")

@@ -1,9 +1,9 @@
 // Come un video che suona sotto il girato gli sta dietro senza saltare a ogni fotogramma.
 
 /** Oltre questo scarto un video che segue salta; sotto, accelera o rallenta finché non ci è sopra. */
-export const SALTO_S = 1
+const SALTO_S = 1
 /** Di quanto al più cambia la velocità mentre rincorre: metà in più o in meno. */
-export const RINCORSA = 0.5
+const RINCORSA = 0.5
 const IN_PARI_S = 0.02
 
 /** Cosa fa un video che deve stare a `voluto` mentre suona. Un salto che ci mette più di un fotogramma,

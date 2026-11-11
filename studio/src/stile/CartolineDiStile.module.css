@@ -1,0 +1,38 @@
+.cartoline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartolina {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.cartolina h3,
+.cartolina p {
+  margin: 0;
+}
+
+.cartolina p {
+  flex: 1;
+  font-size: 0.86rem;
+  color: var(--grigio);
+}
+
+.anteprima {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--filo);
+  border-radius: 4px;
+}

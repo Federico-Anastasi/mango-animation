@@ -8,6 +8,8 @@ from motore.voce import PASSO
 
 from .conftest import PAROLE_PAROLE, PAROLE_TEMPO
 
+FPS = 30
+
 
 @pytest.fixture
 def tempo(archivio, prepara_sintetico):
@@ -78,7 +80,7 @@ def trova(sorgente, dice, archivio, minuto="00:00", **resto):
     pezzo = {"minuto": minuto, "dice": dice, **resto}
     ij = sorgente.scegli(minuto, dice)
     veri = sorgente.veri([ij])[0]
-    return taglio.a_parole(sorgente, pezzo, ij, veri, archivio.stile)
+    return taglio.a_parole(sorgente, pezzo, ij, veri, archivio.stile, FPS)
 
 
 def test_scegli_trova_le_parole_dette_dal_minuto(parole):
@@ -159,7 +161,7 @@ class SempreVoce:
 
 def test_a_parole_toglie_l_esitazione_fra_due_parole_anche_senza_silenzio(archivio):
     veri = {0: (1.0, 1.4, 0.9), 1: (2.6, 3.0, 0.9), 2: (3.1, 3.5, 0.9)}
-    due = taglio.a_parole(SempreVoce(), {"dice": "uno due tre"}, (0, 3), veri, archivio.stile)
+    due = taglio.a_parole(SempreVoce(), {"dice": "uno due tre"}, (0, 3), veri, archivio.stile, FPS)
     margine = archivio.stile["voce"]["margine"]
     assert len(due) == 2
     assert due[0]["da"] + due[0]["durata"] == pytest.approx(1.4 + margine, abs=0.05) and due[1]["da"] == pytest.approx(2.6 - margine, abs=0.05)
@@ -167,7 +169,7 @@ def test_a_parole_toglie_l_esitazione_fra_due_parole_anche_senza_silenzio(archiv
 
 def test_a_parole_non_taglia_accanto_a_una_parola_trovata_male(archivio):
     veri = {0: (1.0, 1.4, 0.9), 1: (2.6, 3.0, 0.05), 2: (3.1, 3.5, 0.9)}
-    assert len(taglio.a_parole(SempreVoce(), {"dice": "uno due tre"}, (0, 3), veri, archivio.stile)) == 1
+    assert len(taglio.a_parole(SempreVoce(), {"dice": "uno due tre"}, (0, 3), veri, archivio.stile, FPS)) == 1
 
 
 class Sonora:
@@ -192,7 +194,7 @@ def test_la_coda_di_un_numero_incerto_si_stringe_sulla_voce(archivio):
     # «FP16» non si scrive in lettere: l'allineatore lo stende fin dove vuole, qui quasi un secondo oltre la voce.
     s = Sonora(["ciao", "FP16"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (0.7, 2.4, 1.0)}
-    [t] = taglio.a_parole(s, {"dice": "ciao FP16"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao FP16"}, (0, 2), veri, archivio.stile, FPS)
     margine = archivio.stile["voce"]["margine"]
     assert fine_di([t]) == pytest.approx(1.6 + margine, abs=0.04)
     assert t["legato"] == [None, None]
@@ -201,7 +203,7 @@ def test_la_coda_di_un_numero_incerto_si_stringe_sulla_voce(archivio):
 def test_la_coda_di_una_parola_dal_voto_basso_si_stringe_sulla_voce(archivio):
     s = Sonora(["ciao", "gb"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.9, 0.0)}
-    [t] = taglio.a_parole(s, {"dice": "ciao gb"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao gb"}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) == pytest.approx(1.6 + archivio.stile["voce"]["margine"], abs=0.04)
 
 
@@ -209,14 +211,14 @@ def test_la_voce_oltre_la_fine_allineata_non_si_taglia(archivio):
     # Il numero è detto in più parole («sette per cento») e l'allineamento si ferma alla prima.
     s = Sonora(["ciao", "7%."], [(0.3, 0.7), (1.0, 1.9)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.3, 1.0)}
-    [t] = taglio.a_parole(s, {"dice": "ciao 7%."}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao 7%."}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) == pytest.approx(1.9 + archivio.stile["voce"]["margine"], abs=0.04)
 
 
 def test_un_vuoto_breve_dentro_il_numero_non_lo_chiude(archivio):
     s = Sonora(["ciao", "0,5"], [(0.3, 0.7), (1.0, 1.3), (1.4, 1.8)])
     veri = {0: (0.3, 0.7, 0.95), 1: (0.75, 2.5, 1.0)}
-    [t] = taglio.a_parole(s, {"dice": "ciao 0,5"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao 0,5"}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) == pytest.approx(1.8 + archivio.stile["voce"]["margine"], abs=0.04)
 
 
@@ -224,28 +226,28 @@ def test_la_coda_incerta_non_va_oltre_la_parola_dopo(archivio):
     # Nel parlato continuo la voce non si ferma: il bordo non entra nella parola che segue.
     s = Sonora(["ciao", "gb", "e"], [(0.3, 0.7), (1.0, 3.0)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.4, 0.0), 2: (1.6, 3.0, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "ciao gb"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao gb"}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) <= 1.6 + 0.05
 
 
 def test_l_inizio_incerto_si_stringe_sulla_voce(archivio):
     s = Sonora(["7%.", "poi"], [(1.0, 1.6), (1.9, 2.3)])
     veri = {0: (0.2, 1.7, 1.0), 1: (1.9, 2.3, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "7%. poi"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "7%. poi"}, (0, 2), veri, archivio.stile, FPS)
     assert t["da"] == pytest.approx(1.0 - archivio.stile["voce"]["margine"], abs=0.04)
 
 
 def test_una_parola_sicura_tiene_i_bordi_dell_allineamento(archivio):
     s = Sonora(["ciao", "mondo"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.6, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "ciao mondo"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao mondo"}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) == pytest.approx(1.6 + archivio.stile["voce"]["margine"], abs=0.04)
 
 
 def test_una_rifila_dentro_la_voce_lo_dice(archivio):
     s = Sonora(["ciao", "mondo"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.6, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [0.0, -0.3]}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [0.0, -0.3]}, (0, 2), veri, archivio.stile, FPS)
     assert t["avvisi"][1].startswith("la fine cade nella voce a -10 dB, 0,3 s prima che la voce finisca")
     assert t["avvisi"][1].en.startswith("the end falls in the voice at -10 dB, 0.3 s before the voice ends")
     assert 0 not in t["avvisi"]
@@ -254,7 +256,7 @@ def test_una_rifila_dentro_la_voce_lo_dice(archivio):
 def test_una_rifila_dentro_la_voce_all_inizio_lo_dice(archivio):
     s = Sonora(["ciao", "mondo"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.6, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [0.3, 0.0]}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [0.3, 0.0]}, (0, 2), veri, archivio.stile, FPS)
     assert t["avvisi"][0].startswith("l'inizio cade nella voce a -10 dB, 0,3 s dopo che la voce è cominciata")
     assert t["avvisi"][0].en.startswith("the start falls in the voice at -10 dB, 0.3 s after the voice started")
 
@@ -262,14 +264,14 @@ def test_una_rifila_dentro_la_voce_all_inizio_lo_dice(archivio):
 def test_una_rifila_nel_silenzio_non_dice_niente(archivio):
     s = Sonora(["ciao", "mondo"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.6, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [-0.1, 0.1]}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [-0.1, 0.1]}, (0, 2), veri, archivio.stile, FPS)
     assert t["avvisi"] == {}
 
 
 def test_una_rifila_all_inizio_dentro_la_voce_lo_dice(archivio):
     s = Sonora(["ciao", "mondo"], [(0.3, 0.7), (1.0, 1.6)])
     veri = {0: (0.3, 0.7, 0.95), 1: (1.0, 1.6, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [0.25, 0.0]}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao mondo", "rifila": [0.25, 0.0]}, (0, 2), veri, archivio.stile, FPS)
     assert t["avvisi"][0].startswith("l'inizio cade nella voce a -10 dB, 0,2 s dopo che la voce è cominciata")
 
 
@@ -277,7 +279,7 @@ def test_un_fruscio_dopo_il_numero_non_ne_allunga_la_coda(archivio):
     s = Sonora(["ciao", "0,5"], [(0.3, 0.7), (1.0, 1.6)])
     s.db[round(1.75 / PASSO):round(1.83 / PASSO)] = -35.0
     veri = {0: (0.3, 0.7, 0.95), 1: (0.75, 2.5, 1.0)}
-    [t] = taglio.a_parole(s, {"dice": "ciao 0,5"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao 0,5"}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) == pytest.approx(1.6 + archivio.stile["voce"]["margine"], abs=0.04)
 
 
@@ -285,14 +287,14 @@ def test_una_coda_debole_attaccata_alla_voce_resta(archivio):
     s = Sonora(["ciao", "0,5"], [(0.3, 0.7), (1.0, 1.6)])
     s.db[round(1.63 / PASSO):round(1.71 / PASSO)] = -35.0
     veri = {0: (0.3, 0.7, 0.95), 1: (0.75, 2.5, 1.0)}
-    [t] = taglio.a_parole(s, {"dice": "ciao 0,5"}, (0, 2), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "ciao 0,5"}, (0, 2), veri, archivio.stile, FPS)
     assert fine_di([t]) == pytest.approx(1.71 + archivio.stile["voce"]["margine"], abs=0.04)
 
 
 def test_l_inizio_incerto_non_torna_nella_parola_prima(archivio):
     s = Sonora(["ciao", "7%.", "poi"], [(0.3, 0.7), (0.8, 1.4), (1.7, 2.0)])
     veri = {0: (0.3, 0.7, 0.95), 1: (0.75, 1.5, 1.0), 2: (1.7, 2.0, 0.95)}
-    [t] = taglio.a_parole(s, {"dice": "7%. poi"}, (1, 3), veri, archivio.stile)
+    [t] = taglio.a_parole(s, {"dice": "7%. poi"}, (1, 3), veri, archivio.stile, FPS)
     assert t["da"] >= 0.7 - 0.04
 
 

@@ -9,7 +9,7 @@ Goal: `uscite/slide-1.png`, `slide-2.png`, … (1080×1920), rendered from `mate
 A carousel has no plan and no edited video. An example to start from: any published carousel in `archivio/video/` (`formato: "carosello"`);
 the creator's profile may name its preferred one.
 
-The content rules apply (`.claude/rules/contenuto.md`): hook, structure, numbers with next to them where they come from, no jargon for a
+The content rules apply (`.claude/metodo/contenuto.md`): hook, structure, numbers with next to them where they come from, no jargon for a
 non-technical viewer (`pubblico.livello`). The creator's own rules for carousels, if any, are in their profile.
 
 ## How

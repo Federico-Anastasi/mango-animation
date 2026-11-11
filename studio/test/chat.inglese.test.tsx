@@ -93,6 +93,23 @@ describe("la chat in inglese", () => {
     expect(screen.getByText("What went wrong")).toBeInTheDocument()
   })
 
+  it("i passi di fila stanno in una riga «Worked · 2 steps» che si apre", async () => {
+    const messaggi: Messaggio[] = [
+      { id: "m2", ruolo: "claude", quando: "2026-11-02T10:00:00", parti: [{ tipo: "strumento", id: "t1", nome: "Read", ingresso: { file_path: "a.md" }, esito: "ok", iniziato: "2026-11-02T10:00:00.000Z", finito: "2026-11-02T10:00:03.000Z" }, { tipo: "strumento", id: "t2", nome: "Bash", ingresso: { command: "ls" }, esito: "ok", iniziato: "2026-11-02T10:00:03.000Z", finito: "2026-11-02T10:00:20.000Z" }] },
+    ]
+    rete({ "GET /api/chat/c1": conversazione({ messaggi }) })
+    negozio.apri("c1")
+    render(<PannelloChat />)
+    await screen.findByRole("log", { name: "The conversation" })
+    await assesta()
+    const riga = screen.getByRole("button", { name: /Worked/ })
+    expect(riga).toHaveTextContent("Worked · 2 steps · 20 s")
+    expect(screen.queryByText("Reads a.md")).toBeNull()
+    fireEvent.click(riga)
+    expect(screen.getByText("Reads a.md")).toBeInTheDocument()
+    expect(screen.queryByText("Ha lavorato")).toBeNull()
+  })
+
   it("la scheda di un lavoro in background dice token e strumenti in inglese", async () => {
     rete({ "GET /api/chat/c1": conversazione({ task: [{ id: "a1", tipo: "agente", descrizione: "Search", iniziato: new Date(Date.now() - 65_000).toISOString(), background: true, uso: { token: 12_400, strumenti: 18 } }] }) })
     negozio.apri("c1")

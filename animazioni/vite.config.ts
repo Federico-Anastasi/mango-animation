@@ -1,18 +1,23 @@
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
-import { ANIMAZIONI, CODICE, dentro, lavoroDa, SRC, sceneDelCreator, stileUnito } from "./script/percorsi";
+import { ANIMAZIONI, dentro, fileDelCarattere, lavoroDa, SRC, sceneDelCreator, stileUnito } from "./script/percorsi";
 
 const lavoro = lavoroDa();
 const stile = stileUnito(lavoro);
-const FONT_TITOLI = join(CODICE, stile.caratteri.titoli);
-const FONT_TITOLO = join(CODICE, (stile.caratteri as Record<string, string>)[stile.titolo.carattere]!);
 const SCENE_DEL_CREATOR = sceneDelCreator(lavoro);
 const MODULO_STILE = "virtual:stile";
 const CASA_DEL_CREATOR = lavoro ? join(lavoro, "animazioni") : null;
 
-// I colori e i caratteri (quello dei sottotitoli e delle scene, quello del titolo del video) entrano nella pagina dallo stile unito, al momento della costruzione.
+// I caratteri dello stile entrano nella pagina con il nome e il peso con cui li chiamano le scene: «Titoli» (sottotitoli e scene) e «Titolo» (il titolo del video).
+const FORMATI: Record<string, string> = { ".ttf": "truetype", ".otf": "opentype", ".woff2": "woff2" };
+const CARATTERI = [
+  { famiglia: "Titoli", peso: 700, file: fileDelCarattere(stile.caratteri.titoli) },
+  { famiglia: "Titolo", peso: 500, file: fileDelCarattere((stile.caratteri as Record<string, string>)[stile.titolo.carattere]!) },
+].map((c) => ({ ...c, indirizzo: `/font-${c.famiglia.toLowerCase()}${extname(c.file)}` }));
+
+// I colori entrano nella pagina dallo stile unito, al momento della costruzione.
 const daStile = (): Plugin => ({
   name: "da-stile",
   transformIndexHtml: () => [
@@ -21,22 +26,19 @@ const daStile = (): Plugin => ({
       injectTo: "head-prepend",
       children: `:root{${Object.entries(stile.colori)
         .map(([nome, valore]) => `--${nome.replaceAll("_", "-")}:${valore}`)
-        .join(";")}}@font-face{font-family:"Titoli";src:url("/font-titoli.ttf") format("truetype");font-weight:700}@font-face{font-family:"Titolo";src:url("/font-titolo.ttf") format("truetype");font-weight:500}`,
+        .join(";")}}${CARATTERI.map((c) => `@font-face{font-family:"${c.famiglia}";src:url("${c.indirizzo}") format("${FORMATI[extname(c.file)]}");font-weight:${c.peso}}`).join("")}`,
     },
   ],
   configureServer: (server) => {
-    server.middlewares.use("/font-titoli.ttf", (_richiesta, risposta) => {
-      risposta.setHeader("Content-Type", "font/ttf");
-      risposta.end(readFileSync(FONT_TITOLI));
-    });
-    server.middlewares.use("/font-titolo.ttf", (_richiesta, risposta) => {
-      risposta.setHeader("Content-Type", "font/ttf");
-      risposta.end(readFileSync(FONT_TITOLO));
-    });
+    for (const c of CARATTERI) {
+      server.middlewares.use(c.indirizzo, (_richiesta, risposta) => {
+        risposta.setHeader("Content-Type", `font/${extname(c.file).slice(1)}`);
+        risposta.end(readFileSync(c.file));
+      });
+    }
   },
   generateBundle() {
-    this.emitFile({ type: "asset", fileName: "font-titoli.ttf", source: readFileSync(FONT_TITOLI) });
-    this.emitFile({ type: "asset", fileName: "font-titolo.ttf", source: readFileSync(FONT_TITOLO) });
+    for (const c of CARATTERI) this.emitFile({ type: "asset", fileName: c.indirizzo.slice(1), source: readFileSync(c.file) });
   },
 });
 

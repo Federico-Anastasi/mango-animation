@@ -1,13 +1,16 @@
-import { useEffect, useId } from "react"
+import { useEffect, useId, useState } from "react"
 import { useCopia } from "../dati"
-import { MODELLO_PREDEFINITO, modelliChat, modelliOfferti, modelloScelto, nomeEffort, nomeFuoriElenco } from "./modelli"
-import { motoreDellaChat, motoreDi } from "./motore"
+import { dividiModelli, MODELLO_PREDEFINITO, modelliChat, modelliOfferti, modelloScelto, nomeEffort, nomeFuoriElenco } from "./modelli"
+import { motoreDellaChat, motoreDi, MOTORE_CHAT } from "./motore"
 import { negozio, type StatoNegozio } from "./negozio"
 import type { LivelloEffort, ModelloChat } from "./tipi"
 import styles from "./Impostazioni.module.css"
 import { t } from "../lingua"
 
 type NomeMenu = "modello" | "effort"
+
+/** La voce che apre gli «Altri»: non è un modello. */
+const VOCE_ALTRI = "__altri__"
 
 const menu = new Map<NomeMenu, HTMLSelectElement>()
 
@@ -44,11 +47,19 @@ export function Impostazioni({ chat }: { chat: StatoNegozio }) {
   const motoriOfferti = [...new Map(offerti.map((m) => [motoreDi(m.id).id, motoreDi(m.id)])).values()]
   const scelto = modelloScelto(offerti, chat.modello)
   const livelli = scelto?.effort ?? []
+  const { principali, altri } = dividiModelli(offerti)
+  const [apertiAltri, setApertiAltri] = useState(false)
+  // Il modello scelto non sparisce mai dal menu: se sta fra gli «Altri», gli «Altri» restano aperti.
+  const mostraAltri = apertiAltri || (scelto !== undefined && altri.includes(scelto))
 
   // Un modello ricordato che Claude Code non offre più non deve bloccare la prima conversazione.
   useEffect(() => {
     if (modelli && chat.id === null && chat.modello !== null && !modelli.some((m) => m.id === chat.modello)) void negozio.scegli({ modello: MODELLO_PREDEFINITO })
   }, [modelli, chat.id, chat.modello])
+
+  useEffect(() => {
+    if (apertiAltri) apriMenu("modello")
+  }, [apertiAltri])
 
   if (!modelli) {
     return (
@@ -79,15 +90,26 @@ export function Impostazioni({ chat }: { chat: StatoNegozio }) {
     <div className={styles.impostazioni}>
       <div className={styles.campo}>
         <label htmlFor={idModello}>{t("Modello", "Model")}</label>
-        <select ref={registraModello} id={idModello} value={scelto?.id ?? ""} onChange={(e) => void negozio.scegli({ modello: e.target.value })}>
+        <select
+          ref={registraModello}
+          id={idModello}
+          value={scelto?.id ?? ""}
+          onChange={(e) => {
+            if (e.target.value === VOCE_ALTRI) setApertiAltri(true)
+            else void negozio.scegli({ modello: e.target.value })
+          }}
+        >
           {scelto ? null : <option value="">{nomeFuoriElenco(modelli, chat.modello)}</option>}
           {motoriOfferti.length > 1
             ? motoriOfferti.map((m) => (
                 <optgroup key={m.id} label={m.nome}>
-                  {offerti.filter((modello) => motoreDi(modello.id).id === m.id).map(opzione)}
+                  {principali.filter((modello) => motoreDi(modello.id).id === m.id).map(opzione)}
+                  {m.id === MOTORE_CHAT.id && altri.length > 0 && !mostraAltri && <option value={VOCE_ALTRI}>{t("Altri…", "More…")}</option>}
                 </optgroup>
               ))
-            : offerti.map(opzione)}
+            : principali.map(opzione)}
+          {motoriOfferti.length <= 1 && altri.length > 0 && !mostraAltri && <option value={VOCE_ALTRI}>{t("Altri…", "More…")}</option>}
+          {mostraAltri && altri.length > 0 && <optgroup label={t("Altri", "More")}>{altri.map(opzione)}</optgroup>}
         </select>
       </div>
       {livelli.length > 0 && (

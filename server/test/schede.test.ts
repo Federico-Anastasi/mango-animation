@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import type { ErroreConFrase } from "../src/lingua"
 import { prestitoDaMangoCode } from "../src/schede"
 
 const cartelle: string[] = []
@@ -50,7 +51,9 @@ const del = (chiamate: { percorso: string; corpo: unknown }[]) => chiamate.filte
 describe("il prestito delle schede", () => {
   test("se il modello tiene la scheda del profilo la libera, e alla fine la rende", async () => {
     const { chiamate, prestito } = await prepara({ phase: "running", gpus: [0, 1, 2] })
-    expect(await prestito.prendi(1)).toMatch(/^Ho liberato la scheda 1 da Qwen 3\.6 di Mango Code \(\d+\.\d s\)/)
+    const liberata = await prestito.prendi(1)
+    expect(String(liberata)).toMatch(/^Ho liberato la scheda 1 da Qwen 3\.6 di Mango Code \(\d+\.\d s\)/)
+    expect(liberata?.en).toMatch(/^Freed video card 1 from Qwen 3\.6 in Mango Code \(\d+\.\d s\): it comes back on when the jobs on the card are finished\.$/)
     expect(await prestito.rendi()).toMatch(/^Il modello di Mango Code è di nuovo acceso/)
     expect(del(chiamate)).toEqual([
       { percorso: "/engine/release", corpo: { gpus: [1] } },
@@ -61,7 +64,7 @@ describe("il prestito delle schede", () => {
 
   test("se libera fallisce ma il modello si è spento lo stesso, la scheda è presa e alla fine si rende", async () => {
     const { chiamate, prestito } = await prepara({ phase: "running", gpus: [0] }, 500, [200], 0, true)
-    expect(await prestito.prendi(0)).toMatch(/^Ho liberato la scheda 0/)
+    expect(String(await prestito.prendi(0))).toMatch(/^Ho liberato la scheda 0/)
     await prestito.rendi()
     expect(del(chiamate).map((c) => c.percorso)).toEqual(["/engine/release", "/engine/resume"])
   })
@@ -93,7 +96,7 @@ describe("il prestito delle schede", () => {
   test("un secondo lavoro sulla stessa scheda la trova già libera: non la chiede di nuovo, e alla fine si rende una volta sola", async () => {
     const { chiamate, prestito } = await prepara({ phase: "running", gpus: [0] })
     await prestito.prendi(0)
-    expect(await prestito.prendi(0)).toMatch(/era già libera/)
+    expect(String(await prestito.prendi(0))).toMatch(/era già libera/)
     await prestito.rendi()
     expect(del(chiamate).map((c) => c.percorso)).toEqual(["/engine/release", "/engine/resume"])
   })
@@ -137,6 +140,8 @@ describe("il prestito delle schede", () => {
   test("se il gestore non libera la scheda, l'errore dice cosa fare", async () => {
     const { prestito } = await prepara({ phase: "running", gpus: [0] }, 500)
     await expect(prestito.prendi(0)).rejects.toThrow("Il modello di Mango Code tiene la scheda video e non la lascia")
+    const errore = await prestito.prendi(0).catch((e: unknown) => e)
+    expect((errore as ErroreConFrase).testo).toMatchObject({ en: expect.stringMatching(/^The Mango Code model is holding the video card and will not let go: the Mango Code engine manager answered 500: .*Stop it from Mango Code and run the job again\.$/) })
   })
 })
 

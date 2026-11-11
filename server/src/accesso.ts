@@ -18,7 +18,7 @@ const NO_STORE = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"
 /** Il cookie ha un nome per porta: due server sullo stesso computer (un altro archivio, una prova) non si pestano le chiavi. */
 const nomeDelCookie = (url: URL): string => `mango_api_${url.port || "80"}`
 
-function cookieDi(req: Request, nome: string): string | null {
+export function cookieDi(req: Request, nome: string): string | null {
   for (const voce of (req.headers.get("cookie") ?? "").split(";")) {
     const [chiave, ...valore] = voce.trim().split("=")
     if (chiave === nome) return valore.join("=")

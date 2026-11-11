@@ -2,9 +2,9 @@
 // della cartella di lavoro e poi, quando l'osservatore dice che uno è cambiato, solo ciò che vi si è aggiunto.
 import { mkdir, readdir } from "node:fs/promises"
 import { join, sep } from "node:path"
-import { leggiTesto, statistica } from "../disco"
+import { eOggetto, leggiTesto, statistica } from "../disco"
 import { osserva } from "../osservatore"
-import { eOggetto } from "../chat/traduzione"
+
 import { FileDiConversazione, riepiloga, type Riepilogo, type Token } from "./lettura"
 
 const BLOCCO_BYTE = 16 * 1024 ** 2

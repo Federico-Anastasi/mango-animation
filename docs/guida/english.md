@@ -20,7 +20,7 @@ Versione italiana: [italiano.md](italiano.md).
 - **Windows 10 or 11, 64-bit.** The app is Windows only (tested on Windows 11).
 - **Claude Code**, with your own Claude account. The app does not ship it and does not use your credentials: it talks to the program you already have on your computer, and the chat's work counts against the limits of your Claude subscription, which are meant for ordinary, individual use: long jobs queued one after another (for example many re-edits in a row) use them up quickly. If you do not have it, the app guides you through installing it at first start (below).
 - **Disk space.** At first start the app downloads the programs and models it needs: about 12 GB with an NVIDIA video card, about 8 GB without. Keep at least 20 GB free (12 without a card), plus room for your footage. The app shows you the exact figures before downloading and will not go ahead if the space is not enough.
-- **An NVIDIA video card is recommended, not required.** With one, the heavy jobs (transcription, silhouette, rendering the animations) are much faster. Without one, everything still works, only more slowly. The **Engines** page of the studio tells you what your computer has and where each function runs. Two thresholds worth knowing: the silhouette on the processor is slow under 8 threads, and with less than 4 GB of memory the large model that understands your voice does not fit, so the small, less accurate one is used.
+- **An NVIDIA video card is recommended, not required.** With one, the heavy jobs (transcription, silhouette, rendering the animations) are much faster. Without one, everything still works, only more slowly. The **Computer** section of **Settings** tells you what your computer has and where each function runs. Two thresholds worth knowing: the silhouette on the processor is slow under 8 threads, and with less than 4 GB of memory the large model that understands your voice does not fit, so the small, less accurate one is used.
 - **An internet connection**, for the first-start download and for Claude.
 - **Optional:** a microphone and a webcam (to record from the studio and dictate to the chat), a phone (to send footage to the computer and watch your videos).
 
@@ -77,7 +77,7 @@ Turn off what you do not need: the list below and the space required are recalcu
 - If something fails, the page says which entry and why; **"Try again"** does not download again what has already arrived.
 - **"Not now"** opens the studio as it is. The functions that are missing will stop and say what they lack.
 
-Later, to turn a function on or off, use the **Engines** page of the studio: what you turn on, the app downloads at the next start.
+Later, to turn a function on or off, use **Settings › Computer**: what you turn on, the app downloads at the next start.
 
 ### The studio
 
@@ -87,12 +87,11 @@ As soon as the computer is ready, the app shows the studio. At the top, the bar 
 |---|---|
 | **Videos** | your videos, by status |
 | **Footage** | all your recordings |
-| **Audience**, **Ranking**, **Growth** | for TikTok users: numbers and comments of released videos, comparison with other profiles, growth plan. They are empty until the data exists; each empty page says what to ask in the chat |
+| **Channel** | for TikTok users, in three tabs: **Audience** (numbers and comments of released videos), **Ranking** (comparison with other profiles), **Growth** (growth plan). It shows up in the bar only when a channel has been read: ask for the first read in the chat ("update the TikTok data") or from **Settings › Profile**, with **"Read the TikTok data"** |
 | **Production** | how many videos you made and how much of Claude's work they cost |
-| **Style** | your standards: framings, colours, subtitles, title; values are changed and saved with **"Save"** |
-| **Engines** | what the computer has and which heavy functions are on |
+| **Settings** | five sections: **Profile** (who you are, who you speak to, where you publish, what you never say), **Style** (your standards: framings, colours, subtitles, title; values are changed and saved with **"Save"**), **Computer** (what the computer has and which heavy functions are on), **Phone** (connecting it, and the studio on your phone), **General** (data folder, language, theme, guide) |
 
-On the right of the bar: **Phone** (whether the phone can send files), **Chat**, **Record**, **Jobs** (what is running), the data folder, **IT**/**EN** (language) and the light/dark theme.
+On the right of the bar: **Phone ready** (shows up when the phone can send files), **Chat**, **Record** and **Jobs** (shows up when something is running or waiting).
 
 ---
 
@@ -106,13 +105,13 @@ The method the app uses to make videos is the same for everyone. What is yours (
 |---|---|
 | Who you are | your name and the language you speak and write in: the language of your videos and of Claude's replies |
 | The audience | their level (for example "non-technical": no acronyms or technical numbers on screen), their language, the newspapers they know (newspaper pages in your videos are theirs) |
-| The channels | where you publish (TikTok, YouTube, X), under what name and in what format (vertical or horizontal). A platform's rules apply if it is among your channels |
+| The channels | where you publish (TikTok, Instagram, YouTube, X), under what name and in what format (vertical or horizontal). A platform's rules apply if it is among your channels |
 | What you never say | phrases, topics, tones that are not in your videos: proposals, scripts, captions and replies respect them |
 | The sources of ideas | the folders of your work that proposals come from |
 | Your computer | which video card to use if you have more than one, and whether the disk is nearly full (then a large video is linked instead of copied) |
 | Your rules | free text: how you build a video, how you close, how you write captions and hashtags, what you call the framings |
 
-Your **style** (colours, title, subtitles, rhythm) is in the **Style** page: what you change overlays the default style, and the rest stays as it is.
+Your **style** (colours, title, subtitles, rhythm) is in **Settings › Style**: what you change overlays the default style, and the rest stays as it is. At the top there are three starting styles to choose by seeing them (**"Use this one"**), and the **"Add a font"** button brings your own font (`.ttf`, `.otf` or `.woff2`) into the subtitles, the title and the animations.
 
 ### How you write it
 
@@ -120,11 +119,11 @@ Tell Claude in the chat. For example:
 
 > Let's make my profile: ask me the questions you need and write it.
 
-Claude asks who you are, who you speak to, where you publish, what you never say, and writes it into the data folder. You can correct it whenever you like, always in words: "add YouTube to my channels", "my audience is not technical", "I never say…". **Do not edit the files by hand**: a writing mistake makes it unusable: the app still starts, but works with the last profile that was fine (or with no profile, if there was none) until you fix it. Ask Claude.
+Claude asks who you are, who you speak to, where you publish, what you never say, and writes it into the data folder. You can correct it whenever you like: in words ("add YouTube to my channels", "my audience is not technical", "I never say…") or from **Settings › Profile**, where you see the fields and change them with **"Save"** (what the chat writes shows up there, and the other way round; if a field is not right, the page says which and why). **Do not edit the file by hand**: a writing mistake makes it unusable: the app still starts, but works with the last profile that was fine (or with no profile, if there was none) until you fix it. Ask Claude.
 
 Without a profile the app works with its default rules, but Claude knows nothing about you or your audience: it is best to start here.
 
-You can also set the computer (which functions are on, where they run) from the **Engines** page, without going through the chat.
+You can also set the computer (which functions are on, where they run) from **Settings › Computer**, without going through the chat.
 
 ---
 
@@ -146,7 +145,9 @@ You talk to Claude in the **chat** and look at the result in the studio. Every v
 
 ### Where your videos are
 
-The **Videos** page splits them by status: in progress, proposals, ready, published, discarded. Each video is a card with its image. For a new video there is the line "For a new video, ask in the chat." Opening a video you find these tabs: **Rehearsal** (when there is one), **Edit**, **Card**, **Check**, **Cover**, **Files**. The **Status** menu at the top changes the status (Proposal, In progress, Ready, Published, Discarded).
+The **Videos** page splits them by status: in progress, proposals, ready, published, discarded. Each video is a card with its image, and it says which step it is at ("Step 3 of 8 · Rehearsal"). For a new video there is the line "For a new video, ask in the chat." Opening a video you find these tabs: **Rehearsal** (when there is one), **Edit**, **Card**, **Check**, **Cover**, **Files**. The **Status** menu at the top changes the status (Proposal, In progress, Ready, Published, Discarded).
+
+At the top of a video's page a line shows the eight steps below: the finished ones ticked, the current one highlighted (on a narrow page it shortens to "Step 3 of 8 · Rehearsal"), and next to it what to say in the chat to move on, for example "Tell me in the chat: 'make me the rehearsal'". **"Write it in the chat"** puts that sentence in the chat box without sending it: you read it, change it if you like and send it yourself. The step comes from the video's files, nothing to mark by hand.
 
 The **Jobs** panel in the bar says what is running and what is waiting, with the estimate of how long it takes and **"Stop"** to interrupt it. The computer does one heavy job at a time.
 
@@ -155,12 +156,12 @@ The **Jobs** panel in the bar says what is running and what is waiting, with the
 | | step | what you say in the chat | where you look |
 |---|---|---|---|
 | 1 | **The idea** | "what do we do now?" or "I was thinking of…", or you bring footage ("I gave you the videos") | **Videos**, **Proposals** group: the new video's card with its preview |
-| 2 | **The script** | you discuss the text with Claude until you are happy | the video's **Card** tab, **The proposal** section: **Hook**, **Center**, **Close** (you can also write them yourself: they save when you leave the field) |
+| 2 | **The script** | you discuss the text with Claude until you are happy | the video's **Card** tab, **The script** section: **Hook**, **Center**, **Close** (you can also write them yourself: they save when you leave the field) |
 | 3 | **The rehearsal** | "make me the rehearsal" | the **Rehearsal** tab (the animations with the line to say, to record against) |
 | 4 | **The recorded text** | "I recorded" | in the chat, sentence by sentence, with the chosen take; in **Footage**, opening the file, **The speech** with timings |
 | 5 | **Text and animations** | you say what works and what does not | in the chat first in words, then one frame per scene |
 | 6 | **The edit** | "edit it" | the **Edit**, **Check**, **Cover** tabs |
-| 7 | **The corrections** | the round's notes, all together | previews of the touched pieces, then the full edit once |
+| 7 | **The corrections** | the round's notes, all together | previews of the touched clips, then the full edit once |
 | 8 | **The release** | "it is approved, give me the caption", then "I published it" | the **Card** tab: **Caption and hashtags**, **Where it came out** |
 
 **1 and 2. Idea and script.** You can start from footage you already have, from work already done in your sources, from what the audience asks, or from an idea of your own. Claude first proposes in words (hook, center, close, length), then puts them in the archive. It also tells you what framing it sees; you can ask for them in your own words:
@@ -168,7 +169,7 @@ The **Jobs** panel in the bar says what is running and what is waiting, with the
 | if you say… | the framing is |
 |---|---|
 | "with my silhouette and the animations" | you as a silhouette over animations; above, the animations, then the subtitles, below your head |
-| "extract from the live" | 16:9 recording: screen on top, your face below, pieces chosen by words |
+| "extract from the live" | 16:9 recording: screen on top, your face below, clips chosen by words |
 | "just me talking", "normal video" | the footage full screen, subtitles under your head, no animation |
 | "without my face, all animations" | your voice underneath, the animation full screen |
 | "let's frame the screen", "a document" | the screen or the document, no face |
@@ -177,21 +178,21 @@ The **Jobs** panel in the bar says what is running and what is waiting, with the
 
 **3. The rehearsal.** It is a video without your voice: the animations and, below, every whole sentence to read (the word to say now in red, the ones already said in black, the ones still to say in grey). You record yourself while watching it. It is not the finished video. The **Jobs** panel shows it as "Rehearsal for recording"; from the phone you find it in the "Le prove" (rehearsals) page (section 5).
 
-**4. The recorded text.** The footage arrives from the phone, from **Record** or from the chat (section 5). As soon as it is there, Claude transcribes it and proposes the video's text sentence by sentence, with the chosen take, the seconds, and what stays out. You discuss until you fix it.
+**4. The recorded text.** The footage arrives from the computer (**Add video**, in **Footage**), from the phone, from **Record** or from the chat (section 5). As soon as it is there, Claude transcribes it and proposes the video's text sentence by sentence, with the chosen take, the seconds, and what stays out. You discuss until you fix it.
 
 **5. Text and animations.** For each sentence Claude describes in words what the scene shows and on which word each thing enters; you say what works and what does not. Then one **still frame** per scene. The real render starts only after your yes. Animations are always moving, never an animated bullet list.
 
 **6. The edit.** Claude writes the editing plan, tells you how long it lasts and waits for your go. Then it edits (cuts always fall on whole words), **checks** (listens to the file again, looks at the frames next to the words, rereads what you say and show looking for mistakes) and makes the cover. In the **Edit** tab:
 
 - the preview has two modes: **Plan** (shows the plan at once, for correcting) and **Edited** (the full video, with the cover at the start);
-- below, the **timeline**: scenes, pieces, words, subtitles, title and sounds; you can drag the edges of the pieces and split with the **S** key;
-- **Undo** and **Redo** are at the top.
+- below, the **timeline**: scenes, clips, words, subtitles, title and sounds; you can drag the edges of the clips and split with the **S** key;
+- **Undo** and **Redo** are at the top; below them, **Versions** lists the earlier plans with date and time and how many scenes and clips they had: **Look** shows how it was (scenes and clips, changing nothing) and **Go back to this one** puts it back, after a confirmation. The current one stays among the versions: nothing is lost. The edited video only changes when you edit it again.
 
 If you adjust by hand while Claude is already editing, the bar says "Plan changed": the edit will restart by itself, or you stop it with **"Stop"** in the Jobs panel and ask Claude to edit again.
 
 The **Check** tab shows the outcome: silences, hesitations, misplaced words, cuts inside speech, differences between what you wanted and what you hear. The things to verify in the content, Claude marks for you. The **Cover** tab shows the cover and the video with the cover at the start: it goes into the video with the edit.
 
-**7. The corrections.** Watch the video and collect all your notes in one message. Claude applies them in one go, makes **previews** of the touched pieces (a minute or two) and only when they are right does it redo the full edit.
+**7. The corrections.** Watch the video and collect all your notes in one message. Claude applies them in one go, makes **previews** of the touched clips (a minute or two) and only when they are right does it redo the full edit.
 
 **8. The release.** Claude proposes two versions of the caption with the hashtags, and tells you which file to upload. **You always publish**: Claude does not write on your channels. When you have published, say so (with the address if you have it): Claude marks the video as published and records the date. In the **Card** tab you find the caption (with **"Copy the caption"**), the hashtags, where it came out and, when the channel is read after release, the numbers.
 
@@ -209,9 +210,17 @@ If you ask, Claude can read the numbers, comments and messages of your TikTok ch
 
 ## 5. The phone, recording, languages
 
+### Searching for what you said
+
+In **Footage**, above the list, the **"Search the speech"** field searches the already transcribed words of all your files, ignoring capitals and accents: type a word or several words in a row ("the secret is the pati"). The results give the file, the time and the sentence around it; a click opens the file at that point. It only searches files that have been prepared.
+
+### Putting a video you already have on the computer into the footage
+
+In the **Footage** page click **"Add video"** and choose the files (several at once if you like), or drop them on the page: while you drag them, a box appears showing where to drop. Videos, photos and audio recordings are fine. Under the page header you see how each file is doing; a file that does not go in says why (for example, it is already in the footage). The files go into today's footage, with their card, like the ones that arrive from the phone.
+
 ### Sending footage from the phone to the computer
 
-In the **Footage** page, at the top, there is the **"Files from your phone"** box. By default it is off: the computer does not listen on the network. Click **"Connect a phone"**: two codes appear to scan with the phone, on the same Wi-Fi.
+In **Settings › Phone** there is the **"Files from your phone"** box. By default it is off: the computer does not listen on the network. Click **"Connect a phone"**: two codes appear to scan with the phone, on the same Wi-Fi.
 
 - **The Shortcut**: installs on the iPhone a quick command that sends videos to the computer.
 - **Upload from the page**: opens on the phone a page with an "Carica video" (Upload video) button, to pick from the library. Nothing to install.
@@ -224,7 +233,7 @@ When a phone is connected, **"From your phone"** appears in the **Videos** page 
 
 ### The whole studio from the phone
 
-In **Footage**, under the arrivals, **"The studio on your phone"** (off by default). **"Turn on"** shows two ways, each with its own code: **At home (same Wi-Fi)** and **Away from home (Tailscale)**, which needs Tailscale on, on the computer and on the phone. With the phone you use the whole studio: videos, edit and chat. **Anyone with the link controls your computer** through the chat: give it to nobody. **"Turn off"** signs everyone out and changes the link; **"Make a new key"** gives a new link, and phones already signed in must sign in again. The box is only visible from the computer, not from the phone.
+In **Settings › Phone**, under the arrivals, **"The studio on your phone"** (off by default). **"Turn on"** shows two ways, each with its own code: **At home (same Wi-Fi)** and **Away from home (Tailscale)**, which needs Tailscale on, on the computer and on the phone. With the phone you use the whole studio: videos, edit and chat. **Anyone with the link controls your computer** through the chat: give it to nobody. **"Turn off"** signs everyone out and changes the link; **"Make a new key"** gives a new link, and phones already signed in must sign in again. The box is only visible from the computer, not from the phone.
 
 ### Recording from the studio
 
@@ -238,7 +247,7 @@ For the options with the microphone and for the face you also choose which micro
 
 ### Languages
 
-- **The interface** is in Italian and English. The button with the code (**IT** or **EN**) in the bar cycles through the system's language, Italian and English. The app's own screens and its error messages follow the same language.
+- **The interface** is in Italian and English. You choose it in **Settings › General**: the system's language, Italian or English. The app's own screens and its error messages follow the same language.
 - **The language of your videos** is in the profile: Claude writes to you in that language and prepares your videos' texts in it.
 - **A version in another language** of a finished video: ask for "the English version" (or another language). Subtitles, title, cover and writings in the animations change; your voice stays the original. The translated video is a new video next to the original. If the cover has drawn text in it, it has to be redone, translated.
 
@@ -263,10 +272,10 @@ Close the app's window and reopen it from the Start menu. Closing it also stops 
 | a red warning on a video's card or plan | a file does not pass the checks: ask in the chat to fix it; the exact reason opens on request |
 | a **failed** job in the **Jobs** panel | ask Claude what happened and to redo it |
 | **"longer than expected"** on a job | it is taking longer than the estimate; you can wait or stop it with **"Stop"** |
-| **Phone not ready** | hover over the button or open **Footage**: the box says why (usually Windows blocks the program: unblock it in "Windows Security" or set the Wi-Fi to "Private network") and **"Check again"** |
+| the phone does not send files | a line at the top of **Footage** says so; open **Settings › Phone**: the box says why (usually Windows blocks the program: unblock it in "Windows Security" or set the Wi-Fi to "Private network") and **"Check again"** |
 | **Record** says it is not available | the panel writes the reason |
-| the **Engines** page says a choice does not work | for example a card that is not there or is busy: the job stops and says what to fix, it does not switch to the processor on its own |
-| space is not enough | free some space, or turn off a function in the first-start download page (or in **Engines**) |
+| **Settings › Computer** says a choice does not work | for example a card that is not there or is busy: the job stops and says what to fix, it does not switch to the processor on its own |
+| space is not enough | free some space, or turn off a function in the first-start download page (or in **Settings › Computer**) |
 
 A video's plan, the cards and the files the app writes are in the data folder. If something breaks after a hand edit, ask Claude to fix it: the folder keeps the previous version of the plan.
 

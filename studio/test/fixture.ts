@@ -1,5 +1,5 @@
 // Un montaggio piccolo e coerente per le prove: due scene, tre pezzi, quattro tratti, otto parole.
-import type { DettaglioVideo, ParolaRisolta, PianoCompleto, Piano, Risolto, Stile, Tratto } from "../src/tipi"
+import type { Carattere, DettaglioVideo, ParolaRisolta, PianoCompleto, Piano, Risolto, Stile, StileDiPartenza, Tratto } from "../src/tipi"
 import type { Contesto } from "../src/montaggio/ritocchi"
 
 export function pianoDiProva(): PianoCompleto {
@@ -111,7 +111,6 @@ export function contestoDiProva(): Contesto {
 
 export function stileDiProva(): Stile {
   return {
-    formato: { largo: 1080, alto: 1920, fps: 30 },
     formati: { verticale: { largo: 1080, alto: 1920, fps: 30 }, orizzontale: { largo: 1920, alto: 1080, fps: 30 } },
     colori: { carta: "#F1F0EB", inchiostro: "#17171B", rosso: "#E03A1E", blu: "#1F4B99", nero: "#000000", verde: "#00FF18" },
     caratteri: { titoli: "font/Archivo-700.ttf" },
@@ -161,13 +160,38 @@ export function stileDiProva(): Stile {
       },
       "girato-pieno": {
         fondo: "nero",
-        strati: [{ tipo: "girato", area: [0, 0, 1080, 1920], centro: [0.5, 0.5] }],
+        strati: [{ tipo: "girato", area: [0, 0, 1080, 1920] }],
         sottotitoli: { x: 540, y: 1320, largo: 900, ancora: "centro" },
         titolo: { x: 540, y: 300, ancora: "centro" },
       },
     },
   }
 }
+
+/** Due stili di partenza come li manda il server: le sezioni dell'aspetto per intero. */
+export function partenzeDiProva(): StileDiPartenza[] {
+  const base = stileDiProva()
+  const { colori, caratteri, sottotitoli, titolo } = base
+  return [
+    {
+      id: "scuro",
+      nome: { it: "Scuro", en: "Dark" },
+      descrizione: { it: "Fondo scuro, titolo su un'etichetta gialla.", en: "Dark background, title on a yellow label." },
+      stile: { colori: { ...colori, carta: "#15151A", inchiostro: "#F4F4F6" }, caratteri, sottotitoli: { ...sottotitoli, modo: "a battute" }, titolo: { ...titolo, fondo: "rosso", colore: "nero" } },
+    },
+    {
+      id: "caldo",
+      nome: { it: "Caldo", en: "Warm" },
+      descrizione: { it: "Carta color crema, lettere più tonde.", en: "Warm cream paper, rounder lettering." },
+      stile: { colori: { ...colori, carta: "#F6EEDF" }, caratteri: { ...caratteri, titoli: "font/Metropolis-Medium.ttf" }, sottotitoli: { ...sottotitoli, modo: "a battute" }, titolo },
+    },
+  ]
+}
+
+export const caratteriDiProva = (): Carattere[] => [
+  { file: "font/Archivo-700.ttf", nome: "Archivo SemiBold", mio: false },
+  { file: "font/Metropolis-Medium.ttf", nome: "Metropolis Medium", mio: false },
+]
 
 export function dettaglioDiProva(): DettaglioVideo {
   return dettaglioCon(pianoDiProva(), risoltoDiProva())
@@ -193,6 +217,7 @@ function dettaglioCon(piano: PianoCompleto, risolto: Risolto): DettaglioVideo {
     materiali: [],
     puo_annullare: false,
     puo_rifare: false,
+    fase: null,
     lavoro: null,
     montaggio_superato: false,
     piano_cambiato: null,

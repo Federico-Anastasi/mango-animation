@@ -1,12 +1,16 @@
 // I ritocchi di un piano: cambiare un campo per percorso (`/scene/3/pezzi/0/dice`) invece di riscrivere il piano intero.
-// Le operazioni sono quelle di JSON Patch che servono: replace, add, remove.
+// Le operazioni sono quelle di JSON Patch che servono: replace, add, remove, e test (non cambia niente: dice che il piano non è più quello che chi ritocca si aspettava).
+import { isDeepStrictEqual } from "node:util"
 import { ErroreConFrase, frase } from "./lingua"
 
 export class ErroreRitocco extends ErroreConFrase {}
 
+/** Un `test` che non torna: il piano è cambiato dopo che chi ritocca l'ha letto. */
+export class PianoCambiato extends ErroreRitocco {}
+
 type Contenitore = Record<string, unknown> | unknown[]
 
-const OPERAZIONI = ["replace", "add", "remove"] as const
+const OPERAZIONI = ["replace", "add", "remove", "test"] as const
 
 const contenitore = (v: unknown): v is Contenitore => typeof v === "object" && v !== null
 
@@ -25,6 +29,16 @@ function indice(lista: unknown[], parte: string, fino: number, n: number, percor
   return k
 }
 
+/** Ciò che c'è al percorso (già diviso in passi), o `undefined` se non c'è. */
+function valoreA(radice: unknown, passi: string[]): unknown {
+  let qui = radice
+  for (const passo of passi) {
+    if (!contenitore(qui) || !Object.hasOwn(qui, passo)) return undefined
+    qui = (qui as Record<string, unknown>)[passo]
+  }
+  return qui
+}
+
 /** Il piano coi ritocchi applicati in ordine, senza toccare quello dato; un ritocco che non si può fare è un errore che dice quale. */
 export function applicaRitocchi(documento: unknown, ritocchi: unknown): unknown {
   if (!Array.isArray(ritocchi) || ritocchi.length === 0) throw new ErroreRitocco(frase("I ritocchi sono una lista non vuota di { op, path, value }.", "The tweaks are a non-empty list of { op, path, value }."))
@@ -36,6 +50,17 @@ export function applicaRitocchi(documento: unknown, ritocchi: unknown): unknown 
     if (!OPERAZIONI.includes(op as (typeof OPERAZIONI)[number])) throw new ErroreRitocco(frase(`ritocco ${n}: «op» è uno fra ${OPERAZIONI.join(", ")}.`, `tweak ${n}: «op» is one of ${OPERAZIONI.join(", ")}.`))
     if (op !== "remove" && !("value" in ritocco)) throw new ErroreRitocco(frase(`ritocco ${n}: «${String(op)}» vuole «value».`, `tweak ${n}: «${String(op)}» needs «value».`))
     const passi = ["piano", ...parti(path, n)]
+    if (op === "test") {
+      if (!isDeepStrictEqual(valoreA(radice, passi), value)) {
+        throw new PianoCambiato(
+          frase(
+            `ritocco ${n}: «${String(path)}» non è più com'era quando l'hai letto: il piano è cambiato nel frattempo. Rileggilo e rifai il ritocco.`,
+            `tweak ${n}: «${String(path)}» is no longer as it was when you read it: the plan changed in the meantime. Read it again and redo the tweak.`,
+          ),
+        )
+      }
+      return
+    }
     const ultimo = passi.pop()!
     let qui: unknown = radice
     for (const [i, passo] of passi.entries()) {

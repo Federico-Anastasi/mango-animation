@@ -6,7 +6,7 @@ import { centesimi, giorno, numero } from "../testo"
 import type { Stile, Zoom } from "../tipi"
 import type { Azione } from "./azione"
 import { soloAnimazione } from "./composizione"
-import { trattoA, bordo, dividi, muoviPezzo, portaPezzoInScena, togliTratto, vistaDelPezzo, zoomPezzo, ereditata, staccaDallaBase } from "./ritocchi"
+import { trattoA, bordo, dividi, muoviPezzo, portaPezzoInScena, togliTratto, vistaDelPezzo, zoomPezzo, ereditata, staccaDallaBase, ZOOM_MASSIMO } from "./ritocchi"
 import { dellaSorgente, type InfoSorgente } from "./sorgenti"
 import { useDiscreto, type Trasporto } from "./trasporto"
 import styles from "./Pannelli.module.css"
@@ -48,7 +48,7 @@ function ControlloZoom({ zoom, bloccato, onProvvisorio, onFinale }: { zoom: Zoom
               type="range"
               className={styles.cursore}
               min={1}
-              max={4}
+              max={ZOOM_MASSIMO}
               step={0.05}
               value={zoom.scala}
               disabled={bloccato}
@@ -105,7 +105,7 @@ export function PannelloTratto({
 
   return (
     <div className={styles.pannello}>
-      <h2>{t("Tratto scelto", "Selected segment")}</h2>
+      <h2>{t("Pezzo scelto", "Selected clip")}</h2>
       <p className={styles.nota}>
         {senzaVoce ? t("Senza voce", "No voice") : info ? info.file.split("/").pop() : t("File sconosciuto", "Unknown file")}
         {info && <> · {t("girato il {giorno}", "recorded on {giorno}", { giorno: giorno(info.file.split("/")[0] ?? "") })}</>}
@@ -193,7 +193,7 @@ export function PannelloTratto({
 
       <div className={styles.azioni}>
         {!senzaVoce && (
-          <Bottone variante="vuoto" onClick={() => esegui(dividi(ctx, trasporto.t()))} disabled={bloccato || inEredita || !sotto} titolo={sotto ? undefined : t("Porta la linea rossa dentro questo tratto", "Move the red line inside this segment")}>
+          <Bottone variante="vuoto" onClick={() => esegui(dividi(ctx, trasporto.t()))} disabled={bloccato || inEredita || !sotto} titolo={sotto ? undefined : t("Porta la linea rossa dentro questo pezzo", "Move the red line inside this clip")}>
             <Icona nome="dividi" />
             {t("Dividi qui", "Split here")}
           </Bottone>
@@ -221,8 +221,8 @@ export function PannelloTratto({
 
       {(avvisi.length > 0 || tratto.legato[0] !== null || tratto.legato[1] !== null) && (
         <ul className={styles.avvisi}>
-          {tratto.legato[0] !== null && <li>{t("Il taglio d'inizio cade nel parlato ({db} dB): riascoltalo.", "The start cut falls inside speech ({db} dB): listen to it again.", { db: numero(tratto.legato[0], 0) })}</li>}
-          {tratto.legato[1] !== null && <li>{t("Il taglio di fine cade nel parlato ({db} dB): riascoltalo.", "The end cut falls inside speech ({db} dB): listen to it again.", { db: numero(tratto.legato[1], 0) })}</li>}
+          {tratto.legato[0] !== null && <li>{t("Il taglio d'inizio cade dentro una parola: riascoltalo.", "The start cut falls inside a word: listen to it again.")}</li>}
+          {tratto.legato[1] !== null && <li>{t("Il taglio di fine cade dentro una parola: riascoltalo.", "The end cut falls inside a word: listen to it again.")}</li>}
           {avvisi.map((a) => (
             <li key={a.cosa}>{frasePerLingua(a.cosa, a.cosa_en)}</li>
           ))}

@@ -6,8 +6,7 @@ description: Makes the rehearsal video to record against — the animated scenes
 # Prova
 
 Goal: `uscite/prova.mp4`, which the creator records against, and `uscite/copione.html`, the same sentences as a plain page to read on the phone while recording (`/guarda`, «Da registrare»). It is not the finished video: the sentence stays whole on screen for the
-whole time it lasts, the word to say now in red, the ones said dark, the others in grey (`montaggio.md`, «The rehearsal before
-recording»). No audio, except the voice of the clips.
+whole time it lasts, the word to say now in red, the ones said dark, the others in grey. No audio, except the voice of the clips.
 
 ## How
 
@@ -17,6 +16,9 @@ recording»). No audio, except the voice of the clips.
    - `scene`: in order, `{ "animazione": "<sigla>", "dalla": "<the first words of the sentence it starts from>" }`. A scene lasts until
      the next; `"animazione": null` means the creator at full frame. A scene that enters things on words adds `"parole": { "<name the scene
      waits for>": "<the words of the script that make it enter>" }`: the rehearsal gives it the estimated second of each. The sentences before the first scene are the creator's.
+     A scene without animation that tells someone else's footage in the creator's voice (a podcast, a keynote in another language) adds
+     `"girato": { "file": "<day>/<file in the grezzo>", "da": <second it starts from> }`: the footage runs muted under its sentences, in
+     the footage place of the scene's `"quadro"` (optional; without it, the video's frame).
    - `spezzoni`, when the creator comments on someone else's footage (a talk, a keynote): in order, `{ "file": "<day>/<file in the
      grezzo>", "minuto", "dice" (the words it says, as for a piece of the plan: the file must be prepared), "testo": "<the whole
      translation>", "prima": "<the first words of the creator's sentence that comes next>" }`. Write `da` and `a` (seconds of the
@@ -29,7 +31,7 @@ recording»). No audio, except the voice of the clips.
    of the edit) with the script's estimated timing (`prova.caratteri_al_secondo`, `prova.pausa`), and writes `uscite/prova.mp4` and `uscite/copione.html`. With
    many scenes to render it is a long job: first tell the creator and wait for the go.
 4. Look at three frames of `uscite/prova.mp4` (the opening with the title, a scene, a sentence of the creator's) and send the
-   rehearsal to the creator by opening it in the browser (`processo.md`, «Showing the creator»).
+   rehearsal to the creator by opening it with `apri` (`processo.md`, «Showing the creator»).
 5. If the creator changes a sentence or a scene, the proposal is changed and relaunched: scenes already rendered with the same
    duration are not redone.
 

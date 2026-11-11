@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { RiquadroStudioDalTelefono } from "../src/girato/RiquadroStudioDalTelefono"
+import { RiquadroStudioDalTelefono } from "../src/impostazioni/RiquadroStudioDalTelefono"
 import type { StatoStudioRemoto } from "../src/tipi"
 import { installaEventi, installaRete, type Chiamata } from "./rete"
 

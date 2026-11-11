@@ -13,22 +13,23 @@ export interface Trasporto {
   suona(): void
   ferma(): void
   alterna(): void
-  /** Avanti o indietro di `fotogrammi` (a 30 al secondo), da fermo. */
+  /** Fotogrammi al secondo del video: quelli dello stile. */
+  fps(): number
+  /** Avanti o indietro di `fotogrammi`, da fermo. */
   passo(fotogrammi: number): void
   /** Solo per l'anteprima, mentre suona: dove è arrivata, senza chiedere un salto. */
   avanza(t: number): void
   /** Quante volte si è chiesto un salto: l'anteprima si riposiziona quando cambia. */
   salti(): number
   iscriviti(ascolta: () => void): () => void
-  impostaDurata(durata: number): void
+  imposta(durata: number, fps: number): void
 }
 
-export const FOTOGRAMMI_AL_SECONDO = 30
-
-export function creaTrasporto(durataIniziale = 0): Trasporto {
+export function creaTrasporto(durataIniziale: number, fpsIniziali: number): Trasporto {
   let t = 0
   let suona = false
   let durata = durataIniziale
+  let fps = fpsIniziali
   let salti = 0
   const ascoltatori = new Set<() => void>()
   const avvisa = () => ascoltatori.forEach((a) => a())
@@ -60,9 +61,10 @@ export function creaTrasporto(durataIniziale = 0): Trasporto {
       if (suona) trasporto.ferma()
       else trasporto.suona()
     },
+    fps: () => fps,
     passo(fotogrammi) {
       suona = false
-      trasporto.vai(Math.round((t + fotogrammi / FOTOGRAMMI_AL_SECONDO) * FOTOGRAMMI_AL_SECONDO) / FOTOGRAMMI_AL_SECONDO)
+      trasporto.vai(Math.round((t + fotogrammi / fps) * fps) / fps)
     },
     avanza(valore) {
       t = dentro(valore)
@@ -74,9 +76,10 @@ export function creaTrasporto(durataIniziale = 0): Trasporto {
       ascoltatori.add(ascolta)
       return () => ascoltatori.delete(ascolta)
     },
-    impostaDurata(nuova) {
-      if (nuova === durata) return
-      durata = nuova
+    imposta(nuovaDurata, nuoviFps) {
+      fps = nuoviFps
+      if (nuovaDurata === durata) return
+      durata = nuovaDurata
       if (t > durata) {
         t = durata
         salti++
@@ -87,12 +90,12 @@ export function creaTrasporto(durataIniziale = 0): Trasporto {
   return trasporto
 }
 
-/** Un trasporto per la vita del componente; la durata segue il video. */
-export function useTrasporto(durata: number): Trasporto {
+/** Un trasporto per la vita del componente; la durata e i fotogrammi al secondo seguono il video. */
+export function useTrasporto(durata: number, fps: number): Trasporto {
   const rif = useRef<Trasporto | null>(null)
-  if (rif.current === null) rif.current = creaTrasporto(durata)
+  if (rif.current === null) rif.current = creaTrasporto(durata, fps)
   const trasporto = rif.current
-  useEffect(() => trasporto.impostaDurata(durata), [trasporto, durata])
+  useEffect(() => trasporto.imposta(durata, fps), [trasporto, durata, fps])
   return trasporto
 }
 

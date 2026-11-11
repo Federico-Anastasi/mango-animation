@@ -1,6 +1,7 @@
 """Lo scontorno della persona. SAM2 la segue (un fotogramma ogni `passo_maschera`; in mezzo la sua maschera si sposta col flusso ottico),
 ViTMatte rifà l'alfa nella fascia incerta attorno al bordo, e l'alfa si leviga coi fotogrammi vicini portati sul corrente dal flusso.
-La prima maschera di ogni intervallo viene dal riquadro della persona trovato da RT-DETR (`persona.py`). Licenze: SAM2 Apache-2.0,
+La prima maschera di ogni intervallo viene dal riquadro della persona trovato da RT-DETR, che sopra il viso (YuNet) non sale oltre i capelli
+(`persona.py`). Licenze: SAM2 Apache-2.0,
 ViTMatte Apache-2.0, RT-DETR Apache-2.0. Sulla scheda NVIDIA SAM2 e ViTMatte girano in mezza precisione, con ViTMatte in grafi CUDA; sul
 processore in precisione piena, a diretto."""
 
@@ -8,7 +9,8 @@ import threading
 
 import numpy as np
 
-from .persona import Rilevatore
+from .persona import Rilevatore, Visi
+from .sagoma import formato_della_sagoma
 
 SAM = "facebook/sam2.1-hiera-base-plus"
 MATTING = "hustvl/vitmatte-small-composition-1k"
@@ -124,10 +126,12 @@ class Scontornatore:
         torch.set_grad_enabled(False)
         self.cuda, self.torch, self.s, self.stile = dove == "cuda", torch, stile["sagoma"]["scontorno"], stile
         self.dev, self.tipo = torch.device(dove), torch.float16 if self.cuda else torch.float32
-        self.L, self.A = stile["formato"]["largo"], stile["formato"]["alto"]
+        formato = formato_della_sagoma(stile)
+        self.L, self.A = formato["largo"], formato["alto"]
         self.w, self.h = round(self.L * self.s["scala_matting"]), round(self.A * self.s["scala_matting"])
         self.wp, self.hp = self.w + (-self.w) % MULTIPLO_MATTING, self.h + (-self.h) % MULTIPLO_MATTING
         self.rilevatore = Rilevatore(dove, self.s["soglia_persona"])
+        self.visi = Visi(stile["segui"]["soglia_viso"])
         self.processore = Sam2VideoProcessor.from_pretrained(SAM)
         self.sam = Sam2VideoModel.from_pretrained(SAM).to(self.dev, dtype=self.tipo).eval()
         memoria = self.s["memoria_sam"]
@@ -157,12 +161,36 @@ class Scontornatore:
         x = ((F.interpolate(x, size=(LATO_SAM, LATO_SAM), mode="bilinear", antialias=True) - self.media) / self.deviazione).to(self.tipo)
         return F.interpolate(self.sam(inference_session=sessione, frame=x[0]).pred_masks.float(), size=(self.h, self.w), mode="bilinear")
 
+    def vede_persona(self, rgb):
+        """Se nel fotogramma RGB il rilevatore trova una persona: da dove può partire lo scontorno di un intervallo."""
+        return self.rilevatore.trova(rgb) is not None
+
+    def _riquadro(self, primo):
+        """Il riquadro della persona nel primo fotogramma, che sopra il viso non sale oltre `sopra_il_viso` altezze del viso: il rilevatore a volte ci
+        mette anche ciò che sta sopra la testa (una lampada dietro, che in ripresa sembra un cappello), e SAM2 la seguirebbe come parte della persona.
+        Il viso si cerca alla scala dello scontorno; se non si vede (la persona di spalle), il riquadro resta quello del rilevatore."""
+        import cv2
+
+        x0, y0, x1, y1 = self.rilevatore.riquadro(primo)
+        viso = self.visi.riquadro(cv2.resize(primo, (self.w, self.h), interpolation=cv2.INTER_AREA))
+        if viso is not None:
+            _, y, _, alto = viso
+            y0 = max(y0, (y - alto * self.s["sopra_il_viso"]) * self.A / self.h)
+        return [x0, y0, x1, y1]
+
     def _sessione(self, primo):
         """La memoria di SAM2 per un intervallo, con la persona del primo fotogramma come prima indicazione."""
         sessione = self.processore.init_video_session(inference_device=self.dev, dtype=self.tipo)
-        self.processore.add_inputs_to_inference_session(inference_session=sessione, frame_idx=0, obj_ids=1, input_boxes=[[self.rilevatore.riquadro(primo)]],
+        self.processore.add_inputs_to_inference_session(inference_session=sessione, frame_idx=0, obj_ids=1, input_boxes=[[self._riquadro(primo)]],
                                                         original_size=(self.A, self.L))
         return sessione
+
+    def _senza_salti(self, spostata, di_sam):
+        """La maschera spostata col flusso, o quella di SAM2 da cui viene se la sua area è saltata di oltre `salto_maschera` rispetto a quella:
+        fra due passaggi di SAM2 la persona non cambia tanto, e una maschera saltata (vista una volta: tutta la stanza dentro per tre
+        fotogrammi) non deve arrivare alla sagoma."""
+        area, prima = float((spostata > 0).float().mean()), float((di_sam > 0).float().mean())
+        return di_sam if abs(area - prima) > self.s["salto_maschera"] * max(prima, 1e-6) else spostata
 
     def _trimap(self, maschera):
         return trimap(maschera, self.s["raggio_trimap"])
@@ -283,11 +311,12 @@ class Scontornatore:
                 c.aspetta(lambda: t in c.maschere)
                 maschera, fatto = c.maschere.pop(t)
                 torch.cuda.current_stream().wait_event(fatto)
+                di_sam = maschera
             elif t % passo == 0:
                 sessione = sessione or self._sessione(f)
-                maschera = self._maschera_sam(sessione, f)
+                maschera = di_sam = self._maschera_sam(sessione, f)
             else:
-                maschera = self._sposta(maschera, flusso(t)[0])
+                maschera = self._senza_salti(self._sposta(maschera, flusso(t)[0]), di_sam)
             alfe[t] = self._alfa(img, self._trimap(maschera))
             c.avanza("bordo", t)
             if t > 0:

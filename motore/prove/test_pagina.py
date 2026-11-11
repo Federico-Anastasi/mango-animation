@@ -10,7 +10,7 @@ from PIL import Image
 from motore.__main__ import main
 from motore.archivio import Archivio
 from motore.errori import Errore
-from motore.pagina import pagina
+from motore.pagina import node_con_pacchetti, pagina
 
 SLUG = "notizia"
 RIEMPITIVO = "Testo della notizia che riempie la pagina come un articolo vero. " * 40
@@ -225,3 +225,10 @@ def test_un_filmato_che_finisce_prima_di_cominciare_si_ferma(tmp_path):
     archivio, _ = _video(tmp_path, {"animata": {"url": "http://127.0.0.1:9/a.html", "filmato": [3, 2]}})
     with pytest.raises(Errore, match="finisce prima di cominciare"):
         pagina(archivio, SLUG)
+
+
+def test_senza_i_pacchetti_di_studio_lo_strumento_dice_cosa_installare(tmp_path):
+    with pytest.raises(Errore, match=r"mancano i pacchetti di `studio/`.*bun install"):
+        node_con_pacchetti(Archivio(radice=tmp_path / "archivio", repo=tmp_path))
+    (tmp_path / "studio" / "node_modules" / "@playwright" / "test").mkdir(parents=True)
+    assert node_con_pacchetti(Archivio(radice=tmp_path / "archivio", repo=tmp_path))

@@ -1,7 +1,7 @@
 # The process
 
 Every video goes through these steps, in this order. A step is skipped only if the creator says so. Each step has its skill, which says
-how it is done; the content and editing rules apply in all of them (`contenuto.md`, `montaggio.md`).
+how it is done and which rules it reads (`.claude/metodo/contenuto.md` and `montaggio.md`).
 
 | step | what comes out | skill |
 |---|---|---|
@@ -14,8 +14,10 @@ how it is done; the content and editing rules apply in all of them (`contenuto.m
 | 7. The corrections | previews of the touched pieces, then one full edit | `monta` |
 | 8. The release | caption, hashtags, card `pubblicato` | `pubblicazione` |
 
+The step a video has reached is shown at the top of its page; `video_leggi` gives it as `fase`.
+
 1. **The idea.** Start from a recording already made or from an idea the creator writes (an article, something done). Discuss the
-   angle, the hook and the frame (`montaggio.md`, «When the creator says…»). From a recording already made, skip to step 4.
+   angle, the hook and the frame (`.claude/metodo/montaggio.md`, «When the creator says…»). From a recording already made, skip to step 4.
 2. **The script.** Exact text: the hook is the first sentence, the center one sentence per line, the close. Next to it the frame and,
    for each scene, what it shows and from which sentence it starts (`proposta.scene`). Discuss until the creator says it is good.
 3. **The rehearsal**, when the creator asks for it (almost always): the job `prova` (skill `prova`). The creator records while watching it.
@@ -33,13 +35,12 @@ how it is done; the content and editing rules apply in all of them (`contenuto.m
 
 ## Showing the creator
 
-- What is shown lives in the video's folder (`materiali/`, `uscite/`), never in a temporary folder, and is opened in the browser with the
-  tool `apri`: `percorso` for a file (`video/<slug>/uscite/con-copertina.mp4`), `video` (with `scheda` for a tab) for the video's page.
-  It is the only way: the studio's addresses ask for the key, which is never read or written by you, and `apri` brings it in. The Windows
-  viewer does not: it stays behind the windows.
+- What is shown lives in the video's folder (`materiali/`, `uscite/`), never in a temporary folder, and is opened with the tool `apri`:
+  `percorso` for a file (`video/<slug>/uscite/con-copertina.mp4`), `video` (with `scheda` for a tab) for the video's page. In the app it
+  takes the app's window there; outside the app it opens the browser. The Windows viewer does not: it stays behind the windows.
 - A version is always the full file: `uscite/con-copertina.mp4`. The light copy only if the creator asks for it. When the creator is on
   the phone, the button «Dal telefono» in the studio's Video list and in the video's page shows the `/guarda` code to scan; if the button is
-  missing, the phone connection is off: the creator presses «Collega un telefono» in Girato.
+  missing, the phone connection is off: the creator presses «Collega un telefono» in Impostazioni › Telefono.
 - A preview declares itself a preview: it is not a version, it does not go through `controlla`.
 - «Open» means only open: open it and wait for the creator.
 
@@ -47,7 +48,5 @@ how it is done; the content and editing rules apply in all of them (`contenuto.m
 
 - Before a job that lasts more than a few minutes (the full edit of a new video, cutout, rendering all the scenes, transcribing a live
   recording) tell the creator what it does, on how many seconds and how long it takes, and wait for the go.
-- One at a time on the video card, always on the card the profile names (`macchina.scheda_video`, the `nvidia-smi` index) unless the
-  creator names another; for the animations `ANIMAZIONI_SCHEDA`, never a silent fallback to another card.
 - Before changing the plan check whether an edit of the same video is running (`video_leggi`, field `lavoro`): an edit that ends on a
   superseded plan is time thrown away.

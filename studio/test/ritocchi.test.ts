@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 import * as r from "../src/montaggio/ritocchi"
 import type { Esito } from "../src/montaggio/ritocchi"
@@ -8,74 +10,83 @@ function piano(esito: Esito): Piano {
   if (!esito.ok) throw new Error(`atteso ok, ricevuto: ${esito.motivo}`)
   return esito.piano
 }
+const bordoDi = (ctx: r.Contesto, indice: number, lato: "inizio" | "fine", nuovo: number, opzioni: { durataSorgente?: number; minimo?: number } = {}) => r.bordo(ctx, indice, lato, nuovo, { minimo: 0.1, ...opzioni })
 function motivo(esito: Esito): string {
   if (esito.ok) throw new Error("atteso un rifiuto")
   return esito.motivo
 }
 
+describe("lo zoom massimo", () => {
+  it("è quello dello schema del piano", () => {
+    const schema = JSON.parse(readFileSync(resolve(__dirname, "../../motore/schemi/piano.schema.json"), "utf8")) as { $defs?: Record<string, unknown>; definitions?: Record<string, unknown> }
+    const zoom = (schema.$defs?.["zoom"] ?? schema.definitions?.["zoom"]) as { properties: Record<string, { maximum: number }> }
+    expect(zoom.properties["scala"]!.maximum).toBe(r.ZOOM_MASSIMO)
+  })
+})
+
 describe("bordo di un pezzo a tempo", () => {
   it("il primo tratto muove `da`", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 0, "inizio", 0.8)).scene![0]!.pezzi[0]!.da).toBe(0.8)
+    expect(piano(bordoDi(ctx, 0, "inizio", 0.8)).scene![0]!.pezzi[0]!.da).toBe(0.8)
   })
 
   it("non va sotto zero né oltre la fine della sorgente", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 0, "inizio", -3)).scene![0]!.pezzi[0]!.da).toBe(0)
-    expect(piano(r.bordo(ctx, 1, "fine", 99, { durataSorgente: 9.4 })).scene![0]!.pezzi[0]!.a).toBe(9.4)
+    expect(piano(bordoDi(ctx, 0, "inizio", -3)).scene![0]!.pezzi[0]!.da).toBe(0)
+    expect(piano(bordoDi(ctx, 1, "fine", 99, { durataSorgente: 9.4 })).scene![0]!.pezzi[0]!.a).toBe(9.4)
   })
 
   it("l'ultimo tratto muove `a`", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 1, "fine", 9.4)).scene![0]!.pezzi[0]!.a).toBe(9.4)
+    expect(piano(bordoDi(ctx, 1, "fine", 9.4)).scene![0]!.pezzi[0]!.a).toBe(9.4)
   })
 
   it("non lascia un tratto più corto del minimo", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 0, "inizio", 3, { minimo: 0.3 })).scene![0]!.pezzi[0]!.da).toBe(2.7)
-    expect(piano(r.bordo(ctx, 0, "fine", 0, { minimo: 0.3 })).scene![0]!.pezzi[0]!.via).toBeDefined()
+    expect(piano(bordoDi(ctx, 0, "inizio", 3, { minimo: 0.3 })).scene![0]!.pezzi[0]!.da).toBe(2.7)
+    expect(piano(bordoDi(ctx, 0, "fine", 0, { minimo: 0.3 })).scene![0]!.pezzi[0]!.via).toBeDefined()
   })
 
   it("un bordo fra due tratti riscrive il vuoto fra loro in `via`", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 0, "fine", 3.2)).scene![0]!.pezzi[0]!.via).toEqual([[3.2, 3.5]])
-    expect(piano(r.bordo(ctx, 1, "inizio", 3.3)).scene![0]!.pezzi[0]!.via).toEqual([[3, 3.3]])
-    expect(piano(r.bordo(ctx, 0, "fine", 2.5)).scene![0]!.pezzi[0]!.via).toEqual([[2.5, 3.5]])
+    expect(piano(bordoDi(ctx, 0, "fine", 3.2)).scene![0]!.pezzi[0]!.via).toEqual([[3.2, 3.5]])
+    expect(piano(bordoDi(ctx, 1, "inizio", 3.3)).scene![0]!.pezzi[0]!.via).toEqual([[3, 3.3]])
+    expect(piano(bordoDi(ctx, 0, "fine", 2.5)).scene![0]!.pezzi[0]!.via).toEqual([[2.5, 3.5]])
   })
 
   it("richiudere il vuoto toglie `via`", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 1, "inizio", 3)).scene![0]!.pezzi[0]!.via).toBeUndefined()
-    expect(piano(r.bordo(ctx, 0, "fine", 3.6)).scene![0]!.pezzi[0]!.via).toBeUndefined()
+    expect(piano(bordoDi(ctx, 1, "inizio", 3)).scene![0]!.pezzi[0]!.via).toBeUndefined()
+    expect(piano(bordoDi(ctx, 0, "fine", 3.6)).scene![0]!.pezzi[0]!.via).toBeUndefined()
   })
 
   it("un bordo interno non attraversa il tratto vicino", () => {
     const ctx = contestoDiProva()
-    expect(piano(r.bordo(ctx, 0, "fine", 7)).scene![0]!.pezzi[0]!.via).toBeUndefined()
-    expect(piano(r.bordo(ctx, 1, "inizio", 1)).scene![0]!.pezzi[0]!.via).toBeUndefined()
+    expect(piano(bordoDi(ctx, 0, "fine", 7)).scene![0]!.pezzi[0]!.via).toBeUndefined()
+    expect(piano(bordoDi(ctx, 1, "inizio", 1)).scene![0]!.pezzi[0]!.via).toBeUndefined()
   })
 
   it("non tocca l'argomento", () => {
     const ctx = contestoDiProva()
     const prima = structuredClone(ctx.proprio)
-    r.bordo(ctx, 0, "inizio", 0.5)
+    bordoDi(ctx, 0, "inizio", 0.5)
     expect(ctx.proprio).toEqual(prima)
   })
 
   it("un tratto che non c'è dà un motivo", () => {
-    expect(motivo(r.bordo(contestoDiProva(), 99, "inizio", 1))).toMatch(/non c'è più/)
+    expect(motivo(bordoDi(contestoDiProva(), 99, "inizio", 1))).toMatch(/non c'è più/)
   })
 })
 
 describe("bordo di un pezzo a parole", () => {
   it("il primo bordo scrive `rifila` in secondi, negativo = prima", () => {
-    expect(piano(r.bordo(contestoDiProva(), 2, "inizio", 9.9)).scene![1]!.pezzi[0]!.rifila).toEqual([-0.1, 0])
+    expect(piano(bordoDi(contestoDiProva(), 2, "inizio", 9.9)).scene![1]!.pezzi[0]!.rifila).toEqual([-0.1, 0])
   })
 
   it("l'ultimo bordo scrive la fine, sommando a ciò che c'era", () => {
     const ctx = contestoDiProva()
     ctx.proprio.scene![1]!.pezzi[0]!.rifila = [-0.1, 0.1]
-    expect(piano(r.bordo(ctx, 3, "fine", 13.7)).scene![1]!.pezzi[0]!.rifila).toEqual([-0.1, 0.3])
+    expect(piano(bordoDi(ctx, 3, "fine", 13.7)).scene![1]!.pezzi[0]!.rifila).toEqual([-0.1, 0.3])
   })
 
   describe("il bordo fra due parole del pezzo", () => {
@@ -83,7 +94,7 @@ describe("bordo di un pezzo a parole", () => {
     const pezzi = (ctx = contestoDiProva()) => ctx.proprio.scene![1]!.pezzi
 
     it("la fine del primo pezzo di parole divide il pezzo e allunga la fine di quello che resta prima", () => {
-      const nuovo = piano(r.bordo(contestoDiProva(), 2, "fine", 11.8))
+      const nuovo = piano(bordoDi(contestoDiProva(), 2, "fine", 11.8))
       expect(nuovo.scene![1]!.pezzi).toEqual([
         { sorgente: "b", minuto: "0:10", dice: "uno due", rifila: [0, 0.3] },
         { sorgente: "b", minuto: "0:12", dice: "tre quattro" },
@@ -91,7 +102,7 @@ describe("bordo di un pezzo a parole", () => {
     })
 
     it("l'inizio del secondo anticipa l'inizio di quello che resta dopo", () => {
-      const nuovo = piano(r.bordo(contestoDiProva(), 3, "inizio", 11.7))
+      const nuovo = piano(bordoDi(contestoDiProva(), 3, "inizio", 11.7))
       expect(nuovo.scene![1]!.pezzi).toEqual([
         { sorgente: "b", minuto: "0:10", dice: "uno due" },
         { sorgente: "b", minuto: "0:12", dice: "tre quattro", rifila: [-0.3, 0] },
@@ -101,24 +112,24 @@ describe("bordo di un pezzo a parole", () => {
     it("la rifila dei bordi esterni resta ai due estremi", () => {
       const ctx = contestoDiProva()
       pezzi(ctx)[0]!.rifila = [-0.1, 0.1]
-      const nuovo = piano(r.bordo(ctx, 2, "fine", 11.8))
+      const nuovo = piano(bordoDi(ctx, 2, "fine", 11.8))
       expect(nuovo.scene![1]!.pezzi.map((p) => p.rifila)).toEqual([[-0.1, 0.3], [0, 0.1]])
     })
 
     it("non va oltre l'inizio del tratto dopo, né sotto il minimo del suo", () => {
-      expect(piano(r.bordo(contestoDiProva(), 2, "fine", 99)).scene![1]!.pezzi[0]!.rifila).toEqual([0, 0.5])
-      expect(piano(r.bordo(contestoDiProva(), 3, "inizio", 0)).scene![1]!.pezzi[1]!.rifila).toEqual([-0.5, 0])
+      expect(piano(bordoDi(contestoDiProva(), 2, "fine", 99)).scene![1]!.pezzi[0]!.rifila).toEqual([0, 0.5])
+      expect(piano(bordoDi(contestoDiProva(), 3, "inizio", 0)).scene![1]!.pezzi[1]!.rifila).toEqual([-0.5, 0])
     })
 
     it("un bordo che resta dov'è lascia il piano com'è", () => {
       const ctx = contestoDiProva()
-      expect(piano(r.bordo(ctx, 2, "fine", 11.5))).toEqual(ctx.proprio)
+      expect(piano(bordoDi(ctx, 2, "fine", 11.5))).toEqual(ctx.proprio)
     })
 
     it("lo zoom che cresce si divide con il pezzo", () => {
       const ctx = contestoDiProva()
       pezzi(ctx)[0]!.zoom = { da: 1, a: 2 }
-      const nuovo = piano(r.bordo(ctx, 2, "fine", 11.8))
+      const nuovo = piano(bordoDi(ctx, 2, "fine", 11.8))
       expect(nuovo.scene![1]!.pezzi.map((p) => p.zoom)).toEqual([{ da: 1, a: 1.5 }, { da: 1.5, a: 2 }])
     })
   })
@@ -128,7 +139,7 @@ describe("pezzo ereditato da base", () => {
   it("una scena non dichiarata dal video non si ritocca", () => {
     const ctx = contestoDiProva()
     ctx.proprio = { base: "madre", scene: [] }
-    expect(motivo(r.bordo(ctx, 0, "inizio", 0.5))).toMatch(/video «madre»/)
+    expect(motivo(bordoDi(ctx, 0, "inizio", 0.5))).toMatch(/video «madre»/)
     expect(motivo(r.dividi(ctx, 4))).toMatch(/stacca il video/)
     expect(motivo(r.togliTratto(ctx, 0))).toMatch(/stacca il video/)
     expect(motivo(r.spostaScena(ctx, 0, 1))).toMatch(/stacca il video/)
@@ -137,7 +148,7 @@ describe("pezzo ereditato da base", () => {
   it("una scena che il video dichiara si ritocca nel suo piano, per nome", () => {
     const ctx = contestoDiProva()
     ctx.proprio = { base: "madre", scene: [structuredClone(ctx.effettivo.scene[1]!)] }
-    const nuovo = piano(r.bordo(ctx, 2, "inizio", 9.9))
+    const nuovo = piano(bordoDi(ctx, 2, "inizio", 9.9))
     expect(nuovo.base).toBe("madre")
     expect(nuovo.scene).toHaveLength(1)
     expect(nuovo.scene![0]!.pezzi[0]!.rifila).toEqual([-0.1, 0])
@@ -220,8 +231,8 @@ describe("dividere", () => {
 
   it("troppo vicino a un bordo o fuori dai tratti si rifiuta", () => {
     const ctx = contestoDiProva()
-    expect(motivo(r.dividi(ctx, 2.02))).toBe("La linea rossa è troppo vicina al bordo del tratto: spostala un po' e riprova.")
-    expect(motivo(r.dividi(ctx, 50))).toBe("La linea rossa non è su un tratto: portala su un pezzo del montaggio e riprova.")
+    expect(motivo(r.dividi(ctx, 2.02))).toBe("La linea rossa è troppo vicina al bordo del pezzo: spostala un po' e riprova.")
+    expect(motivo(r.dividi(ctx, 50))).toBe("La linea rossa non è su un pezzo del montaggio: portala su uno e riprova.")
   })
 
   it("un pezzo a parole non si divide se da una parte non resta niente", () => {
@@ -524,8 +535,8 @@ describe("pezzi senza voce", () => {
   // Nel risolto: 0 apertura (4 s), 1 parlato, 2-3 i due pezzi della chiusa (3 s e 2 s).
   it("i bordi non si trascinano: il pezzo ha solo la durata", () => {
     const ctx = contestoSenzaVoce()
-    expect(motivo(r.bordo(ctx, 0, "fine", 3))).toMatch(/senza voce/)
-    expect(motivo(r.bordo(ctx, 2, "inizio", 1))).toMatch(/senza voce/)
+    expect(motivo(bordoDi(ctx, 0, "fine", 3))).toMatch(/senza voce/)
+    expect(motivo(bordoDi(ctx, 2, "inizio", 1))).toMatch(/senza voce/)
   })
 
   it("non si divide, non ha zoom né vista", () => {
@@ -553,6 +564,6 @@ describe("pezzi senza voce", () => {
 
   it("il pezzo con la voce accanto si ritocca com'è sempre", () => {
     const ctx = contestoSenzaVoce()
-    expect(piano(r.bordo(ctx, 1, "fine", 2.8)).scene![1]!.pezzi[0]!.a).toBe(2.8)
+    expect(piano(bordoDi(ctx, 1, "fine", 2.8)).scene![1]!.pezzi[0]!.a).toBe(2.8)
   })
 })

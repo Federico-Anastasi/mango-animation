@@ -1,8 +1,11 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react"
+import { api } from "../api"
+import { BottoneCopia, copiaNegliAppunti } from "../comuni/BottoneCopia"
 import { Icona } from "../comuni/icone"
 import { Stima } from "../comuni/Stima"
 import type { Pezzo } from "./collegamenti"
 import { indirizzoSicuro, leggiBlocchi, type Blocco, type Inline } from "./analisiMarkdown"
+import { percorsoDelComputer, type PercorsoLocale } from "./percorsiLocali"
 import { dividiStime } from "./stime"
 import styles from "./Markdown.module.css"
 import { t } from "../lingua"
@@ -32,6 +35,47 @@ function Collegamenti({ testo, collega }: { testo: string; collega?: Collega }) 
           </a>
         ),
       )}
+    </>
+  )
+}
+
+const testoDi = (nodi: Inline[]): string => nodi.map((n) => ("testo" in n ? n.testo : "figli" in n ? testoDi(n.figli) : "")).join("")
+
+/** Un file o una cartella del computer non è mai un collegamento: nell'archivio si mostra in Esplora File, altrove si copia. */
+function PercorsoDelComputer({ percorso, figli }: { percorso: PercorsoLocale; figli: Inline[] }) {
+  const [errore, setErrore] = useState<string | null>(null)
+  const nome = (
+    <span>
+      <Inlines nodi={figli} />
+    </span>
+  )
+  const { archivio, mostra } = percorso
+  if (archivio !== null) {
+    const apri = () => {
+      setErrore(null)
+      api.apri(archivio).catch((e: Error) => setErrore(e.message))
+    }
+    return (
+      <>
+        <button type="button" className={styles.percorso} title={t("Mostra nella cartella", "Show in the folder")} onClick={apri}>
+          {nome}
+        </button>
+        {errore !== null && (
+          <span role="alert" className={styles.percorsoErrore}>
+            {" "}
+            {errore}
+          </span>
+        )}
+      </>
+    )
+  }
+  return (
+    <>
+      {testoDi(figli) !== mostra && <>{nome} </>}
+      <code>{mostra}</code>{" "}
+      <span className={styles.copia}>
+        <BottoneCopia testo={mostra} />
+      </span>
     </>
   )
 }
@@ -72,24 +116,31 @@ function Inlines({ nodi, collega }: { nodi: Inline[]; collega?: Collega }): Reac
         )
       case "a-capo":
         return <br key={i} />
-      case "collegamento":
-        return indirizzoSicuro(n.href) ? (
-          <a key={i} href={n.href} {...(n.href.startsWith("#") ? {} : { target: "_blank", rel: "noreferrer noopener" })}>
-            <Inlines nodi={n.figli} />
-          </a>
+      case "collegamento": {
+        if (indirizzoSicuro(n.href)) {
+          return (
+            <a key={i} href={n.href} {...(n.href.startsWith("#") ? {} : { target: "_blank", rel: "noreferrer noopener" })}>
+              <Inlines nodi={n.figli} />
+            </a>
+          )
+        }
+        const percorso = percorsoDelComputer(n.href)
+        return percorso ? (
+          <PercorsoDelComputer key={i} percorso={percorso} figli={n.figli} />
         ) : (
           <Fragment key={i}>
             <Inlines nodi={n.figli} />
           </Fragment>
         )
+      }
     }
   })
 }
 
-export function BloccoCodice({ testo, lingua }: { testo: string; lingua?: string }) {
+function BloccoCodice({ testo, lingua }: { testo: string; lingua?: string }) {
   const [copiato, setCopiato] = useState(false)
   const copia = () => {
-    navigator.clipboard.writeText(testo).then(
+    copiaNegliAppunti(testo).then(
       () => {
         setCopiato(true)
         setTimeout(() => setCopiato(false), 1500)

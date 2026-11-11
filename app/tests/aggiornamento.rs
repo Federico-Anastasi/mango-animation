@@ -8,6 +8,9 @@ use std::net::TcpListener;
 use std::path::Path;
 use tauri::test::{mock_builder, mock_context, noop_assets, MockRuntime};
 
+#[path = "../prove/rete/proxy_finto.rs"]
+mod proxy_finto;
+
 const CARICO: &[u8] = include_bytes!("../prove/aggiornamento/carico.bin");
 const FIRMA: &str = include_str!("../prove/aggiornamento/carico.bin.sig");
 const CHIAVE_DELLA_PROVA: &str = include_str!("../prove/aggiornamento/chiave-prova.pub");
@@ -58,6 +61,15 @@ fn una_versione_piu_nuova_si_propone_con_le_sue_note() {
     let p = cerca_da("0.1.0", "0.1.1", FIRMA, CARICO, CHIAVE_DELLA_PROVA).unwrap().expect("la 0.1.1 è più nuova della 0.1.0");
     assert_eq!((p.stato.fase.as_str(), p.stato.corrente.as_str(), p.stato.nuova.as_str()), ("proposta", "0.1.0", "0.1.1"));
     assert_eq!(p.stato.note.as_deref(), Some("Una nota di prova"));
+}
+
+#[test]
+fn un_indirizzo_che_non_risponde_non_tiene_ferma_la_partenza_piu_di_pochi_secondi() {
+    let ascolto = TcpListener::bind("127.0.0.1:0").unwrap();
+    let app = app_alla_versione("0.1.0", &format!("http://127.0.0.1:{}/latest.json", ascolto.local_addr().unwrap().port()), CHIAVE_DELLA_PROVA);
+    let inizio = std::time::Instant::now();
+    assert!(cerca(app.handle()).is_err());
+    assert!(inizio.elapsed() < std::time::Duration::from_secs(8), "il controllo ha aspettato {:?}", inizio.elapsed());
 }
 
 #[test]
@@ -176,6 +188,7 @@ fn la_configurazione_ha_la_chiave_pubblica_e_l_indirizzo_degli_aggiornamenti_e_l
     assert!(chiave.starts_with("untrusted comment: minisign public key"), "{chiave}");
     assert!(updater["endpoints"][0].as_str().unwrap().starts_with("https://"), "gli aggiornamenti arrivano solo da https");
     assert!(updater.get("dangerousInsecureTransportProtocol").is_none());
+    assert!(conf["app"]["security"]["csp"].as_str().is_some_and(|csp| csp.starts_with("default-src 'self'")), "la pagina locale dell'app ha una politica di contenuto");
     // L'installatore: firma degli aggiornamenti, per utente, il codice in `codice/` (dove `radice.rs` lo cerca) e la licenza.
     let installatore: serde_json::Value = serde_json::from_str(include_str!("../tauri.installer.conf.json")).unwrap();
     let bundle = &installatore["bundle"];
@@ -189,4 +202,50 @@ fn la_configurazione_ha_la_chiave_pubblica_e_l_indirizzo_degli_aggiornamenti_e_l
 fn base64_decodifica(testo: &str) -> Vec<u8> {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD.decode(testo.trim()).unwrap()
+}
+
+/// Una variabile d'ambiente per la durata di una prova.
+struct Variabile(&'static str);
+
+impl Variabile {
+    fn metti(nome: &'static str, valore: &str) -> Self {
+        std::env::set_var(nome, valore);
+        Variabile(nome)
+    }
+}
+
+impl Drop for Variabile {
+    fn drop(&mut self) {
+        std::env::remove_var(self.0);
+    }
+}
+
+#[test]
+fn l_indirizzo_degli_aggiornamenti_passa_dal_proxy_ma_solo_se_non_e_di_questo_computer() {
+    let indirizzo = server("0.1.1", FIRMA, CARICO.to_vec(), SISTEMA);
+    let porta = indirizzo.rsplit(':').next().unwrap().split('/').next().unwrap().to_owned();
+    let proxy = proxy_finto::ProxyFinto::avvia(proxy_finto::Modo::Inoltra(format!("127.0.0.1:{porta}").parse().unwrap()));
+    let _proxy = Variabile::metti("HTTP_PROXY", &proxy.indirizzo);
+
+    // Un indirizzo di questo computer non passa dal proxy.
+    let app = app_alla_versione("0.1.0", &indirizzo, CHIAVE_DELLA_PROVA);
+    assert!(cerca(app.handle()).unwrap().is_some());
+    assert!(proxy.visti().is_empty(), "{:?}", proxy.visti());
+
+    // Lo stesso manifesto su un indirizzo esterno ci passa.
+    let esterno = format!("http://scarichi.esempio.test:{porta}/latest.json");
+    let app = app_alla_versione("0.1.0", &esterno, CHIAVE_DELLA_PROVA);
+    assert!(cerca(app.handle()).unwrap().is_some());
+    assert_eq!(proxy.visti().len(), 1);
+    assert!(proxy.visti()[0].starts_with(&format!("GET http://scarichi.esempio.test:{porta}/latest.json")), "{:?}", proxy.visti());
+}
+
+#[test]
+fn un_filtro_che_ispeziona_gli_aggiornamenti_si_dice_con_una_frase_e_non_con_l_errore_grezzo() {
+    let proxy = proxy_finto::ProxyFinto::avvia(proxy_finto::Modo::Ispeziona);
+    let _proxy = Variabile::metti("HTTPS_PROXY", &proxy.indirizzo);
+    let app = app_alla_versione("0.1.0", "https://scarichi.esempio.test/latest.json", CHIAVE_DELLA_PROVA);
+    let dettaglio = cerca(app.handle()).err().expect("il certificato non è di una radice di Windows");
+    let frase = Fallito { passo: Passo::Controllo, dettaglio: dettaglio.clone() }.frase();
+    assert!(frase.starts_with("La rete di questo computer passa da un filtro aziendale"), "{dettaglio} -> {frase}");
 }

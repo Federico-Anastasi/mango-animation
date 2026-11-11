@@ -8,6 +8,8 @@ export interface InfoSorgente {
   larghezza: number | null
   altezza: number | null
   durata: number | null
+  /** Lo sfasamento del piano fra i tempi della trascrizione e quelli del file (secondi, 0 se non c'è). */
+  sfasamento: number
   /** Le parole di questo file sono già state trascritte. */
   parole: boolean
   /** Le copie preparate, già come indirizzi; `null` se il file non le ha. */
@@ -35,6 +37,7 @@ export function infoSorgenti(sorgenti: Record<string, Sorgente>, giorni: GiornoG
         larghezza: f?.scheda?.largo ?? null,
         altezza: f?.scheda?.alto ?? null,
         durata: f?.scheda?.durata ?? null,
+        sfasamento: s.sfasamento ?? 0,
         parole: Boolean(f?.preparato.parole),
         leggero: indirizzo(f?.preparato.leggero),
         sagoma: indirizzo(f?.preparato.sagoma),

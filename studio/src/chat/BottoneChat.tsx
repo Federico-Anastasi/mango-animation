@@ -37,7 +37,7 @@ export function BottoneChat() {
   return (
     <button type="button" className={cornice.stato} aria-pressed={aperta} aria-label={etichetta} title={`${etichetta} (Ctrl+J)`} onClick={commutaChat}>
       <IconaChat nome="chat" />
-      <span className={cornice.solo}>{t("Chat", "Chat")}</span>
+      <span>{t("Chat", "Chat")}</span>
       <span className={aspetta || stato === "lavora" ? cornice.puntoRosso : cornice.puntoGrigio} aria-hidden="true" />
     </button>
   )

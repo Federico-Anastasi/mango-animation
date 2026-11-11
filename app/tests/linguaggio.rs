@@ -12,7 +12,7 @@ fn leggi(relativo: &str) -> String {
 #[derive(Debug, Clone, PartialEq)]
 enum Segno {
     Nome(String),
-    Segno(char),
+    Simbolo(char),
     Testo(String),
 }
 
@@ -53,7 +53,7 @@ fn a_pezzi(sorgente: &str, js: bool) -> Vec<(usize, Segno)> {
             }
             j += 1;
             let inizio = j;
-            let chiusura: Vec<char> = std::iter::once('"').chain(std::iter::repeat('#').take(diesis)).collect();
+            let chiusura: Vec<char> = std::iter::once('"').chain(std::iter::repeat_n('#', diesis)).collect();
             while c[j..j + chiusura.len()] != chiusura[..] {
                 j += 1;
             }
@@ -89,7 +89,7 @@ fn a_pezzi(sorgente: &str, js: bool) -> Vec<(usize, Segno)> {
             }
             fuori.push((riga, Segno::Nome(c[inizio..i].iter().collect())));
         } else {
-            fuori.push((riga, Segno::Segno(ch)));
+            fuori.push((riga, Segno::Simbolo(ch)));
             i += 1;
         }
     }
@@ -109,29 +109,29 @@ fn chiamate_e_resto(sorgente: &str, js: bool) -> (Vec<Chiamata>, Vec<(usize, Str
     let (mut chiamate, mut resto, mut i) = (Vec::new(), Vec::new(), 0);
     while i < pezzi.len() {
         let prima = if i > 0 { Some(&pezzi[i - 1].1) } else { None };
-        let e_t = matches!(&pezzi[i].1, Segno::Nome(n) if n == "t") && matches!(pezzi.get(i + 1), Some((_, Segno::Segno('('))))
-            && !matches!(prima, Some(Segno::Segno('.'))) && !matches!(prima, Some(Segno::Nome(n)) if n == "fn" || n == "function");
+        let e_t = matches!(&pezzi[i].1, Segno::Nome(n) if n == "t") && matches!(pezzi.get(i + 1), Some((_, Segno::Simbolo('('))))
+            && !matches!(prima, Some(Segno::Simbolo('.'))) && !matches!(prima, Some(Segno::Nome(n)) if n == "fn" || n == "function");
         if e_t {
             let (mut profondita, mut j, mut argomenti, mut corrente) = (0, i + 1, Vec::new(), Vec::new());
             loop {
                 match &pezzi[j].1 {
-                    Segno::Segno('(' | '[' | '{') => {
+                    Segno::Simbolo('(' | '[' | '{') => {
                         profondita += 1;
                     }
-                    Segno::Segno(')' | ']' | '}') => {
+                    Segno::Simbolo(')' | ']' | '}') => {
                         profondita -= 1;
                         if profondita == 0 {
                             break;
                         }
                     }
-                    Segno::Segno(',') if profondita == 1 => argomenti.push(std::mem::take(&mut corrente)),
+                    Segno::Simbolo(',') if profondita == 1 => argomenti.push(std::mem::take(&mut corrente)),
                     Segno::Testo(t) => corrente.push(t.clone()),
                     _ => {}
                 }
                 j += 1;
             }
             // una virgola prima della parentesi che chiude non apre un argomento
-            if !(corrente.is_empty() && matches!(pezzi[j - 1].1, Segno::Segno(','))) {
+            if !(corrente.is_empty() && matches!(pezzi[j - 1].1, Segno::Simbolo(','))) {
                 argomenti.push(corrente);
             }
             chiamate.push(Chiamata { riga: pezzi[i].0, argomenti });
@@ -139,7 +139,7 @@ fn chiamate_e_resto(sorgente: &str, js: bool) -> (Vec<Chiamata>, Vec<(usize, Str
             continue;
         }
         if let Segno::Testo(t) = &pezzi[i].1 {
-            let contesto = (i.saturating_sub(3)..i).map(|k| match &pezzi[k].1 { Segno::Nome(n) => n.clone(), Segno::Segno(c) => c.to_string(), Segno::Testo(_) => String::new() }).collect::<Vec<_>>().join("");
+            let contesto = (i.saturating_sub(3)..i).map(|k| match &pezzi[k].1 { Segno::Nome(n) => n.clone(), Segno::Simbolo(c) => c.to_string(), Segno::Testo(_) => String::new() }).collect::<Vec<_>>().join("");
             resto.push((pezzi[i].0, t.clone(), contesto));
         }
         i += 1;
@@ -177,7 +177,7 @@ fn sa_di_italiano(testo: &str) -> Option<String> {
     if let Some(l) = testo.chars().find(|c| "àèéìòùÀÈÉÌÒÙ".contains(*c)) {
         return Some(l.to_string());
     }
-    let senza_segnaposto = testo.replace(|c: char| matches!(c, '{' | '}' | '$'), " ");
+    let senza_segnaposto = testo.replace(['{', '}', '$'], " ");
     senza_segnaposto.split(|c: char| !c.is_alphabetic() && c != '-').find(|p| PAROLE_ITALIANE.contains(&p.to_lowercase().as_str())).map(str::to_owned)
 }
 
@@ -310,7 +310,7 @@ const AMMESSI: [(&str, &str); 8] = [
     ("supervisor.rs", "$ErrorActionPreference"),
     ("claude.rs", "$ErrorActionPreference"),
     ("computer/installa.rs", "import "),
-    ("lavoro.rs", "Add-Type"),
+    ("lavoro.rs", "$ErrorActionPreference"),
     ("dati.rs", "(() =>"),
     ("computer/ponte.rs", "(() =>"),
     ("computer/mod.rs", "in corso"),
@@ -378,7 +378,7 @@ fn ogni_funzione_che_il_creator_accende_ha_l_etichetta_nelle_due_lingue() {
         let da = sorgente.find(costante).unwrap();
         let elenco = &sorgente[da..da + sorgente[da..].find("];").unwrap()];
         let testi: Vec<String> = a_pezzi(elenco, false).into_iter().filter_map(|(_, s)| if let Segno::Testo(t) = s { Some(t) } else { None }).collect();
-        assert!(testi.len() >= 18 && testi.len() % 3 == 0, "{costante} dovrebbe avere id, italiano e inglese per ogni funzione: {testi:?}");
+        assert!(testi.len() >= 18 && testi.len().is_multiple_of(3), "{costante} dovrebbe avere id, italiano e inglese per ogni funzione: {testi:?}");
         for terna in testi.chunks(3) {
             assert_ne!(terna[1], terna[2], "{}: italiano e inglese sono uguali", terna[0]);
             assert_eq!(sa_di_italiano(&terna[2]), None, "{}: l'inglese ha una parola italiana", terna[0]);

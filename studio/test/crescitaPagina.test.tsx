@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Crescita } from "../src/crescita/Crescita"
 import type { Crescita as DatiCrescita, PuntoAndamento, StatoCanale } from "../src/tipi"
@@ -54,7 +54,34 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe("Crescita con la rilettura fallita", () => {
+  it("se la rilettura del piano fallisce e restano i dati di prima, lo dice con la data del piano", async () => {
+    const eventi = installaEventi()
+    const { imposta } = rete(PIANO)
+    render(<Crescita />)
+    await screen.findByRole("heading", { name: "Questa settimana" })
+    imposta("GET /api/canale/tiktok/crescita", () => new Response(JSON.stringify({ errore: "Il server non risponde." }), { status: 500 }))
+    act(() => eventi.istanze.at(-1)!.manda({ tipo: "canale" }))
+    expect(await screen.findByText("Dati del 25 ott 2026: l'ultima rilettura non è riuscita.")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Questa settimana" })).toBeInTheDocument()
+  })
+})
+
 describe("Crescita", () => {
+  // Per prima: finché nessuna prova ha riempito la copia delle letture, qui sono ancora in arrivo.
+  it("finché le letture dei follower non sono arrivate aspetta, e non dice che manca quella del lunedì", async () => {
+    rete(PIANO)
+    const vera = globalThis.fetch
+    let arriva!: () => void
+    const attesa = new Promise<void>((risolvi) => (arriva = risolvi))
+    vi.stubGlobal("fetch", (indirizzo: string | URL | Request, init?: RequestInit) => (String(indirizzo).includes("/andamento") ? attesa.then(() => vera(indirizzo, init)) : vera(indirizzo, init)))
+    render(<Crescita />)
+    await new Promise((risolvi) => setTimeout(risolvi, 50))
+    expect(screen.queryByText(/nessuna lettura copre il lunedì/)).toBeNull()
+    arriva()
+    expect(await screen.findByRole("heading", { name: "Questa settimana" })).toBeInTheDocument()
+  })
+
   it("mette i numeri veri accanto al piano: follower di oggi, tappe, tipi di video, novità divise per giudizio", async () => {
     rete(PIANO)
     render(<Crescita />)

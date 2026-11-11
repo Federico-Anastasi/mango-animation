@@ -2,6 +2,7 @@
 //! Il pacchetto è firmato con la chiave dell'updater di Tauri (non è un certificato a pagamento): l'app controlla la firma con la chiave pubblica scritta in `tauri.conf.json`.
 
 use crate::lingua::t;
+use crate::rete;
 use crate::supervisor::CREATE_BREAKAWAY_FROM_JOB;
 use serde::Serialize;
 use std::os::windows::process::CommandExt;
@@ -11,7 +12,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Runtime, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-const ATTESA_DELLA_RISPOSTA: Duration = Duration::from_secs(15);
+const ATTESA_DELLA_RISPOSTA: Duration = Duration::from_secs(5);
 
 /// Com'è l'aggiornamento, per la pagina d'attesa.
 #[derive(Clone, Serialize, Default, Debug, PartialEq)]
@@ -62,11 +63,18 @@ pub fn cerca<R: Runtime>(app: &AppHandle<R>) -> Result<Option<Proposta>, String>
 /// Come `cerca`, con l'indirizzo di prova dato (vedi `indirizzo_di_prova`).
 pub fn cerca_su<R: Runtime>(app: &AppHandle<R>, valore_di_prova: Option<&str>) -> Result<Option<Proposta>, String> {
     let mut costruttore = app.updater_builder().timeout(ATTESA_DELLA_RISPOSTA);
-    if let Some(url) = indirizzo_di_prova(valore_di_prova)? {
+    let prova = indirizzo_di_prova(valore_di_prova)?;
+    // Il plugin ha la sua rete: i certificati sono quelli di Windows, il proxy glielo diciamo noi (lo stesso del resto dell'app, per l'indirizzo degli aggiornamenti).
+    let punto = prova.as_ref().map(Url::to_string).or_else(|| app.config().plugins.0.get("updater")?.get("endpoints")?.get(0)?.as_str().map(str::to_owned));
+    costruttore = match punto.as_deref().and_then(rete::proxy_per).and_then(|p| Url::parse(&p).ok()) {
+        Some(proxy) => costruttore.proxy(proxy),
+        None => costruttore.no_proxy(),
+    };
+    if let Some(url) = prova {
         costruttore = costruttore.endpoints(vec![url]).map_err(|e| e.to_string())?;
     }
     let updater = costruttore.build().map_err(|e| e.to_string())?;
-    let trovato = tauri::async_runtime::block_on(updater.check()).map_err(|e| e.to_string())?;
+    let trovato = tauri::async_runtime::block_on(updater.check()).map_err(|e| descrivi(&e))?;
     Ok(trovato.map(|update| Proposta {
         stato: StatoAggiornamento { fase: "proposta".into(), corrente: update.current_version.clone(), nuova: update.version.clone(), note: update.body.clone().filter(|n| !n.trim().is_empty()), ..Default::default() },
         update,
@@ -84,18 +92,39 @@ pub fn scarica(proposta: &Proposta, mut avanza: impl FnMut(u64, u64)) -> Result<
         },
         || {},
     ))
-    .map_err(|e| e.to_string())
+    .map_err(|e| descrivi(&e))
 }
+
+/// Cosa è andato storto, per il registro; se il collegamento è fallito per un certificato che Windows non accetta lo dice all'inizio (`Fallito::frase` lo riconosce).
+fn descrivi(errore: &(dyn std::error::Error + 'static)) -> String {
+    if rete::e_certificato(errore) {
+        format!("{CERTIFICATO_NON_ACCETTATO}{errore}")
+    } else {
+        errore.to_string()
+    }
+}
+
+const CERTIFICATO_NON_ACCETTATO: &str = "certificato-rifiutato: ";
 
 /// L'installatore NSIS in modalità passiva (`/P`), come aggiornamento (`/UPDATE`), e riapre l'app quando ha finito (`/R`).
 const ARGOMENTI_DELL_INSTALLATORE: [&str; 3] = ["/P", "/UPDATE", "/R"];
 
+const CARTELLA_DELL_INSTALLATORE: &str = "mango-animation-aggiornamento-";
+
 /// Scrive l'installatore scaricato in `cartella`.
 fn scrivi_installatore(cartella: &Path, versione: &str, pacchetto: &[u8]) -> Result<PathBuf, String> {
-    let dove = cartella.join(format!("mango-animation-aggiornamento-{versione}"));
+    let dove = cartella.join(format!("{CARTELLA_DELL_INSTALLATORE}{versione}"));
     let file = dove.join(format!("mango-animation-{versione}-setup.exe"));
     std::fs::create_dir_all(&dove).and_then(|_| std::fs::write(&file, pacchetto)).map_err(|e| format!("{}: {e}", file.display()))?;
     Ok(file)
+}
+
+/// Toglie da `cartella` gli installatori lasciati da aggiornamenti passati (`scrivi_installatore`). Quello ancora in uso non si lascia togliere: resta fino al prossimo avvio.
+pub fn togli_installatori_vecchi(cartella: &Path) {
+    let Ok(voci) = std::fs::read_dir(cartella) else { return };
+    for voce in voci.flatten().filter(|v| v.file_name().to_string_lossy().starts_with(CARTELLA_DELL_INSTALLATORE)) {
+        let _ = std::fs::remove_dir_all(voce.path());
+    }
 }
 
 /// Installa ciò che `scarica` ha dato e chiude l'app; l'installatore la riapre. Non si usa `update.install()` del plugin: lancia
@@ -128,6 +157,9 @@ pub struct Fallito {
 impl Fallito {
     /// Il motivo per il creator, in parole semplici.
     pub fn frase(&self) -> String {
+        if matches!(self.passo, Passo::Controllo | Passo::Scarico) && self.dettaglio.starts_with(CERTIFICATO_NON_ACCETTATO) {
+            return rete::frase_certificato();
+        }
         match self.passo {
             Passo::Controllo => t(
                 "Non riesco a controllare se la versione nuova c'è ancora. Controlla la connessione a internet e riprova.",
@@ -192,6 +224,18 @@ mod prove {
         assert_eq!(file, t.path().join("mango-animation-aggiornamento-0.1.1").join("mango-animation-0.1.1-setup.exe"));
         assert_eq!(std::fs::read(&file).unwrap(), b"pacchetto");
         assert_eq!(ARGOMENTI_DELL_INSTALLATORE, ["/P", "/UPDATE", "/R"]);
+    }
+
+    #[test]
+    fn gli_installatori_lasciati_da_un_aggiornamento_passato_si_tolgono_e_il_resto_della_cartella_no() {
+        let t = tempfile::tempdir().unwrap();
+        let file = scrivi_installatore(t.path(), "0.1.1", b"pacchetto").unwrap();
+        let altro = t.path().join("un-altro-programma");
+        std::fs::create_dir(&altro).unwrap();
+        togli_installatori_vecchi(t.path());
+        assert!(!file.parent().unwrap().exists());
+        assert!(altro.is_dir());
+        togli_installatori_vecchi(&t.path().join("non-c-e"));
     }
 
     #[test]

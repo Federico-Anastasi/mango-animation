@@ -58,9 +58,9 @@ L'`id` di una conversazione è quello di Claude Code (un UUID): lo stesso del su
 | `POST /api/chat/:id/task/:task/ferma` | ferma un lavoro (`stopTask`) → 200 `{ ok }`; 404 se il lavoro non c'è più; 409 se la conversazione è chiusa |
 | `POST /api/chat/:id/risposte/:richiesta` | la risposta a una richiesta (permesso o domanda, sotto) → 200 `{ ok }`; 404 se la richiesta non c'è più |
 | `POST /api/chat/allegati` | il file nel corpo (`X-Nome`, il nome del file, con `encodeURIComponent` se ha lettere accentate) → 201 `{ percorso }`: salvato in `archivio/.chat/allegati/`, da mettere negli `allegati` |
-| `POST /api/chat/allegati/locale` | `{ percorso }`, il percorso completo di un file del computer → 201 `{ percorso }`: il server lo mette in `archivio/.chat/allegati/` (stesso nome senza sovrascrivere): fino a 16 MB lo copia, come il caricamento; oltre lo collega senza copiarlo (un hard link, o un collegamento simbolico se sta su un altro disco), e se non riesce a collegarlo è un errore, non una copia; 400 se il percorso non è completo, il file non c'è, è una cartella o è vuoto. Vuole il corpo JSON, come ogni rotta che scrive |
+| `POST /api/chat/allegati/locale` | `{ percorso }`, il percorso completo di un file del computer → 201 `{ percorso }`: il server lo mette in `archivio/.chat/allegati/` (stesso nome senza sovrascrivere): fino a 16 MB lo copia, come il caricamento; oltre lo collega senza copiarlo (un hard link, o un collegamento simbolico se sta su un altro disco), e se non riesce a collegarlo è un errore, non una copia; 400 se il percorso non è completo, il file non c'è, è una cartella o è vuoto; 403 se non è un file che il creator ha scelto con un gesto (`docs/API.md`, «I file scelti dal creator»: lo dice l'app, una volta sola). Vuole il corpo JSON, come ogni rotta che scrive |
 
-Gli errori sono quelli del server (`{ errore }` in italiano): 400 per un corpo sbagliato (JSON non valido, campo che non c'è,
+Gli errori sono quelli del server (`{ errore }`, nella lingua dello studio: `docs/API.md`, «La lingua delle frasi»): 400 per un corpo sbagliato (JSON non valido, campo che non c'è,
 messaggio vuoto, allegato che non esiste o fuori dall'archivio, contesto non valido, risposta non scritta bene, modello o effort che
 non esistono), 404 per una conversazione, una richiesta o un lavoro che non c'è, 409 per fermare o mandare in background in una conversazione chiusa, 502 se Claude Code
 non risponde o non accetta un cambio di modello o di effort, o di fermare un lavoro o spostarlo in background. Un corpo oltre 16 MB lo rifiuta il server
@@ -78,7 +78,7 @@ prima di arrivare alla chat.
 - `stato`: `"pronta"` (aspetta il creator), `"lavora"` (Claude sta rispondendo), `"aspetta"` (una richiesta senza risposta), `"errore"`
   (il collegamento con Claude Code è caduto: il messaggio dopo lo riapre). Una conversazione chiusa è `"pronta"`.
   Un giro che finisce male dice l'errore una volta sola, nella Parte `fine` dell'ultimo messaggio; la chat non ne aggiunge una seconda sotto (una frase di
-  errore che il creator può agire dice anche cosa fare: «riscrivi il messaggio»).
+  errore che il creator può agire dice anche cosa fare: «riscrivi il messaggio»; un account non più collegato dice di riaprire l'app, che porta ad accedere; un limite dell'abbonamento raggiunto dice a che ora si libera, se Claude Code la dà con `rate_limit_event`, altrimenti che di solito passano alcune ore).
 - `lavora_da`: l'istante (ISO) in cui è cominciato il giro in corso, uguale finché il giro dura (anche se il creator scrive in coda o Claude aspetta una
   risposta); `null` se `stato` è `"pronta"` o `"errore"`. Da qui la riga del passo in corso nello studio.
 - `lavoro`: `{ ms, da }`, quanto Claude ha lavorato in tutta la conversazione, senza le attese del creator (le domande, i permessi, il tempo fra un
@@ -96,7 +96,7 @@ prima di arrivare alla chat.
   `contesto_usato` torna `null`, perché il contesto nuovo si sa solo alla risposta dopo; così anche rileggendo una conversazione il cui
   ultimo messaggio è il riassunto. La `totale` già misurata resta per il conto che viene dopo.
 - `titolo`: quello che Claude Code mostra in `/resume` (il titolo dato alla conversazione, o il primo messaggio del creator), su una riga,
-  accorciato a 60 caratteri; uguale nell'elenco e nella conversazione. Le conversazioni fatte solo di comandi («/clear») non sono
+  accorciato a 60 caratteri; uguale nell'elenco e nella conversazione (senza testo, «Conversazione senza titolo» o «Nuova conversazione», nella lingua dello studio). Le conversazioni fatte solo di comandi («/clear») non sono
   nell'elenco.
 - Una conversazione resta accesa (un processo di Claude Code) finché il creator non la chiude (`POST /api/chat/:id/chiudi`, il bottone
   «Chiudi la conversazione» nella testata, `/exit`, `/clear`), il server non si ferma o il collegamento cade. Aprirne un'altra non la chiude.
@@ -122,8 +122,9 @@ sotto; la Parte `fine` va sull'ultimo messaggio del giro.
       { tipo: "allegato", percorso, immagine: bool }             ciò che il creator ha allegato (percorso relativo all'archivio)
       { tipo: "fine", costo?, durata_ms, lavoro_ms?, errore? }   la fine di un giro; `durata_ms` quanto è durato tutto (lo dice Claude Code),
                                                                  `lavoro_ms` quanto Claude ha lavorato, senza le attese del creator;
-                                                                 `errore` è la frase in italiano di cosa è
-                                                                 andato storto; un giro fermato dal creator non ha errore
+                                                                 `errore` è la frase di cosa è andato storto, nella
+                                                                 lingua che lo studio ha usato per ultima; un giro
+                                                                 fermato dal creator non ha errore
 
 Nelle conversazioni lette dal file non c'è la Parte `fine` (il file non ha costo né durata dei giri).
 
@@ -296,20 +297,20 @@ richieste sono gli stessi di sopra.
   il giro (`abort`). Un errore del giro è la Parte `fine` con `errore`.
 - **Le conversazioni.** Quale sessione di Mango Code è di quale conversazione, col suo modello, titolo e data, sta in
   `archivio/.chat/mango-code.json`: la conversazione resta nell'elenco anche a Mango Code spento, e si rilegge dai suoi messaggi
-  quando è acceso (502 se è spento). Un messaggio nuovo continua la stessa sessione.
+  quando è acceso (502 se è spento). Un messaggio nuovo continua la stessa sessione. Un `mango-code.json` che non si legge si mette da parte come `mango-code.json.illeggibile` alla prima scrittura, e il registro del server lo dice.
 - **Cosa non c'è** (scritto nel contratto di Mango Code): effort, sottoagenti, Claude in Chrome, fermare o mandare in background un lavoro da solo, le immagini nei risultati degli strumenti.
-- **Errori.** Ogni errore di Mango Code arriva al creator come una frase completa, mai incapsulata in un'altra, e il dettaglio tecnico (lo stato e il
-  corpo della risposta) va nel registro del server (`chat di Mango Code: …`): «Mango Code è spento: aprilo dalla sua icona e riscrivi il
-  messaggio.», «Mango Code non ha preso il messaggio: riprova.», «Mango Code non risponde.», «Mango Code ha chiuso il collegamento:
-  riscrivi il messaggio.». Un giro andato male finisce con «Mango Code si è fermato: <motivo>.» (per Claude Code, che nella chat non ha un nome, «Si è fermato: …»).
-  Gli errori di un solo motore portano il suo nome; quelli che valgono per entrambi no («Questa richiesta non c'è più», «Non c'è un lavoro
-  in corso da mandare in background»). Le frasi che dicono cosa il motore vuole fare («Vuole usare Bash: …» per Claude Code, «Mango Code vuole usare …»)
-  non riportano mai l'ingresso grezzo dello strumento: quello sta in `ingresso`.
+- **Errori.** Ogni errore di Mango Code arriva al creator come una frase completa (sono in `server/src/chat/mangocode.ts`), mai incapsulata in un'altra; il dettaglio tecnico (lo stato e il corpo della risposta) va nel registro del server (`chat di Mango Code: …`). Gli errori di un solo motore portano il suo nome, quelli che valgono per entrambi no; le frasi che dicono cosa il motore vuole fare non riportano mai l'ingresso grezzo dello strumento: quello sta in `ingresso`.
 
 ## Controllo da claude.ai
 
-La chat non si collega a claude.ai e non tocca l'accesso dell'utente: Claude Code usa da sé l'accesso che ha già sul computer. Chi vuole guidare una
-sessione dal telefono o da claude.ai apre `claude` da terminale nella cartella di lavoro e usa il controllo remoto di Claude Code (`claude --remote-control`).
+Ogni conversazione di Claude Code è collegata all'app di Claude (il controllo remoto di Claude Code), come una chat aperta da terminale con `claude --remote-control`:
+compare nell'app sul telefono e su claude.ai/code col nome «Mango Animation · <titolo>», si legge e si continua da lì. Appena Claude Code è partito, `Conversazione`
+(`server/src/chat/conversazione.ts`, `collega`) gli chiede di accendere il collegamento (`enableRemoteControl`, una richiesta dell'SDK che non sta nei suoi tipi; una prova
+controlla che l'SDK installato ce l'abbia ancora). Una conversazione ripresa si riaggancia da sé alla sua sessione remota. Il server non tocca l'accesso dell'utente: il
+collegamento lo apre Claude Code col login che ha già, e l'indirizzo della sessione che risponde non si tiene né si scrive. Se il collegamento non si apre (accesso con chiave
+API, organizzazione che non lo consente, rete) la chat parte lo stesso e il registro del server dice perché (`non è collegata all'app di Claude`).
+`remoteControlAtStartup` e `--remote-control` non servono qui: Claude Code li legge solo nelle sessioni interattive, non in quelle dell'SDK. Le chat di Mango Code non
+passano da Claude Code e non sono collegate. Il collegamento dura quanto la conversazione è aperta nello studio.
 
 ## Gli strumenti del progetto
 
@@ -320,39 +321,26 @@ locali di un computer lo spengono per il terminale (`disabledMcpjsonServers`).
 **La lingua.** Ciò che istruisce Claude è metodo e sta in inglese: le istruzioni che il server aggiunge al prompt di sistema (`NELL_APP` in
 `server/src/chat/conversazione.ts`, che gli dicono anche di rispondere nella lingua del creator, l'italiano di base), le descrizioni degli strumenti e dei loro
 parametri, la riga di contesto. I nomi degli strumenti non cambiano. Sono in italiano gli errori che gli strumenti riportano (sono quelli del server, che anche
-l'interfaccia mostra) e la riga `[Allegato: …]`.
+l'interfaccia mostra, senza `X-Lingua`) e la riga `[Allegato: …]`.
 
-Il metodo del prodotto arriva a Claude Code come cartella in più (`additionalDirectories` col codice, `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`):
-Claude Code legge da sé `CLAUDE.md`, regole e skill del codice. `PYTHONPATH` e `MANGO_ANIMATION_LAVORO` stanno nell'ambiente dei processi di Claude perché
-`python -m motore` funzioni dalla cartella di lavoro: i dettagli, e il plugin che porta lo stesso metodo a Claude Code da terminale, sono in `docs/ARCHITETTURA.md`,
-«Come il metodo arriva a Claude». A Mango Code il metodo arriva come cartella in più (sopra). Le conversazioni sono quelle
-di quella cartella (`~/.claude/projects/<cartella di lavoro>`): una aperta da terminale nella cartella di lavoro si ritrova qui.
+Le frasi che la chat dice al creator sono nelle due lingue, scritte con `frase(italiano, inglese)` (`server/src/lingua.ts`): ogni `ErroreChat` nasce con una `Frase` (il tipo non ammette un testo solo) e `server/test/lingua-frasi.test.ts` fallisce se una frase resta in una lingua sola. Gli errori delle rotte seguono `X-Lingua` della richiesta; quelle che nascono fuori da una richiesta (un giro finito male, la richiesta di un permesso, il rifiuto che torna a Claude, la nota su un risultato troncato) escono nella lingua che lo studio ha dichiarato per ultima (`coda.linguaDelloStudio`), italiano finché lo studio non ha scritto.
+
+Il metodo del prodotto arriva a Claude Code, e a Mango Code, come cartella in più (`additionalDirectories` col codice): i dettagli, e il plugin che lo porta da terminale, sono in `docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude». `PYTHONPATH` e `MANGO_ANIMATION_LAVORO` stanno nell'ambiente dei processi di Claude perché `python -m motore` funzioni dalla cartella di lavoro. Le conversazioni sono quelle di `~/.claude/projects/<cartella di lavoro>`: una aperta da terminale nella cartella di lavoro si ritrova qui.
 
 Ogni conversazione parte anche con Claude in Chrome (`extraArgs: { chrome: null }`, come `claude --chrome`): gli strumenti
 `mcp__claude-in-chrome__*` sono fra quelli che Claude ha, e lavorano nel Chrome dell'utente con l'estensione installata.
 
 ## Il primo giro
 
-Un creator senza `profilo.json` (con il nome del creator) fa il primo giro nella chat: la skill `welcome` (`.claude/skills/welcome/SKILL.md`, in inglese perché
-è un'istruzione per il modello; Claude parla al creator nella sua lingua). Lo studio la innesca da solo (`studio/src/chat/primoGiro.ts`): se
-`GET /api/profilo` dice `presente: false` e il creator non ha già cominciato o saltato, apre la chat e manda il primo messaggio. Il `CLAUDE.md` del metodo dice a Claude
-la stessa cosa per chi lavora da terminale. Le tappe sono brevi, una per messaggio, nel tono di chi non è tecnico: nome e lingua; per chi fa i video e su quali
-canali (TikTok, Instagram, YouTube, X); cosa non dice; lo stile; infine la scrittura di `profilo.json`, di `stile.json` e del `CLAUDE.md` del creator, ciascuno
-mostrato in parole e confermato prima, e un giro delle parti dell'app con collegamenti (`[Stile](#/stile)`) che le aprono nello studio.
-
-Lo stile ha due strade. Se il creator ha già un profilo con dei video, Claude (con il permesso) li guarda, ne ricava colori, carattere fra i due di `font/`, sottotitoli e titolo, e propone;
-si rifinisce insieme nella pagina Stile finché il creator è contento. Se non ha video, parte da uno dei tre stili di partenza della skill (scuro, caldo, vivace) o da una descrizione
-a parole. Quello che Claude scrive nello `stile.json` del creator sono solo le differenze dallo stile di serie (`docs/PROFILO.md`); anche le animazioni lo seguono, perché leggono i colori dello stile.
-Il profilo TikTok pubblico si guarda solo con il permesso del creator. «Salta» e «Rifai il primo giro» sono nella chat (`docs/INTERFACCIA.md`).
-
-Le pagine che vivono dei dati di un canale (Pubblico, Classifica, Crescita) e Produzione, senza dati, mandano la chat sulla richiesta giusta con un pulsante (`docs/INTERFACCIA.md`).
+Un creator senza `profilo.json` (con il nome del creator) fa il primo giro nella chat: la skill `welcome` (`.claude/skills/welcome/SKILL.md`), che dice a Claude le tappe, una per messaggio, nel tono di chi non è tecnico, e cosa scrivere: `profilo.json`, `stile.json` (solo le differenze dallo stile di serie, `docs/PROFILO.md`; dai video del creator, col suo permesso, o da uno dei tre stili di `stili-di-partenza.json`, che il creator sceglie vedendoli come cartoline in Impostazioni › Stile: la chat gli scrive il link) e il suo `CLAUDE.md`, ciascuno mostrato in parole e confermato prima. Lo studio la innesca da solo (`studio/src/chat/primoGiro.ts`): se `GET /api/profilo` dice `presente: false` e il creator non ha già cominciato o saltato, apre la chat e manda il primo messaggio; il `CLAUDE.md` del metodo dice la stessa cosa a Claude da terminale. La conversazione parte con l'Opus più recente dell'elenco dei modelli (`modello` alla creazione, solo per quella conversazione), o con `default` se l'elenco non ha un Opus o non si legge. «Salta» e «Rifai il primo giro» sono nella chat, e «Fai il primo giro» è tutto ciò che la pagina Profilo propone finché il giro non è fatto (`docs/INTERFACCIA.md`). Le pagine dei canali senza dati mandano la chat sulla richiesta giusta con un pulsante (`docs/INTERFACCIA.md`).
 
 ## Cosa ha in più del terminale, per i video
 
 - Le immagini degli strumenti (`foto`, `slide`, `scene_foto`) dentro la chat, grandi al clic.
 - Un lavoro della coda chiesto da Claude (`lavoro`) si vede come una scheda viva nella chat, con stima, trascorso e «Ferma»
   (dagli eventi `lavori` che lo studio già riceve).
-- Un nome di video o un percorso dell'archivio nella risposta è un link che apre quella vista nello studio.
+- Un nome di video o un percorso dell'archivio nella risposta è un link che apre quella vista nello studio. Un file o una cartella del computer
+  non è mai un link: se sta nell'archivio (`archivio/video/<nome>/…`) è un pulsante che lo mostra in Esplora File, altrimenti è testo con «Copia».
 - Il contesto: Claude sa quale video e quale scheda il creator sta guardando, senza che il creator lo scriva.
 - Incolla e trascina: un'immagine dagli appunti, un file trascinato o (nell'app) uno o più file copiati in Esplora risorse diventano allegati.
   Il browser dà alla pagina le immagini e i file trascinati (fino a 16 MB; un file più grande si incolla da Esplora risorse); nell'app i file

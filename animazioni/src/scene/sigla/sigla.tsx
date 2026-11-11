@@ -11,7 +11,7 @@ import TEMPI from "./sigla.json";
 // La sigla «mango animation», uguale in tutti i film animati: il mango cade da sopra il quadro, tocca, e l'urto corre verso destra
 // come un'onda: le lettere di «mango», stese a terra, si rialzano una dopo l'altra, poi quelle di «animation» sotto; passa una luce
 // calda e il quadro va al nero. Alla fine il mango sta a sinistra, «mango» a destra e «animation» sotto, larga come «mango».
-// Carattere: Space Grotesk bold, in formato three.js (`caratteri/crea.py` lo rigenera). I tempi sono in `sigla.json`.
+// Carattere: Space Grotesk bold, in formato three.js (`caratteri/space-grotesk.typeface.json`). I tempi sono in `sigla.json`.
 
 export const DURATA_SIGLA = TEMPI.fine;
 export const FOTOGRAMMI_SIGLA = [0.4, 0.66, 0.8, 0.95, 1.15, 1.35, 1.7, 2.1, 2.45, 2.95];

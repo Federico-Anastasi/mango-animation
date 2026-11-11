@@ -1,7 +1,4 @@
-type Oggetto = Record<string, unknown>
-
-const eOggetto = (v: unknown): v is Oggetto => typeof v === "object" && v !== null && !Array.isArray(v)
-
+import { eOggetto } from "./disco"
 /** Lo stile del creator da scrivere perché, sovrapposto a quello di serie, dia `completo`: solo ciò che differisce. Una chiave che `completo` non ha non si toglie, resta quella di serie. */
 export function differenza(serie: unknown, completo: unknown): unknown {
   if (!eOggetto(serie) || !eOggetto(completo)) return completo

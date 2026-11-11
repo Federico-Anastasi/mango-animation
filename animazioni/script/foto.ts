@@ -17,7 +17,7 @@ const PASSO = 0.5;
 const quadro = stile.quadri["sagoma-su-animazione"];
 const sagoma = quadro.strati.find((strato) => strato.tipo === "sagoma");
 const RIQUADRI = [
-  { nome: "testa", x0: 0, y0: sagoma?.testa ?? 0, x1: quadro.sottotitoli.x, y1: stile.formato.alto },
+  { nome: "testa", x0: 0, y0: sagoma?.testa ?? 0, x1: quadro.sottotitoli.x, y1: stile.formati.verticale.alto },
   { nome: "sottotitoli", x0: quadro.sottotitoli.x, y0: quadro.sottotitoli.y - stile.sottotitoli.corpo * 1.5, x1: quadro.sottotitoli.x + quadro.sottotitoli.largo, y1: quadro.sottotitoli.y + stile.sottotitoli.corpo * 1.5 },
 ];
 

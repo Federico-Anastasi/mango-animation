@@ -7,7 +7,7 @@ description: Proposes the next videos — from footage the creator brings, from 
 
 Goal: a few proposals in text, each with the reason why it should work, for the creator to choose. Where to start is told by the
 creator's request; the four ways cross, but only one leads. The creator's profile says how they want proposals, what their line is and
-where their sources are (`fonti_delle_idee`): read it first.
+where their sources are (`fonti_delle_idee`): read it first, then `.claude/metodo/contenuto.md` (and `.claude/metodo/montaggio.md`, «When the creator says…», for the frame).
 
 ## From footage («ti ho dato i video», a live recording, some takes)
 
@@ -56,8 +56,7 @@ where their sources are (`fonti_delle_idee`): read it first.
 - title, **hook**, **center**, **close** (with sentence and minute if the footage already exists), duration, frame;
 - what is needed to make it: footage that exists, to be shot, measures to redo, scenes to draw.
 
-Structure and prohibitions in `.claude/rules/contenuto.md`; for a video for YouTube (when it is among the creator's `canali`), also
-`.claude/metodo/youtube.md`. Reread what the proposal states looking for errors; what does not add up
+For a video for YouTube (when it is among the creator's `canali`), also `.claude/metodo/youtube.md`. Reread what the proposal states looking for errors; what does not add up
 is said next to it. Look at what is already in `archivio/video/`: a proposal does not repeat a video already out. Order from the
 strongest to the weakest, saying why, and bring the proposals to the creator in the chat. Those they keep become videos with state
 `proposta` (`video_nuovo`, then with `scheda_cambia` the filled `proposta`; in `note` where it comes from; in `canali` where it goes
@@ -68,7 +67,8 @@ folder.
 `video_nuovo` requires `riga` (one line saying what the video is about) and makes the card with the title and that line
 (`materiali/anteprima.png`). If there is something better, put it over the card: a photo or a drawing saved as
 `materiali/anteprima.png` (or `.jpg`: the most recent file wins), then look at it. A proposal already in the archive without one
-(the list marks it «senza anteprima») gets it with `python -m motore anteprima-proposta <slug> --riga "<line>"`.
+(the list marks it «senza anteprima») gets it with `python -m motore anteprima-proposta <slug> --riga "<line>"`: without a preview the video stays at
+«1 · idea» in the row of steps at the top of its page.
 
 ## The script (step 2 of `processo.md`)
 
@@ -78,13 +78,15 @@ When the creator keeps a proposal to record, the proposal becomes the exact text
   creator records single lines; `chiusa` the final question or stand.
 - `quadro`: the video's frame (`montaggio.md`, «When the creator says…»).
 - `scene`: for each animated scene, in order, `{ "animazione": "<sigla>", "dalla": "<first words of the sentence>" }`; in the chat,
-  next to it, what each shows in one line. A scene without animation (the creator at full frame) has `null`.
+  next to it, what each shows in one line. A scene without animation (the creator at full frame) has `null`; with a `girato`, someone
+  else's footage runs muted under its sentences (skill `prova`).
 - The text starts from the creator's words: their messages, their recordings, how they say things. Never sentences anyone could say; no
   director's notes in the text to say («here I show…»): what is seen goes in `scene`. The hook is short, and respects what the creator
   does not say (`non_si_dice`); the close is not banal.
 - The numbers seen on screen do not have to be put in the speech.
 
-It is discussed until the creator says it is good; then skill `prova`.
+It is discussed until the creator says it is good; then skill `prova`. When you bring the script, link the card, `[Scheda](#/video/<slug>/scheda)`,
+and say that they can correct it there too and you will reread it.
 
 ## Do not
 

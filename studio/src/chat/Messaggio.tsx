@@ -5,15 +5,18 @@ import type { Pezzo } from "./collegamenti"
 import { Immagine } from "./Immagine"
 import { IconaChat } from "./icone"
 import { Markdown } from "./Markdown"
+import { GruppoPassi } from "./GruppoPassi"
+import { raggruppaPassi } from "./gruppi"
+import { Pensiero } from "./Pensiero"
 import { Strumento } from "./Strumento"
-import type { Messaggio as MessaggioChat, Parte } from "./tipi"
+import type { Messaggio as MessaggioChat } from "./tipi"
 import styles from "./Messaggio.module.css"
 import { t } from "../lingua"
 
 const menoMovimento = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** Il testo che arriva a pezzi si scrive un po' per volta, raggiungendo quello arrivato: niente scatti a ogni pezzo. */
-export function useTestoFluido(testo: string, inCrescita: boolean): string {
+function useTestoFluido(testo: string, inCrescita: boolean): string {
   const [lunghezza, setLunghezza] = useState(testo.length)
   const corrente = useRef(testo.length)
   useEffect(() => {
@@ -44,18 +47,6 @@ function TestoDiClaude({ testo, inCrescita, collega }: { testo: string; inCresci
   return <Markdown testo={visibile} collega={collega} />
 }
 
-function Pensiero({ testo }: { testo: string }) {
-  return (
-    <details className={styles.pensiero}>
-      <summary>
-        <IconaChat nome="pensiero" dimensione={15} />
-        {t("Ha ragionato", "Thought it through")}
-      </summary>
-      <p>{testo}</p>
-    </details>
-  )
-}
-
 export function Allegato({ percorso, immagine }: { percorso: string; immagine: boolean }) {
   const indirizzo = immagine ? indirizzoImmagine(percorso) : null
   if (indirizzo) return <Immagine src={indirizzo} alt={t("Allegato: {nome}", "Attachment: {nome}", { nome: nomeDelFile(percorso) })} />
@@ -82,10 +73,12 @@ export function MessaggioDiClaude({ autore, messaggio, lavora, ultimo, collega }
   const parti = messaggio.parti
   return (
     <article className={styles.claude} aria-label={autore}>
-      {parti.map((p: Parte, i) => {
+      {raggruppaPassi(parti).map((v, i) => {
+        if (v.tipo === "gruppo") return <GruppoPassi key={`gruppo-${v.id}`} gruppo={v} />
+        const p = v.parte
         switch (p.tipo) {
           case "testo":
-            return <TestoDiClaude key={i} testo={p.testo} inCrescita={lavora && ultimo && i === parti.length - 1} collega={collega} />
+            return <TestoDiClaude key={i} testo={p.testo} inCrescita={lavora && ultimo && p === parti[parti.length - 1]} collega={collega} />
           case "pensiero":
             return <Pensiero key={i} testo={p.testo} />
           case "strumento":

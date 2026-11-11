@@ -7,7 +7,7 @@ import unicodedata
 from .archivio import leggi_json, scrivi_json
 from .dispositivo import dispositivo
 from .errori import Errore
-from .media import pcm_16k
+from .media import FREQUENZA, pcm_16k
 from .profilo import attiva
 
 UNITA = "zero uno due tre quattro cinque sei sette otto nove dieci undici dodici tredici quattordici quindici sedici diciassette diciotto diciannove".split()
@@ -53,7 +53,7 @@ class Allineatore:
             gettoni = self.torch.tensor([[self.lettere[c] for t in testi for c in t]], device=self.dove)
             percorso, voti = self.audio.functional.forced_align(emissione, gettoni)
         pezzi = self.audio.functional.merge_tokens(percorso[0], voti[0].exp())
-        passo = len(x) / emissione.shape[1] / 16000
+        passo = len(x) / emissione.shape[1] / FREQUENZA
         fuori, k = [], 1
         for t in testi[1:-1]:
             suoi = pezzi[k:k + len(t)]
@@ -99,7 +99,7 @@ def allinea_pezzi(sorgente, pezzi, stile):
     ap, parole, fuori, mutato = stile["taglio"]["a_parole"], sorgente.parole, [], False
     for i, j in pezzi:
         ks = vicine(parole, i, j, stile)
-        ingredienti = [sorgente.sfasa, sorgente.percorso.stat().st_size, [(parole[k]["p"], parole[k]["da"], parole[k]["a"]) for k in ks], ap["allinea_prima"], ap["allinea_dopo"]]
+        ingredienti = [sorgente.sfasa, sorgente.firma, [(parole[k]["p"], parole[k]["da"], parole[k]["a"]) for k in ks], ap["allinea_prima"], ap["allinea_dopo"]]
         impronta = hashlib.md5(json.dumps(ingredienti, ensure_ascii=False).encode()).hexdigest()[:16]
         if impronta not in cache:
             da = max(0.0, parole[ks[0]]["da"] + sorgente.sfasa - ap["allinea_prima"])

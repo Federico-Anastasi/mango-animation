@@ -5,7 +5,7 @@ import { leggiIndirizzo, scriviIndirizzo } from "../src/indirizzo"
 import { inseguimento } from "../src/montaggio/inseguimento"
 import { problemiDelTratto, type DatiPiano } from "../src/montaggio/motore"
 import { infoSorgenti, sagomaDi } from "../src/montaggio/sorgenti"
-import { creaTrasporto, FOTOGRAMMI_AL_SECONDO } from "../src/montaggio/trasporto"
+import { creaTrasporto } from "../src/montaggio/trasporto"
 import { uguali } from "../src/montaggio/uguali"
 import { scegliLingua } from "../src/lingua"
 import { controllaStile } from "../src/stile/validazione"
@@ -30,10 +30,11 @@ describe("i nomi dello stile di serie", () => {
     scegliLingua("en")
     for (const nome of Object.keys(stile.colori)) expect(t.nomeColore(nome), nome).not.toBe(nome)
     for (const nome of Object.keys(stile.formati)) expect(t.nomeFormato(nome), nome).not.toBe(nome)
-    expect([t.nomeColore("carta_scura"), t.nomeFormato("verticale")]).toEqual(["dark paper", "vertical"])
-    expect([t.nomeColore("turchese"), t.nomeFormato("quadrato")]).toEqual(["turchese", "quadrato"])
+    expect([t.nomeColore("carta_scura"), t.nomeFormato("verticale")]).toEqual(["Dark background", "vertical"])
+    expect([t.nomeColore("verde_acqua"), t.nomeFormato("quadrato")]).toEqual(["Verde acqua", "quadrato"])
     scegliLingua("it")
-    expect([t.nomeColore("carta_scura"), t.nomeFormato("verticale")]).toEqual(["carta_scura", "verticale"])
+    expect(Object.keys(stile.colori).map(t.nomeColore)).toEqual(["Sfondo", "Sfondo scuro", "Grigio", "Linee", "Testo", "Rosso", "Blu", "Nero", "Bianco", "Giallo", "Verde"])
+    expect([t.nomeColore("turchese"), t.nomeFormato("verticale")]).toEqual(["Turchese", "verticale"])
   })
 
   it("in italiano il nome viene dal nome dello stile, e un quadro del creator resta com'è in tutte e due le lingue", () => {
@@ -109,7 +110,7 @@ describe("numeri e date all'italiana", () => {
     expect(t.peso(2048)).toBe("2 KB")
     expect(t.peso(5.1 * 1024 * 1024)).toBe("5,1 MB")
     expect(t.pluralizza(1, "file", "file")).toBe("1 file")
-    expect(t.pluralizza(3, "tratto", "tratti")).toBe("3 tratti")
+    expect(t.pluralizza(3, "pezzo", "pezzi")).toBe("3 pezzi")
     expect(t.nomeQuadro("sagoma-su-animazione")).toBe("Sagoma su animazione")
   })
 
@@ -130,13 +131,38 @@ describe("l'indirizzo della pagina", () => {
     expect(leggiIndirizzo("#/video/qwen").scheda).toBeNull()
     expect(leggiIndirizzo("#/video/qwen/prova").scheda).toBe("prova")
     expect(leggiIndirizzo("#/girato?file=a%2Fb.mp4").parametri.get("file")).toBe("a/b.mp4")
-    expect(leggiIndirizzo("#/stile").vista).toBe("stile")
-    expect(leggiIndirizzo("#/classifica").vista).toBe("classifica")
-    expect(leggiIndirizzo("#/produzione")).toMatchObject({ vista: "produzione", slug: null })
+    expect(leggiIndirizzo("#/produzione")).toMatchObject({ vista: "produzione", slug: null, parte: null })
     expect(leggiIndirizzo("").vista).toBe("video")
     expect(scriviIndirizzo({ vista: "video", slug: "a b", scheda: "file" })).toBe("#/video/a%20b/file")
     expect(scriviIndirizzo({ vista: "video", slug: "a" })).toBe("#/video/a")
     expect(scriviIndirizzo({ vista: "girato", parametri: { file: "x/y.mp4" } })).toBe("#/girato?file=x%2Fy.mp4")
+  })
+})
+
+describe("gli indirizzi del canale e delle impostazioni", () => {
+  it("i vecchi indirizzi portano alla scheda o alla sezione che li ha presi con sé, con i loro parametri", () => {
+    expect(leggiIndirizzo("#/pubblico")).toMatchObject({ vista: "canale", parte: "pubblico" })
+    expect(leggiIndirizzo("#/pubblico?video=orto").parametri.get("video")).toBe("orto")
+    expect(leggiIndirizzo("#/classifica")).toMatchObject({ vista: "canale", parte: "classifica" })
+    expect(leggiIndirizzo("#/crescita")).toMatchObject({ vista: "canale", parte: "crescita" })
+    expect(leggiIndirizzo("#/stile")).toMatchObject({ vista: "impostazioni", parte: "stile" })
+    expect(leggiIndirizzo("#/motori")).toMatchObject({ vista: "impostazioni", parte: "computer" })
+  })
+
+  it("quelli nuovi dicono la scheda o la sezione, e senza dirla aprono la prima", () => {
+    expect(leggiIndirizzo("#/canale/crescita")).toMatchObject({ vista: "canale", parte: "crescita" })
+    expect(leggiIndirizzo("#/canale")).toMatchObject({ vista: "canale", parte: "pubblico" })
+    expect(leggiIndirizzo("#/canale/boh")).toMatchObject({ vista: "canale", parte: "pubblico" })
+    expect(leggiIndirizzo("#/impostazioni/telefono")).toMatchObject({ vista: "impostazioni", parte: "telefono" })
+    expect(leggiIndirizzo("#/impostazioni")).toMatchObject({ vista: "impostazioni", parte: "profilo" })
+    expect(leggiIndirizzo("#/impostazioni/boh")).toMatchObject({ vista: "impostazioni", parte: "profilo" })
+  })
+
+  it("si scrivono come si leggono", () => {
+    expect(scriviIndirizzo({ vista: "canale", parte: "classifica" })).toBe("#/canale/classifica")
+    expect(scriviIndirizzo({ vista: "canale", parte: "pubblico", parametri: { video: "orto" } })).toBe("#/canale/pubblico?video=orto")
+    expect(scriviIndirizzo({ vista: "impostazioni", parte: "generali" })).toBe("#/impostazioni/generali")
+    expect(scriviIndirizzo({ vista: "impostazioni" })).toBe("#/impostazioni")
   })
 })
 
@@ -152,18 +178,29 @@ describe("uguali", () => {
 
 describe("il trasporto", () => {
   it("la testina sta dentro il video e un passo è un fotogramma", () => {
-    const tr = creaTrasporto(10)
+    const tr = creaTrasporto(10, 30)
     tr.vai(99)
     expect(tr.t()).toBe(10)
     tr.vai(1)
     tr.passo(1)
-    expect(tr.t()).toBeCloseTo(1 + 1 / FOTOGRAMMI_AL_SECONDO)
+    expect(tr.t()).toBeCloseTo(1 + 1 / 30)
     tr.passo(-100)
     expect(tr.t()).toBe(0)
   })
 
+  it("un passo è un fotogramma del video, qualunque sia la sua frequenza, e la frequenza segue lo stile", () => {
+    const tr = creaTrasporto(10, 25)
+    tr.passo(1)
+    expect(tr.t()).toBeCloseTo(1 / 25)
+    tr.imposta(10, 60)
+    expect(tr.fps()).toBe(60)
+    tr.vai(1)
+    tr.passo(1)
+    expect(tr.t()).toBeCloseTo(1 + 1 / 60)
+  })
+
   it("suonare dalla fine riparte dall'inizio, e a fine corsa si ferma da solo", () => {
-    const tr = creaTrasporto(5)
+    const tr = creaTrasporto(5, 30)
     tr.vai(5)
     tr.suona()
     expect(tr.inRiproduzione()).toBe(true)
@@ -173,7 +210,7 @@ describe("il trasporto", () => {
   })
 
   it("chi ascolta viene avvisato a ogni cambio e può smettere", () => {
-    const tr = creaTrasporto(5)
+    const tr = creaTrasporto(5, 30)
     let volte = 0
     const smetti = tr.iscriviti(() => volte++)
     tr.vai(1)
@@ -184,7 +221,7 @@ describe("il trasporto", () => {
   })
 
   it("senza durata non suona", () => {
-    const tr = creaTrasporto(0)
+    const tr = creaTrasporto(0, 30)
     tr.suona()
     expect(tr.inRiproduzione()).toBe(false)
   })

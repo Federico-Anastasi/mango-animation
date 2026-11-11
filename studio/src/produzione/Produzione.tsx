@@ -1,11 +1,12 @@
 // «Quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»: i conti di Claude (`docs/API.md`, «Consumi») accanto ai numeri del canale.
 import { useState } from "react"
+import { IntestazioneOrdinabile } from "../comuni/IntestazioneOrdinabile"
 import { ProduzioneVuota } from "../comuni/PaginaVuota"
-import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
+import { Caricamento, DatiVecchi, Errore, Vuoto } from "../comuni/Stati"
 import { canaleTiktok, consumi, elencoVideo, useCopia } from "../dati"
 import { scriviIndirizzo } from "../indirizzo"
 import { t } from "../lingua"
-import { durata, numero, quantitaGrossa } from "../testo"
+import { cifra, dataOra, durata, numero, quantitaGrossa } from "../testo"
 import { medie, negliUltimiGiorni, ordinaRighe, piuLunghiERapidi, righeDellaProduzione, videoFatti, type CampoOrdine, type Medie, type RigaProduzione } from "./calcoli"
 import styles from "./Produzione.module.css"
 
@@ -17,12 +18,9 @@ const periodi = (): Array<{ nome: string; giorni: number | null }> => [
 
 const colonneOrdinabili = (): Array<{ campo: CampoOrdine; nome: string }> => [
   { campo: "tempo", nome: t("Lavoro di Claude", "Claude's work") },
-  { campo: "visualizzazioni", nome: t("Visite", "Views") },
-  { campo: "minutiOgniMille", nome: t("Minuti ogni 1000 visite", "Minutes per 1,000 views") },
+  { campo: "visualizzazioni", nome: t("Visualizzazioni", "Views") },
+  { campo: "minutiOgniMille", nome: t("Minuti ogni 1000 visualizzazioni", "Minutes per 1,000 views") },
 ]
-
-const mille = (n: number | null) => (n === null ? "—" : numero(n, 1))
-const cifra = (n: number | null) => (n === null ? "—" : numero(n))
 
 function RigaMedie({ nome, fatti, m }: { nome: string; fatti: number; m: Medie | null }) {
   return (
@@ -88,7 +86,7 @@ function Estremi({ righe }: { righe: RigaProduzione[] }) {
   )
 }
 
-function CostoEResa({ righe, canaleLetto }: { righe: RigaProduzione[]; canaleLetto: boolean }) {
+function CostoEResa({ righe, canaleSenzaLettura }: { righe: RigaProduzione[]; canaleSenzaLettura: boolean }) {
   const [ordine, setOrdine] = useState<{ campo: CampoOrdine; rovescio: boolean }>({ campo: "minutiOgniMille", rovescio: false })
   const ordinate = ordinaRighe(righe, ordine.campo, ordine.rovescio)
   const piuTempo = Math.max(...righe.map((r) => r.tempo), 0)
@@ -98,10 +96,10 @@ function CostoEResa({ righe, canaleLetto }: { righe: RigaProduzione[]; canaleLet
       <h2 id="costo-e-resa">{t("Quanto costa e quanto rende", "What it costs and what it returns")}</h2>
       <p className={styles.sotto}>
         {t("I minuti di lavoro di Claude ogni 1000 visualizzazioni: meno sono, più il video ha reso per quanto è costato. In cima chi costa di più rispetto a quanto rende; chi non ha i numeri del canale sta in fondo.", "The minutes of Claude's work per 1,000 views: the fewer, the more the video returned for what it cost. At the top, the ones that cost the most compared to what they return; those without channel numbers sit at the bottom.")}
-        {!canaleLetto && t(" Il canale non ha ancora nessuna lettura: chiedilo nella chat: «aggiorna i dati di TikTok».", " The channel has no read yet: ask in the chat: \"update the TikTok data\".")}
+        {canaleSenzaLettura && t(" Il canale non ha ancora nessuna lettura: chiedilo nella chat: «aggiorna i dati di TikTok».", " The channel has no read yet: ask in the chat: \"update the TikTok data\".")}
         {t(" Tocca l'intestazione di una colonna per ordinare.", " Tap a column header to sort.")}
       </p>
-      <div className={styles.scorri}>
+      <div className="scorri-con-segno">
         <table className={styles.tabella} aria-label={t("Quanto costa e quanto rende ogni video", "What each video costs and what it returns")}>
           <thead>
             <tr>
@@ -109,14 +107,7 @@ function CostoEResa({ righe, canaleLetto }: { righe: RigaProduzione[]; canaleLet
               {colonneOrdinabili().map((c) => {
                 const scelta = ordine.campo === c.campo
                 const rovescio = scelta && ordine.rovescio
-                return (
-                  <th key={c.campo} scope="col" className={styles.num} aria-sort={scelta ? (rovescio ? "ascending" : "descending") : "none"}>
-                    <button type="button" className={styles.ordinaColonna} onClick={() => setOrdine({ campo: c.campo, rovescio: scelta ? !rovescio : false })}>
-                      {c.nome}
-                      {scelta && <span aria-hidden="true"> {rovescio ? "↑" : "↓"}</span>}
-                    </button>
-                  </th>
-                )
+                return <IntestazioneOrdinabile key={c.campo} nome={c.nome} scelta={scelta} rovescio={rovescio} className={styles.num} onOrdina={() => setOrdine({ campo: c.campo, rovescio: scelta ? !rovescio : false })} />
               })}
               <th scope="col" className={`${styles.num} ${styles.secondaria}`}>
                 {t("Mi piace", "Likes")}
@@ -142,7 +133,7 @@ function CostoEResa({ righe, canaleLetto }: { righe: RigaProduzione[]; canaleLet
                     <span className={styles.valoreMisura}>{cifra(r.visualizzazioni)}</span>
                   </span>
                 </td>
-                <td className={styles.num}>{mille(r.minutiOgniMille)}</td>
+                <td className={styles.num}>{cifra(r.minutiOgniMille, 1)}</td>
                 <td className={`${styles.num} ${styles.secondaria}`}>{cifra(r.mi_piace)}</td>
                 <td className={`${styles.num} ${styles.secondaria}`}>{cifra(r.nuovi_follower)}</td>
               </tr>
@@ -169,10 +160,11 @@ export function Produzione() {
   const righe = righeDellaProduzione(fatti, consumoPerVideo, canale.dato?.video ?? [])
   return (
     <div className={styles.pagina}>
+      <DatiVecchi errore={canale.dato ? canale.errore : null} dal={canale.dato?.ultima ? dataOra(canale.dato.ultima.quando) : undefined} onRiprova={() => void canaleTiktok.rileggi()} />
       <header>
         <h1>{t("Produzione", "Production")}</h1>
         <p className={styles.sotto}>
-          {t("Quanti video fai, quanto lavoro di Claude costano e cosa rendono. Un video conta come fatto quando è pronto o pubblicato: la data è quella della prima uscita, o dell'ultima modifica se non è ancora uscito. Il lavoro di Claude è quello di tutte le sue conversazioni su quel video (come si conta è scritto nella scheda di ogni video).", "How many videos you make, how much of Claude's work they cost and what they return. A video counts as made when it is ready or published: the date is the first release, or the last change if it is not out yet. Claude's work is that of all its conversations on that video (how it is counted is written in each video's card).")}
+          {t("Quanti video fai, quanto lavoro di Claude costano e cosa rendono. Un video conta come fatto quando è pronto o pubblicato: la data è quella della prima uscita, o dell'ultima modifica se non è ancora uscito. Il lavoro di Claude è quello di tutte le sue conversazioni su quel video, anche quelle del terminale e dei suoi aiutanti; una richiesta che tocca più video conta per quello su cui Claude ha lavorato di più.", "How many videos you make, how much of Claude's work they cost and what they return. A video counts as made when it is ready or published: the date is the first release, or the last change if it is not out yet. Claude's work is that of all its conversations on that video, including those in the terminal and its helpers; a request that touches several videos counts for the one Claude worked on the most.")}
         </p>
         {conti.dato?.pronto === false && <p className={styles.avviso}>{t("Sto ancora leggendo le conversazioni di Claude: i conti sono parziali e cresceranno.", "I am still reading Claude's conversations: the counts are partial and will grow.")}</p>}
       </header>
@@ -180,7 +172,7 @@ export function Produzione() {
       <>
         <section className={styles.sezione} aria-labelledby="quanti">
           <h2 id="quanti">{t("Quanti video e quanto lavoro", "How many videos and how much work")}</h2>
-          <div className={styles.scorri}>
+          <div className="scorri-con-segno">
             <table className={`${styles.tabella} ${styles.impilata}`} aria-label={t("La media di un video, per periodo", "The average of a video, by period")}>
               <thead>
                 <tr>
@@ -216,7 +208,7 @@ export function Produzione() {
         {righe.length === 0 ? <Vuoto>{t("Nessuna conversazione di Claude ha lavorato sui video fatti: non ci sono ancora conti da confrontare.", "No Claude conversation has worked on the videos made: there are no counts to compare yet.")}</Vuoto> : (
           <>
             <Estremi righe={righe} />
-            <CostoEResa righe={righe} canaleLetto={canale.dato?.ultima != null} />
+            <CostoEResa righe={righe} canaleSenzaLettura={canale.dato?.ultima === null} />
           </>
         )}
       </>

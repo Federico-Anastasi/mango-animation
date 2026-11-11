@@ -16,8 +16,7 @@ Goal: a creator who has never seen the app ends the conversation with a profile 
   azzurro polvere», not `#5AA9FF` (in the creator's language, of course). Never say «JSON», «schema», «profilo» as a file.
 - **One step at a time.** One question per message, short; wait for the answer. If an answer covers the next step too, skip that
   step. A creator who wants to go fast gets fewer questions, not a different order.
-- **The creator is the person you are talking to.** In the rules and skills of the method «FA» is the author of the method and
-  its names and videos are examples: never call the creator «FA», never reuse his channels, topics or style as if they were theirs.
+- **The creator is the person you are talking to.** Never reuse someone else's channels, topics or style as if they were theirs.
 - **Do not assume a video card.** The creator's computer may have only the processor; never mention cards, GPUs or drivers, and do
   not write `macchina` in the profile: the engine finds what the computer has by itself.
 - **Nothing is written without a yes.** Before each file, say in plain words what you are going to save and ask. The creator can
@@ -54,9 +53,8 @@ Name (how you should call them) and the language they work in. Nothing else.
 
 ## 4. The style
 
-The style is how the videos look: colors, the font of titles and subtitles, how subtitles appear, the look of the animations. The
-default style is neutral (white and ink-grey, one calm accent, subtitles phrase by phrase). The creator's `stile.json` holds only
-what differs from it.
+The style is how the videos look: colors, fonts, how subtitles and titles appear, the look of the animations. The default style is neutral
+(white and ink-grey, one calm accent, subtitles phrase by phrase). The creator's `stile.json` holds only what differs from it.
 
 **Ask first: do you already have a profile with videos?** (Instagram, TikTok, YouTube).
 
@@ -70,42 +68,29 @@ permission. With a yes:
 - From what you see take: the palette (background, text, accent), the look of the lettering (heavy or light, rounded or sharp,
   capitals or not), how subtitles appear (word by word or in phrases, which colour, outline or box, where on screen), how titles
   look, how busy or calm the frames are, and the tone of the captions and topics (offer it later for the profile notes).
-- Match the lettering with the closest of the two fonts in `font/` (`Archivo-700.ttf`, a heavy sans-serif, key `titoli`;
-  `Metropolis-Medium.ttf`, a rounder medium sans-serif, key `titolo`). Say honestly when the real font is different; no other font
-  can be added by the creator for now.
+- Match the lettering with the closest font the creator can use (`font/` of the method; `caratteri` in `stile.json` says which are in
+  use). Say honestly when the real font is different: if they have its file, **Add a font** in the Style page puts it among the choices.
 - Propose it in plain words («fondo chiaro caldo, testo quasi nero, un rosso mattone per gli accenti, sottotitoli a frasi in
-  bianco con il contorno scuro») and ask: «Lo provo? Lo vedi nella pagina Stile e lo cambiamo insieme.»
+  bianco con il contorno scuro») and ask: «Lo provo? Lo vedi in Impostazioni › Stile e lo cambiamo insieme.»
 
-**B. No videos yet — start from zero.** Offer, in a short list with one line each, the neutral default and three starting styles,
-or ask them to describe what they want in their own words, or to name a video (theirs or someone's) they would like to look like:
-with a yes you look at it as in A.
-
-- *Scuro*: dark background, light text, a soft blue accent; titles as a yellow label.
-- *Caldo*: warm cream paper, brown ink, a brick-red accent; rounder lettering; titles on a dark label.
-- *Vivace*: white, strong red-pink and blue, subtitles word by word with the key word in yellow, titles in capitals on a red label.
+**B. No videos yet — start from zero.** Send them to see the three starting styles, with a link that opens inside the app:
+`[Stile](#/impostazioni/stile)`. At the top of the page there are three cards, each with a sample title and subtitle, and a button «Usa questo»
+(then «Salva»). Do not describe the styles in words: the cards show them. Ask which they chose or like best. They can also describe what they want in their own words, or name a video (theirs or
+someone's) they would like to look like: with a yes you look at it as in A.
 
 **Writing the style.** With the creator's yes write `stile.json` in the working folder with **only the keys that differ** from the
-default (`stile.json` in the method's folder, read it for the exact keys). Colour names (`carta`, `inchiostro`, `rosso`, `blu`,
-`giallo`, `verde`, `grigio`, `filo`, `carta_scura`, `nero`, `bianco`) are the style's palette: change their values, and the rest
-refers to them by name. These are the three starting styles as overlays; use them as they are, or as a model for a style taken
-from a profile:
+default (`stile.json` in the method's folder, read it for the exact keys). The three starting styles are in `stili-di-partenza.json` (in the
+method's folder), each with the keys it changes: if the creator tells you in words which one they want, copy its `stile` as it is; if they chose
+it on the cards and saved, `stile.json` already has it. A style taken from a profile is written the same way, using those as a model.
 
-    Scuro  {"colori":{"carta":"#15151A","carta_scura":"#0D0D10","grigio":"#9A9AA6","filo":"#33333D","inchiostro":"#F4F4F6",
-            "rosso":"#FF5C5C","blu":"#5AA9FF","giallo":"#FFD166","verde":"#4ADE80"},"titolo":{"fondo":"giallo","colore":"nero"}}
-    Caldo  {"colori":{"carta":"#F6EEDF","carta_scura":"#EADFC9","grigio":"#7A6E5D","filo":"#D8CAB0","inchiostro":"#2E2418",
-            "rosso":"#C2502B","blu":"#2F5D62","giallo":"#E0A526","verde":"#5E7F3B"},"sottotitoli":{"carattere":"titolo"},
-            "titolo":{"fondo":"inchiostro","colore":"carta"}}
-    Vivace {"colori":{"rosso":"#FF3B5C","blu":"#2B59FF","giallo":"#FFD60A","verde":"#00B86B"},"sottotitoli":{"modo":"parola per parola",
-            "scrittura":"minuscola","corpo":64},"titolo":{"fondo":"rosso","colore":"bianco","maiuscolo":true}}
+What each part reaches: `colori` also colours the animations (their backgrounds, lines and accents come from these names), so a palette
+taken from a profile changes the animations too; `titolo` and `sottotitoli` are the title and the subtitles in the video; `caratteri`
+points to the font files, the one in `titoli` is also the animations' lettering; `anteprima` is the look of the preview card, which
+follows `colori` by name. Sizes and positions of the frames (`quadri`) stay as they are unless the creator asks.
 
-What each part of the style reaches: `colori` also colours the animations (their backgrounds, lines and accents come from these
-names), so a palette taken from a profile changes the animations too; `titolo` and `sottotitoli` are the title and the subtitles in
-the video; `caratteri` points to the font files; `anteprima` is the look of the preview card, which follows `colori` by name. The
-animations' own lettering is fixed by the app. Sizes and positions of the frames (`quadri`) stay as they are unless the creator asks.
-
-After writing, tell them to open the **Stile** page in the top bar (you can write a link `[Stile](#/stile)`: it opens inside the
-app) to see it: colours, subtitles, title and a frame. Then refine together — colours, fonts, subtitles, animations — one change at a
-time, rewriting the file, until the creator says they are happy. Do not move on before that.
+After writing, tell them to open [Stile](#/impostazioni/stile) to see it: colors, subtitles and title (the frames are at the bottom). Then
+refine together — colors, fonts, subtitles, animations — one change at a time, rewriting the file, until the creator says they are
+happy. Do not move on before that.
 
 ## 5. Voice and topics (only with a yes)
 
@@ -131,13 +116,12 @@ shows up there: if it does, fix it, do not hide it.
 
 ## 7. The tour and the first video
 
-Say that the round is over and the studio is theirs. In a few short sentences each, the parts of the app, with a link that opens
-each part inside the app (`[Girato](#/girato)`): **Video** (every video lives here, from idea to release: script, editing,
-cover), **Girato** (the footage: recordings, the phone sending files, videos from the web), **Stile** (what you just made),
-**Pubblico**, **Classifica**, **Crescita** and **Produzione** (they read the channel's numbers: they stay empty until a channel is
-connected, and say so; for an Instagram channel the automatic reading comes later, meanwhile you can read the public profile with
-their permission), **Motori** (what the computer does for the videos). Then where to start, one thing only: «portami un'idea, o un
-video che hai già girato, e partiamo dal primo video». Mention that to redo this round they can say «rifai il primo giro», and that
-you are here in the chat for anything.
-
-Do not list more than the creator needs: if they are clearly in a hurry, give the tour in three lines.
+Say that the round is over and the studio is theirs. In a few short sentences each, the parts of the app, each with a link that opens it inside
+the app (`[Girato](#/girato)`): **Video** (every video lives here, from idea to release; the row of steps at the top of its page says where it
+stands), **Girato** (the footage: recordings, the phone sending files, videos from the web), **Canale** (what the audience says and how the
+videos do: Pubblico, Classifica, Crescita; it appears after the first reading of their channel, which they ask you for: «leggi i dati di
+TikTok»; for Instagram the automatic reading is not there yet, meanwhile you can read the public profile with their permission),
+**Produzione** (how many videos they make, what the work costs and what it brings), **Impostazioni** (profile, style, computer, phone, language
+and theme: they can correct the profile and the style there, by hand, whenever they like). If they are clearly in a hurry, three lines. Then
+where to start, one thing only: «portami un'idea, o un video che hai già girato, e partiamo dal primo video», and tell them to open a new
+conversation for the first video. Mention that to redo this round they can say «rifai il primo giro», and that you are here in the chat for anything.

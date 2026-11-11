@@ -46,8 +46,25 @@ const fn dsn_da(valore: Option<&'static str>) -> Option<&'static str> {
     }
 }
 
+/// Un collegamento che l'app non ha potuto aprire: lo si dice a chi l'ha premuto, e va in `ui.log` per chi sistema.
+pub fn link_non_aperto(app: &AppHandle, indirizzo: &str, motivo: &str) {
+    let frase = t(format!("Non riesco ad aprire questo collegamento: {motivo}.
+{indirizzo}"), format!("I can't open this link: {motivo}.
+{indirizzo}"));
+    nel_registro(app, &frase);
+    if let Some(finestra) = app.get_webview_window("main") {
+        let _ = finestra.eval(format!("alert({})", serde_json::to_string(&frase).unwrap_or_default()));
+    }
+}
+
+pub fn nel_registro(app: &AppHandle, testo: &str) {
+    if let Ok(cartella) = app.path().app_log_dir() {
+        let _ = registra(&cartella, &TETTO, Instant::now(), Local::now(), &Riga { livello: "error", pagina: None, testo });
+    }
+}
+
 #[tauri::command]
-fn scrivi_ui_log(app: AppHandle, livello: String, testo: String, pagina: Option<String>) -> Result<(), String> {
+pub(crate) fn scrivi_ui_log(app: AppHandle, livello: String, testo: String, pagina: Option<String>) -> Result<(), String> {
     let cartella = app.path().app_log_dir().map_err(|e| e.to_string())?;
     let riga = Riga { livello: &livello, pagina: pagina.as_deref(), testo: &testo };
     registra(&cartella, &TETTO, Instant::now(), Local::now(), &riga).map_err(|e| e.to_string())
@@ -99,12 +116,12 @@ fn invio_attivo() -> bool {
 }
 
 #[tauri::command]
-fn segnalazione_invio_attivo() -> bool {
+pub(crate) fn segnalazione_invio_attivo() -> bool {
     invio_attivo()
 }
 
 #[derive(Serialize)]
-struct Esito {
+pub(crate) struct Esito {
     /// È partita verso Sentry. Altrimenti il testo è nel file e la pagina di GitHub è aperta.
     inviata: bool,
     file: Option<String>,
@@ -123,7 +140,7 @@ fn identita(stato: &Interno) -> (bool, Vec<String>) {
 
 /// «Segnala un problema». `errore`: ciò che la pagina sa del problema (le pagine d'errore passano il loro); `nota`: ciò che ha scritto il creator; `schermata`: se allegare la finestra.
 #[tauri::command]
-async fn segnala_problema(
+pub(crate) async fn segnala_problema(
     app: AppHandle,
     stato: State<'_, Interno>,
     errore: Option<String>,
@@ -163,19 +180,13 @@ async fn segnala_problema(
     let (fatto, riassunto) = fatto;
     if let Some(file) = &fatto.file {
         let file = PathBuf::from(file);
-        let _ = app.opener().reveal_item_in_dir(&file);
+        if let Err(e) = app.opener().reveal_item_in_dir(&file) {
+            nel_registro(&app, &t(format!("Il file della segnalazione non si mostra ({}): {e}", file.display()), format!("The report file can't be shown ({}): {e}", file.display())));
+        }
         let indirizzo = nuova_issue(&riassunto, &file);
         crate::supervisor::apri_fuori_dal_giobbe(indirizzo.as_str()).map_err(|e| e.to_string())?;
     }
     Ok(fatto)
-}
-
-pub fn installa(app: &tauri::App) -> tauri::Result<()> {
-    app.handle().plugin(
-        tauri::plugin::Builder::<tauri::Wry>::new("mango-animation-segnalazione")
-            .invoke_handler(tauri::generate_handler![segnala_problema, scrivi_ui_log, segnalazione_invio_attivo])
-            .build(),
-    )
 }
 
 #[cfg(test)]
@@ -184,9 +195,6 @@ mod prove {
     use super::*;
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
-
-    /// I comandi del plugin: gli stessi in `build.rs` (permessi), in `ponte.js` e in `capabilities/`.
-    const COMANDI: [&str; 3] = ["segnala_problema", "scrivi_ui_log", "segnalazione_invio_attivo"];
 
     #[test]
     fn l_indirizzo_e_quello_del_progetto_se_la_costruzione_non_ne_da_un_altro_o_off() {
@@ -254,6 +262,16 @@ mod prove {
     }
 
     #[test]
+    fn dietro_un_filtro_aziendale_con_un_certificato_sconosciuto_l_invio_dice_cosa_fare() {
+        use crate::rete::{con_proxy_di_sistema, proxy_finto::{Modo, ProxyFinto}};
+        let proxy = ProxyFinto::avvia(Modo::Ispeziona);
+        let (s, _c) = segnalazione(None, None);
+        let errore = con_proxy_di_sistema(&proxy.indirizzo, || invia(&s, "https://chiave@o1.ingest.de.sentry.io/42", None)).unwrap_err();
+        assert!(errore.starts_with("L'invio della segnalazione non è riuscito: La rete di questo computer passa da un filtro aziendale"), "{errore}");
+        assert_eq!(proxy.visti(), ["CONNECT o1.ingest.de.sentry.io:443 HTTP/1.1"]);
+    }
+
+    #[test]
     fn senza_sentry_il_testo_resta_in_un_file_e_la_pagina_di_github_non_ha_dati_personali() {
         let (s, c) = segnalazione(None, Some("non parte"));
         let ora_locale = chrono::NaiveDate::from_ymd_opt(2026, 11, 8).unwrap().and_hms_opt(11, 30, 5).unwrap();
@@ -268,16 +286,5 @@ mod prove {
         for personale in ["Gianni", "PC-STUDIO", "non parte", "Pasta fresca", "q7Zk2m"] {
             assert!(!url.as_str().contains(personale) && !corpo.contains(personale), "«{personale}» è nell'indirizzo di GitHub:\n{corpo}");
         }
-    }
-
-    #[test]
-    fn il_ponte_i_permessi_e_la_capability_dicono_gli_stessi_comandi() {
-        let (build, capability) = (include_str!("../../build.rs"), include_str!("../../capabilities/default.json"));
-        assert!(PONTE.contains("plugin:mango-animation-segnalazione|"));
-        for comando in COMANDI {
-            assert!(PONTE.contains(&format!("\"{comando}\"")), "{comando} non è nel ponte");
-            assert!(build.contains(&format!("\"{comando}\"")), "{comando} non è nei permessi di build.rs");
-        }
-        assert!(build.contains("\"mango-animation-segnalazione\"") && capability.contains("mango-animation-segnalazione:default"));
     }
 }

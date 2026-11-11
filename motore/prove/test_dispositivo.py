@@ -47,13 +47,50 @@ def test_il_profilo_sceglie_la_scheda_per_il_motore_e_per_l_ordine_di_nvidia_smi
     assert os.environ["CUDA_VISIBLE_DEVICES"] == "2" and os.environ["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 
-def test_chi_ha_gia_scelto_le_schede_visibili_non_viene_scavalcato(tmp_path, monkeypatch):
-    profilo(tmp_path, monkeypatch, {"scheda_video": 2})
-    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1")
+def test_senza_profilo_le_schede_sono_numerate_come_per_nvidia_smi(tmp_path, monkeypatch):
+    monkeypatch.setenv("MANGO_ANIMATION_LAVORO", str(tmp_path))
+    monkeypatch.setenv("CUDA_DEVICE_ORDER", "FASTEST_FIRST")
     con_scheda(monkeypatch, True)
     modulo.dispositivo("trascrizione")
     import os
-    assert os.environ["CUDA_VISIBLE_DEVICES"] == "1"
+    assert os.environ["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID" and "CUDA_VISIBLE_DEVICES" not in os.environ
+
+
+@pytest.mark.parametrize("ereditata", ["0,1,2", "1", "2,3"])
+def test_la_scheda_del_profilo_vince_su_un_elenco_ereditato_dall_ambiente_utente(tmp_path, monkeypatch, ereditata):
+    # il caso vero: nell'ambiente di Windows c'era CUDA_VISIBLE_DEVICES=0,1,2, il profilo vuole la 0
+    profilo(tmp_path, monkeypatch, {"scheda_video": 0})
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", ereditata)
+    con_scheda(monkeypatch, True)
+    assert modulo.dispositivo("trascrizione") == "cuda"
+    import os
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "0" and os.environ["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
+
+
+def test_una_funzione_che_vuole_la_scheda_applica_il_profilo_anche_con_un_elenco_ereditato(tmp_path, monkeypatch):
+    profilo(tmp_path, monkeypatch, {"scheda_video": 2})
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,1,2")
+    monkeypatch.setattr(modulo, "motore", lambda funzione: {"dove": "scheda"})
+    monkeypatch.setattr(modulo, "cuda_disponibile", lambda: True)
+    assert modulo.dispositivo("trascrizione") == "cuda"
+    import os
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "2"
+
+
+def test_senza_scheda_nel_profilo_l_elenco_ereditato_resta(tmp_path, monkeypatch):
+    monkeypatch.setenv("MANGO_ANIMATION_LAVORO", str(tmp_path))
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,1,2")
+    con_scheda(monkeypatch, True)
+    assert modulo.dispositivo("trascrizione") == "cuda"
+    import os
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "0,1,2"
+
+
+def test_schede_visibili_uguali_al_profilo_vanno_bene(tmp_path, monkeypatch):
+    profilo(tmp_path, monkeypatch, {"scheda_video": 2})
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2")
+    con_scheda(monkeypatch, True)
+    assert modulo.dispositivo("trascrizione") == "cuda"
 
 
 def test_il_profilo_puo_chiedere_il_processore(tmp_path, monkeypatch, capsys):
@@ -113,3 +150,8 @@ def test_senza_torch_la_scheda_la_dice_ctranslate2(monkeypatch):
     assert modulo.cuda_disponibile() is True
     monkeypatch.setitem(sys.modules, "ctranslate2", types.SimpleNamespace(get_cuda_device_count=lambda: 0))
     assert modulo.cuda_disponibile() is False
+
+
+def test_solo_la_memoria_della_scheda_che_non_basta_e_detta_come_tale():
+    assert "memoria libera" in modulo.errore_di_memoria(RuntimeError("CUDA out of memory"), "x", "x").it
+    assert modulo.errore_di_memoria(RuntimeError("CUDA failed with error unknown error"), "x", "x") is None

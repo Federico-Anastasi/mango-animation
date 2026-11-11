@@ -1,0 +1,133 @@
+.intestazione p {
+  margin-top: 0.4rem;
+}
+
+.sotto {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--grigio);
+  font-size: 0.9rem;
+}
+
+.primoGiro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--inchiostro);
+  border-radius: 6px;
+}
+
+.primoGiro p {
+  margin: 0;
+  max-width: 70ch;
+}
+
+.salva {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ok {
+  color: var(--verde);
+  font-size: 0.9rem;
+}
+
+.avviso,
+.errore {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--filo);
+  border-left: 3px solid var(--rosso);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  white-space: pre-line;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sezione h2 {
+  margin: 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--filo);
+  font-size: 1.05rem;
+}
+
+.griglia {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.aiuto {
+  font-size: 0.82rem;
+  color: var(--grigio);
+}
+
+.canali {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.canale {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) minmax(8rem, 11rem) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Su una pagina stretta (anche perché la chat le sta accanto) i campi di un canale vanno uno sotto l'altro. */
+@container pagina (max-width: 560px) {
+  .canale {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--filo);
+  }
+
+  .canale > :nth-child(2),
+  .canale > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+.lettura {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.elenco {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.elenco:focus {
+  border-color: var(--inchiostro);
+}

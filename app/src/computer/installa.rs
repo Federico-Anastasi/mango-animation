@@ -2,9 +2,11 @@
 //! (`uv` per Python, `bun install`, `playwright install`) mostrando ciò che scrivono.
 
 use super::manifesto::{Archivio, FileSolo, RepoHf, Tipo};
-use super::piano::{cartella_hf, destinazione_del_file, segna_js_installato, segna_python_installato, Gruppo, Lavoro, Luoghi, Sonde, Voce};
+use super::piano::{cartella_hf, chromium_c_e, destinazione_del_file, segna_js_installato, segna_python_installato, zip_scaricato, Gruppo, Lavoro, Luoghi, Sonde, Voce};
 use super::scarica::{scarica, Fonte};
 use crate::lingua::t;
+use crate::rete;
+use crate::supervisor::uccidi_albero;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -88,6 +90,7 @@ fn esegui_con_battito(exe: &Path, args: &[OsString], cwd: &Path, env: &[(OsStrin
     let mut figlio = Command::new(exe)
         .args(args)
         .current_dir(cwd)
+        .envs(rete::variabili_per_i_programmi())
         .envs(env.iter().map(|(k, v)| (k, v)))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -127,7 +130,8 @@ fn esegui_con_battito(exe: &Path, args: &[OsString], cwd: &Path, env: &[(OsStrin
             Err(mpsc::RecvTimeoutError::Timeout) | Err(mpsc::RecvTimeoutError::Disconnected) => {}
         }
         if annulla.load(Ordering::SeqCst) {
-            let _ = figlio.kill();
+            // Con tutto ciò che ha avviato lui (node, il download di Chromium): altrimenti continuano a scrivere mentre la pagina è già tornata al piano.
+            uccidi_albero(figlio.id());
             let _ = figlio.wait();
             return Err("annullato".into());
         }
@@ -147,10 +151,6 @@ fn esegui_con_battito(exe: &Path, args: &[OsString], cwd: &Path, env: &[(OsStrin
         let coda = ultime.iter().rev().take(4).rev().cloned().collect::<Vec<_>>().join("\n");
         Err(t(format!("{} è finito con un errore ({}):\n{coda}", exe.file_name().unwrap_or_default().to_string_lossy(), stato.code().map_or("?".into(), |c| c.to_string())), format!("{} ended with an error ({}):\n{coda}", exe.file_name().unwrap_or_default().to_string_lossy(), stato.code().map_or("?".into(), |c| c.to_string()))))
     }
-}
-
-fn nome_del_file(url: &str) -> &str {
-    url.rsplit('/').next().unwrap_or("scarico")
 }
 
 fn percorso_sicuro(relativo: &str) -> Option<PathBuf> {
@@ -187,7 +187,7 @@ fn estrai(zip: &Path, a: &Archivio, dati: &Path) -> Result<(), String> {
 }
 
 fn installa_archivio(a: &Archivio, luoghi: &Luoghi, annulla: &AtomicBool, avanza: &mut dyn FnMut(u64, u64)) -> Result<(), String> {
-    let zip = luoghi.dati.join("scarichi").join(nome_del_file(&a.url));
+    let zip = zip_scaricato(luoghi, a);
     scarica(Fonte { url: &a.url, sha256: &a.sha256, dimensione: a.dimensione }, &zip, annulla, &mut |n| avanza(n, a.dimensione))?;
     estrai(&zip, a, &luoghi.dati)?;
     let _ = fs::remove_file(&zip);
@@ -275,6 +275,11 @@ pub fn fai(voce: &Voce, luoghi: &Luoghi, strumenti: &Strumenti, hf: &str, annull
         Lavoro::PacchettiJs(cartella) => {
             let dove = luoghi.radice.join(cartella);
             esegui_comando(&strumenti.bun, &[os("install")], &dove, &env, annulla, riga)?;
+            // Playwright vuole la revisione di Chromium del suo lockfile: dopo un aggiornamento quella che c'è può essere un'altra, e il primo disegno fallirebbe.
+            // Se un Chromium c'è già, questo scarica solo la revisione che manca (la voce «Chromium» pensa al primo scarico).
+            if cartella == "animazioni" && chromium_c_e(luoghi) {
+                esegui_comando(&strumenti.bun, &[os("x"), os("playwright"), os("install"), os("chromium")], &dove, &env, annulla, riga)?;
+            }
             segna_js_installato(&dove)
         }
         Lavoro::Chromium => esegui_comando(&strumenti.bun, &[os("x"), os("playwright"), os("install"), os("chromium")], &luoghi.radice.join("animazioni"), &env, annulla, riga),
@@ -406,6 +411,17 @@ mod prove {
     }
 
     #[test]
+    fn i_programmi_che_scaricano_escono_dal_proxy_di_windows() {
+        let t = tempfile::tempdir().unwrap();
+        let mostra = finto(t.path(), "mostra.cmd", "@echo off
+echo %HTTPS_PROXY%
+");
+        let mut righe = Vec::new();
+        rete::con_proxy_di_sistema("http://proxy.azienda:8080", || esegui_comando(&mostra, &[], t.path(), &[], &nessuno(), &mut |r| righe.push(r.to_owned())).unwrap());
+        assert_eq!(righe, ["http://proxy.azienda:8080"]);
+    }
+
+    #[test]
     fn annullare_ferma_il_comando_che_sta_girando() {
         let t = tempfile::tempdir().unwrap();
         let lento = finto(t.path(), "lento.cmd", "@echo off\necho parto\nping -n 60 127.0.0.1 > nul\n");
@@ -527,6 +543,24 @@ exit /b 0
         let righe: Vec<&str> = scritto.lines().map(str::trim).collect();
         assert_eq!(righe[0], format!("{}|install", l.radice.join("server").display()));
         assert_eq!(righe[1], format!("{}|x playwright install chromium", l.radice.join("animazioni").display()));
+    }
+
+    #[test]
+    fn dopo_i_pacchetti_delle_animazioni_un_chromium_di_un_altra_revisione_si_aggiorna_e_senza_chromium_no() {
+        let t = tempfile::tempdir().unwrap();
+        let l = luoghi(t.path());
+        let registro = t.path().join("bun.log");
+        let bun = finto(t.path(), "bun.cmd", &format!("@echo off\necho %*>> \"{}\"\nexit /b 0\n", registro.display()));
+        let strumenti = Strumenti { uv: PathBuf::from("uv"), bun, percorso: "x".into() };
+        let animazioni = Voce { id: "x".into(), nome: "x".into(), scopo: "x".into(), funzione: None, licenza: "x".into(), fonte: "x".into(), peso: 1, lavoro: Lavoro::PacchettiJs("animazioni".into()), ordine: 1 };
+        fai(&animazioni, &l, &strumenti, HUGGING_FACE, &nessuno(), &mut |_, _| {}, &mut |_| {}).unwrap();
+        let righe = |p: &Path| fs::read_to_string(p).unwrap().lines().map(|r| r.trim().to_owned()).collect::<Vec<_>>();
+        assert_eq!(righe(&registro), ["install", "x playwright install chromium"]);
+        // Il primo scarico di Chromium è la sua voce: qui non si fa di nascosto.
+        fs::remove_dir_all(&l.playwright).unwrap();
+        fs::remove_file(&registro).unwrap();
+        fai(&animazioni, &l, &strumenti, HUGGING_FACE, &nessuno(), &mut |_, _| {}, &mut |_| {}).unwrap();
+        assert_eq!(righe(&registro), ["install"]);
     }
 
     #[test]

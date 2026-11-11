@@ -1,4 +1,4 @@
-// Le regole di ogni passo del metodo, come testo per Claude Code (`docs/ARCHITETTURA.md`, «Il plugin»).
+// Le regole sempre attive del metodo, come testo per Claude Code (`docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude»).
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -16,39 +16,15 @@ export function fileDelMetodo(radice: string): string[] {
   return ["CLAUDE.md", ...regole]
 }
 
-/** Dove stanno i file del metodo e la cartella di lavoro: i percorsi del metodo scritti nelle regole e nelle skill sono relativi alla prima. */
-const testa = (radice: string, lavoro: string, n: number, di: number): string =>
-  `Mango Animation method, part ${n} of ${di}. Its files are in ${radice} (read-only): the paths \`.claude/metodo/…\`, \`docs/…\`, \`animazioni/…\`, \`stile.json\` in the rules and skills are relative to that folder. The working folder is ${lavoro}.\n\n`
-
-/** Una riga sola che introduce (un titolo, l'indicazione del file) resta con ciò che introduce: un pezzo non finisce su un titolo. */
-function conLeTeste(paragrafi: string[]): string[] {
-  const uniti: string[] = []
-  let sospeso = ""
-  for (const paragrafo of paragrafi) {
-    const unita = sospeso === "" ? paragrafo : `${sospeso}\n\n${paragrafo}`
-    if (/^(#|Contents of )[^\n]*$/.test(paragrafo)) sospeso = unita
-    else {
-      uniti.push(unita)
-      sospeso = ""
-    }
-  }
-  return sospeso === "" ? uniti : [...uniti, sospeso]
-}
-
-/** I pezzi di testo di un hook: i file del metodo, spezzati solo fra due paragrafi, ciascuno con la sua testa entro il limite. */
-export function pezziDelMetodo(radice: string, lavoro: string): string[] {
-  const spazio = LIMITE_DI_UN_HOOK - testa(radice, lavoro, 99, 99).length
-  const paragrafi = fileDelMetodo(radice).flatMap((file) => conLeTeste([`Contents of ${file}:`, ...leggi(join(radice, file)).split(/\n{2,}/)]))
-  const corpi: string[] = []
-  let corrente = ""
-  for (const paragrafo of paragrafi) {
-    if (paragrafo.length > spazio) throw new Error(`Un paragrafo del metodo è lungo ${paragrafo.length} caratteri: non entra in un hook (${paragrafo.slice(0, 40)}…).`)
-    if (corrente !== "" && corrente.length + paragrafo.length + 2 > spazio) {
-      corpi.push(corrente)
-      corrente = ""
-    }
-    corrente = corrente === "" ? paragrafo : `${corrente}\n\n${paragrafo}`
-  }
-  const tutti = corrente === "" ? corpi : [...corpi, corrente]
-  return tutti.map((corpo, i) => testa(radice, lavoro, i + 1, tutti.length) + corpo)
+/**
+ * Il testo che l'hook dà a Claude: i file del metodo, con in testa dove stanno (i percorsi `.claude/metodo/…`, `docs/…`, `animazioni/…`,
+ * `stile.json` delle regole e delle skill sono relativi a quella cartella) e qual è la cartella di lavoro.
+ * Se non entra in un hook è un errore: un testo tagliato in silenzio lascerebbe Claude senza regole.
+ */
+export function testoDelMetodo(radice: string, lavoro: string): string {
+  const testa = `Mango Animation method. Its files are in ${radice} (read-only): the paths \`.claude/metodo/…\`, \`docs/…\`, \`animazioni/…\`, \`stile.json\` in the rules and skills are relative to that folder. The working folder is ${lavoro}.\n\n`
+  const testo = testa + fileDelMetodo(radice).map((file) => `Contents of ${file}:\n\n${leggi(join(radice, file))}`).join("\n\n")
+  if (testo.length >= LIMITE_DI_UN_HOOK)
+    throw new Error(`Le regole sempre attive del metodo sono lunghe ${testo.length} caratteri e un hook ne porta meno di ${LIMITE_DI_UN_HOOK}: sposta una regola in .claude/metodo/ (la leggono le skill) o accorciala.`)
+  return testo
 }

@@ -6,7 +6,7 @@ import { scriviIndirizzo } from "../indirizzo"
 import { t } from "../lingua"
 import { dataOra, durata, giorno, peso, tempoLeggibile } from "../testo"
 import type { FileGrezzo, OrigineGrezzo, ParolaGrezzo, SchedaGrezzo, TipoGrezzo } from "../tipi"
-import { eFoto, nomeOrigine, nomeTipo, siApreNelBrowser } from "./nomi"
+import { eFoto, nomeOrigine, nomeTipo, ORIGINI, siApreNelBrowser, TIPI } from "./nomi"
 import styles from "./DettaglioFile.module.css"
 
 /** Le parole in righe: una riga nuova dove il parlato si ferma per più di un secondo. */
@@ -20,11 +20,12 @@ function inRighe(parole: ParolaGrezzo[]): ParolaGrezzo[][] {
   }, [])
 }
 
-export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: (slug: string) => string }) {
+export function DettaglioFile({ file, titoloDi, tempoIniziale = null }: { file: FileGrezzo; titoloDi: (slug: string) => string; tempoIniziale?: number | null }) {
+  const radice = useRef<HTMLDivElement>(null)
   const lettore = useRef<HTMLVideoElement>(null)
   const [parole, setParole] = useState<ParolaGrezzo[] | null>(null)
   const [erroreParole, setErroreParole] = useState<string | null>(null)
-  const [messaggio, setMessaggio] = useState<{ testo: string; errore: boolean } | null>(null)
+  const [erroreScheda, setErroreScheda] = useState<string | null>(null)
   const [illeggibile, setIlleggibile] = useState(false)
   const nome = file.nome
   const preparato = file.preparato
@@ -38,7 +39,7 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
   useEffect(() => {
     setParole(null)
     setErroreParole(null)
-    setMessaggio(null)
+    setErroreScheda(null)
     setIlleggibile(false)
     if (preparato.parole === null) return
     let vivo = true
@@ -51,11 +52,28 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
     }
   }, [file.file, preparato.parole, preparato.leggero])
 
+  // Aperto da un risultato della ricerca nel parlato: il lettore va a quel secondo e il dettaglio torna in vista.
+  useEffect(() => {
+    const el = lettore.current
+    if (tempoIniziale === null || !el) return
+    radice.current?.scrollIntoView?.({ block: "start" })
+    const vaiA = () => void (el.currentTime = tempoIniziale)
+    if (el.readyState >= 1) vaiA()
+    else el.addEventListener("loadedmetadata", vaiA, { once: true })
+    return () => el.removeEventListener("loadedmetadata", vaiA)
+  }, [file.file, tempoIniziale])
+
   const salvaScheda = (nuova: SchedaGrezzo) => api.scriviSchedaGrezzo(file.file, nuova).then(() => undefined)
-  const comunica = (testo: string, errore = false) => setMessaggio({ testo, errore })
+  const vaiA = (secondi: number) => {
+    if (lettore.current) lettore.current.currentTime = secondi
+  }
+  const cambia = (nuova: SchedaGrezzo) => {
+    setErroreScheda(null)
+    salvaScheda(nuova).catch((e: Error) => setErroreScheda(e.message))
+  }
 
   return (
-    <div className={styles.dettaglio}>
+    <div className={styles.dettaglio} ref={radice}>
       <h2 className={styles.nome}>{nome}</h2>
       <p className={styles.meta}>
         {t("Girato il {data}", "Filmed on {data}", { data: giorno(file.file.split("/")[0] ?? "") })} · {peso(file.byte)}
@@ -96,9 +114,9 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
           </>
         )}
       </div>
-      {messaggio && (
-        <p className={messaggio.errore ? styles.errore : styles.meta} role={messaggio.errore ? "alert" : "status"}>
-          {messaggio.testo}
+      {erroreScheda && (
+        <p className={styles.errore} role="alert">
+          {erroreScheda}
         </p>
       )}
 
@@ -106,8 +124,8 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
         {!eUnaFoto && (
           <label className={styles.campoSelect}>
             <span>{t("Tipo", "Type")}</span>
-            <select value={scheda.tipo} onChange={(e) => salvaScheda({ ...scheda, tipo: e.target.value as TipoGrezzo }).catch((er: Error) => comunica(er.message, true))}>
-              {(["ripresa", "diretta", "schermo", "altro"] as const).map((tp) => (
+            <select value={scheda.tipo} onChange={(e) => cambia({ ...scheda, tipo: e.target.value as TipoGrezzo })}>
+              {TIPI.map((tp) => (
                 <option key={tp} value={tp}>
                   {nomeTipo(tp)}
                 </option>
@@ -117,8 +135,8 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
         )}
         <label className={styles.campoSelect}>
           <span>{t("Da dove viene", "Where it comes from")}</span>
-          <select value={scheda.origine} onChange={(e) => salvaScheda({ ...scheda, origine: e.target.value as OrigineGrezzo }).catch((er: Error) => comunica(er.message, true))}>
-            {(["telefono", "registrazione", "scaricato", "altro"] as const).map((o) => (
+          <select value={scheda.origine} onChange={(e) => cambia({ ...scheda, origine: e.target.value as OrigineGrezzo })}>
+            {ORIGINI.map((o) => (
               <option key={o} value={o}>
                 {nomeOrigine(o)}
               </option>
@@ -160,9 +178,7 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
                     type="button"
                     className={styles.tempo}
                     disabled={illeggibile}
-                    onClick={() => {
-                      if (lettore.current) lettore.current.currentTime = riga[0]!.da
-                    }}
+                    onClick={() => vaiA(riga[0]!.da)}
                   >
                     {tempoLeggibile(riga[0]!.da)}
                   </button>
@@ -173,9 +189,7 @@ export function DettaglioFile({ file, titoloDi }: { file: FileGrezzo; titoloDi: 
                         type="button"
                         className={styles.parola}
                         disabled={illeggibile}
-                        onClick={() => {
-                          if (lettore.current) lettore.current.currentTime = p.da
-                        }}
+                        onClick={() => vaiA(p.da)}
                       >
                         {p.p}
                       </button>

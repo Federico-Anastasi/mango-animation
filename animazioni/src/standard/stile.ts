@@ -1,6 +1,6 @@
 import stile from "virtual:stile";
 
-export const FORMATO = stile.formato;
+export const FORMATO = stile.formati.verticale;
 
 export const FORMATI = stile.formati;
 

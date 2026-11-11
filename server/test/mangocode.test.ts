@@ -1,10 +1,10 @@
 // La chat con Mango Code al posto di Claude Code, contro un Mango Code finto: un server con le rotte e gli eventi del contratto
 // di Mango Code (https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md), che registra ciò che riceve e manda gli eventi che la prova gli dà.
 import { afterEach, describe, expect, spyOn, test } from "bun:test"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { MangoCode, nomeDelloStrumento, risposteDi, righeDi } from "../src/chat/mangocode"
+import { MangoCode, nomeDelloStrumento, RegistroMangoCode, risposteDi, righeDi, statoDiMangoCode } from "../src/chat/mangocode"
 import type { FunzioneQuery, Sessioni } from "../src/chat/tipi"
 import { VociSpente } from "../src/chat/vociSpente"
 import { ascolta, aspetta, avviaAmbiente, chiama, fermaTutti, type Ambiente } from "./aiuti"
@@ -202,6 +202,8 @@ describe("Mango Code nella chat", () => {
     expect(mc.richieste.every((r) => r.agente === "Mango Animation")).toBe(true)
     expect(prompt.system).not.toContain("MANDARINO")
     expect(prompt.system).toContain("creator.lingua")
+    expect(prompt.system).toContain("use the question tool")
+    expect(prompt.system).not.toContain("AskUserQuestion")
     expect(prompt.system).toContain(`You work in ${a.radice}`)
     expect(prompt.system).toContain(`${codice}: read it, never write there`)
 
@@ -592,3 +594,39 @@ describe("le forme", () => {
   })
 })
 
+
+describe("il legame fra conversazioni e sessioni di Mango Code", () => {
+  test("un file che non si legge non si riscrive in silenzio: resta accanto, e l'elenco lo dice nel registro", async () => {
+    const archivio = await mkdtemp(join(tmpdir(), "mango-animation-registro-"))
+    cartelle.push(archivio)
+    await mkdir(join(archivio, ".chat"), { recursive: true })
+    const percorso = join(archivio, ".chat", "mango-code.json")
+    await writeFile(percorso, '{"c1": {"sessione": "ses_1", ')
+    const errori = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const registro = new RegistroMangoCode(archivio)
+      expect(await registro.tutti()).toEqual({})
+      expect(errori.mock.calls.flat().join(" ")).toContain("non si legge")
+      await registro.cambia("c2", () => ({ sessione: "ses_2", modello: "m", titolo: "t", aggiornata: 1 }))
+      expect(Object.keys(await registro.tutti())).toEqual(["c2"])
+      expect(await readFile(`${percorso}.illeggibile`, "utf-8")).toBe('{"c1": {"sessione": "ses_1", ')
+    } finally {
+      errori.mockRestore()
+    }
+  })
+})
+
+describe("Mango Code acceso ma che non risponde", () => {
+  test("conta come spento, e il registro dice perché", async () => {
+    const dati = await mkdtemp(join(tmpdir(), "mango-animation-dati-"))
+    cartelle.push(dati)
+    await writeFile(join(dati, "service.json"), JSON.stringify({ pid: process.pid, agent: "http://127.0.0.1:1", engine: "http://127.0.0.1:1" }))
+    const errori = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      expect(await statoDiMangoCode(dati)).toEqual({ stato: "spento" })
+      expect(errori.mock.calls.flat().join(" ")).toContain("non risponde al controllo di salute")
+    } finally {
+      errori.mockRestore()
+    }
+  })
+})

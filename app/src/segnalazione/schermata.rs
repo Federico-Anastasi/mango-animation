@@ -53,7 +53,7 @@ fn png_di(hwnd: HWND) -> Result<Vec<u8>> {
 /// Pixel BGRA (righe dall'alto) in un PNG a colori senza trasparenza.
 fn png_da_bgra(larghezza: u32, altezza: u32, bgra: &[u8]) -> Result<Vec<u8>> {
     ensure!(bgra.len() == larghezza as usize * altezza as usize * 4, "{} byte per {larghezza}x{altezza} pixel", bgra.len());
-    let rgb: Vec<u8> = bgra.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0]]).collect();
+    let rgb: Vec<u8> = bgra.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0]]).collect();
     let mut png = Vec::new();
     let mut codificatore = png::Encoder::new(&mut png, larghezza, altezza);
     codificatore.set_color(png::ColorType::Rgb);

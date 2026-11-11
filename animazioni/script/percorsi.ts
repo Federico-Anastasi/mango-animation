@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { leggiStile } from "../../strumenti/stile.mjs";
@@ -17,6 +18,12 @@ export const sceneDelCreator = (lavoro: string | undefined): string | undefined 
 
 /** Lo stile di serie con sopra quello del creator, come lo vede la pagina. */
 export const stileUnito = (lavoro: string | undefined = lavoroDa()): Stile => leggiStile(CODICE, lavoro) as Stile;
+
+/** Il file di un carattere dello stile (`caratteri`): nella cartella del creator se c'è, perché lì finiscono quelli che aggiunge, altrimenti nel prodotto. */
+export const fileDelCarattere = (percorso: string, lavoro: string | undefined = lavoroDa()): string => {
+  const suo = lavoro ? join(lavoro, percorso) : undefined;
+  return suo && existsSync(suo) ? suo : join(CODICE, percorso);
+};
 
 const chiave = (percorso: string): string => {
   const dritto = resolve(percorso).replaceAll("\\", "/");

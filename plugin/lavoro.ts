@@ -1,4 +1,4 @@
-// La cartella di lavoro vista dal plugin, fuori dall'app (`docs/ARCHITETTURA.md`, «Il plugin»).
+// La cartella di lavoro vista dal plugin, fuori dall'app (`docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude»).
 import { statSync } from "node:fs"
 import { join, resolve } from "node:path"
 

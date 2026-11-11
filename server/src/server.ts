@@ -1,7 +1,8 @@
 import { mkdir } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Animazioni } from "./animazioni"
-import { chiaveApi } from "./arrivi/chiave"
+import { chiaveApi, chiaveApp } from "./arrivi/chiave"
+import { PercorsiScelti } from "./arrivi/percorsiScelti"
 import { ControlloFirewall } from "./arrivi/firewall"
 import { videoDaGuardare } from "./arrivi/guarda"
 import { Ricevitore } from "./arrivi/ricevitore"
@@ -16,7 +17,7 @@ import { Eventi } from "./eventi"
 import { Indice } from "./indice"
 import { eUscita, ignoraNellArchivio, osserva } from "./osservatore"
 import { Registrazione } from "./registrazione"
-import { creaGestore } from "./rotte"
+import { CORPO_MASSIMO_BYTE, creaGestore } from "./rotte"
 import { Schemi } from "./schemi"
 import { Miniature } from "./miniature"
 import { Sonda } from "./sonda"
@@ -45,6 +46,7 @@ export async function creaServer(parziali: Partial<Opzioni> = {}): Promise<Serve
   await rimuovi(join(percorsi.arrivi, ".scarichi"))
 
   const chiaveDelleApi = await chiaveApi(percorsi.arrivi)
+  const percorsiScelti = new PercorsiScelti(await chiaveApp(percorsi.arrivi))
   const eventi = new Eventi(opzioni.battitoMs)
   const indice = new Indice()
   const schemi = await Schemi.carica(opzioni.schemi)
@@ -117,16 +119,17 @@ export async function creaServer(parziali: Partial<Opzioni> = {}): Promise<Serve
   const registrazione = new Registrazione(opzioni.registrazione, opzioni.ffprobe, percorsi, eventi, (relativi) => elaboratore.cambiati(relativi), () => indice.profilo.valore)
   void registrazione.elencaDispositivi().catch((errore) => console.error(`Non riesco a elencare microfoni e webcam: ${errore instanceof Error ? errore.message : String(errore)}`))
 
-  const chat = new Chat({ codice: opzioni.codice, lavoro: opzioni.lavoro, archivio: opzioni.archivio, eventi, opzioni: opzioni.chat, titoloDelVideo: (slug) => indice.visibile(slug)?.scheda?.titolo, adesso: () => new Date() })
+  const chat = new Chat({ codice: opzioni.codice, lavoro: opzioni.lavoro, archivio: opzioni.archivio, eventi, opzioni: opzioni.chat, titoloDelVideo: (slug) => indice.visibile(slug)?.scheda?.titolo, adesso: () => new Date(), lingua: () => coda.linguaDelloStudio })
 
   const consumi = new Consumi(opzioni.consumi.cartella, opzioni.consumi, () => eventi.emetti({ tipo: "consumi" }))
   await consumi.avvia()
 
-  const gestore = creaGestore({ opzioni, percorsi, indice, elaboratore, coda, eventi, animazioni, ricevitore, firewall, registrazione, chat, consumi, schemi, chiaveApi: chiaveDelleApi })
+  const gestore = creaGestore({ opzioni, percorsi, indice, elaboratore, coda, eventi, animazioni, ricevitore, firewall, registrazione, chat, consumi, schemi, percorsiScelti, chiaveApi: chiaveDelleApi })
   const server = Bun.serve({
     hostname: opzioni.indirizzo,
     port: opzioni.porta,
-    maxRequestBodySize: 16 * 1024 ** 2,
+    // Più dei 16 MB che si accettano ovunque, perché un video per il girato arriva nel corpo (`CORPO_MASSIMO_BYTE` in `rotte.ts`).
+    maxRequestBodySize: Math.max(CORPO_MASSIMO_BYTE, opzioni.arrivi.limiteByte + 1024 ** 2),
     idleTimeout: 60,
     fetch: (req, s) => gestore(req, () => s.timeout(req, 0)),
   })

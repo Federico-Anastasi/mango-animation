@@ -19,7 +19,7 @@ const ALIAS_STUDIO: Record<NomeComandoStudio, string[]> = {
 }
 
 /** I comandi dello studio, con le descrizioni nella lingua in uso. */
-export function comandiDelloStudio(): VoceComando[] {
+function comandiDelloStudio(): VoceComando[] {
   const voce = (nome: NomeComandoStudio, descrizione: string, argomenti = ""): VoceComando => ({ nome, descrizione, argomenti, alias: ALIAS_STUDIO[nome], studio: true })
   return [
     voce("clear", t("Chiude questa conversazione e ne apre una nuova", "Close this conversation and start a new one")),

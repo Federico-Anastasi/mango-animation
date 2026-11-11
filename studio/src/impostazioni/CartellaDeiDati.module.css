@@ -1,0 +1,30 @@
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sezione h2 {
+  margin: 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--filo);
+  font-size: 1.05rem;
+}
+
+.percorso {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.piccolo {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--grigio);
+}
+
+.errore {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--rosso);
+}

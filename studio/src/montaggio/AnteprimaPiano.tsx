@@ -34,6 +34,7 @@ export function AnteprimaPiano({ dati, trasporto, zoomProvvisorio, modificaZoom 
   const video = useRef<Array<HTMLVideoElement | null>>([])
   const motore = useRef<MotorePiano | null>(null)
   const [larghezza, setLarghezza] = useState(0)
+  const [erroreDisegno, setErroreDisegno] = useState<string | null>(null)
   const pan = useRef<{ x: number; y: number; centro: [number, number]; scala: number } | null>(null)
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function AnteprimaPiano({ dati, trasporto, zoomProvvisorio, modificaZoom 
     const el = video.current
     if (!tela.current || el.some((v) => !v)) return
     const slot = [0, 1].map((i): Slot => ({ girato: el[i * 3]!, sagoma: el[i * 3 + 1]!, anim: el[i * 3 + 2]! })) as [Slot, Slot]
-    const m = new MotorePiano(tela.current, slot, trasporto)
+    const m = new MotorePiano(tela.current, slot, trasporto, setErroreDisegno)
     motore.current = m
     const ferma = m.avvia()
     return () => {
@@ -101,7 +102,6 @@ export function AnteprimaPiano({ dati, trasporto, zoomProvvisorio, modificaZoom 
       sorgente: { larghezza: info.larghezza, altezza: info.altezza },
       vista: vista?.taglio ?? null,
       area: comeRett(strato.area),
-      centro: strato.centro ?? [0.5, 0.5],
       zoom: zoomProvvisorio?.tratto === k ? zoomProvvisorio.zoom : tratto.zoom,
       avanzamento: avanzamentoDelPezzo(risolto, k, trasporto.t()),
       contieni: strato.adatta === "contieni",
@@ -177,8 +177,9 @@ export function AnteprimaPiano({ dati, trasporto, zoomProvvisorio, modificaZoom 
           )),
         )}
       </div>
-      {problemi.length > 0 && (
+      {(problemi.length > 0 || erroreDisegno !== null) && (
         <ul className={styles.problemi}>
+          {erroreDisegno !== null && <li>{erroreDisegno}</li>}
           {problemi.map((p) => (
             <li key={p.testo}>{p.testo}</li>
           ))}

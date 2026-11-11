@@ -16,7 +16,7 @@ MOTORE = Path(errori.__file__).parent
 def _chiamate_a_errore():
     for file in sorted(MOTORE.glob("*.py")):
         for nodo in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
-            if isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Name) and nodo.func.id == "Errore":
+            if isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Name) and nodo.func.id in ("Errore", "FormatiMescolati"):
                 yield file.name, nodo
 
 

@@ -1,6 +1,7 @@
 // Le forme dei dati, scritte a mano da `motore/schemi/*.json` e da `docs/` (PIANO, API, ARCHIVIO, MOTORE).
 // I percorsi dei file nelle risposte sono relativi all'archivio, tranne `file` di una sorgente e di un
 // file del girato, che sono relativi a `grezzo/`.
+// La prova `server/test/accordo-studio.test.ts` fa leggere l'archivio di esempio al server vero e controlla che ciò che manda abbia queste forme.
 
 import type { EventoChat } from "./chat/tipi"
 
@@ -256,6 +257,44 @@ export interface Uscita {
   stesso_file: string | null
 }
 
+/** A che passo del metodo è un video (`docs/API.md`, `fase`): lo decide il server dai file; `null` per un carosello o un video scartato. */
+export interface Fase {
+  /** Da 1 a 8: idea, copione, prova, riprese, animazioni, montaggio, correzioni, uscita. */
+  passo: number
+  azione: "idea" | "copione" | "prova" | "riprese" | "testo" | "animazioni" | "monta" | "guarda" | "correzioni" | "pubblica" | "fatto"
+}
+
+/** Una riga delle versioni del piano (`GET /api/video/:slug/versioni`): `n` è il numero in `storia/`, `null` per il piano di adesso quando non ha un file suo. */
+export interface VersionePiano {
+  n: number | null
+  da: string | null
+  fino: string | null
+  scene: number | null
+  pezzi: number | null
+  in_uso: boolean
+}
+
+/** Un punto del parlato dove c'è ciò che si cerca (`GET /api/grezzo/cerca`): le parole come sono scritte, intorno a quelle trovate. */
+export interface RisultatoParlato {
+  file: string
+  /** I secondi del file in cui ciò che si è trovato comincia e finisce. */
+  da: number
+  a: number
+  prima: string
+  trovato: string
+  dopo: string
+}
+
+export interface RicercaParlato {
+  q: string
+  risultati: RisultatoParlato[]
+  /** Quanti ce ne sono in tutto: `risultati` ne porta al più cento. */
+  totale: number
+  cercati: number
+  /** I file preparati di cui il parlato non si è potuto leggere. */
+  non_letti: number
+}
+
 export interface DettaglioVideo {
   slug: string
   cartella: string
@@ -275,6 +314,7 @@ export interface DettaglioVideo {
   materiali: Array<{ file: string; byte: number }>
   puo_annullare: boolean
   puo_rifare: boolean
+  fase: Fase | null
   /** Il lavoro di questo video che gira o aspetta, se c'è. */
   lavoro: { id: string | number; comando: string; stato: "in corso" | "in coda" } | null
   /** Il piano o lo stile sono stati salvati dopo l'inizio del montaggio in corso di questo video. */
@@ -295,7 +335,10 @@ export interface VoceElenco {
   /** `materiali/anteprima.<estensione>`, se c'è: ciò con cui una proposta si presenta. */
   anteprima: string | null
   ha_piano: boolean
+  /** I quadri che il piano usa (quello di base e quelli delle scene); vuoto senza piano. */
+  quadri: string[]
   ha_finale: boolean
+  fase: Fase | null
   ultimo_cambio: string
 }
 
@@ -383,10 +426,22 @@ export interface Lavoro {
 }
 
 /** `GET /api/profilo`: se `profilo.json` passa lo schema, e le frasi di ciò che non va. */
+/** Le sezioni di `profilo.json` che la pagina delle impostazioni mostra e corregge (`docs/PROFILO.md`). */
+export interface ProfiloDelCreator {
+  creator?: { nome: string; lingua?: string }
+  pubblico?: { livello?: string; lingua?: string; testate?: string | string[] }
+  canali?: Array<{ piattaforma: string; nome?: string; formato?: string }>
+  non_si_dice?: string[]
+}
+
+/** Ciò che `PUT /api/profilo` riceve: le sezioni da cambiare, e `null` per toglierne una. */
+export type SezioniDelProfilo = { [K in keyof ProfiloDelCreator]: ProfiloDelCreator[K] | null }
+
 export interface StatoProfilo {
   valido: boolean
   presente: boolean
   canali: Array<{ piattaforma: string; nome?: string }>
+  profilo: ProfiloDelCreator
   problemi: string[]
 }
 
@@ -397,6 +452,8 @@ export interface StatoLavori {
 }
 
 export interface StatoArrivi {
+  /** La ricezione dal telefono è accesa: di base no, finché chi usa il computer non collega un telefono. */
+  acceso: boolean
   in_ascolto: boolean
   indirizzo: string | null
   qr: string | null
@@ -441,7 +498,7 @@ export type Angolo = "alto-sinistra" | "alto-destra" | "basso-sinistra" | "basso
 
 export type Strato =
   | { tipo: "animazione"; area: Rettangolo }
-  | { tipo: "girato"; area: Rettangolo; centro?: Punto; adatta?: "contieni" | "riempi" }
+  | { tipo: "girato"; area: Rettangolo; adatta?: "contieni" | "riempi" }
   | { tipo: "sagoma"; scala_minima: number; testa: number; /** `"testa"`: la testa al centro del fotogramma. */ x: number | "testa"; aria: number; sfuma: number; scala_margine?: number }
   | { tipo: "riquadro"; nome: string; y: number; scala: number; raggio: number }
   | { tipo: "inserto"; largo: number; bordo: number }
@@ -468,7 +525,7 @@ export interface SpecCartello {
 }
 
 export interface Quadro {
-  /** Il nome di un formato di `formati`; senza, quello verticale di `formato`. */
+  /** Il nome di un formato di `formati`; senza, il `verticale`. */
   formato?: string
   fondo: string
   strati: Strato[]
@@ -478,8 +535,7 @@ export interface Quadro {
 }
 
 export interface Stile {
-  formato: Formato
-  formati?: Record<string, Formato>
+  formati: Record<string, Formato>
   colori: Record<string, string>
   caratteri: Record<string, string>
   voce: { lufs: number; silenzio_db: number; margine: number }
@@ -532,6 +588,22 @@ export interface Stile {
   quadri: Record<string, Quadro>
 }
 
+/** Uno dei tre stili di partenza (`stili-di-partenza.json`): le sezioni dell'aspetto per intero, già fuse con lo stile di serie. */
+export interface StileDiPartenza {
+  id: string
+  nome: { it: string; en: string }
+  descrizione: { it: string; en: string }
+  stile: Pick<Stile, "colori" | "caratteri" | "sottotitoli" | "titolo">
+}
+
+/** Un file di carattere che lo stile può nominare: `file` è il percorso come lo scrive `caratteri` (`font/…`). */
+export interface Carattere {
+  file: string
+  nome: string
+  /** Aggiunto dal creator. */
+  mio: boolean
+}
+
 export type ModoRegistrazione = "schermo" | "voce" | "viso"
 
 export interface StatoRegistrazione {
@@ -558,6 +630,7 @@ export type Evento =
   | { tipo: "modelli" }
   | { tipo: "comandi" }
   | { tipo: "profilo" }
+  | { tipo: "vai"; video?: string; scheda?: string; percorso?: string }
   | EventoChat
 
 export type TipoEvento = Evento["tipo"]

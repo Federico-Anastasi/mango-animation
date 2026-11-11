@@ -12,7 +12,8 @@ pub struct Chi {
 impl Chi {
     /// `utenti`: i nomi con cui l'account compare nei percorsi (con un account Microsoft il nome dell'account e quello della cartella del profilo sono diversi).
     /// `segreti` sono valori esatti da togliere ovunque compaiano (la chiave delle API di questo studio).
-    pub fn nuovo(utenti: &[&str], computer: &str, segreti: Vec<String>) -> Chi {
+    /// `computer`: i nomi con cui questo computer compare nei registri (il suo nome e quello del dominio Windows, se è in un'azienda).
+    pub fn nuovo(utenti: &[&str], computer: &[&str], segreti: Vec<String>) -> Chi {
         let mut nomi: Vec<&str> = Vec::new();
         for nome in utenti.iter().map(|n| n.trim()).filter(|n| n.len() >= 2) {
             if !nomi.iter().any(|g| g.eq_ignore_ascii_case(nome)) {
@@ -24,8 +25,8 @@ impl Chi {
         // Solo nei percorsi: come parola qualunque il nome potrebbe essere una parola comune.
         let mut percorsi: Vec<(Regex, String)> =
             nomi.into_iter().map(|n| (Regex::new(&format!(r"(?i)(users[\\/]+){}\b", regex::escape(n))).unwrap(), "${1}<user>".to_string())).collect();
-        if computer.len() >= 4 {
-            percorsi.push((Regex::new(&format!(r"(?i)\b{}\b", regex::escape(computer))).unwrap(), "<pc>".to_string()));
+        for nome in computer.iter().filter(|n| n.len() >= 4) {
+            percorsi.push((Regex::new(&format!(r"(?i)\b{}\b", regex::escape(nome))).unwrap(), "<pc>".to_string()));
         }
         Chi { percorsi, segreti: segreti.into_iter().filter(|s| s.len() >= 16).collect() }
     }
@@ -33,11 +34,17 @@ impl Chi {
     pub fn attuale(segreti: Vec<String>) -> Chi {
         let cartella = std::env::var("USERPROFILE").ok().and_then(|p| Some(std::path::Path::new(&p).file_name()?.to_string_lossy().into_owned()));
         let account = std::env::var("USERNAME").unwrap_or_default();
-        Chi::nuovo(&[account.as_str(), cartella.as_deref().unwrap_or_default()], &std::env::var("COMPUTERNAME").unwrap_or_default(), segreti)
+        let (computer, dominio) = (std::env::var("COMPUTERNAME").unwrap_or_default(), std::env::var("USERDOMAIN").unwrap_or_default());
+        Chi::nuovo(&[account.as_str(), cartella.as_deref().unwrap_or_default()], &[computer.as_str(), dominio.as_str()], segreti)
     }
 }
 
 static EMAIL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}").unwrap());
+/// Una cartella di OneDrive di lavoro porta il nome dell'azienda: `OneDrive - Nome Azienda`.
+static ONEDRIVE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?i)\b(OneDrive - )[^\\/"'\r\n]+"#).unwrap());
+/// Un indirizzo IPv6 completo (otto gruppi) o abbreviato con `::` (almeno un gruppo prima): un'ora come `12:34:56` non lo è.
+static IPV6: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\b(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}\b|\b(?:[0-9a-f]{1,4}:){1,6}:(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,5})?").unwrap());
 static IPV4: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b").unwrap());
 static CHIAVE_NOTA: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b(?:sk-[A-Za-z0-9_\-]{16,}|hf_[A-Za-z0-9]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})").unwrap());
@@ -59,7 +66,9 @@ pub fn anonimizza(testo: &str, chi: &Chi) -> String {
     for (cerca, metti) in &chi.percorsi {
         s = cerca.replace_all(&s, metti.as_str()).into_owned();
     }
+    s = ONEDRIVE.replace_all(&s, "${1}<org>").into_owned();
     s = EMAIL.replace_all(&s, "<email>").into_owned();
+    s = IPV6.replace_all(&s, "<ip>").into_owned();
     s = CHIAVE_NOTA.replace_all(&s, "<secret>").into_owned();
     s = BEARER.replace_all(&s, "$1 <secret>").into_owned();
     s = INTESTAZIONE.replace_all(&s, "${1}<secret>").into_owned();
@@ -86,22 +95,26 @@ mod prove {
 
     /// Un account Microsoft: nome dell'account `Alice`, cartella del profilo `alice.rossi`.
     fn chi() -> Chi {
-        Chi::nuovo(&["Alice", "alice.rossi"], "DESKTOP-7Q2K", vec![CHIAVE.to_string()])
+        Chi::nuovo(&["Alice", "alice.rossi"], &["DESKTOP-7Q2K", "AZIENDA"], vec![CHIAVE.to_string()])
     }
 
     /// Una regola per riga: il testo com'è nei registri e com'è dopo.
     #[test]
     fn ogni_regola_toglie_il_suo_dato_e_lascia_il_resto() {
-        let regole: [(&str, String, String); 20] = [
+        let regole: [(&str, String, String); 24] = [
             ("nome dell'account nel percorso", r"C:\Users\Alice\AppData\Local\x.exe".into(), r"C:\Users\<user>\AppData\Local\x.exe".into()),
             ("nome della cartella del profilo, diverso dall'account", r"C:\Users\alice.rossi\Desktop".into(), r"C:\Users\<user>\Desktop".into()),
             ("percorso con le doppie barre del JSON", r#"{"lavoro":"C:\Users\alice.rossi\Documents"}"#.into(), r#"{"lavoro":"C:\Users\<user>\Documents"}"#.into()),
             ("percorso con barre dritte e maiuscole diverse", "file:///C:/Users/ALICE/Videos/girato.mp4".into(), "file:///C:/Users/<user>/Videos/girato.mp4".into()),
             ("il nome utente fuori dai percorsi resta", "Alice ha aperto Alice Studio".into(), "Alice ha aperto Alice Studio".into()),
             ("nome del computer", "sul computer DESKTOP-7Q2K, scheda 1".into(), "sul computer <pc>, scheda 1".into()),
+            ("nome del dominio Windows", r"AZIENDA\alice in sessione".into(), r"<pc>\alice in sessione".into()),
+            ("cartella OneDrive dell'azienda", r"C:\Users\Alice\OneDrive - Rossi Srl\Video\a.mp4".into(), r"C:\Users\<user>\OneDrive - <org>\Video\a.mp4".into()),
+            ("indirizzo IPv6 abbreviato e completo", "link-local fe80::1c2d:3e4f:5a6b:7c8d e 2001:0db8:85a3:0000:0000:8a2e:0370:7334".into(), "link-local <ip> e <ip>".into()),
+            ("un'ora e l'IPv6 di loopback restano", "alle 12:34:56 su ::1".into(), "alle 12:34:56 su ::1".into()),
             ("email", "scrivi a alice.rossi@example.com subito".into(), "scrivi a <email> subito".into()),
             ("indirizzo IPv4", "telefono su http://192.168.1.50:47420/guarda".into(), "telefono su http://<ip>:47420/guarda".into()),
-            ("loopback, qualunque indirizzo e versioni restano", "127.0.0.1:47431 su 0.0.0.0, Windows 10.0.26200.9711".into(), "127.0.0.1:47431 su 0.0.0.0, Windows 10.0.26200.9711".into()),
+            ("loopback, qualunque indirizzo e versioni restano", "127.0.0.1:47431 su 0.0.0.0, Windows 10.0.19045.1".into(), "127.0.0.1:47431 su 0.0.0.0, Windows 10.0.19045.1".into()),
             ("chiave sk-", "sk-or-v1-0123456789abcdef0123".into(), "<secret>".into()),
             ("chiave hf_", "hf_abcdefghijklmnopqrstu".into(), "<secret>".into()),
             ("chiave gh?_", "ghp_0123456789abcdefghijklmnop".into(), "<secret>".into()),
@@ -121,20 +134,20 @@ mod prove {
 
     #[test]
     fn il_nome_piu_lungo_va_per_primo_e_i_doppioni_e_i_vuoti_non_contano() {
-        let chi = Chi::nuovo(&["Alice", "", "alice.rossi", "ALICE", "x"], "", vec![]);
+        let chi = Chi::nuovo(&["Alice", "", "alice.rossi", "ALICE", "x"], &[], vec![]);
         assert_eq!(chi.percorsi.len(), 2);
         assert_eq!(anonimizza(r"C:\Users\alice.rossi\a e C:\Users\Alice\b", &chi), r"C:\Users\<user>\a e C:\Users\<user>\b");
     }
 
     #[test]
     fn un_nome_utente_comune_cambia_solo_nei_percorsi() {
-        let chi = Chi::nuovo(&["Studio"], "", vec![]);
+        let chi = Chi::nuovo(&["Studio"], &[], vec![]);
         assert_eq!(anonimizza(r"Studio è in C:\Users\Studio\x", &chi), r"Studio è in C:\Users\<user>\x");
     }
 
     #[test]
     fn una_chiave_corta_o_vuota_non_si_cerca_nel_testo() {
-        let chi = Chi::nuovo(&[], "", vec![String::new(), "abc".to_string()]);
+        let chi = Chi::nuovo(&[], &[], vec![String::new(), "abc".to_string()]);
         assert_eq!(anonimizza("abc è una parola", &chi), "abc è una parola");
     }
 }

@@ -3,7 +3,7 @@
 //! pagina non riceve più `dragenter` e `drop` dei file: li riceve come eventi `mango-trascinamento` sulla finestra.
 
 use serde_json::{json, Value};
-use tauri::{DragDropEvent, WebviewWindow, WindowEvent};
+use tauri::{DragDropEvent, Manager, WebviewWindow, WindowEvent};
 
 /// Lo script che la finestra esegue in ogni pagina: definisce `window.__MANGO_ANIMATION__.trascinamento`.
 pub const PONTE: &str = r#"
@@ -52,7 +52,18 @@ pub fn installa(finestra: &WebviewWindow) {
     finestra.on_window_event(move |evento| {
         let WindowEvent::DragDrop(trascinamento) = evento else { return };
         let dettaglio = evento_per_la_pagina(trascinamento, destinazione.scale_factor().unwrap_or(1.0));
-        let _ = destinazione.eval(format!("window.dispatchEvent(new CustomEvent('mango-trascinamento',{{detail:{dettaglio}}}))"));
+        let manda = move |finestra: &WebviewWindow| {
+            let _ = finestra.eval(format!("window.dispatchEvent(new CustomEvent('mango-trascinamento',{{detail:{dettaglio}}}))"));
+        };
+        let DragDropEvent::Drop { paths, .. } = trascinamento else { return manda(&destinazione) };
+        // Il server deve sapere quali file ha scelto il creator prima che la pagina glieli chieda: l'evento parte dopo.
+        let (finestra, lasciati) = (destinazione.clone(), paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>());
+        std::thread::spawn(move || {
+            if let Err(e) = crate::registra_percorsi(finestra.app_handle(), &lasciati) {
+                crate::segnalazione::nel_registro(finestra.app_handle(), &e);
+            }
+            manda(&finestra);
+        });
     });
 }
 

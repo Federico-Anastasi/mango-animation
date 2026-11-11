@@ -5,14 +5,19 @@
 import { copyFile, mkdir, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { dirname, extname, join, normalize, resolve, sep } from "node:path"
-import type { AnimazioneDisponibile, Controllo, Evento, GiornoGrezzo, Lavoro, Motori, ParolaGrezzo, Piano, PianoCompleto, Scheda, SchedaGrezzo, StatoArrivi, StatoRegistrazione, StatoStudioRemoto, Stile, Uscita, VoceElenco } from "../src/tipi"
+import type { AnimazioneDisponibile, Controllo, Evento, GiornoGrezzo, Lavoro, Motori, ParolaGrezzo, Piano, PianoCompleto, ProfiloDelCreator, Scheda, SchedaGrezzo, StatoArrivi, StatoRegistrazione, StatoStudioRemoto, Stile, Uscita, VoceElenco } from "../src/tipi"
+import { ErroreRitocco, PianoCambiato, applicaRitocchi } from "../../server/src/ritocchi"
+import { elencaCaratteri, ESTENSIONI, MASSIMO_BYTE, nomeDelCarattere, nomeDelFile, salvaCarattere } from "../../server/src/caratteri"
+import { faseDelVideo } from "../../server/src/fasi"
+import { Parlato, semplifica } from "../../server/src/parlato"
+import { stiliDiPartenza } from "../../server/src/stiliDiPartenza"
 import { creaChatFinta } from "./finto-chat"
 import { CARTELLA_PREDEFINITA, generaArchivio } from "./genera-archivio"
 import { applicaBase, risolvi } from "./risolvi-finto"
 
 const PORTA = Number(process.env.PORTA_FINTO ?? 47531)
 const MONTA_MS = Number(process.env.MONTA_FINTO_MS ?? 900)
-const ARCHIVIO = resolve(process.env.FINTO_ARCHIVIO ?? CARTELLA_PREDEFINITA)
+const ARCHIVIO = resolve(process.env.FINTO_ARCHIVIO || CARTELLA_PREDEFINITA)
 const RADICE_REPO = resolve(import.meta.dir, "..", "..")
 const DIST = resolve(process.env.FINTO_DIST ?? resolve(import.meta.dir, "..", "dist"))
 
@@ -47,6 +52,16 @@ function emetti(evento: Evento): void {
 const problemiDelVideo = new Map<string, { scheda: string[]; piano: string[] }>()
 const problemiDelGirato = new Map<string, string[]>()
 let problemiDelProfilo: string[] = []
+// Il profilo del creator di prova: si corregge da `PUT /api/profilo`, e `POST /finto/profilo` con `{ vuoto: true }` lo toglie (il creator che non ha fatto il primo giro).
+const PROFILO_DI_PROVA: ProfiloDelCreator = {
+  creator: { nome: "Anna", lingua: "it" },
+  pubblico: { livello: "non tecnico", lingua: "it", testate: ["Il Corriere", "La Repubblica"] },
+  canali: [{ piattaforma: "tiktok", nome: "@esempio", formato: "verticale" }],
+  non_si_dice: ["parolacce", "il nome del mio datore di lavoro"],
+}
+let profiloDelCreator: ProfiloDelCreator = structuredClone(PROFILO_DI_PROVA)
+// Se il canale ha già una lettura: `POST /finto/canale` con `{ letto: false }` fa vedere lo studio di un creator nuovo, senza la voce «Canale».
+let canaleLetto = true
 
 // Lo studio dal telefono: spento di base; `POST /finto/tailscale` dice com'è Tailscale sul computer finto.
 let studioAcceso = false
@@ -69,6 +84,25 @@ const statoDi = (slug: string) => {
   stato.set(slug, s)
   return s
 }
+
+/** Le versioni di prima del piano (le tiene il server vero in `storia/`): `fino` è quando un'altra versione le ha sostituite. Alla partenza pasta-fresca ne ha tre, perché le foto abbiano da mostrare. */
+const versioniDi = new Map<string, Array<{ testo: string; fino: number }>>()
+const versioniDel = (slug: string) => versioniDi.get(slug) ?? versioniDi.set(slug, []).get(slug)!
+
+async function seminaVersioni(slug: string): Promise<void> {
+  const piano = await leggi<Piano>(join(cartellaVideo(slug), "piano.json"))
+  const scene = piano.scene ?? []
+  const ore = [50, 26, 3]
+  const primaDelPezzo = scene.findIndex((sc) => sc.pezzi.length > 1)
+  const senzaUnPezzo = scene.map((sc, i) => (i === primaDelPezzo ? { ...sc, pezzi: sc.pezzi.slice(0, -1) } : sc))
+  ;[scene.slice(0, 1), scene.slice(0, 2), senzaUnPezzo].forEach((scritte, i) => {
+    versioniDel(slug).push({ testo: JSON.stringify({ ...piano, scene: scritte }, null, 2), fino: Date.now() - ore[i]! * 3_600_000 })
+  })
+  statoDi(slug).passato.push(...versioniDel(slug).map((v) => v.testo))
+}
+if (existsSync(join(cartellaVideo("pasta-fresca"), "piano.json"))) await seminaVersioni("pasta-fresca")
+
+const parlato = new Parlato()
 
 const stileAttuale = () => leggi<Stile>(join(ARCHIVIO, "stile.json"))
 
@@ -147,6 +181,16 @@ function montatoDi(elenco: Uscita[]): { file: string; quando: string } | null {
   return scelto ? { file: scelto.file, quando: scelto.cambiato } : null
 }
 
+/** La fase del video: la stessa regola del server vero (`server/src/fasi.ts`), sui file dell'archivio di prova. */
+async function faseDi(slug: string, scheda: Scheda, elenco: Uscita[], anteprima: boolean, effettivo: PianoCompleto | null, pianoCambiato: number) {
+  const cartella = cartellaVideo(slug)
+  const finale = elenco.find((u) => u.file.endsWith("/uscite/finale.mp4"))
+  return faseDelVideo(
+    { slug, scheda, uscite: elenco, anteprima: anteprima ? {} : null, testoRegistrato: existsSync(join(cartella, "materiali", "testo-registrato.md")), pianoTesto: existsSync(join(cartella, "piano.json")) ? "" : null, pianoConBase: effettivo },
+    finale !== undefined && pianoCambiato > Date.parse(finale.cambiato),
+  )
+}
+
 async function elencoMateriali(slug: string): Promise<Array<{ file: string; byte: number }>> {
   const cartella = join(cartellaVideo(slug), "materiali")
   if (!existsSync(cartella)) return []
@@ -205,6 +249,7 @@ async function dettaglio(slug: string) {
     materiali: await elencoMateriali(slug),
     puo_annullare: s.passato.length > 0,
     puo_rifare: s.futuro.length > 0,
+    fase: await faseDi(slug, scheda, elenco, ["png", "jpg", "jpeg", "webp"].some((e) => existsSync(join(cartella, "materiali", `anteprima.${e}`))), piano ? effettivo : null, pianoCambiato),
     lavoro: lavoroDi(slug),
     montaggio_superato: inCorso?.comando === "monta" && inCorso.slug === slug && (pianoSalvatoA.get(slug) ?? 0) > Date.parse(inCorso.iniziato ?? ""),
     piano_cambiato: pianoCambiato > 0 ? new Date(pianoCambiato).toISOString() : null,
@@ -224,6 +269,7 @@ async function elenco(): Promise<VoceElenco[]> {
       const uscita = await uscite(slug)
       const copertina = uscita.find((u) => u.file.endsWith("copertina.png"))
       const anteprima = ["png", "jpg", "jpeg", "webp"].map((e) => `video/${slug}/materiali/anteprima.${e}`).find((p) => existsSync(join(ARCHIVIO, p))) ?? null
+      const pianoCambiato = Math.max(0, pianoSalvatoA.get(slug) ?? 0, existsSync(join(cartella, "piano.json")) ? (await stat(join(cartella, "piano.json"))).mtime.getTime() : 0)
       const tocchi = await Promise.all([join(cartella, "scheda.json"), join(cartella, "piano.json")].filter(existsSync).map(async (p) => (await stat(p)).mtime.getTime()))
       return {
         slug,
@@ -232,7 +278,9 @@ async function elenco(): Promise<VoceElenco[]> {
         miniatura: copertina?.file ?? uscita.find((u) => u.file.endsWith("/uscite/slide-1.png"))?.file ?? anteprima ?? (primo ? `preparati/${primo.file}/miniatura.jpg` : null) ?? uscita.find((u) => u.file.endsWith("/uscite/prova.jpg"))?.file ?? null,
         anteprima,
         ha_piano: existsSync(join(cartella, "piano.json")),
+        quadri: [...new Set([effettivo?.quadro, ...(effettivo?.scene ?? []).map((s) => s.quadro)].filter((q): q is string => q !== undefined))],
         ha_finale: uscita.some((u) => u.file.endsWith("finale.mp4")),
+        fase: await faseDi(slug, scheda, uscita, anteprima !== null, effettivo, pianoCambiato),
         ultimo_cambio: new Date(Math.max(...tocchi, ...uscita.map((u) => new Date(u.cambiato).getTime()))).toISOString(),
       }
     }),
@@ -341,6 +389,11 @@ async function esegui(c: Compito): Promise<void> {
     riga("3 slide in uscite/, avvisi: 2")
     emetti({ tipo: "video", slug: c.slug, cosa: "uscite" })
   }
+  if (c.comando === "scene-foto") {
+    riga("Disegno la scena nel browser")
+    await dormi(900)
+    riga("2 foto, 0 segnalazioni")
+  }
   if (c.comando === "prepara-file") {
     riga("Preparo il girato")
     await dormi(600)
@@ -382,6 +435,7 @@ async function scriviPiano(slug: string, piano: Piano, registra: boolean): Promi
   if (registra) {
     s.passato.push(prima)
     s.futuro = []
+    versioniDel(slug).push({ testo: prima, fino: Date.now() })
   }
   await mkdir(join(cartellaVideo(slug), "storia"), { recursive: true })
   await writeFile(join(cartellaVideo(slug), "storia", `${s.passato.length}.json`), prima)
@@ -541,11 +595,26 @@ async function porta(richiesta: Request): Promise<Response> {
     return json({})
   }
   if (percorso === "/finto/profilo" && metodo === "POST") {
-    problemiDelProfilo = (await corpo<{ problemi?: string[] }>()).problemi ?? []
+    const { problemi, vuoto } = await corpo<{ problemi?: string[]; vuoto?: boolean }>()
+    problemiDelProfilo = problemi ?? []
+    profiloDelCreator = vuoto ? {} : structuredClone(PROFILO_DI_PROVA)
     emetti({ tipo: "profilo" })
     return json({})
   }
-  if (percorso === "/api/profilo" && metodo === "GET") return json({ valido: problemiDelProfilo.length === 0, presente: true, canali: [{ piattaforma: "tiktok", nome: "@esempio" }], problemi: problemiDelProfilo })
+  if (percorso === "/finto/canale" && metodo === "POST") {
+    canaleLetto = (await corpo<{ letto: boolean }>()).letto
+    emetti({ tipo: "canale", canale: "tiktok" })
+    return json({})
+  }
+  const statoDelProfilo = () => ({ valido: problemiDelProfilo.length === 0, presente: profiloDelCreator.creator !== undefined, canali: (profiloDelCreator.canali ?? []).map((c) => ({ piattaforma: c.piattaforma, nome: c.nome })), profilo: profiloDelCreator, problemi: problemiDelProfilo })
+  if (percorso === "/api/profilo" && metodo === "GET") return json(statoDelProfilo())
+  if (percorso === "/api/profilo" && metodo === "PUT") {
+    const nuove = await corpo<Record<string, unknown>>()
+    if (typeof (nuove.creator as { nome?: unknown } | undefined)?.nome !== "string" || (nuove.creator as { nome: string }).nome === "") throw new ErroreHttp(400, "Il profilo non è valido: creator.nome: non può essere vuoto", ["creator.nome: non può essere vuoto"])
+    profiloDelCreator = Object.fromEntries(Object.entries({ ...profiloDelCreator, ...nuove }).filter(([, v]) => v !== null))
+    emetti({ tipo: "profilo" })
+    return json(statoDelProfilo())
+  }
   if (percorso === "/finto/tailscale" && metodo === "POST") {
     tailscale = (await corpo<{ stato: "pronto" | "bloccato" | "assente" }>()).stato
     emetti({ tipo: "accesso-studio" })
@@ -560,6 +629,32 @@ async function porta(richiesta: Request): Promise<Response> {
   if (percorso === "/api/accesso-studio/chiave" && metodo === "POST") return json(statoStudioRemoto())
   if (percorso === "/api/video" && metodo === "GET") return json(await elenco())
   if (percorso === "/api/video" && metodo === "POST") return json(await nuovoVideo(await corpo()), 201)
+  const versioni = /^\/api\/video\/([^/]+)\/versioni(?:\/(\d+)(\/ripristina)?)?$/.exec(percorso)
+  if (versioni) {
+    const slug = decodeURIComponent(versioni[1]!)
+    if (!(await slugs()).includes(slug)) throw new ErroreHttp(404, "Questo video non c'è. Torna all'elenco dei video e sceglilo di nuovo.")
+    const salvate = versioniDel(slug)
+    const adesso = await readFile(join(cartellaVideo(slug), "piano.json"), "utf8")
+    const conta = (testo: string) => {
+      const scene = (JSON.parse(testo) as Piano).scene ?? []
+      return { scene: scene.length, pezzi: scene.reduce((somma, sc) => somma + sc.pezzi.length, 0) }
+    }
+    if (!versioni[2] && metodo === "GET") {
+      const righe = salvate.map((v, i) => ({ n: i + 1, da: i > 0 ? new Date(salvate[i - 1]!.fino).toISOString() : null, fino: new Date(v.fino).toISOString(), ...conta(v.testo), in_uso: false })).reverse()
+      const piano = pianoSalvatoA.get(slug) ?? (await stat(join(cartellaVideo(slug), "piano.json"))).mtime.getTime()
+      return json({ versioni: [{ n: null, da: new Date(Math.max(piano, salvate.at(-1)?.fino ?? 0)).toISOString(), fino: null, ...conta(adesso), in_uso: true }, ...righe] })
+    }
+    const scelta = salvate[Number(versioni[2]) - 1]
+    if (scelta === undefined) throw new ErroreHttp(404, `Il video «${slug}» non ha una versione ${versioni[2]} del piano: guarda l'elenco delle versioni.`)
+    if (!versioni[3] && metodo === "GET") return json({ n: Number(versioni[2]), piano: JSON.parse(scelta.testo) })
+    if (versioni[3] && metodo === "POST") {
+      if (scelta.testo === adesso) throw new ErroreHttp(409, "Questa versione è già quella in uso.")
+      const piano = JSON.parse(scelta.testo) as Piano
+      await controllaPiano(slug, piano)
+      await scriviPiano(slug, piano, true)
+      return json({ ok: true, piano, puo_annullare: true, puo_rifare: false })
+    }
+  }
   const video = /^\/api\/video\/([^/]+)(?:\/(scheda|piano|annulla|rifai|lavori))?$/.exec(percorso)
   if (video) {
     const slug = decodeURIComponent(video[1]!)
@@ -587,6 +682,18 @@ async function porta(richiesta: Request): Promise<Response> {
       await scriviPiano(slug, piano, true)
       return json({ ok: true, puo_annullare: statoDi(slug).passato.length > 0, puo_rifare: false })
     }
+    if (azione === "piano" && metodo === "PATCH") {
+      let piano: Piano
+      try {
+        piano = applicaRitocchi(await leggi<Piano>(join(cartellaVideo(slug), "piano.json")), await corpo()) as Piano
+      } catch (errore) {
+        if (errore instanceof ErroreRitocco) throw new ErroreHttp(errore instanceof PianoCambiato ? 409 : 400, errore.message)
+        throw errore
+      }
+      await controllaPiano(slug, piano)
+      await scriviPiano(slug, piano, true)
+      return json({ ok: true, piano, puo_annullare: statoDi(slug).passato.length > 0, puo_rifare: false })
+    }
     if ((azione === "annulla" || azione === "rifai") && metodo === "POST") {
       const s = statoDi(slug)
       const da = azione === "annulla" ? s.passato : s.futuro
@@ -609,7 +716,20 @@ async function porta(richiesta: Request): Promise<Response> {
     }
   }
 
+  if (percorso === "/api/animazioni/foto" && metodo === "POST") {
+    const { sigla } = await corpo<{ sigla?: string }>()
+    if (typeof sigla !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(sigla)) throw new ErroreHttp(400, "La sigla ha solo lettere, numeri, trattini e trattini bassi.")
+    return json({ id: mettiInCoda({ slug: null, comando: "scene-foto" }) }, 202)
+  }
+
   if (percorso === "/api/grezzo" && metodo === "GET") return json(await grezzoElenco())
+  // La ricerca nel parlato è quella del server vero, sulle parole dell'archivio di prova.
+  if (percorso === "/api/grezzo/cerca") {
+    const domanda = url.searchParams.get("q") ?? ""
+    if (semplifica(domanda).length < 2) throw new ErroreHttp(400, "Scrivi almeno due lettere da cercare nel parlato.")
+    const file = (await grezzoFile()).filter((g) => existsSync(join(ARCHIVIO, "preparati", g.giorno, g.nome, "parole.json"))).map((g): [string, string] => [`${g.giorno}/${g.nome}`, join(ARCHIVIO, "preparati", g.giorno, g.nome, "parole.json")])
+    return json({ q: domanda, ...(await parlato.cerca(domanda, file.sort(([a], [b]) => b.localeCompare(a)), 100)) })
+  }
   if (percorso === "/api/grezzo/parole") {
     const file = url.searchParams.get("file") ?? ""
     const lista = await leggiSe<ParolaGrezzo[]>(join(ARCHIVIO, "preparati", file, "parole.json"))
@@ -622,6 +742,27 @@ async function porta(richiesta: Request): Promise<Response> {
     await scrivi(join(ARCHIVIO, "grezzo", `${file}.scheda.json`), await corpo())
     emetti({ tipo: "grezzo" })
     return json({})
+  }
+  // Un file del computer nel girato, come `POST /api/grezzo/aggiungi` (corpo o `{ percorso }`): i nomi che cominciano per «doppione» sono già nel girato, quelli che contengono «lento» ci mettono qualche secondo.
+  if (percorso === "/api/grezzo/aggiungi" && metodo === "POST") {
+    const inglese = richiesta.headers.get("x-lingua") === "en"
+    const dalPercorso = (richiesta.headers.get("content-type") ?? "").includes("application/json")
+    const nome = dalPercorso ? ((await corpo<{ percorso: string }>()).percorso.split(/[\\/]/).pop() ?? "") : decodeURIComponent(richiesta.headers.get("x-nome-file") ?? "")
+    const contenuto = dalPercorso ? new Uint8Array(1) : new Uint8Array(await richiesta.arrayBuffer())
+    if (!/\.(mp4|mov|m4v|mkv|webm|avi|heic|jpe?g|png|m4a|mp3|wav)$/i.test(nome)) {
+      throw new ErroreHttp(415, inglese ? `«${nome}» is not a video, a photo or an audio recording: only those go into the footage.` : `«${nome}» non è un video, una foto o una registrazione audio: nel girato entrano solo questi.`)
+    }
+    if (nome.startsWith("doppione")) throw new ErroreHttp(409, inglese ? `«${nome}» is already in the footage (2026-10-09/20261009-101500-${nome}): I won't add it twice.` : `«${nome}» è già nel girato (2026-10-09/20261009-101500-${nome}): non lo aggiungo due volte.`)
+    if (nome.includes("lento")) await dormi(2500)
+    const adesso = new Date()
+    const due = (n: number) => String(n).padStart(2, "0")
+    const giorno = `${adesso.getFullYear()}-${due(adesso.getMonth() + 1)}-${due(adesso.getDate())}`
+    const nomeNelGirato = `${giorno.replaceAll("-", "")}-${due(adesso.getHours())}${due(adesso.getMinutes())}${due(adesso.getSeconds())}-${nome}`
+    await mkdir(join(ARCHIVIO, "grezzo", giorno), { recursive: true })
+    await writeFile(join(ARCHIVIO, "grezzo", giorno, `${nomeNelGirato}.scheda.json`), JSON.stringify({ tipo: "ripresa", origine: "altro", arrivato: adesso.toISOString().slice(0, 19), note: "" }))
+    await writeFile(join(ARCHIVIO, "grezzo", giorno, nomeNelGirato), contenuto)
+    emetti({ tipo: "grezzo" })
+    return json({ file: `${giorno}/${nomeNelGirato}`, byte: contenuto.byteLength }, 201)
   }
   if (percorso === "/api/grezzo/prepara" && metodo === "POST") {
     const { file } = await corpo<{ file: string; sagoma: boolean }>()
@@ -641,6 +782,19 @@ async function porta(richiesta: Request): Promise<Response> {
     await scrivi(join(ARCHIVIO, "stile.json"), nuovo)
     emetti({ tipo: "stile" })
     return json({})
+  }
+  // I tre stili di partenza veri, fusi con lo stile di serie del prodotto (non con quello che il creator ha cambiato); i caratteri del creator stanno nell'archivio di prova.
+  if (percorso === "/api/stile/partenza" && metodo === "GET") return json(stiliDiPartenza(await leggi(join(RADICE_REPO, "stili-di-partenza.json")), await leggi(join(RADICE_REPO, "stile.json"))))
+  if (percorso === "/api/caratteri" && metodo === "GET") return json(await elencaCaratteri(join(RADICE_REPO, "font"), join(ARCHIVIO, "font")))
+  if (percorso === "/api/caratteri" && metodo === "POST") {
+    const { nome, dati } = await corpo<{ nome: string; dati: string }>()
+    const file = nomeDelFile(nome)
+    const byte = Buffer.from(dati, "base64")
+    if (!ESTENSIONI.includes(extname(file))) throw new ErroreHttp(400, "Scegli un file .ttf, .otf o .woff2.")
+    if (byte.length > MASSIMO_BYTE) throw new ErroreHttp(413, "Il file è troppo grande.")
+    const letto = nomeDelCarattere(byte)
+    if (letto === null) throw new ErroreHttp(400, "Questo file non è un carattere che posso usare: scegli un file .ttf, .otf o .woff2.")
+    return json({ file: await salvaCarattere(file, byte, join(RADICE_REPO, "font"), join(ARCHIVIO, "font")), nome: letto })
   }
   if (percorso === "/api/macchina" && metodo === "GET") return json((await leggiSe<{ macchina: object }>(join(ARCHIVIO, "profilo.json")))?.macchina ?? {})
   if (percorso === "/api/motori" && metodo === "GET") return json((await leggiSe<{ motori: Motori }>(join(ARCHIVIO, "profilo.json")))?.motori ?? {})
@@ -673,7 +827,7 @@ async function porta(richiesta: Request): Promise<Response> {
     return json({})
   }
   if (percorso === "/api/arrivi" || percorso === "/api/arrivi/controlla") {
-    const stato: StatoArrivi = { in_ascolto: true, indirizzo: "192.168.1.20:47420", qr: QR, errore: null, ultimi: [{ file: "2026-10-06/20261006-222801-prova-a.mp4", quando: "2026-10-06T22:28:01", byte: 412_000 }], firewall: "consentito", pronto: true, motivo: null, guarda: "http://192.168.1.20:47420/guarda?chiave=prova", qr_guarda: QR, carica: "http://192.168.1.20:47420/carica?chiave=prova", qr_carica: QR }
+    const stato: StatoArrivi = { acceso: true, in_ascolto: true, indirizzo: "192.168.1.20:47420", qr: QR, errore: null, ultimi: [{ file: "2026-10-06/20261006-222801-prova-a.mp4", quando: "2026-10-06T22:28:01", byte: 412_000 }], firewall: "consentito", pronto: true, motivo: null, guarda: "http://192.168.1.20:47420/guarda?chiave=prova", qr_guarda: QR, carica: "http://192.168.1.20:47420/carica?chiave=prova", qr_carica: QR }
     return json(stato)
   }
   if (percorso === "/api/registrazione" && metodo === "GET") {
@@ -681,7 +835,7 @@ async function porta(richiesta: Request): Promise<Response> {
     return json(stato)
   }
   if (percorso === "/api/consumi" && metodo === "GET") return json(CONSUMI)
-  if (percorso === "/api/canale/tiktok" && metodo === "GET") return json(CANALE)
+  if (percorso === "/api/canale/tiktok" && metodo === "GET") return json(canaleLetto ? CANALE : { ultima: null, letture: [], profilo: null, video: [] })
   // Classifica, strategia e commenti non ancora letti: le viste mostrano cosa chiedere nella chat.
   if (percorso === "/api/canale/tiktok/classifica" && metodo === "GET") return json({ quando: null, io: null, quando_io: null, come: [], righe: [] })
   if (percorso === "/api/canale/tiktok/crescita" && metodo === "GET") return json({ quando: null })
@@ -694,8 +848,9 @@ async function porta(richiesta: Request): Promise<Response> {
   }
 
   if (percorso.startsWith("/media/") || percorso.startsWith("/font/")) {
-    const radice = percorso.startsWith("/media/") ? ARCHIVIO : join(RADICE_REPO, "font")
     const relativo = decodeURIComponent(percorso.replace(/^\/(media|font)\//, ""))
+    // I caratteri: prima quelli del creator, poi quelli del prodotto.
+    const radice = percorso.startsWith("/media/") ? ARCHIVIO : [join(ARCHIVIO, "font"), join(RADICE_REPO, "font")].find((r) => existsSync(join(r, relativo))) ?? join(RADICE_REPO, "font")
     const file = normalize(join(radice, relativo))
     if (!file.startsWith(radice + sep) || !existsSync(file)) return json({ errore: "Questo file non c'è nell'archivio." }, 404)
     const dati = Bun.file(file)

@@ -1,7 +1,7 @@
 // Lo studio sulla rete. Il ricevitore controlla da solo l'accesso (cookie di sessione, e `Origin` quando c'è) e poi gira la richiesta al server
 // dello studio, che ascolta solo su 127.0.0.1 e per lui è una richiesta come le altre. Il corpo e la risposta passano a flusso: gli eventi
 // (SSE) e i video a pezzi (`Range`) non si bufferizzano.
-import { INTESTAZIONE_CHIAVE, linguaDellaPagina } from "../accesso"
+import { cookieDi, INTESTAZIONE_CHIAVE, linguaDellaPagina } from "../accesso"
 import { frase, linguaDi, nellaLinguaDi, type Testo } from "../lingua"
 import { DURATA_SESSIONE_S, type AccessoStudio } from "./accessoStudio"
 import { esc, STILE_BASE } from "./pagine"
@@ -15,8 +15,8 @@ const NON_SI_GIRANO = ["host", "origin", "referer", "cookie", "authorization", "
 const NON_SI_RIDANNO = ["connection", "keep-alive", "transfer-encoding"]
 
 const FRASE_ENTRATA = frase(
-  "Per entrare nello studio apri il link che si trova sul computer, in Girato, nel riquadro «Lo studio dal telefono».",
-  "To get into the studio, open the link on the computer, in Footage, in the box «The studio on your phone».",
+  "Per entrare nello studio apri il link che si trova sul computer, in Impostazioni › Telefono, nel riquadro «Lo studio dal telefono».",
+  "To get into the studio, open the link on the computer, in Settings › Phone, in the box «The studio on your phone».",
 )
 const CHIAVE_SBAGLIATA = frase(`La chiave dello studio non è giusta. ${FRASE_ENTRATA.it}`, `The studio key is not right. ${FRASE_ENTRATA.en}`)
 const SESSIONE_SCADUTA = frase(`La sessione non c'è o è scaduta. ${FRASE_ENTRATA.it}`, `There is no session, or it has expired. ${FRASE_ENTRATA.en}`)
@@ -33,14 +33,6 @@ const rispondi = (req: Request, stato: number, testo: Testo): Response => {
     `<!doctype html>\n<html lang="${lingua}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mango Animation</title><style>${STILE_BASE}</style></head><body><h1>Mango Animation</h1><p>${esc(nellaLinguaDi(testo, lingua))}</p></body></html>`,
     { status: stato, headers: { "Content-Type": "text/html; charset=utf-8", ...NO_STORE } },
   )
-}
-
-function cookieDi(req: Request, nome: string): string | null {
-  for (const voce of (req.headers.get("cookie") ?? "").split(";")) {
-    const [chiave, ...valore] = voce.trim().split("=")
-    if (chiave === nome) return valore.join("=")
-  }
-  return null
 }
 
 /** `/studio?chiave=…`: con la chiave giusta mette il cookie di sessione e rimanda allo studio. */
@@ -100,7 +92,8 @@ export async function giraAlloStudio(accesso: AccessoStudio, porta: number | nul
     req.signal.addEventListener("abort", lascia, { once: true })
     const corpo = su.body.pipeThrough(new TransformStream({ flush: lascia }))
     return new Response(corpo, { status: su.status, statusText: su.statusText, headers: risposta })
-  } catch {
+  } catch (causa) {
+    console.error(`studio dalla rete: ${req.method} ${url.pathname} non ha avuto risposta dal server interno: ${causa instanceof Error ? causa.message : String(causa)}`)
     return errore(req, 502, frase("Lo studio non risponde: controlla che Mango Animation sia acceso sul computer.", "The studio is not answering: check that Mango Animation is running on the computer."))
   }
 }

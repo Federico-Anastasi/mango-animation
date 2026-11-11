@@ -20,7 +20,7 @@ English version: [english.md](english.md).
 - **Windows 10 o 11, 64 bit.** L'app è solo per Windows (provata su Windows 11).
 - **Claude Code**, con il tuo account Claude. L'app non lo porta con sé e non usa le tue credenziali: parla con il programma che hai già sul computer, e il lavoro della chat conta nei limiti del tuo abbonamento Claude, pensati per un uso ordinario e individuale: i lavori lunghi messi in fila (per esempio tanti rimontaggi di seguito) li consumano in fretta. Se non ce l'hai, l'app ti guida a installarlo al primo avvio (sotto).
 - **Spazio sul disco.** Al primo avvio l'app scarica i programmi e i modelli che le servono: circa 12 GB con una scheda video NVIDIA, circa 8 GB senza. Tieni liberi almeno 20 GB (12 senza scheda), più lo spazio per le tue riprese. L'app ti mostra le cifre esatte prima di scaricare e non parte se lo spazio non basta.
-- **Una scheda video NVIDIA è consigliata, non obbligatoria.** Con la scheda i lavori pesanti (trascrizione, sagoma, resa delle animazioni) sono molto più veloci. Senza, si fa tutto lo stesso, solo più lentamente. La pagina **Motori** dello studio dice cosa ha il tuo computer e dove gira ogni funzione. Due soglie da sapere: la sagoma sul processore è lenta sotto gli 8 thread, e con meno di 4 GB di memoria il modello grande per capire la voce non ci sta e resta quello piccolo, meno preciso.
+- **Una scheda video NVIDIA è consigliata, non obbligatoria.** Con la scheda i lavori pesanti (trascrizione, sagoma, resa delle animazioni) sono molto più veloci. Senza, si fa tutto lo stesso, solo più lentamente. La sezione **Computer** delle **Impostazioni** dice cosa ha il tuo computer e dove gira ogni funzione. Due soglie da sapere: la sagoma sul processore è lenta sotto gli 8 thread, e con meno di 4 GB di memoria il modello grande per capire la voce non ci sta e resta quello piccolo, meno preciso.
 - **Una connessione a internet**, per lo scarico del primo avvio e per Claude.
 - **Facoltativi:** un microfono e una webcam (per registrare dallo studio e dettare alla chat), un telefono (per mandare le riprese al computer e guardare i video).
 
@@ -77,7 +77,7 @@ Spegni ciò che non ti serve: l'elenco di sotto e lo spazio richiesto si ricalco
 - Se qualcosa non va, la pagina dice quale voce e perché; **«Riprova»** non riscarica ciò che è già arrivato.
 - **«Non ora»** apre lo studio com'è. Le funzioni che mancano si fermeranno e diranno cosa manca.
 
-Dopo, per accendere o spegnere una funzione, usa la pagina **Motori** dello studio: ciò che accendi lo scarica l'app al prossimo avvio.
+Dopo, per accendere o spegnere una funzione, usa **Impostazioni › Computer**: ciò che accendi lo scarica l'app al prossimo avvio.
 
 ### Lo studio
 
@@ -87,12 +87,11 @@ Appena il computer è pronto, l'app mostra lo studio. In alto la barra con le pa
 |---|---|
 | **Video** | i tuoi video, per stato |
 | **Girato** | tutte le tue riprese |
-| **Pubblico**, **Classifica**, **Crescita** | per chi pubblica su TikTok: numeri e commenti dei video usciti, confronto con altri profili, piano di crescita. Sono vuote finché non ci sono i dati; ogni pagina vuota dice cosa chiedere nella chat |
+| **Canale** | per chi pubblica su TikTok, in tre schede: **Pubblico** (numeri e commenti dei video usciti), **Classifica** (confronto con altri profili), **Crescita** (piano di crescita). Compare nella barra solo quando c'è un canale letto: la prima lettura la chiedi nella chat («aggiorna i dati di TikTok») o da **Impostazioni › Profilo**, con **«Leggi i dati di TikTok»** |
 | **Produzione** | quanti video hai fatto e quanto lavoro di Claude sono costati |
-| **Stile** | i tuoi standard: inquadrature, colori, sottotitoli, titolo; i valori si cambiano e si salvano con **«Salva»** |
-| **Motori** | cosa ha il computer e quali funzioni pesanti sono accese |
+| **Impostazioni** | cinque sezioni: **Profilo** (chi sei, a chi parli, dove pubblichi, cosa non dici), **Stile** (i tuoi standard: inquadrature, colori, sottotitoli, titolo; i valori si cambiano e si salvano con **«Salva»**), **Computer** (cosa ha il computer e quali funzioni pesanti sono accese), **Telefono** (collegarlo, e lo studio dal telefono), **Generali** (cartella dei dati, lingua, tema, guida) |
 
-A destra nella barra: **Telefono** (se il telefono può mandare file), **Chat**, **Registra**, **Lavori** (cosa sta girando), la cartella dei dati, **IT**/**EN** (lingua) e il tema chiaro/scuro.
+A destra nella barra: **Telefono pronto** (compare quando il telefono può mandare file), **Chat**, **Registra** e **Lavori** (compare quando c'è qualcosa in corso o in coda).
 
 ---
 
@@ -106,13 +105,13 @@ Il metodo con cui l'app fa i video è lo stesso per tutti. Ciò che è tuo (come
 |---|---|
 | Chi sei | il tuo nome e la lingua in cui parli e scrivi: è la lingua dei tuoi video e delle risposte di Claude |
 | Il pubblico | che livello ha (per esempio «non tecnico»: niente sigle né numeri tecnici a schermo), la sua lingua, le testate che conosce (le pagine di giornale nei video sono le sue) |
-| I canali | dove pubblichi (TikTok, YouTube, X), con che nome e in che formato (verticale o orizzontale). Le regole di una piattaforma valgono se sta fra i tuoi canali |
+| I canali | dove pubblichi (TikTok, Instagram, YouTube, X), con che nome e in che formato (verticale o orizzontale). Le regole di una piattaforma valgono se sta fra i tuoi canali |
 | Cosa non dici | frasi, argomenti, toni che nei tuoi video non ci sono: proposte, script, didascalie e risposte li rispettano |
 | Le fonti delle idee | le cartelle dei tuoi lavori da cui nascono le proposte |
 | Il tuo computer | quale scheda video usare se ne hai più d'una, e se il disco è quasi pieno (allora un video grande si collega invece di essere copiato) |
 | Le tue regole | testo libero: come costruisci un video, come chiudi, come scrivi didascalie e hashtag, come chiami le inquadrature |
 
-Il tuo **stile** (colori, titolo, sottotitoli, ritmo) sta nella pagina **Stile**: quello che cambi si sovrappone a quello di serie, e il resto resta com'è.
+Il tuo **stile** (colori, titolo, sottotitoli, ritmo) sta in **Impostazioni › Stile**: quello che cambi si sovrappone a quello di serie, e il resto resta com'è. In cima ci sono tre stili di partenza da scegliere vedendoli (**«Usa questo»**), e col pulsante **«Aggiungi un carattere»** porti un tuo carattere (`.ttf`, `.otf` o `.woff2`) nei sottotitoli, nel titolo e nelle animazioni.
 
 ### Come lo scrivi
 
@@ -120,11 +119,11 @@ Dillo a Claude nella chat. Per esempio:
 
 > Facciamo il mio profilo: fammi le domande che servono e scrivilo.
 
-Claude ti chiede chi sei, a chi parli, dove pubblichi, cosa non dici, e lo scrive nella cartella dei dati. Puoi correggerlo quando vuoi, sempre a parole: «aggiungi YouTube fra i miei canali», «il mio pubblico non è tecnico», «non dico mai…». **Non modificare i file a mano**: un errore di scrittura lo rende inutilizzabile: l'app parte lo stesso, ma lavora con l'ultimo profilo che andava (o senza profilo, se non ce n'era uno) finché non lo sistemi. Chiedi a Claude.
+Claude ti chiede chi sei, a chi parli, dove pubblichi, cosa non dici, e lo scrive nella cartella dei dati. Puoi correggerlo quando vuoi: a parole («aggiungi YouTube fra i miei canali», «il mio pubblico non è tecnico», «non dico mai…») oppure da **Impostazioni › Profilo**, dove vedi i campi e li cambi con **«Salva»** (ciò che scrive la chat compare lì, e viceversa; se un campo non va, la pagina dice quale e perché). **Non modificare il file a mano**: un errore di scrittura lo rende inutilizzabile: l'app parte lo stesso, ma lavora con l'ultimo profilo che andava (o senza profilo, se non ce n'era uno) finché non lo sistemi. Chiedi a Claude.
 
 Senza profilo l'app funziona con le regole di serie, ma Claude non sa niente di te né del tuo pubblico: conviene cominciare da qui.
 
-Il computer (quali funzioni sono accese, dove girano) lo regoli anche dalla pagina **Motori**, senza passare dalla chat.
+Il computer (quali funzioni sono accese, dove girano) lo regoli anche da **Impostazioni › Computer**, senza passare dalla chat.
 
 ---
 
@@ -146,7 +145,9 @@ Parli con Claude nella **chat** e guardi il risultato nello studio. Ogni video s
 
 ### Dove stanno i tuoi video
 
-La pagina **Video** li divide per stato: in lavorazione, proposte, pronti, pubblicati, scartati. Ogni video è una carta con la sua immagine. Per un video nuovo c'è la riga «Per un video nuovo, chiedilo nella chat». Aprendo un video trovi queste schede: **Prova** (quando c'è), **Montaggio**, **Scheda**, **Controllo**, **Copertina**, **File**. Il menu **Stato** in alto cambia lo stato (Proposta, In lavorazione, Pronto, Pubblicato, Scartato).
+La pagina **Video** li divide per stato: in lavorazione, proposte, pronti, pubblicati, scartati. Ogni video è una carta con la sua immagine e dice a che passo è («Passo 3 di 8 · Prova»). Per un video nuovo c'è la riga «Per un video nuovo, chiedilo nella chat». Aprendo un video trovi queste schede: **Prova** (quando c'è), **Montaggio**, **Scheda**, **Controllo**, **Copertina**, **File**. Il menu **Stato** in alto cambia lo stato (Proposta, In lavorazione, Pronto, Pubblicato, Scartato).
+
+In testa alla pagina di un video una riga mostra gli otto passi qui sotto: quelli fatti segnati, quello di adesso in rilievo (a pagina stretta si accorcia in «Passo 3 di 8 · Prova»), e accanto cosa dire nella chat per andare avanti, per esempio «Dimmi in chat: “fammi la prova”». **«Scrivila nella chat»** mette quella frase nel campo della chat senza mandarla: la rileggi, la cambi se vuoi e la mandi tu. Il passo si ricava dai file del video, non va segnato a mano.
 
 Il pannello **Lavori** nella barra dice cosa sta girando e cosa aspetta, con la stima di quanto dura e **«Ferma»** per interrompere. Il computer fa un lavoro pesante alla volta.
 
@@ -155,7 +156,7 @@ Il pannello **Lavori** nella barra dice cosa sta girando e cosa aspetta, con la 
 | | passo | cosa dici nella chat | dove guardi |
 |---|---|---|---|
 | 1 | **L'idea** | «cosa facciamo adesso?» oppure «ho pensato a…», o porti delle riprese («ti ho dato i video») | **Video**, gruppo **Proposte**: la carta del nuovo video con la sua anteprima |
-| 2 | **Lo script** | discuti il testo con Claude finché ti va bene | video, scheda **Scheda**, sezione **La proposta**: **Aggancio**, **Centro**, **Chiusa** (li puoi anche scrivere tu: si salva uscendo dal campo) |
+| 2 | **Lo script** | discuti il testo con Claude finché ti va bene | video, scheda **Scheda**, sezione **Il copione**: **Aggancio**, **Centro**, **Chiusa** (li puoi anche scrivere tu: si salva uscendo dal campo) |
 | 3 | **La prova** | «fammi la prova» | scheda **Prova** (le animazioni con la battuta da dire, per registrare) |
 | 4 | **Il testo registrato** | «ho registrato» | in chat, frase per frase, con la ripresa scelta; in **Girato**, aprendo il file, **Il parlato** con i tempi |
 | 5 | **Testo e animazioni** | dici cosa funziona e cosa no | in chat prima a parole, poi un fotogramma per scena |
@@ -175,15 +176,15 @@ Il pannello **Lavori** nella barra dice cosa sta girando e cosa aspetta, con la 
 
 **3. La prova.** È un video senza la tua voce: le animazioni con, sotto, ogni frase intera da leggere (la parola da dire ora in rosso, quelle già dette in nero, quelle da dire in grigio). Ti registri guardandolo. Non è il video finito. Il pannello **Lavori** la mostra come «Prova per registrare»; dal telefono la trovi nella pagina «Le prove» (sezione 5).
 
-**4. Il testo registrato.** Le riprese arrivano dal telefono, da **Registra** o dalla chat (sezione 5). Appena ci sono, Claude le trascrive e ti propone il testo del video frase per frase, con la ripresa scelta, i secondi, e cosa resta fuori. Discuti finché lo fissi.
+**4. Il testo registrato.** Le riprese arrivano dal computer (**Aggiungi video**, in **Girato**), dal telefono, da **Registra** o dalla chat (sezione 5). Appena ci sono, Claude le trascrive e ti propone il testo del video frase per frase, con la ripresa scelta, i secondi, e cosa resta fuori. Discuti finché lo fissi.
 
 **5. Testo e animazioni.** Per ogni frase Claude descrive a parole cosa mostra la scena e su quale parola entra ogni cosa; tu dici cosa va e cosa no. Poi un **fotogramma fermo** per scena. La resa vera parte solo dopo il tuo sì. Le animazioni sono sempre in movimento, mai un elenco puntato animato.
 
 **6. Il montaggio.** Claude scrive il piano del montaggio, ti dice quanto dura e aspetta il tuo via. Poi monta (i tagli cadono sempre sulle parole intere), **controlla** (riascolta il file, guarda i fotogrammi accanto alle parole, rilegge cosa dici e cosa mostri alla ricerca di errori) e fa la copertina. Nella scheda **Montaggio**:
 
 - l'anteprima ha due modi: **Piano** (mostra subito il piano, per correggere) e **Montato** (il video completo, con la copertina in testa);
-- sotto, la **timeline**: scene, tratti, parole, sottotitoli, titolo e suoni; puoi trascinare i bordi dei tratti e dividere con il tasto **S**;
-- **Annulla** e **Rifai** sono in alto.
+- sotto, la **timeline**: scene, pezzi, parole, sottotitoli, titolo e suoni; puoi trascinare i bordi dei pezzi e dividere con il tasto **S**;
+- **Annulla** e **Rifai** sono in alto; sotto, **Versioni** elenca i piani di prima con data e ora e quante scene e pezzi avevano: **Guarda** mostra com'era (scene e pezzi, senza cambiare niente) e **Torna a questa** lo rimette, dopo una conferma. Quello di adesso resta fra le versioni: non si perde niente. Il video montato cambia solo quando lo rimonti.
 
 Se ritocchi a mano e Claude sta già montando, la barra dice «Piano cambiato»: il montaggio ripartirà da solo, oppure lo fermi con **«Ferma»** nel pannello Lavori e chiedi a Claude di rimontare.
 
@@ -201,15 +202,23 @@ Oltre ai video puoi fare **caroselli** (immagini che scorrono, per TikTok): chie
 
 ### Leggere TikTok e scaricare dal web
 
-Se lo chiedi, Claude può leggere i numeri, i commenti e i messaggi del tuo canale TikTok dal tuo browser, e scaricare nel girato un video del web (o un suo tratto). Fallo **solo sui tuoi account e su contenuti che hai il diritto di usare**: i termini di TikTok, di YouTube e degli altri siti li devi rispettare tu, l'app non li controlla.
+Se lo chiedi, Claude può leggere i numeri, i commenti e i messaggi del tuo canale TikTok dal tuo browser, e scaricare nel girato un video del web (o un suo pezzo). Fallo **solo sui tuoi account e su contenuti che hai il diritto di usare**: i termini di TikTok, di YouTube e degli altri siti li devi rispettare tu, l'app non li controlla.
 
 ---
 
 ## 5. Il telefono, registrare, le lingue
 
+### Cercare cosa hai detto
+
+In **Girato**, sopra l'elenco, il campo **«Cerca nel parlato»** cerca nelle parole già trascritte di tutti i tuoi file, senza badare a maiuscole e accenti: scrivi una parola o più parole di fila («il segreto è la pazien»). I risultati dicono il file, il minuto e la frase intorno; un clic apre il file a quel punto. Cerca solo nei file già preparati.
+
+### Mettere nel girato un video che hai già sul computer
+
+Nella pagina **Girato** premi **«Aggiungi video»** e scegli i file (anche più insieme), oppure trascinali sulla pagina: mentre li trascini compare il riquadro dove rilasciarli. Vanno bene video, foto e registrazioni audio. Sotto la testata vedi a che punto è ogni file; un file che non entra dice perché (per esempio è già nel girato). I file entrano nel girato di oggi, con la loro scheda, come quelli che arrivano dal telefono.
+
 ### Mandare le riprese dal telefono al computer
 
-Nella pagina **Girato**, in cima, c'è il riquadro **«Arrivi dal telefono»**. Di base è spento: il computer non ascolta la rete. Premi **«Collega un telefono»**: compaiono due codici da inquadrare col telefono, nello stesso Wi-Fi.
+In **Impostazioni › Telefono** c'è il riquadro **«Arrivi dal telefono»**. Di base è spento: il computer non ascolta la rete. Premi **«Collega un telefono»**: compaiono due codici da inquadrare col telefono, nello stesso Wi-Fi.
 
 - **La Scorciatoia**: installa sull'iPhone un comando rapido che manda i video al computer.
 - **Carica dalla pagina**: apre sul telefono una pagina con il bottone «Carica video», per scegliere dalla libreria. Non serve installare niente.
@@ -222,7 +231,7 @@ Quando un telefono è collegato, nella pagina **Video** e nella pagina di ogni v
 
 ### Lo studio intero dal telefono
 
-In **Girato**, sotto gli arrivi, **«Lo studio dal telefono»** (spento di base). **«Accendi»** mostra due strade, ognuna con il suo codice: **In casa (stesso Wi-Fi)** e **Fuori casa (Tailscale)**, che richiede Tailscale acceso sul computer e sul telefono. Col telefono usi lo studio intero: video, montaggio e chat. **Chi ha il link comanda il tuo computer** attraverso la chat: non darlo a nessuno. **«Spegni»** fa uscire tutti e cambia il link; **«Rifai la chiave»** dà un link nuovo, e i telefoni già entrati devono rientrare. Il riquadro si vede solo dal computer, non dal telefono.
+In **Impostazioni › Telefono**, sotto gli arrivi, **«Lo studio dal telefono»** (spento di base). **«Accendi»** mostra due strade, ognuna con il suo codice: **In casa (stesso Wi-Fi)** e **Fuori casa (Tailscale)**, che richiede Tailscale acceso sul computer e sul telefono. Col telefono usi lo studio intero: video, montaggio e chat. **Chi ha il link comanda il tuo computer** attraverso la chat: non darlo a nessuno. **«Spegni»** fa uscire tutti e cambia il link; **«Rifai la chiave»** dà un link nuovo, e i telefoni già entrati devono rientrare. Il riquadro si vede solo dal computer, non dal telefono.
 
 ### Registrare dallo studio
 
@@ -236,7 +245,7 @@ Per le voci con il microfono e per il viso scegli anche quale microfono e quale 
 
 ### Le lingue
 
-- **L'interfaccia** è in italiano e in inglese. Il pulsante con la sigla (**IT** o **EN**) nella barra passa dalla lingua del sistema all'italiano all'inglese. Le schermate dell'app e i suoi messaggi di errore seguono la stessa lingua.
+- **L'interfaccia** è in italiano e in inglese. Si sceglie in **Impostazioni › Generali**: la lingua del sistema, l'italiano o l'inglese. Le schermate dell'app e i suoi messaggi di errore seguono la stessa lingua.
 - **La lingua dei tuoi video** è nel profilo: Claude ti scrive in quella lingua e prepara i testi dei video in quella lingua.
 - **Una versione in un'altra lingua** di un video già fatto: chiedi «la versione inglese» (o un'altra lingua). Cambiano sottotitoli, titolo, copertina e scritte nelle animazioni; la tua voce resta quella originale. Il video tradotto è un video nuovo accanto all'originale. Se la copertina ha del testo disegnato, va rifatta tradotta.
 
@@ -261,10 +270,10 @@ Chiudi la finestra dell'app e riaprila dal menu Start. Chiudendola, l'app ferma 
 | un avviso rosso sulla scheda o sul piano di un video | un file non passa i controlli: chiedi nella chat di sistemarlo; il perché preciso si apre a richiesta |
 | un lavoro **non riuscito** nel pannello **Lavori** | chiedi a Claude cosa è successo e di rifarlo |
 | **«Più del previsto»** su un lavoro | sta impiegando più della stima; puoi aspettare o fermarlo con **«Ferma»** |
-| **Telefono non pronto** | passa il mouse sul bottone o apri **Girato**: il riquadro dice perché (di solito Windows blocca il programma: sbloccalo in «Sicurezza di Windows» o metti il Wi-Fi su «Rete privata») e **«Controlla di nuovo»** |
+| il telefono non manda i file | in **Girato**, in cima, una riga lo dice; apri **Impostazioni › Telefono**: il riquadro dice perché (di solito Windows blocca il programma: sbloccalo in «Sicurezza di Windows» o metti il Wi-Fi su «Rete privata») e **«Controlla di nuovo»** |
 | **Registra** dice che non è disponibile | il pannello scrive il motivo |
-| il pannello **Motori** dice che una scelta non va | per esempio una scheda che non c'è o è occupata: il lavoro si ferma e dice cosa correggere, non passa da solo al processore |
-| lo spazio non basta | libera spazio, oppure spegni qualche funzione nella pagina di scarico del primo avvio (o in **Motori**) |
+| **Impostazioni › Computer** dice che una scelta non va | per esempio una scheda che non c'è o è occupata: il lavoro si ferma e dice cosa correggere, non passa da solo al processore |
+| lo spazio non basta | libera spazio, oppure spegni qualche funzione nella pagina di scarico del primo avvio (o in **Impostazioni › Computer**) |
 
 Il piano di un video, le schede e i file che l'app scrive sono nella cartella dei dati. Se qualcosa si rompe dopo una modifica a mano, chiedi a Claude di sistemarlo: nella cartella c'è la versione di prima del piano.
 

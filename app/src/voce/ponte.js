@@ -1,6 +1,6 @@
 (() => {
   if (window.top !== window) return;
-  const chiama = (comando, lingua) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-voce|" + comando, { lingua });
+  const chiama = (comando, lingua) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|" + comando, { lingua });
   // La dettatura: il microfono sta nell'app, il testo lo dà un motore locale; la pagina chiede e ascolta.
   // stato(lingua): { disponibile, messaggio?, in_ascolto }  (disponibile: il comando del motore si è trovato)
   // avvia(lingua), ferma(lingua): rifiutano con { code, message }

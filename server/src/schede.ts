@@ -2,17 +2,18 @@
 // schede; un lavoro del motore che vuole la scheda la chiede al suo gestore (`POST /engine/release`) e, finiti i lavori sulla
 // scheda, gliela ridà (`POST /engine/resume`). Senza Mango Code acceso non fa niente.
 import { CHI_CHIAMA, trovaMangoCode, type Servizio } from "./chat/mangocode"
-import { eOggetto } from "./chat/traduzione"
+import { eOggetto } from "./disco"
+import { dettaglioDi, ErroreConFrase, frase, type Frase } from "./lingua"
 
-/** I comandi che lavorano sulla scheda video: trascrizione, allineamento, sagoma, voce pulita, resa delle scene e delle slide. */
-export const COMANDI_SULLA_SCHEDA: ReadonlySet<string> = new Set(["prepara", "prepara-file", "monta", "anteprima", "controlla", "copertina", "prova", "carosello"])
+/** I comandi che lavorano sulla scheda video: trascrizione, allineamento, sagoma, voce pulita, resa delle scene (anche le foto di una scena) e delle slide. */
+export const COMANDI_SULLA_SCHEDA: ReadonlySet<string> = new Set(["prepara", "prepara-file", "monta", "anteprima", "controlla", "copertina", "prova", "carosello", "scene-foto"])
 
 export interface PrestitoSchede {
   /**
    * Prima di un lavoro sulla scheda `scheda` (`macchina.scheda_video` del profilo: `null` è il processore, assente vuol dire la scheda
    * che c'è): se il modello di Mango Code la tiene, la libera. Dà la frase di ciò che ha fatto, o `null`; se non la libera, un errore.
    */
-  prendi: (scheda: number | null | undefined) => Promise<string | null>
+  prendi: (scheda: number | null | undefined) => Promise<Frase | null>
   /** Ridà le schede al modello, se le aveva prese; torna quando il modello è di nuovo pronto. */
   rendi: () => Promise<string | null>
 }
@@ -29,7 +30,7 @@ async function chiama(url: string, corpo?: object, attesaMs = ATTESA_MS): Promis
     signal: AbortSignal.timeout(attesaMs),
   })
   const testo = await r.text()
-  if (!r.ok) throw new Error(`il gestore del motore di Mango Code ha risposto ${r.status}: ${testo.slice(0, 300)}`)
+  if (!r.ok) throw new ErroreConFrase(frase(`il gestore del motore di Mango Code ha risposto ${r.status}: ${testo.slice(0, 300)}`, `the Mango Code engine manager answered ${r.status}: ${testo.slice(0, 300)}`))
   return testo ? (JSON.parse(testo) as unknown) : null
 }
 
@@ -62,7 +63,10 @@ export function prestitoDaMangoCode(dati: string): PrestitoSchede {
       const liberate = Array.isArray(stato["released_gpus"]) ? stato["released_gpus"] : []
       if (stato["phase"] === "released" && (stato["all_released"] === true || scheda === undefined || liberate.includes(scheda))) {
         if (preso === null) return null
-        return "La scheda era già libera dal modello di Mango Code: torna acceso quando i lavori sulla scheda sono finiti."
+        return frase(
+          "La scheda era già libera dal modello di Mango Code: torna acceso quando i lavori sulla scheda sono finiti.",
+          "The video card was already free of the Mango Code model: it comes back on when the jobs on the card are finished.",
+        )
       }
       if (stato["phase"] !== "running" && stato["phase"] !== "starting") return null
       const schede = Array.isArray(stato["gpus"]) ? stato["gpus"].filter(eOggetto).map((c) => c["index"]) : []
@@ -74,12 +78,22 @@ export function prestitoDaMangoCode(dati: string): PrestitoSchede {
         // La risposta può perdersi anche se il modello si è spento: allora la scheda è presa, e alla fine si rende.
         const dopo = await chiama(`${s.motore}/engine`).catch(() => null)
         if (!eOggetto(dopo) || dopo["phase"] !== "released") {
-          throw new Error(`Il modello di Mango Code tiene la scheda video e non la lascia: ${errore instanceof Error ? errore.message : String(errore)}. Fermalo da Mango Code e rilancia il lavoro.`)
+          const d = dettaglioDi(errore)
+          throw new ErroreConFrase(
+            frase(
+              `Il modello di Mango Code tiene la scheda video e non la lascia: ${d.it}. Fermalo da Mango Code e rilancia il lavoro.`,
+              `The Mango Code model is holding the video card and will not let go: ${d.en}. Stop it from Mango Code and run the job again.`,
+            ),
+          )
         }
       }
       preso = s
-      const nome = typeof stato["name"] === "string" ? stato["name"] : "il modello"
-      return `Ho liberato ${scheda === undefined ? "le schede" : `la scheda ${scheda}`} da ${nome} di Mango Code (${((Date.now() - inizio) / 1000).toFixed(1)} s): torna acceso quando i lavori sulla scheda sono finiti.`
+      const nome = typeof stato["name"] === "string" ? stato["name"] : null
+      const secondi = ((Date.now() - inizio) / 1000).toFixed(1)
+      return frase(
+        `Ho liberato ${scheda === undefined ? "le schede" : `la scheda ${scheda}`} da ${nome ?? "il modello"} di Mango Code (${secondi} s): torna acceso quando i lavori sulla scheda sono finiti.`,
+        `Freed ${scheda === undefined ? "the video cards" : `video card ${scheda}`} from ${nome ?? "the model"} in Mango Code (${secondi} s): it comes back on when the jobs on the card are finished.`,
+      )
     },
     rendi() {
       const s = preso

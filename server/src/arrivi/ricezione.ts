@@ -1,4 +1,4 @@
-// La ricezione dal telefono: spenta finché chi usa il computer non collega un telefono (Girato, «Collega un telefono»). Finché è spenta
+// La ricezione dal telefono: spenta finché chi usa il computer non collega un telefono (Impostazioni › Telefono, «Collega un telefono»). Finché è spenta
 // il computer non ascolta la rete per gli arrivi. La scelta resta in `arrivi/ricezione.json`: un telefono collegato continua a mandare dopo un riavvio.
 import { join } from "node:path"
 import { jsonDaTesto, leggiTesto, scrivi, testoJson } from "../disco"

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createHash, randomBytes } from "node:crypto"
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises"
+import { mkdir, readFile, readdir, stat, utimes, writeFile } from "node:fs/promises"
 import { connect } from "node:net"
 import { join } from "node:path"
 import { aspetta, ascolta, avviaAmbiente, chiama, fermaTutti, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
@@ -91,6 +91,32 @@ describe("il ricevitore dal telefono", () => {
     const a = await avvia({ ffprobe: null })
     for (const corpo of ["uno", "due"]) await fetch(await indirizzo(a), { method: "POST", body: corpo, headers: { "x-nome-file": "a.mov" } })
     expect((await arrivati(a)).sort()).toEqual(["20261009-140509-a-2.mov", "20261009-140509-a.mov"])
+  })
+
+  test("un invio dopo più di un giorno toglie i parziali vecchi ma non un file già confermato che aspetta di essere collocato", async () => {
+    const a = await avvia({ ffprobe: null })
+    const dentro = join(a.archivio, "arrivi", ".in-corso")
+    await mkdir(dentro, { recursive: true })
+    const vecchio = new Date(ADESSO.getTime() - 25 * 3600_000)
+    for (const nome of ["20261008-101500-confermato.mov.abcd1234.attesa", "interrotto.parziale"]) {
+      await writeFile(join(dentro, nome), "dati")
+      await utimes(join(dentro, nome), vecchio, vecchio)
+    }
+    expect((await fetch(await indirizzo(a), { method: "POST", body: "nuovo", headers: { "x-nome-file": "nuovo.mov" } })).status).toBe(201)
+    await a.server.ricevitore.attendi()
+    expect(await inCorso(a)).toEqual(["20261008-101500-confermato.mov.abcd1234.attesa"])
+  })
+
+  test("il registro ha un tetto: chi bussa con la chiave sbagliata non lo fa crescere senza fine", async () => {
+    const riga = (n: number): string => JSON.stringify({ at: "2026-10-08T10:00:00.000Z", esito: "rifiutato", motivo: "chiave sbagliata", da: `192.168.1.${n % 250}` })
+    const a = await avvia({ ffprobe: null }, async (c) => {
+      await mkdir(join(c.archivio, "arrivi"), { recursive: true })
+      await writeFile(join(c.archivio, "arrivi", "registro.jsonl"), `${Array.from({ length: 1000 }, (_, n) => riga(n)).join("\n")}\n`)
+    })
+    expect((await fetch(`${base(a)}/arrivi/contenuti-video?chiave=nonlagiusta`, { method: "POST", body: "1" })).status).toBe(401)
+    const dopo = await registro(a)
+    expect(dopo.length).toBeLessThan(600)
+    expect(dopo.at(-1)).toMatchObject({ esito: "rifiutato", motivo: "chiave sbagliata" })
   })
 
   describe("la chiave", () => {
@@ -202,30 +228,41 @@ describe("il ricevitore dal telefono", () => {
       expect(await parziali(b)).toEqual([])
     }, 30_000)
 
-    test("50 MB a pezzi arrivano identici senza che la memoria cresca come il file", async () => {
+    test("50 MB a pezzi arrivano identici, e il ricevitore non tiene in memoria quello che non ha ancora scritto", async () => {
       const a = await avvia({ ffprobe: null })
       const pezzo = randomBytes(1024 ** 2)
       const hash = createHash("sha256")
       let inviati = 0
-      let picco = 0
+      let inVolo = 0
+      // Non si misura la memoria del processo (rumore del garbage collector, cambia con il carico del computer): si misura quanto di ciò che il telefono ha mandato non è ancora sul disco.
+      // Un ricevitore che legge tutto il corpo prima di scrivere lo porta a 50 MB; quello a pezzi sta intorno al buffer di scrittura (4 MB).
+      const vivo = () => {
+        const m = process.memoryUsage()
+        return m.heapUsed + m.external + m.arrayBuffers
+      }
       Bun.gc(true)
-      const prima = process.memoryUsage().rss
+      const vivoPrima = vivo()
       const flusso = new ReadableStream<Uint8Array>({
         async pull(c) {
           if (inviati === 50) return c.close()
           hash.update(pezzo)
           c.enqueue(pezzo)
           inviati++
-          picco = Math.max(picco, process.memoryUsage().rss)
+          const [parziale] = await parziali(a)
+          const scritto = parziale ? ((await stat(join(a.archivio, "arrivi", ".in-corso", parziale)).catch(() => null))?.size ?? 0) : 0
+          inVolo = Math.max(inVolo, inviati * 1024 ** 2 - scritto)
           await Bun.sleep(2)
         },
       })
       const r = await fetch(await indirizzo(a), { method: "POST", body: flusso, headers: { "x-nome-file": "grande.mov" } })
       expect(r.status).toBe(201)
+      expect(inVolo).toBeLessThan(15 * 1024 ** 2)
+      // A cose finite, raccolto ciò che è da raccogliere, il ricevitore non deve aver trattenuto i pezzi.
+      Bun.gc(true)
+      expect(vivo() - vivoPrima).toBeLessThan(10 * 1024 ** 2)
       const [nome] = await arrivati(a)
       expect((await stat(join(giorno(a), nome!))).size).toBe(50 * 1024 ** 2)
       expect(createHash("sha256").update(await readFile(join(giorno(a), nome!))).digest("hex")).toBe(hash.digest("hex"))
-      expect(picco - prima).toBeLessThan(30 * 1024 ** 2)
     })
   })
 
@@ -296,6 +333,7 @@ describe("il ricevitore dal telefono", () => {
       expect(r.status).toBe(200)
       const html = await r.text()
       expect(html).toContain("Il primo")
+      expect(html).toContain("<title>I video montati</title>")
       expect(html).toContain("Il secondo")
       expect(html).not.toContain("Il terzo")
       expect(html).toContain(`/guarda/due.mp4?chiave=${k}`)
@@ -379,6 +417,7 @@ describe("il ricevitore dal telefono", () => {
       expect(html).toContain(`accept="video/*,image/*,audio/*,.m4a,.mp3,.wav,.aac,.caf,.aif,.aiff,.flac,.ogg,.opus"`)
       expect(html).toContain("multiple")
       expect(html).toContain("Carica video")
+      expect(html).toContain("<title>Carica su Mango Animation</title>")
       expect(html).toContain("«Opzioni»")
       expect(html).toContain("«Attuale»")
       expect(html).toContain("xhr.send(file)")

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { api, ErroreApi, urlMedia } from "../src/api"
+import { caricaAllegato } from "../src/chat/api"
 import { scegliLingua } from "../src/lingua"
 import { errore, installaRete } from "./rete"
 
@@ -11,7 +12,7 @@ describe("le rotte di docs/API.md", () => {
       "GET /api/video": [],
       "GET /api/video/a%20b": {},
       "PUT /api/video/a%20b/scheda": {},
-      "PUT /api/video/a%20b/piano": {},
+      "PATCH /api/video/a%20b/piano": {},
       "POST /api/video/a%20b/annulla": {},
       "POST /api/video/a%20b/rifai": {},
       "DELETE /api/video/a%20b": {},
@@ -29,7 +30,7 @@ describe("le rotte di docs/API.md", () => {
     await api.elencoVideo()
     await api.video("a b")
     await api.scriviScheda("a b", { titolo: "T", stato: "proposta", creato: "2026-10-09" })
-    await api.scriviPiano("a b", { quadro: "q" })
+    await api.ritoccaPiano("a b", [{ op: "add", path: "/coda", value: 1 }])
     await api.annulla("a b")
     await api.rifai("a b")
     await api.togliVideo("a b")
@@ -72,8 +73,21 @@ describe("le rotte di docs/API.md", () => {
   })
 
   it("un rifiuto con più motivi li dà uno per riga", async () => {
-    installaRete({ "PUT /api/video/x/piano": new Response(JSON.stringify({ errore: "Il piano non è valido.", problemi: ["Manca il quadro.", "Manca la sorgente."] }), { status: 400 }) })
-    await expect(api.scriviPiano("x", {})).rejects.toThrow("Il piano non è valido.\nManca il quadro.\nManca la sorgente.")
+    installaRete({ "PATCH /api/video/x/piano": new Response(JSON.stringify({ errore: "Il piano non è valido.", problemi: ["Manca il quadro.", "Manca la sorgente."] }), { status: 400 }) })
+    await expect(api.ritoccaPiano("x", [{ op: "add", path: "/coda", value: 1 }])).rejects.toThrow("Il piano non è valido.\nManca il quadro.\nManca la sorgente.")
+  })
+
+  it("una risposta che non è JSON (una pagina, un proxy) dice che è inattesa, non un errore di lettura", async () => {
+    installaRete({ "GET /api/stile": () => new Response("<h1>Non è ancora costruita</h1>", { status: 503 }), "GET /api/video": () => new Response("<html>", { status: 200 }) })
+    await expect(api.stile()).rejects.toMatchObject({ message: "Il server ha risposto in modo inatteso (503).", codice: 503 })
+    await expect(api.elencoVideo()).rejects.toMatchObject({ message: "Il server ha risposto in modo inatteso (200)." })
+    scegliLingua("en")
+    await expect(api.stile()).rejects.toThrow("The server answered in an unexpected way (503).")
+  })
+
+  it("lo stesso vale per il caricamento di un allegato", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Bad gateway", { status: 502 })))
+    await expect(caricaAllegato(new File(["x"], "a.png"))).rejects.toThrow("Il server ha risposto in modo inatteso (502).")
   })
 
   it("il controllo degli arrivi è un POST", async () => {

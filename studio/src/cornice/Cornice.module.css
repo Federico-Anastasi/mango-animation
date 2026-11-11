@@ -91,6 +91,18 @@
   line-height: 1;
 }
 
+/* Sotto questa larghezza il menu non sta accanto al marchio: va da solo sulla seconda riga, e i segni di stato salgono accanto al marchio. */
+@media (max-width: 1000px) {
+  .stati {
+    order: 1;
+  }
+
+  .menu {
+    order: 2;
+    flex: 1 1 100%;
+  }
+}
+
 /* Sotto questa larghezza un pannello appeso al suo bottone uscirebbe dallo schermo: si appende alla barra. */
 @media (max-width: 900px) {
   .lavori {
@@ -104,12 +116,22 @@
     gap: 0.25rem 0.75rem;
   }
 
+  .marchio {
+    font-size: 0.95rem;
+  }
+
   .solo {
     display: none;
   }
 
-  .stato {
-    padding: 0 0.5rem;
+  .stato,
+  .tema {
+    gap: 0.3rem;
+    padding: 0 0.3rem;
+  }
+
+  .stati {
+    gap: 0;
   }
 
   .menu {

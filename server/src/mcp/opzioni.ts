@@ -10,8 +10,6 @@ export interface OpzioniMcp {
   /** La cartella del codice: da lì si lancia il motore. */
   codice: string
   motore: Opzioni["motore"]
-  /** Il comando che rende i fotogrammi chiave di una scena; la sigla si aggiunge in fondo. */
-  comandoSceneFoto: string[]
   ffmpeg: string | null
   /** yt-dlp, se c'è: per i sottotitoli dei video in rete. */
   ytdlp: string[] | null
@@ -19,7 +17,8 @@ export interface OpzioniMcp {
 
 /** Le stesse variabili d'ambiente del server (`docs/API.md`): porta, Python e modulo del motore. */
 export function opzioniMcp(ambiente: Record<string, string | undefined> = process.env): OpzioniMcp {
-  const o = opzioniDaAmbiente(ambiente)
+  // Gli strumenti non registrano lo schermo: la ricerca della scheda Nvidia (un processo) è del server.
+  const o = opzioniDaAmbiente(ambiente, false)
   return {
     api: {
       indirizzo: `http://${o.indirizzo}:${o.porta}`,
@@ -32,7 +31,6 @@ export function opzioniMcp(ambiente: Record<string, string | undefined> = proces
     },
     codice: o.codice,
     motore: o.motore,
-    comandoSceneFoto: [process.execPath, "run", "--silent", "--cwd", o.animazioni.cartella, "foto", "--"],
     ffmpeg: o.ffmpeg,
     ytdlp: o.ytdlp,
   }

@@ -34,11 +34,14 @@ function ricorda(nuova: Scelta): void {
   ascoltatori.forEach((a) => a())
 }
 
-/** Apre la chat con una conversazione nuova e le manda `testo`: è così che una pagina manda il creator da Claude. */
-export function chiediAClaude(testo: string): void {
+/**
+ * Apre la chat con una conversazione nuova e le manda `testo`: è così che una pagina manda il creator da Claude. Con `soloClaudeCode` la conversazione è di Claude Code anche se il creator di solito sceglie Mango Code;
+ * con `modelloGrande` parte con l'Opus più recente (o «Predefinito» se non c'è), senza cambiare la scelta che il creator ricorda per le altre.
+ */
+export function chiediAClaude(testo: string, opzioni: { soloClaudeCode?: boolean; modelloGrande?: boolean } = {}): void {
   apriChat()
   negozio.apri(null)
-  void negozio.invia({ testo })
+  void negozio.invia({ testo }, opzioni)
 }
 
 export function avviaPrimoGiro(rifacendo: boolean): void {
@@ -48,6 +51,7 @@ export function avviaPrimoGiro(rifacendo: boolean): void {
     rifacendo
       ? t("Vorrei rifare il primo giro.", "I'd like to redo the first round.")
       : t("Ciao! È la prima volta che apro Mango Animation. Facciamo il primo giro?", "Hi! This is the first time I open Mango Animation. Shall we do the first round?"),
+    { modelloGrande: true },
   )
 }
 

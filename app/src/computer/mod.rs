@@ -169,7 +169,7 @@ pub enum Risposta {
 /// `installa` fa il piano (e fa vedere da sé gli stati di avanzamento, che non aspettano risposte), `salva` scrive nel profilo le funzioni che il creator
 /// ha cambiato. Quando non manca più niente, o il creator va avanti, torna. Un'installazione annullata riporta al piano; una fallita lo dice e aspetta.
 pub fn computer_pronto(
-    computer: &Computer,
+    computer: impl Fn() -> Computer,
     iniziali: Funzioni,
     mut piano_per: impl FnMut(&Funzioni) -> Piano,
     mut chiedi: impl FnMut(StatoComputer) -> Risposta,
@@ -193,7 +193,8 @@ pub fn computer_pronto(
             continue;
         }
         let fase = if errore.is_some() { "errore" } else { "piano" };
-        match chiedi(vista(fase, computer, &scelte, &piano, &BTreeMap::new(), errore.take())) {
+        // Il disco si rilegge a ogni giro: dopo un errore o un riavvio lo spazio libero non è più quello di prima.
+        match chiedi(vista(fase, &computer(), &scelte, &piano, &BTreeMap::new(), errore.take())) {
             Risposta::Funzioni(nuove) => scelte.0.extend(nuove),
             Risposta::Continua => return Ok(()),
             Risposta::Prepara => {
@@ -237,7 +238,6 @@ mod prove {
     use piano::{Gruppo, Voce};
     use scarica::prove::{server, sha_di};
     use std::io::Write;
-    use std::path::PathBuf;
 
     fn zip_con(nome: &str, contenuto: &[u8]) -> Vec<u8> {
         let mut dati = std::io::Cursor::new(Vec::new());
@@ -354,11 +354,8 @@ mod prove {
 
     #[test]
     fn la_vista_dice_cosa_si_scarica_quanto_pesa_e_se_il_disco_basta() {
-        let t = tempfile::tempdir().unwrap();
-        let l = luoghi(t.path());
         let z = zip_con("a.exe", b"x");
         let piano = Piano { voci: vec![voce_archivio("uno", &z, "http://x/uno.zip", "a.exe", "bin/a.exe")], python: SceltaPython::DelComputer, avvisi: vec!["un avviso".into()] };
-        let _ = l;
         let mut c = computer(true);
         c.disco_libero_mb = 5000;
         let s = vista("piano", &c, &tutte_accese(), &piano, &BTreeMap::new(), None);
@@ -385,7 +382,6 @@ mod prove {
         assert_eq!(a["x"], Progresso { stato: "in corso", fatti: 50, totale: 200, riga: Some("Resolved 6 packages".into()) });
         applica(&mut a, &Evento::Fatta("x".into()));
         assert_eq!((a["x"].stato, a["x"].fatti), ("fatta", 200));
-        let _ = PathBuf::new();
     }
 
     /// Fase, voci e messaggio di uno stato mostrato.
@@ -422,7 +418,7 @@ mod prove {
         fn esegui(&self, scelte: Funzioni) -> Result<(), String> {
             let c = computer(true);
             computer_pronto(
-                &c,
+                || c.clone(),
                 scelte,
                 |s| self.piano_per(s),
                 |stato| {

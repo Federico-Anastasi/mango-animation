@@ -1,6 +1,7 @@
 // Le conversazioni con Claude Code: l'unico proprietario in memoria di quelle aperte e dell'elenco di quelle sul disco.
 import { randomUUID } from "node:crypto"
 import type { Eventi } from "../eventi"
+import { frase, type Lingua, type Testo } from "../lingua"
 import { collegaAllegato, ingressoPerClaude, leggiContesto, partiDelCreator, rigaDiContesto, risolviAllegati, salvaAllegato, testoVisibile } from "./allegati"
 import { eComando, ElencoComandi, rifiutaIlComandoDelloStudio, type ComandoChat } from "./comandi"
 import { CONVERSAZIONE_CHIUSA, Conversazione } from "./conversazione"
@@ -13,7 +14,9 @@ import { eDiMangoCode } from "./mangocode"
 import { ErroreChat, type ContestoUsato, type DatiEventoChat, type DettaglioChat, type ImpostazioniChat, type MessaggioChat, type ModelloChat, type OpzioniChat, type VoceElenco, type VoceSessione } from "./tipi"
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const NON_TROVATA = "Non c'è una conversazione con questo id: guarda l'elenco delle conversazioni."
+const NON_TROVATA = frase("Non c'è una conversazione con questo id: guarda l'elenco delle conversazioni.", "There is no conversation with this id: look at the list of conversations.")
+const SENZA_TITOLO = frase("Conversazione senza titolo", "Untitled conversation")
+const TITOLO_NUOVA = frase("Nuova conversazione", "New conversation")
 
 export interface DipendenzeChat {
   /** La cartella del prodotto: ne arrivano il metodo e lo strumento «video». */
@@ -25,10 +28,11 @@ export interface DipendenzeChat {
   opzioni: OpzioniChat
   titoloDelVideo: (slug: string) => string | undefined
   adesso: () => Date
+  /** La lingua dello studio, per le frasi che nascono fuori da una richiesta (l'errore di un giro, la richiesta di un permesso). */
+  lingua: () => Lingua
 }
 
-
-const titoloDa = (testo: string): string => abbrevia(testoVisibile(testo)) || "Conversazione senza titolo"
+const titoloDa = (testo: string): Testo => abbrevia(testoVisibile(testo)) || SENZA_TITOLO
 
 export class Chat {
   private readonly attive = new Map<string, Conversazione>()
@@ -102,7 +106,7 @@ export class Chat {
     for (const c of this.attive.values()) {
       const sulDisco = voci.get(c.id)
       const ms = Math.max(c.aggiornata, sulDisco?.ms ?? 0)
-      voci.set(c.id, { voce: { id: c.id, titolo: (c.rinominata ? c.titolo : sulDisco?.voce.titolo || c.titolo) || "Nuova conversazione", aggiornata: new Date(ms).toISOString(), attiva: c.attiva }, ms })
+      voci.set(c.id, { voce: { id: c.id, titolo: (c.rinominata ? c.titolo : sulDisco?.voce.titolo || c.titolo) || TITOLO_NUOVA, aggiornata: new Date(ms).toISOString(), attiva: c.attiva }, ms })
     }
     return [...voci.values()].sort((a, b) => b.ms - a.ms).map(({ voce }) => voce)
   }
@@ -120,7 +124,7 @@ export class Chat {
     const diMango = await this.diMango(id)
     const righe = diMango ? await this.d.opzioni.mangoCode.leggi(id, this.d.lavoro) : await this.d.opzioni.sessioni.leggi(id)
     if (righe === null) throw new ErroreChat(404, NON_TROVATA)
-    const messaggi = messaggiDaSessione(righe, this.d.archivio)
+    const messaggi = messaggiDaSessione(righe, this.d.archivio, this.d.lingua())
     const primo = messaggi.find((m) => m.ruolo === "utente")?.parti.find((p) => p.tipo === "testo")
     const ultimo = Date.parse(messaggi.at(-1)?.quando ?? "")
     const usati = contestoDaSessione(righe)
@@ -181,6 +185,7 @@ export class Chat {
       motore: mango ? "Mango Code" : "Claude Code",
       emetti: (chi, dati) => this.emetti(chi, dati),
       adesso: this.d.adesso,
+      lingua: this.d.lingua,
       elencoCambiato: (chi) => this.emetti(chi, { evento: "elenco" }),
       comandiCambiati: (comandi) => {
         if (this.elencoComandi.sostituisci(comandi)) this.d.eventi.emetti({ tipo: "comandi" })
@@ -191,12 +196,14 @@ export class Chat {
   /** Controlla la richiesta di un messaggio e prepara ciò che serve a mostrarlo e a mandarlo. */
   private async preparaMessaggio(corpo: Oggetto) {
     for (const campo of Object.keys(corpo)) {
-      if (campo !== "testo" && campo !== "allegati" && campo !== "contesto") throw new ErroreChat(400, `«${campo}» non è un campo del messaggio: ci sono «testo», «allegati» e «contesto».`)
+      if (campo !== "testo" && campo !== "allegati" && campo !== "contesto") {
+        throw new ErroreChat(400, frase(`«${campo}» non è un campo del messaggio: ci sono «testo», «allegati» e «contesto».`, `«${campo}» is not a field of the message: the fields are «testo», «allegati» and «contesto».`))
+      }
     }
-    if (corpo["testo"] !== undefined && typeof corpo["testo"] !== "string") throw new ErroreChat(400, "Il «testo» del messaggio dev'essere un testo.")
+    if (corpo["testo"] !== undefined && typeof corpo["testo"] !== "string") throw new ErroreChat(400, frase("Il «testo» del messaggio dev'essere un testo.", "The «testo» of the message must be text."))
     const testo = (corpo["testo"] ?? "").trim()
     const allegati = await risolviAllegati(this.d.archivio, corpo["allegati"])
-    if (testo === "" && allegati.length === 0) throw new ErroreChat(400, "Il messaggio è vuoto: scrivi qualcosa o allega un file.")
+    if (testo === "" && allegati.length === 0) throw new ErroreChat(400, frase("Il messaggio è vuoto: scrivi qualcosa o allega un file.", "The message is empty: write something or attach a file."))
     const riga = rigaDiContesto(leggiContesto(corpo["contesto"]), this.d.titoloDelVideo)
     return {
       testo,
@@ -231,7 +238,7 @@ export class Chat {
     if (!ID.test(id)) throw new ErroreChat(404, NON_TROVATA)
     await this.aggiornaElenco()
     const sulDisco = this.elencoDisco.find((s) => s.id === id)
-    const titoloDi = (proprio: string): string => (sulDisco ? titoloDa(sulDisco.titolo) : proprio)
+    const titoloDi = (proprio: string): Testo => (sulDisco ? titoloDa(sulDisco.titolo) : proprio)
     await this.chiusure.get(id)
     const aperta = this.attive.get(id)
     if (aperta) return { id, titolo: aperta.rinominata ? aperta.titolo : titoloDi(aperta.titolo), attiva: aperta.attiva, stato: aperta.stato, lavora_da: aperta.lavoraDa, lavoro: aperta.lavoro, ...aperta.impostazioni, messaggi: aperta.messaggi, in_attesa: aperta.inAttesa, task: aperta.task.elenco, contesto_usato: aperta.contestoUsato }
@@ -253,7 +260,12 @@ export class Chat {
     const conversazione = await this.apri(id)
     const cambi = await this.elencoModelli.verifica(corpo, conversazione.impostazioni)
     if (cambi.modello !== undefined && eDiMangoCode(cambi.modello) !== this.diMangoCode.has(id)) {
-      throw new ErroreChat(400, this.diMangoCode.has(id) ? "Questa conversazione è di Mango Code: per un modello di Claude aprine una nuova." : "Questa conversazione è di Claude Code: per un modello di Mango Code aprine una nuova.")
+      throw new ErroreChat(
+        400,
+        this.diMangoCode.has(id)
+          ? frase("Questa conversazione è di Mango Code: per un modello di Claude aprine una nuova.", "This conversation is with Mango Code: to use a Claude model, start a new one.")
+          : frase("Questa conversazione è di Claude Code: per un modello di Mango Code aprine una nuova.", "This conversation is with Claude Code: to use a Mango Code model, start a new one."),
+      )
     }
     return this.conAperta(id, (corrente) => corrente.cambia(cambi))
   }
@@ -289,7 +301,7 @@ export class Chat {
 
   async rispondi(id: string, richiesta: string, corpo: Oggetto): Promise<void> {
     const conversazione = await this.seAperta(id)
-    if (!conversazione) throw new ErroreChat(404, "Questa richiesta non c'è più: la conversazione è chiusa.")
+    if (!conversazione) throw new ErroreChat(404, frase("Questa richiesta non c'è più: la conversazione è chiusa.", "This request is gone: the conversation is closed."))
     conversazione.rispondi(richiesta, corpo)
   }
 

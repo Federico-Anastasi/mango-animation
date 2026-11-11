@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Produzione } from "../src/produzione/Produzione"
 import type { ConsumiDiClaude, ConsumoDiUnVideo, Scheda, StatoCanale, VoceElenco } from "../src/tipi"
-import { installaEventi, installaRete } from "./rete"
+import { errore, installaEventi, installaRete } from "./rete"
 
 const GIORNO = 86_400_000
 const fa = (giorni: number): string => new Date(Date.now() - giorni * GIORNO).toISOString()
@@ -14,7 +14,9 @@ const voce = (slug: string, scheda: Partial<Scheda>, ultimoCambio = fa(1)): Voce
   miniatura: null,
   anteprima: null,
   ha_piano: true,
+  quadri: [],
   ha_finale: true,
+  fase: null,
   ultimo_cambio: ultimoCambio,
 })
 
@@ -44,6 +46,35 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("Produzione", () => {
+  // Per prima: finché nessuna prova ha riempito la copia del canale, qui il canale non si legge.
+  it("se il canale non si legge non dice che manca la lettura: le colonne dei numeri restano «—»", async () => {
+    rete({ "GET /api/canale/tiktok": errore(500, "Il server è occupato.") })
+    render(<Produzione />)
+    const tabella = await screen.findByRole("table", { name: "Quanto costa e quanto rende ogni video" })
+    await waitFor(() => expect(within(tabella).getAllByRole("row").length).toBe(4))
+    expect(screen.queryByText(/Il canale non ha ancora nessuna lettura/)).toBeNull()
+  })
+
+  it("se il canale si legge una volta e la rilettura dopo fallisce, i numeri di prima restano e la pagina dice di che giorno sono", async () => {
+    const eventi = installaEventi()
+    const { imposta } = rete()
+    render(<Produzione />)
+    const tabella = await screen.findByRole("table", { name: "Quanto costa e quanto rende ogni video" })
+    await waitFor(() => expect(within(tabella).getAllByRole("row").length).toBe(4))
+    imposta("GET /api/canale/tiktok", () => errore(500, "Il server è occupato."))
+    act(() => eventi.istanze.at(-1)!.manda({ tipo: "canale" }))
+    expect(await screen.findByText("Dati del 3 nov 2026, 10:00: l'ultima rilettura non è riuscita.")).toBeInTheDocument()
+    expect(screen.getByRole("table", { name: "Quanto costa e quanto rende ogni video" })).toBeInTheDocument()
+  })
+
+  it("la presentazione dice come si conta il lavoro di Claude, senza rimandare a una scheda che non lo mostra più", async () => {
+    rete()
+    render(<Produzione />)
+    const testo = await screen.findByText(/Quanti video fai, quanto lavoro di Claude costano/)
+    expect(testo).toHaveTextContent(/anche quelle del terminale e dei suoi aiutanti/)
+    expect(testo).not.toHaveTextContent(/scheda di ogni video/)
+  })
+
   it("dice per settimana, mese e da sempre quanti video sono fatti e quanto lavoro di Claude è costato in media ognuno", async () => {
     rete()
     render(<Produzione />)
@@ -82,9 +113,9 @@ describe("Produzione", () => {
     const tabella = await screen.findByRole("table", { name: "Quanto costa e quanto rende ogni video" })
     await waitFor(() => expect(within(tabella).getAllByRole("row").length).toBe(4))
     const titoli = () => within(tabella).getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[0]!.textContent)
-    fireEvent.click(within(tabella).getByRole("button", { name: /Visite/ }))
+    fireEvent.click(within(tabella).getByRole("button", { name: /Visualizzazioni/ }))
     expect(titoli()).toEqual(["Titolo a", "Titolo b", "Titolo c"])
-    fireEvent.click(within(tabella).getByRole("button", { name: /Visite/ }))
+    fireEvent.click(within(tabella).getByRole("button", { name: /Visualizzazioni/ }))
     expect(titoli()).toEqual(["Titolo b", "Titolo a", "Titolo c"])
   })
 

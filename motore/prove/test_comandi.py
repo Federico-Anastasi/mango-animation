@@ -280,6 +280,9 @@ def test_prepara_file_vuole_un_percorso_dentro_grezzo(cli, archivio, tmp_path):
     fuori.touch()
     codice, _, errori = cli("prepara-file", str(fuori))
     assert codice == 1 and "non sta in" in errori
+    for fuggito in (f"../../{fuori.name}", f"{GIORNO}/../../../{fuori.name}"):
+        assert cli("prepara-file", fuggito)[0] == 1 and not (archivio.radice / "preparati").exists()
+    assert "non sta in" in cli("foto-girato", f"../../{fuori.name}", "1")[2]
 
 
 def test_le_animazioni_chiedono_sempre_tutte_le_scene_a_registra_che_salta_le_gia_rese(archivio, scrivi_piano, prepara_sintetico, tmp_path, monkeypatch):
@@ -359,6 +362,23 @@ def test_la_copertina_mette_la_sagoma_del_primo_fotogramma_sul_disegno(archivio,
     assert vicino(fotogramma(finale, 0.0)[1500, 950], (10, 200, 10), 20) and vicino(fotogramma(finale, 0.0)[1500, 350], (0, 0, 255), 60)
     assert not vicino(fotogramma(finale, 0.2)[1500, 950], (10, 200, 10), 60), "dal secondo fotogramma c'è il video"
     assert json.loads((archivio.uscite("cp").parent / "lavoro" / "risolto.json").read_text(encoding="utf-8"))["copertina"] == {"disegno": str(disegno)}
+
+
+def test_dove_i_collegamenti_fisici_non_ci_sono_il_video_con_la_copertina_e_una_copia(archivio, scrivi_piano, prepara_sintetico, tmp_path, monkeypatch):
+    file = prepara_sintetico("tempo", PAROLE_TEMPO)
+    disegno = tmp_path / "disegno.png"
+    Image.new("RGB", (1080, 1920), (10, 200, 10)).save(disegno)
+    scrivi_piano("cs", {"quadro": "sagoma-su-animazione", "sorgenti": {"t": {"file": file}}, "scene": [{"nome": "s", "animazione": "uno", "pezzi": [{"sorgente": "t", "da": 0.6, "a": 1.2}]}],
+                        "sottotitoli": {"modo": "nessuno"}, "copertina": {"disegno": str(disegno)}})
+
+    def senza_collegamenti(*_):
+        raise OSError("il disco non li supporta")
+
+    monkeypatch.setattr(os, "link", senza_collegamenti)
+    finale, _ = monta_con_animazioni(archivio, "cs", tmp_path)
+    con = archivio.uscite("cs") / "con-copertina.mp4"
+    assert con.read_bytes() == finale.read_bytes() and not con.samefile(finale)
+    assert json.loads((archivio.lavoro("cs") / "montaggio.json").read_text(encoding="utf-8"))["uscite"]["finale"]
 
 
 def test_la_copertina_puo_prendere_la_sagoma_da_un_altro_istante_del_video(archivio, scrivi_piano, prepara_sintetico, tmp_path):
@@ -536,7 +556,7 @@ def test_monta_scrive_i_tempi_di_ogni_fase_e_a_piano_uguale_non_rifa_niente(arch
     monkeypatch.setattr(subprocess, "run", bun)
     def scontorno(sorgente, cartella, intervalli, stile, scritto):
         cartella.mkdir(parents=True, exist_ok=True)
-        for n, (da, a) in enumerate(intervalli):
+        for n, (da, a, _) in enumerate(intervalli):
             shutil.copy(fonti / "sagoma.webm", cartella / f"{n}.webm")
             scritto({"da": da, "a": a, "file": f"sagoma/{n}.webm", "inizio": da})
 

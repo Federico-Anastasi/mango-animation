@@ -3,6 +3,7 @@
 //! l'accesso gli lascia fare il suo giro (`claude auth login`). La chat usa quel programma (`docs/CHAT.md`).
 
 use crate::lingua::t;
+use crate::supervisor::uccidi_albero;
 use serde::Serialize;
 use serde_json::Value;
 use std::ffi::OsStr;
@@ -35,14 +36,10 @@ pub struct StatoClaude {
     pub percorso: Option<String>,
     pub versione: Option<String>,
     pub collegato: bool,
-    pub account: Option<String>,
-    pub abbonamento: Option<String>,
     /// Perché non va, in una frase per il creator.
     pub messaggio: Option<String>,
     /// Con Claude Code assente: il comando che lo installa, da dare a chi preferisce incollarlo da sé.
     pub comando: Option<String>,
-    /// Mango Code è acceso e risponde: la pagina lo dice in una riga, perché lo troverà fra i motori della chat. Non sostituisce Claude Code.
-    pub mango_code: bool,
 }
 
 impl StatoClaude {
@@ -123,7 +120,7 @@ fn esegui(programma: &Path, args: &[&str], massimo: Duration) -> Result<Uscita, 
         match figlio.try_wait() {
             Ok(Some(stato)) => break stato,
             Ok(None) if inizio.elapsed() >= massimo => {
-                let _ = figlio.kill();
+                uccidi_albero(figlio.id());
                 let _ = figlio.wait();
                 return Err(t("Claude Code non risponde.", "Claude Code is not responding."));
             }
@@ -140,10 +137,8 @@ fn versione_da(uscita: &str) -> Option<String> {
 }
 
 /// L'uscita di `claude auth status`, che è un JSON anche quando non si è collegati.
-fn accesso_da(uscita: &str) -> Option<(bool, Option<String>, Option<String>)> {
-    let json: Value = serde_json::from_str(uscita.trim()).ok()?;
-    let testo = |chiave: &str| json.get(chiave).and_then(Value::as_str).map(str::to_owned);
-    Some((json.get("loggedIn")?.as_bool()?, testo("email"), testo("subscriptionType")))
+fn accesso_da(uscita: &str) -> Option<bool> {
+    serde_json::from_str::<Value>(uscita.trim()).ok()?.get("loggedIn")?.as_bool()
 }
 
 /// Chiede a `claude` versione e account. Non legge né mostra altro: l'accesso lo sa `claude`, non l'app.
@@ -168,7 +163,7 @@ fn esamina_con(programma: &Path, massimo: Duration) -> StatoClaude {
     match esegui(programma, &["auth", "status"], massimo) {
         // Non collegato, `claude` esce con un errore ma scrive lo stesso il suo JSON: si legge quello.
         Ok(u) => match accesso_da(&u.stdout) {
-            Some((collegato, account, abbonamento)) => StatoClaude { collegato, account, abbonamento, ..base },
+            Some(collegato) => StatoClaude { collegato, ..base },
             None => {
                 let riga = ultima_riga(&u.stderr, &u.stdout);
                 StatoClaude { messaggio: Some(t(format!("Non riesco a capire se Claude Code è collegato: {riga}"), format!("I can't tell whether Claude Code is connected: {riga}"))), ..base }
@@ -189,7 +184,7 @@ fn aspetta_la_finestra(mut figlio: Child, massimo: Duration, scaduto: String, se
         match figlio.try_wait() {
             Ok(Some(_)) => return Ok(()),
             Ok(None) if inizio.elapsed() >= massimo => {
-                let _ = figlio.kill();
+                uccidi_albero(figlio.id());
                 let _ = figlio.wait();
                 return Err(scaduto);
             }
@@ -334,13 +329,16 @@ mod prove {
     }
 
     #[test]
-    fn collegato_si_legge_versione_account_e_abbonamento() {
+    fn collegato_si_legge_versione_e_accesso_senza_tenere_l_account() {
         let t = tempfile::tempdir().unwrap();
         let p = finto(t.path(), "2.1.318 (Claude Code)", r#"{"loggedIn": true, "authMethod": "claude.ai", "email": "creator@esempio.it", "subscriptionType": "max"}"#, 0);
         let stato = esamina(&p);
         assert_eq!(stato.versione.as_deref(), Some("2.1.318"));
         assert_eq!((stato.trovato, stato.collegato, stato.pronto()), (true, true, true));
-        assert_eq!((stato.account.as_deref(), stato.abbonamento.as_deref(), stato.messaggio), (Some("creator@esempio.it"), Some("max"), None));
+        assert_eq!(stato.messaggio, None);
+        // L'indirizzo email e l'abbonamento stanno nell'uscita di `claude`, ma non entrano nello stato che va alla pagina.
+        let json = serde_json::to_string(&stato).unwrap();
+        assert!(!json.contains("creator@esempio.it") && !json.contains("max\""), "{json}");
     }
 
     #[test]
@@ -350,7 +348,6 @@ mod prove {
         let stato = esamina(&p);
         assert_eq!((stato.trovato, stato.collegato, stato.pronto()), (true, false, false));
         assert_eq!(stato.versione.as_deref(), Some("2.1.318"));
-        assert_eq!(stato.account, None);
     }
 
     #[test]

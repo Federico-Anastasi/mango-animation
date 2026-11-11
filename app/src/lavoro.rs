@@ -7,6 +7,7 @@
 use anyhow::{Context, Result};
 use crate::lingua::t;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -88,22 +89,31 @@ pub fn trova_lavoro(da_ambiente: Option<&str>, impostazioni: &Path, documenti: O
 
 /// Ciò che la pagina sa della cartella dei dati: quella in uso, e dove va al prossimo avvio se il creator ha chiesto di spostarla.
 pub fn dati_correnti(da_ambiente: Option<&str>, attuale: &Path, impostazioni: &Path) -> Dati {
-    let forzata = variabile_valida(da_ambiente).is_some();
-    let prossima = if forzata { None } else { spostamento_in_attesa(impostazioni) };
-    Dati { attuale: attuale.to_path_buf(), prossima, forzata }
+    Dati { attuale: attuale.to_path_buf(), prossima: spostamento_in_attesa(da_ambiente, impostazioni), forzata: variabile_valida(da_ambiente).is_some() }
 }
 
-/// Dove il creator ha chiesto di spostare la cartella dei dati, se non è ancora successo.
-pub fn spostamento_in_attesa(impostazioni: &Path) -> Option<PathBuf> {
+/// Dove il creator ha chiesto di spostare la cartella dei dati, se non è ancora successo. Con la variabile non si sposta niente: la cartella è quella della variabile, non quella ricordata.
+pub fn spostamento_in_attesa(da_ambiente: Option<&str>, impostazioni: &Path) -> Option<PathBuf> {
+    if variabile_valida(da_ambiente).is_some() {
+        return None;
+    }
     match scelta_salvata(impostazioni) {
         Salvata::Cartella(s) => s.sposta_a,
         _ => None,
     }
 }
 
+/// Scrive la scelta per intero o per niente (file provvisorio, sul disco, poi rinomina): se l'app si ferma a metà resta quella di prima, mai un file tronco.
 fn scrivi_scelta(impostazioni: &Path, scelta: &Scelta) -> Result<()> {
     std::fs::create_dir_all(impostazioni).with_context(|| t(format!("non riesco a creare la cartella delle impostazioni {}", impostazioni.display()), format!("I can't create the settings folder {}", impostazioni.display())))?;
-    std::fs::write(impostazioni.join(FILE_SCELTA), serde_json::to_string_pretty(scelta)?).with_context(|| t("non riesco a ricordare la scelta", "I can't remember the choice"))
+    let provvisorio = impostazioni.join(format!("{FILE_SCELTA}.tmp"));
+    let ricordata = || -> std::io::Result<()> {
+        let mut file = std::fs::File::create(&provvisorio)?;
+        file.write_all(serde_json::to_string_pretty(scelta)?.as_bytes())?;
+        file.sync_all()?;
+        std::fs::rename(&provvisorio, impostazioni.join(FILE_SCELTA))
+    };
+    ricordata().with_context(|| t("non riesco a ricordare la scelta", "I can't remember the choice"))
 }
 
 /// Ricorda che al prossimo avvio la cartella dei dati va spostata in `destinazione` (che non si crea adesso). La cartella in uso resta quella di prima, fino a spostamento finito.
@@ -127,7 +137,7 @@ pub fn salva_scelta(impostazioni: &Path, cartella: &Path) -> Result<PathBuf> {
     Ok(cartella.to_path_buf())
 }
 
-const SCRIPT_DIALOGO: &str = "Add-Type -AssemblyName System.Windows.Forms; \
+const SCRIPT_DIALOGO: &str = "$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName System.Windows.Forms; \
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \
     $finestra = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }; \
     $dialogo = New-Object System.Windows.Forms.FolderBrowserDialog; \
@@ -142,11 +152,20 @@ fn script_dialogo() -> String {
     SCRIPT_DIALOGO.replace("DESCRIZIONE", &descrizione.replace('\'', "''"))
 }
 
-/// Ciò che il dialogo ha scritto: la cartella, o niente se il creator ha annullato.
-fn cartella_scelta(uscita: &[u8]) -> Option<PathBuf> {
+/// Ciò che il dialogo ha scritto: la cartella, o niente se il creator ha annullato. Se lo script è uscito con un errore (PowerShell in modalità limitata, un criterio dell'azienda)
+/// non è un annullo: il creator deve saperlo, o il pulsante gli sembrerebbe rotto.
+fn cartella_scelta(riuscito: bool, uscita: &[u8], errori: &[u8]) -> Result<Option<PathBuf>> {
+    if !riuscito {
+        let motivo = String::from_utf8_lossy(errori);
+        let motivo = motivo.lines().map(str::trim).find(|r| !r.is_empty()).unwrap_or_default();
+        anyhow::bail!(t(
+            format!("Non riesco ad aprire la finestra per scegliere la cartella ({motivo}). Scegli una delle cartelle proposte."),
+            format!("I can't open the window to choose the folder ({motivo}). Choose one of the suggested folders.")
+        ));
+    }
     let testo = String::from_utf8_lossy(uscita);
     let testo = testo.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
-    (!testo.is_empty()).then(|| PathBuf::from(testo))
+    Ok((!testo.is_empty()).then(|| PathBuf::from(testo)))
 }
 
 /// Il dialogo di sistema per scegliere una cartella. `None` se il creator annulla. Blocca finché non risponde.
@@ -155,11 +174,10 @@ pub fn scegli_cartella() -> Result<Option<PathBuf>> {
     let fuori = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-STA", "-Command", &script])
         .stdin(Stdio::null())
-        .stderr(Stdio::null())
         .creation_flags(CREATE_NO_WINDOW)
         .output()
         .with_context(|| t("non riesco ad aprire la scelta della cartella", "I can't open the folder picker"))?;
-    Ok(cartella_scelta(&fuori.stdout))
+    cartella_scelta(fuori.status.success(), &fuori.stdout, &fuori.stderr)
 }
 
 #[cfg(test)]
@@ -282,7 +300,7 @@ mod prove {
         assert_eq!(dati_correnti(None, attuale.path(), impostazioni.path()), Dati { attuale: attuale.path().to_path_buf(), prossima: None, forzata: false });
         programma_spostamento(impostazioni.path(), &nuova).unwrap();
         assert_eq!(dati_correnti(None, attuale.path(), impostazioni.path()).prossima, Some(nuova.clone()));
-        assert_eq!(spostamento_in_attesa(impostazioni.path()), Some(nuova.clone()));
+        assert_eq!(spostamento_in_attesa(None, impostazioni.path()), Some(nuova.clone()));
         // a riavvio la cartella è ancora quella di prima, e la nuova non esiste: l'ha da fare lo spostamento
         assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(attuale.path().to_path_buf()));
         assert!(!nuova.exists() && attuale.path().join("archivio").join("dato.txt").is_file());
@@ -295,7 +313,7 @@ mod prove {
         salva_scelta(impostazioni.path(), attuale.path()).unwrap();
         programma_spostamento(impostazioni.path(), nuova.path()).unwrap();
         salva_scelta(impostazioni.path(), nuova.path()).unwrap();
-        assert_eq!(spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(spostamento_in_attesa(None, impostazioni.path()), None);
         assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(nuova.path().to_path_buf()));
         assert!(nuova.path().join("archivio").is_dir());
     }
@@ -307,7 +325,7 @@ mod prove {
         salva_scelta(impostazioni.path(), attuale.path()).unwrap();
         programma_spostamento(impostazioni.path(), nuova.path()).unwrap();
         annulla_spostamento(impostazioni.path()).unwrap();
-        assert_eq!(spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(spostamento_in_attesa(None, impostazioni.path()), None);
         assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(attuale.path().to_path_buf()));
         // senza niente di ricordato non c'è niente da cancellare né da spostare
         let nuove = tempfile::tempdir().unwrap();
@@ -322,7 +340,7 @@ mod prove {
         let vecchia = serde_json::json!({ "lavoro": attuale.path() });
         std::fs::write(impostazioni.path().join(FILE_SCELTA), vecchia.to_string()).unwrap();
         assert_eq!(trova(None, impostazioni.path(), attuale.path()), Esito::Pronta(attuale.path().to_path_buf()));
-        assert_eq!(spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(spostamento_in_attesa(None, impostazioni.path()), None);
     }
 
     #[test]
@@ -331,15 +349,36 @@ mod prove {
         let (attuale, altra) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         salva_scelta(impostazioni.path(), attuale.path()).unwrap();
         programma_spostamento(impostazioni.path(), altra.path()).unwrap();
-        let d = dati_correnti(Some(attuale.path().to_str().unwrap()), attuale.path(), impostazioni.path());
+        let variabile = Some(attuale.path().to_str().unwrap());
+        let d = dati_correnti(variabile, attuale.path(), impostazioni.path());
         assert!(d.forzata && d.prossima.is_none());
+        // La cartella dell'avvio è quella della variabile: lo spostamento chiesto per la cartella ricordata non la riguarda.
+        assert_eq!(spostamento_in_attesa(variabile, impostazioni.path()), None);
+        assert_eq!(spostamento_in_attesa(Some(""), impostazioni.path()), Some(altra.path().to_path_buf()));
+    }
+
+    #[test]
+    fn la_scelta_si_scrive_per_intero_e_senza_file_provvisori() {
+        let impostazioni = tempfile::tempdir().unwrap();
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        salva_scelta(impostazioni.path(), a.path()).unwrap();
+        salva_scelta(impostazioni.path(), b.path()).unwrap();
+        let nomi: Vec<_> = std::fs::read_dir(impostazioni.path()).unwrap().map(|v| v.unwrap().file_name()).collect();
+        assert_eq!(nomi, [FILE_SCELTA]);
+        assert_eq!(trova(None, impostazioni.path(), a.path()), Esito::Pronta(b.path().to_path_buf()));
     }
 
     #[test]
     fn il_dialogo_annullato_non_sceglie_niente() {
-        assert_eq!(cartella_scelta(b""), None);
-        assert_eq!(cartella_scelta(b" \r\n"), None);
-        assert_eq!(cartella_scelta("\u{feff}C:/Dati/Città\r\n".as_bytes()), Some(PathBuf::from("C:/Dati/Città")));
+        assert_eq!(cartella_scelta(true, b"", b"").unwrap(), None);
+        assert_eq!(cartella_scelta(true, b" \r\n", b"").unwrap(), None);
+        assert_eq!(cartella_scelta(true, "\u{feff}C:/Dati/Città\r\n".as_bytes(), b"").unwrap(), Some(PathBuf::from("C:/Dati/Città")));
+    }
+
+    #[test]
+    fn un_dialogo_che_non_si_apre_non_e_un_annullo_e_dice_perche() {
+        let errore = cartella_scelta(false, b"", b"\r\nCannot invoke method. Method invocation is supported only on core types in this language mode.\r\nriga 2").unwrap_err().to_string();
+        assert!(errore.contains("Non riesco ad aprire la finestra") && errore.contains("Cannot invoke method"), "{errore}");
     }
 
     #[test]

@@ -26,14 +26,14 @@ import json
 import os
 import random
 import re
+import sys
 from datetime import datetime, timedelta
+from functools import partial
 from html.parser import HTMLParser
 from pathlib import Path
 
-from playwright.sync_api import TimeoutError as TempoScaduto
-from playwright.sync_api import sync_playwright
-
 from motore.archivio import archivio_di_lavoro
+from motore.archivio import scrivi_json as scrivi_json_del_motore
 from motore.errori import Errore
 from motore.profilo import leggi_profilo as profilo_del_creator
 from motore.profilo import macchina_di_lavoro
@@ -43,6 +43,16 @@ MEDAGLIE = {"K": 1000, "M": 1000000, "B": 1000000000}
 RIGA_ELENCO = re.compile(
     r"(?P<durata>\d{1,2}:\d{2})\n(?P<didascalia>.+?)\n(?:Fissato\n)?(?P<data>\d{1,2} \w{3} \d{2}:\d{2})\n"
     r"(?P<privacy>[^\n]+)\n(?P<visite>[^\n]+)\n(?P<piacciono>[^\n]+)\n(?P<commenti>[^\n]+)(?:\n|$)")
+
+
+def playwright():
+    """Il pacchetto Python `playwright`, che l'app installa: se manca (un Python scelto da chi sviluppa), la frase dice come averlo."""
+    try:
+        from playwright import sync_api
+    except ImportError as e:
+        raise Errore(f"manca il pacchetto Python playwright, che serve a pilotare il Chrome del creator: installalo con `uv pip install --python \"{sys.executable}\" playwright` (non serve scaricare i browser)",
+                     f"the Python package playwright is missing, which is needed to drive the creator's Chrome: install it with `uv pip install --python \"{sys.executable}\" playwright` (the browsers need not be downloaded)") from e
+    return sync_api
 
 
 def profilo_chrome():
@@ -97,10 +107,17 @@ def secondi_da(testo):
     return round((int(h[1]) * 3600 if h else 0) + (int(m[1]) * 60 if m else 0) + (float(s[1]) if s else 0), 2)
 
 
-def quando(testo):
-    """`4 ott 13:25` in `2026-10-04T13:25`."""
+def quando(testo, adesso=None):
+    """`4 ott 13:25` in `2026-10-04T13:25`. TikTok Studio non scrive l'anno: è quello di adesso, o dell'anno scorso se la data sarebbe nel futuro."""
     m = re.match(r"(\d{1,2}) (\w{3}) (\d{2}:\d{2})", testo.strip())
-    return f"{datetime.now().year}-{MESI[m[2]]:02d}-{int(m[1]):02d}T{m[3]}" if m else None
+    if not m:
+        return None
+    if m[2] not in MESI:
+        raise Errore(f"TikTok Studio scrive il mese «{m[2]}», che non conosco: lo strumento legge TikTok Studio in italiano, cambia la lingua dell'account",
+                     f"TikTok Studio writes the month «{m[2]}», which I do not know: the tool reads TikTok Studio in Italian, change the account language")
+    adesso = adesso or datetime.now()
+    data = f"{MESI[m[2]]:02d}-{int(m[1]):02d}T{m[3]}"
+    return f"{adesso.year - (data > adesso.strftime('%m-%dT%H:%M'))}-{data}"
 
 
 def durata(testo):
@@ -562,10 +579,7 @@ def scrivi_preferiti(archivio, quando, preferiti, mancano=None):
     scrivi_json(Path(archivio) / "canali" / "tiktok" / "preferiti.json", dati)
 
 
-def scrivi_json(dove, dati):
-    destinazione = Path(dove)
-    destinazione.parent.mkdir(parents=True, exist_ok=True)
-    destinazione.write_text(json.dumps(dati, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+scrivi_json = partial(scrivi_json_del_motore, indent=2)
 
 
 def apri_pagina(p, chrome):
@@ -573,14 +587,20 @@ def apri_pagina(p, chrome):
     print("Chrome chiede se consentire il collegamento: premi «Consenti» (hai 3 minuti)", flush=True)
     try:
         return p.chromium.connect_over_cdp(connetti(chrome), timeout=180000).contexts[0].new_page()
-    except TempoScaduto as e:
+    except playwright().TimeoutError as e:
         raise Errore("Chrome non ha consentito il collegamento entro 3 minuti: rilancia e premi «Consenti» nella finestra di Chrome",
                      "Chrome did not allow the connection within 3 minutes: run it again and press «Allow» in the Chrome window") from e
+    except playwright().Error as e:
+        if "ECONNREFUSED" not in str(e):
+            raise
+        # Chrome chiuso lascia nel profilo il file della porta dell'ultima volta: l'indirizzo c'è, ma nessuno risponde.
+        raise Errore("Chrome è chiuso: aprilo e rilancia",
+                     "Chrome is closed: open it and run it again") from e
 
 
 def leggi_preferiti_da_chrome(chrome, account, quanti, grezzi=None):
     mancano = []
-    with sync_playwright() as p:
+    with playwright().sync_playwright() as p:
         pagina = apri_pagina(p, chrome)
         letti = leggi_preferiti(pagina, account, quanti, mancano, grezzi)
         pagina.close()
@@ -597,7 +617,7 @@ def leggi(archivio, chrome, inizio, destinazione=None, da=None, grezzi=None, pre
                "nell'elenco dei contenuti TikTok carica solo le prime righe: i video sono enumerati dagli id dell'ultima lettura, non dall'elenco",
                "i totali degli ultimi 7 giorni sono arrotondati come li mostra TikTok Studio (30K, 1K, 30.3K); i numeri dei video sono quelli esatti della loro pagina",
                "tempo medio di visualizzazione letto al secondo intero"]
-    with sync_playwright() as p:
+    with playwright().sync_playwright() as p:
         pagina = apri_pagina(p, chrome)
         print(">> profilo")
         profilo = leggi_profilo(pagina, account, mancano, grezzi)

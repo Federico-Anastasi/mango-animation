@@ -5,8 +5,8 @@ description: Edits or re-edits a video of the archive — writes or corrects the
 
 # Monta
 
-Goal: a clean `uscite/con-copertina.mp4` that respects `.claude/rules/montaggio.md`, sent to the creator. Before writing or correcting
-the plan read `.claude/metodo/problemi-gia-visti.md` («Cuts and voice» above all): the defects already met are not made again. If
+Goal: a clean `uscite/con-copertina.mp4` that respects the editing rules, sent to the creator. Before writing or correcting
+the plan read `.claude/metodo/montaggio.md` (rules and frames) and `.claude/metodo/problemi-gia-visti.md` («Cuts and voice» above all): the defects already met are not made again. If
 YouTube is among the creator's `canali` and the video is for YouTube, also `.claude/metodo/youtube.md`.
 
 The plan is written whole with `piano_scrivi`, and corrected with `piano_ritocca` (only the fields touched, by path): both validate it (if it does not pass, it says what to correct and the file
@@ -17,7 +17,8 @@ does not change), keeps the previous version (you go back with `piano_annulla`) 
 
 1. `video_leggi`: card and plan. Read `materiali/testo-registrato.md`, the fixed text (skill `testo`: the takes are already
    transcribed). The frame: «When the creator says…» of `montaggio.md`.
-2. Write the plan from the fixed text, line by line, with `piano_scrivi`:
+2. Write the plan from the fixed text, line by line, with `piano_scrivi`. Scenes and sources get a name in words (`hook`, `demo`), not `c1` or the
+   name of the file: the studio shows them as written.
    - short takes, one per sentence: timed pieces; edges from the times of `parole`;
    - continuous speech (a live recording): pieces by words (`minuto`, `dice`);
    - animated scenes: `ancore` or `parole` (skill `scena`);

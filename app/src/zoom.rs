@@ -4,7 +4,7 @@
 
 use crate::lingua::t;
 use std::path::{Path, PathBuf};
-use tauri::{plugin::Builder, App, Manager, WebviewWindow, Wry};
+use tauri::{Manager, WebviewWindow};
 
 /// I limiti dello zoom del browser (WebView2: dal 25% al 500%).
 const MINIMO: f64 = 0.25;
@@ -18,14 +18,10 @@ pub const SINCRONIA: &str = r#"
   let attesa;
   addEventListener("resize", () => {
     clearTimeout(attesa);
-    attesa = setTimeout(() => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-zoom|ricorda_zoom", { scalaPagina: devicePixelRatio }).catch(() => {}), 800);
+    attesa = setTimeout(() => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|ricorda_zoom", { scalaPagina: devicePixelRatio }).catch(() => {}), 800);
   });
 })();
 "#;
-
-/// I comandi del plugin: gli stessi in `build.rs` (permessi), in `SINCRONIA` e in `capabilities/`.
-#[cfg(test)]
-const COMANDI: [&str; 1] = ["ricorda_zoom"];
 
 /// Lo zoom di una pagina: la sua scala sulla scala dello schermo, a due decimali.
 fn zoom_di(scala_pagina: f64, scala_schermo: f64) -> f64 {
@@ -54,7 +50,7 @@ fn scrivi(file: &Path, zoom: f64) -> std::io::Result<()> {
 }
 
 #[tauri::command]
-fn ricorda_zoom(finestra: WebviewWindow, scala_pagina: f64) -> Result<(), String> {
+pub(crate) fn ricorda_zoom(finestra: WebviewWindow, scala_pagina: f64) -> Result<(), String> {
     if !scala_pagina.is_finite() || scala_pagina <= 0.0 {
         return Err(t(format!("scala della pagina non valida: {scala_pagina}"), format!("invalid page scale: {scala_pagina}")));
     }
@@ -69,10 +65,6 @@ pub fn ripristina(finestra: &WebviewWindow) {
     if let Some(zoom) = finestra.app_handle().path().app_local_data_dir().ok().and_then(|dati| leggi(&file_dello_zoom(&dati))) {
         let _ = finestra.set_zoom(zoom);
     }
-}
-
-pub fn installa(app: &App) -> tauri::Result<()> {
-    app.handle().plugin(Builder::<Wry>::new("mango-animation-zoom").invoke_handler(tauri::generate_handler![ricorda_zoom]).build())
 }
 
 #[cfg(test)]
@@ -114,15 +106,5 @@ mod prove {
         }
         std::fs::write(&file, " 1.5\n").unwrap();
         assert_eq!(leggi(&file), Some(1.5), "uno spazio o un a capo non guastano");
-    }
-
-    #[test]
-    fn la_sincronia_i_permessi_e_la_capability_dicono_gli_stessi_comandi() {
-        let (build, capability) = (include_str!("../build.rs"), include_str!("../capabilities/default.json"));
-        for comando in COMANDI {
-            assert!(SINCRONIA.contains(&format!("\"plugin:mango-animation-zoom|{comando}\"")), "{comando} non è nello script");
-            assert!(build.contains(&format!("\"{comando}\"")), "{comando} non è nei permessi di build.rs");
-        }
-        assert!(build.contains("\"mango-animation-zoom\"") && capability.contains("mango-animation-zoom:default"));
     }
 }

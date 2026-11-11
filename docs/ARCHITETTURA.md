@@ -13,15 +13,15 @@ nel browser mostra gli stessi file e li ritocca, e ha una chat con Claude Code o
 | `server/` | serve l'interfaccia, legge e scrive l'archivio, osserva i file, tiene la coda dei lavori, riceve dal telefono, registra lo schermo, scarica dal web nel girato, tiene le conversazioni con Claude Code (`src/chat/`, `docs/CHAT.md`) | Bun, ffmpeg, Agent SDK di Claude Code |
 | `studio/` | l'interfaccia nel browser | React, Vite, TypeScript, CSS a moduli |
 | `app/` | l'app desktop Mango Animation: una finestra con lo studio a tutta pagina, accende il server e chiude tutto con sé (`docs/APP.md`) | Rust, Tauri 2 |
-| `strumenti/` | la lettura del canale TikTok, gli sticker, le miniature dei video senza piano | Python |
+| `strumenti/` | la lettura del canale TikTok, gli sticker | Python |
 | `.claude-plugin/`, `plugin/` | il metodo (skill, strumento «video», regole) come plugin di Claude Code (sotto, «Come il metodo arriva a Claude») | Bun |
-| `stile.json` | lo stile di serie: formato, colori, quadri, sottotitoli, titolo, copertina, voce; quello del creator ci si sovrappone (sotto) | — |
+| `stile.json` | lo stile di serie: formati, colori, quadri, sottotitoli, titolo, copertina, voce; quello del creator ci si sovrappone (sotto) | — |
 | `archivio/` | i dati: girato, video, arrivi. Sta nella cartella di lavoro, non qui | `docs/ARCHIVIO.md` |
 
 ## La cartella di lavoro
 
 Il prodotto vive in due cartelle. Il **codice** (questa: motore, strumenti, server, studio, animazioni, app, `stile.json`, `font/`, e il metodo in
-`CLAUDE.md`, `.claude/rules/`, `.claude/skills/`) è uguale per tutti e non cambia con l'uso. La **cartella di lavoro** è di chi lo usa:
+`CLAUDE.md`, `.claude/rules/`, `.claude/metodo/`, `.claude/skills/`) è uguale per tutti e non cambia con l'uso. La **cartella di lavoro** è di chi lo usa:
 
 | dentro la cartella di lavoro | cosa |
 |---|---|
@@ -41,20 +41,9 @@ frase che dice cosa fare. L'app invece la prepara da sola (riga sotto), e la var
 | il server | `server/src/configurazione.ts` (`cartellaDiLavoro`) | `archivio` è `<lavoro>/archivio`. Passa la variabile ai lavori del motore, allo strumento «video» e a Claude |
 | il motore e gli strumenti | `motore/archivio.py` (`cartella_di_lavoro`) | `Archivio()` e ogni comando in `strumenti/` cercano i dati lì |
 
-**Lo stile.** Il codice ha il suo `stile.json` di serie, valido per tutti; la cartella di lavoro può averne uno suo, con solo ciò che cambia. Lo stile che
-vale è la somma dei due, e la regola è una sola, scritta una volta per linguaggio (`unisci_stile` in `motore/archivio.py`, `unisciStile` in
-`strumenti/stile.mjs`): gli oggetti si fondono chiave per chiave, in profondità; ogni altro valore del creator (numero, testo, `true`/`false`, `null`, lista) sostituisce
-quello di serie, senza fondersi; le chiavi che il creator non nomina restano quelle di serie, e una chiave di serie non si toglie. Lo leggono tutti
-(`leggi_stile`, `leggiStile`): motore e strumenti, il server (che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza nello
-stile del creator, `docs/API.md`), le animazioni (`animazioni/LEGGIMI.md`) e, tramite il server, lo studio. Una soglia nuova del prodotto arriva a tutti senza toccare lo stile di nessuno.
+**Lo stile.** Il codice ha il suo `stile.json` di serie (e `stili-di-partenza.json`, i tre stili che il primo giro propone), valido per tutti; la cartella di lavoro può averne uno suo, con solo ciò che cambia, e quello che vale è la somma dei due: la regola (`unisci_stile` in `motore/archivio.py`, `unisciStile` in `strumenti/stile.mjs`) è in `docs/PROFILO.md`. Lo leggono tutti con `leggi_stile` / `leggiStile`: motore e strumenti, il server (che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza, `docs/API.md`), le animazioni (`animazioni/LEGGIMI.md`) e, tramite il server, lo studio.
 
-**Il profilo.** `profilo.json` (schema in `motore/schemi/profilo.schema.json`) ha le sezioni `creator`, `pubblico`, `canali`, `non_si_dice`, `fonti_delle_idee`, che leggono
-le skill e le regole, e `macchina`, che legge il codice al posto di variabili d'ambiente e valori scritti: `scheda_video` (l'indice di `nvidia-smi` della scheda per i lavori
-pesanti: modelli, scontorno, trascrizione, resa delle animazioni; `null` per lavorare sul processore), `scheda_registrazione` (la scheda che codifica lo schermo registrato; `null`
-per il processore), `profilo_chrome` (la cartella del profilo di Chrome da cui leggere TikTok), `disco_quasi_pieno` (lo legge Claude, non il codice). La sezione `macchina` non ammette
-chiavi sconosciute. Senza `profilo.json`, o senza un campo: la scheda NVIDIA che c'è, e senza scheda il processore (motore e server lo dicono, non lo fanno in silenzio); il profilo di Chrome
-che Windows dà a Chrome. Una scheda indicata che non c'è è un errore. Un profilo che lo schema non ammette non ferma il server: il motore lo dice a ogni comando che lo legge, il server lo scrive nel suo terminale e lo espone con `GET /api/profilo`
-(cosa correggere, nelle due lingue). All'avvio, non avendone uno valido, parte «senza profilo» (sopra); a server acceso il profilo si rilegge quando cambia e, se non passa lo schema, resta l'ultimo valido.
+**Il profilo.** `profilo.json` (`docs/PROFILO.md`, schema in `motore/schemi/profilo.schema.json`) ha le sezioni `creator`, `pubblico`, `canali`, `non_si_dice`, `fonti_delle_idee`, che leggono le skill e le regole, e `macchina`, che legge il codice al posto di variabili d'ambiente e valori scritti. Senza `profilo.json`, o senza un campo, vale ciò che il computer ha: la scheda NVIDIA che c'è, e senza scheda il processore (motore e server lo dicono, non lo fanno in silenzio); una scheda indicata che non c'è è un errore (le regole di `dove` sono in `docs/MOTORI.md`). Un profilo che lo schema non ammette non ferma il server (`docs/PROFILO.md`, `GET /api/profilo`).
 Variabili d'ambiente (le imposta l'app, o chi sviluppa): `MANGO_ANIMATION_LAVORO`, `MANGO_ANIMATION_PORTA`, `MANGO_ANIMATION_PORTA_ARRIVI`, `MANGO_ANIMATION_PYTHON`, `MANGO_ANIMATION_MODULO`,
 `MANGO_ANIMATION_CLAUDE` (il programma `claude` della chat, `docs/CHAT.md`), `MANGO_ANIMATION_LINGUA` (la lingua delle frasi del motore, che il server passa ai lavori).
 Quelle che riguardano solo l'app (`MANGO_ANIMATION_RADICE`, `MANGO_ANIMATION_DETTATURA`, `MANGO_ANIMATION_APP_PID`, `MANGO_ANIMATION_SENTRY_DSN` e le altre) sono in `docs/APP.md`.
@@ -73,7 +62,7 @@ metodo del prodotto gli arriva dal codice. Non è una copia: il metodo resta una
 |---|---|---|
 | le skill | il manifesto indica `.claude/skills/`, la stessa cartella che Mango Code legge come cartella in più: una copia sola. Claude Code le chiama `mango-animation:<skill>` | `.claude/skills/` |
 | lo strumento «video» | `plugin/mcp.ts` trova la cartella di lavoro (`plugin/lavoro.ts`: `MANGO_ANIMATION_LAVORO`; senza, la cartella in cui Claude è aperto se ha `archivio/`; altrimenti non parte e dice cosa fare) e accende lo stesso server MCP di `bun run --cwd server mcp`. Parla col server di Mango Animation, che deve essere acceso | `plugin/mcp.ts` |
-| `CLAUDE.md` e regole | un plugin non porta né `CLAUDE.md` né regole: li dà un hook di avvio (`plugin/hooks.json`, `plugin/sessione.ts`), solo in una cartella di lavoro. Sono il `CLAUDE.md` del codice e le regole di `.claude/rules/` senza `paths:` (quelle con `paths:` sono di chi sviluppa il codice, che le ha già); un hook non dà più di 10.000 caratteri, quindi il testo va in pezzi (`plugin/metodo.ts`), un hook per pezzo, e la prova `server/test/plugin.test.ts` fallisce se le regole crescono oltre i pezzi che gli hook portano. Il primo pezzo dice anche dove sta il codice: i percorsi che le regole e le skill nominano (`.claude/metodo/…`, `docs/…`, `animazioni/…`, `stile.json`) sono relativi a quella cartella | `plugin/metodo.ts` |
+| `CLAUDE.md` e regole | un plugin non porta né `CLAUDE.md` né regole: li dà un hook di avvio (`plugin/hooks.json`, `plugin/sessione.ts`), solo in una cartella di lavoro. Sono il `CLAUDE.md` del codice e le regole di `.claude/rules/` senza `paths:` (quelle con `paths:` sono di chi sviluppa il codice, che le ha già), con in testa dove sta il codice: i percorsi che le regole e le skill nominano (`.claude/metodo/…`, `docs/…`, `animazioni/…`, `stile.json`) sono relativi a quella cartella. Un hook non dà più di 10.000 caratteri: se le regole non ci stanno l'hook fallisce con una frase che lo dice (e la prova `server/test/plugin.test.ts` con lui), non le taglia. Ciò che serve a pochi passi sta in `.claude/metodo/` (regole di montaggio e di contenuto, difetti già visti, YouTube) e lo leggono le skill di quei passi | `plugin/metodo.ts` |
 | `MANGO_ANIMATION_LAVORO` e `PYTHONPATH` per la shell | l'hook `ambiente` li scrive in `CLAUDE_ENV_FILE`, così `python -m motore` funziona dalla cartella di lavoro anche da terminale; dove ci sono già (la chat) non cambia niente | `plugin/sessione.ts` |
 
 - **Per usarlo**, nella cartella di lavoro: `CLAUDE_CODE_PLUGIN_DIRS=<codice>` nell'ambiente (o `claude --plugin-dir <codice>` per una sessione) e il server acceso. Il plugin si carica dove sta,
@@ -81,7 +70,7 @@ metodo del prodotto gli arriva dal codice. Non è una copia: il metodo resta una
   `CLAUDE_CODE_PLUGIN_DIRS` nell'ambiente dell'utente: varrebbe in ogni progetto, e lo strumento «video» fallirebbe fuori da una cartella di lavoro. La guida dà il
   comando con `--plugin-dir` (`docs/guida/`, «La chat»).
 - **Mango Code** non legge i plugin di Claude Code: legge `CLAUDE.md`, `.claude/rules/` e `.claude/skills/` della cartella in più (`docs/CHAT.md`, «Mango Code»), e lo strumento «video» lo riceve da `POST /mcp`. Le stesse skill, nessuna copia.
-- Le prove (`server/test/plugin.test.ts`) controllano manifesto e `claude plugin validate`, le skill, gli hook (pezzi sotto il limite, niente fuori da una cartella di lavoro, la shell) e che il server MCP parta ed elenchi gli strumenti senza scheda video.
+- Le prove (`server/test/plugin.test.ts`) controllano manifesto e `claude plugin validate`, le skill, gli hook (le regole entrano in un hook o l'hook fallisce, niente fuori da una cartella di lavoro, la shell) e che il server MCP parta ed elenchi gli strumenti senza scheda video.
 
 Ogni pacchetto (`animazioni/`, `server/`, `studio/`) ha il suo `package.json`, l'app (`app/`) il suo `Cargo.toml`; il motore si lancia dalla
 radice con `python -m motore`.
@@ -89,12 +78,12 @@ radice con `python -m motore`.
 ## Chi scrive cosa
 
 - **Il piano** (`archivio/video/<slug>/piano.json`, `docs/PIANO.md`) è l'unica verità di un montaggio. Lo
-  scrive Claude da terminale, oppure l'interfaccia quando il creator ritocca a mano (`PUT` sul server, che valida
-  e tiene la versione di prima in `storia/`).
+  scrive Claude da terminale, oppure l'interfaccia quando il creator ritocca a mano (`PATCH` sul server, che applica solo i ritocchi al piano del file, valida
+  e tiene la versione di prima in `storia/`, che lo studio elenca e da cui rimette in uso una versione: «Versioni»).
 - **Il motore** legge piano e `stile.json` e scrive solo in `lavoro/` e `uscite/` del video e in
   `archivio/preparati/`; `pagina` scrive in `materiali/`, perché una pagina del web cambia e la sua cattura non si
   rifà uguale. Non scrive mai il piano né la scheda.
-- **Il server** non monta e non decide: valida, salva, osserva, mette in coda i comandi del motore. Le conversazioni della chat sono di `server/src/chat/` (un solo proprietario in memoria); i conti del lavoro di Claude per video, ricavati dai file di quelle
+- **Il server** non monta e non decide: valida, salva, osserva, mette in coda i comandi del motore. Ricava dai file, senza che nessuno li scriva, a che passo del metodo è ogni video (`server/src/fasi.ts`) e cerca nel parlato già trascritto (`server/src/parlato.ts`). Le conversazioni della chat sono di `server/src/chat/` (un solo proprietario in memoria); i conti del lavoro di Claude per video, ricavati dai file di quelle
 conversazioni, di `server/src/consumi/` (un altro, che osserva la stessa cartella: `docs/API.md`, «Consumi»); gli allegati e le conversazioni di Mango Code (`docs/CHAT.md`) stanno in `archivio/.chat/`, fuori da git.
 - **L'interfaccia** non legge mai il disco: passa dal server (`docs/API.md`).
 
@@ -113,10 +102,10 @@ conversazioni, di `server/src/consumi/` (un altro, che osserva la stessa cartell
 
 ## Regole di costruzione
 
-- **Un lavoro pesante alla volta**: la coda del server ne esegue uno solo; il motore usa la scheda del profilo.
+- **Un lavoro pesante alla volta**: la coda del server ne esegue uno solo; il motore e la resa delle scene (`scene_foto`) usano la scheda del profilo.
 - **Le schede video e Mango Code** (`server/src/schede.ts`): se il modello di Mango Code è acceso e tiene la scheda del profilo
   (`macchina.scheda_video`; senza, tutte), un lavoro che la vuole (`prepara`, `prepara-file`, `monta`, `anteprima`, `controlla`,
-  `copertina`, `prova`, `carosello`) la chiede prima di partire al gestore del motore di Mango Code (`POST /engine/release`, che salva la
+  `copertina`, `prova`, `carosello`, `scene-foto`) la chiede prima di partire al gestore del motore di Mango Code (`POST /engine/release`, che salva la
   conversazione e spegne il modello: lascia finire la risposta che sta scrivendo fino a 60 s, e prima aspetta un modello che si sta
   accendendo; [contratto di Mango Code](https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md), «The engine and the GPUs») e lo scrive fra le sue righe; quando in coda non restano lavori sulla scheda, gliela ridà (`POST /engine/resume`) e la conversazione riprende.
   Un lavoro che arriva mentre il modello si riaccende aspetta la fine della riaccensione; una riaccensione fallita si riprova alla
@@ -152,7 +141,5 @@ conversazioni, di `server/src/consumi/` (un altro, che osserva la stessa cartell
     python -m motore <comando> <slug>   # (con MANGO_ANIMATION_LAVORO) prepara, risolvi, monta, controlla, copertina, pagina, parole, foto, valida
     bun run --cwd animazioni dev        # le scene nel browser
     bun run --cwd animazioni foto       # i fotogrammi chiave delle scene, con i controlli (testo, fascia, sfondo fermo)
-    bun test --cwd animazioni           # prove delle animazioni
-    pytest motore                       # prove del motore (senza scheda video)
-    bun test --cwd server ; bun run --cwd studio test
-    cargo test --manifest-path app/Cargo.toml    # l'app desktop (costruirla: docs/APP.md)
+
+Le prove di ogni pacchetto: `CONTRIBUTING.md`.

@@ -1,13 +1,13 @@
 """Il carosello: le slide di `materiali/carosello.html` in `uscite/slide-<n>.png` (`strumenti/carosello.mjs`), con i controlli."""
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from urllib.parse import quote
 
 from .archivio import leggi_json
 from .errori import Errore, dice
+from .pagina import node_con_pacchetti
 
 FRASI = {
     "lato sinistro": lambda a, m: dice(f"«{a['testo']}» nel lato sinistro, che il telefono taglia", f"«{a['testo']}» in the left side, which the phone crops"),
@@ -69,10 +69,7 @@ def carosello(archivio, slug, avanza=print):
     if not pagina.exists():
         raise Errore(f"manca {pagina}: le slide si scrivono lì, una <section class=\"slide\"> ciascuna (docs/MOTORE.md, «Il carosello»)",
                      f"{pagina} is missing: the slides are written there, one <section class=\"slide\"> each (docs/MOTORE.md, «Il carosello»)")
-    node = shutil.which("node")
-    if node is None:
-        raise Errore("per rendere le slide serve Node (il comando `node`): installalo da nodejs.org",
-                     "rendering the slides needs Node (the `node` command): install it from nodejs.org")
+    node = node_con_pacchetti(archivio)
     uscite = archivio.uscite(slug)
     uscite.mkdir(parents=True, exist_ok=True)
     esito = subprocess.run([node, archivio.repo / "strumenti" / "carosello.mjs", pagina, uscite], cwd=archivio.repo,

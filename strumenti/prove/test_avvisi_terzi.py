@@ -58,6 +58,25 @@ def test_un_crate_gpl_ferma_la_generazione(monkeypatch):
         avvisi.genera()
 
 
+def test_un_crate_che_serve_solo_alle_prove_non_e_fra_quelli_che_l_app_porta():
+    def arco(crate, *tipi):
+        return {"pkg": crate, "dep_kinds": [{"kind": tipo, "target": None} for tipo in tipi]}
+
+    grafo = {
+        "root": "app",
+        "nodes": [
+            {"id": "app", "deps": [arco("portato", None), arco("di-prova", "dev"), arco("tutti-e-due", None, "dev"), arco("di-costruzione", "build")]},
+            {"id": "portato", "deps": [arco("sotto", None)]},
+            {"id": "di-prova", "deps": [arco("sotto", None), arco("sotto-di-prova", None)]},
+            {"id": "tutti-e-due", "deps": []},
+            {"id": "di-costruzione", "deps": []},
+            {"id": "sotto", "deps": []},
+            {"id": "sotto-di-prova", "deps": []},
+        ],
+    }
+    assert avvisi.portati(grafo) == {"portato", "tutti-e-due", "di-costruzione", "sotto"}
+
+
 def test_il_manifesto_si_legge():
     assert json.loads(avvisi.MANIFESTO.read_text(encoding="utf-8"))["elementi"]
 

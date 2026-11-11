@@ -242,7 +242,7 @@ describe("lo stato degli arrivi e dello studio dalla rete", () => {
     const errore = async (r: Response): Promise<string> => ((await r.json()) as Errore).errore
 
     expect(await errore(await dallaRete(a, "/api/video", { "X-Lingua": "en" }))).toBe(
-      "There is no session, or it has expired. To get into the studio, open the link on the computer, in Footage, in the box «The studio on your phone».",
+      "There is no session, or it has expired. To get into the studio, open the link on the computer, in Settings › Phone, in the box «The studio on your phone».",
     )
     expect(await errore(await dallaRete(a, "/api/video"))).toStartWith("La sessione non c'è o è scaduta.")
     expect(await errore(await dallaRete(a, "/studio?chiave=sbagliata", { "X-Lingua": "en" }))).toStartWith("The studio key is not right.")

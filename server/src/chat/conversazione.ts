@@ -1,16 +1,22 @@
 // Una conversazione con Claude Code: il `query` dell'SDK in streaming, i messaggi, le richieste in attesa del creator.
 import type { CanUseTool, Options, PermissionResult, SDKMessage, SDKUserMessage, SlashCommand } from "@anthropic-ai/claude-agent-sdk"
 import type { BloccoDiIngresso } from "./allegati"
+import { dettaglioDi, frase, type Frase, type Lingua } from "../lingua"
 import { IngressoDiMessaggi } from "./ingresso"
 import { aperturaDelMetodo, serverVideo } from "./metodo"
 import type { Cambi } from "./modelli"
 import { ElencoTask } from "./task"
-import { eOggetto, abbrevia, contestoDaUsage, type Oggetto } from "./traduzione"
+import { abbrevia, contestoDaUsage, type Oggetto } from "./traduzione"
 import { lavoroDeiGiri, Trascrizione } from "./trascrizione"
 import { ErroreChat, MODELLO_PREDEFINITO, type ContestoUsato, type DatiEventoChat, type DomandaChat, type FunzioneQuery, type ImpostazioniChat, type MessaggioChat, type Parte, type QueryChat, type RichiestaChat, type StatoChat, type TempoDiLavoro } from "./tipi"
+import { eOggetto } from "../disco"
 
 const DOMANDA = "AskUserQuestion"
-export const CONVERSAZIONE_CHIUSA = "Questa conversazione è chiusa: non sta facendo niente. Scrivi un messaggio per riaprirla."
+export const CONVERSAZIONE_CHIUSA = frase("Questa conversazione è chiusa: non sta facendo niente. Scrivi un messaggio per riaprirla.", "This conversation is closed: nothing is running. Write a message to reopen it.")
+const CONVERSAZIONE_CHIUSA_ORA = frase("La conversazione si è chiusa.", "The conversation was closed.")
+const LAVORO_FERMATO = frase("Il lavoro è stato fermato.", "The job was stopped.")
+const LAVORO_FERMATO_PRIMA = frase("Il lavoro è stato fermato prima della risposta.", "The job was stopped before it was answered.")
+const DOMANDA_STORTA = frase("La domanda non è scritta bene: servono da 1 a 4 domande, ciascuna con le sue opzioni.", "The question is not well formed: it needs 1 to 4 questions, each with its options.")
 
 interface Attesa {
   richiesta: RichiestaChat
@@ -37,6 +43,8 @@ export interface DipendenzeConversazione {
   motore: string
   emetti: (id: string, dati: DatiEventoChat) => void
   adesso: () => Date
+  /** La lingua dello studio: le frasi che nascono fuori da una richiesta (l'errore di un giro, la richiesta di un permesso) escono in questa. */
+  lingua: () => Lingua
   /** Cambia ciò che l'elenco mostra (attiva, data, titolo). */
   elencoCambiato: (id: string) => void
   /** Claude Code ha mandato l'elenco intero dei comandi con la barra. */
@@ -44,9 +52,10 @@ export interface DipendenzeConversazione {
 }
 
 /** Cosa dice la richiesta di permesso: lo strumento e la cosa più riconoscibile del suo ingresso. */
-function frasePerIlPermesso(nome: string | null, strumento: string, ingresso: Oggetto): string {
+function frasePerIlPermesso(nome: string | null, strumento: string, ingresso: Oggetto): Frase {
   const campo = ["command", "file_path", "path", "url", "pattern", "query", "skill", "description", "prompt"].find((c) => typeof ingresso[c] === "string" && ingresso[c] !== "")
-  return `${nome ? `${nome} vuole` : "Vuole"} usare ${strumento}${campo ? `: ${abbrevia(String(ingresso[campo]), 240)}` : ""}`
+  const cosa = campo ? `: ${abbrevia(String(ingresso[campo]), 240)}` : ""
+  return frase(`${nome ? `${nome} vuole` : "Vuole"} usare ${strumento}${cosa}`, `${nome ?? "Claude Code"} wants to use ${strumento}${cosa}`)
 }
 
 function domandeDa(ingresso: Oggetto): DomandaChat[] | null {
@@ -67,10 +76,10 @@ const nellApp = (motore: string): string =>
   [
     "The creator writes to you from the chat of the Mango Animation app, not from a terminal: next to the chat there is the studio with the videos.",
     motore === "Claude Code" ? "The creator sees in the chat the images returned by the tools (foto, slide, scene_foto): to show a result, use them." : null,
-    "When a choice is needed use the AskUserQuestion tool: in the chat it becomes a set of buttons.",
+    `When a choice is needed use the ${motore === "Claude Code" ? "AskUserQuestion" : "question"} tool: in the chat it becomes a set of buttons.`,
     "Never ask the creator to run commands: if a command is needed, run it yourself.",
-    "Name a video by its slug or by the path archivio/video/<slug>/…: in the chat it becomes a link that opens it in the studio.",
-    "Write to the creator in their language (`creator.lingua` in `profilo.json`), in every sentence, even the short ones between one step and the next.",
+    "Name a video by its slug or by the path archivio/video/<slug>/…: in the chat it becomes a link that opens it in the studio. Other paths inside archivio/ become a button that shows them in Explorer; paths elsewhere are plain text.",
+    "Write to the creator in their language (`creator.lingua` in `profilo.json`), in every sentence, even the short ones between one step and the next, and in the description of the commands you run (the chat shows it to the creator).",
   ]
     .filter((riga): riga is string => riga !== null)
     .join("\n")
@@ -99,6 +108,8 @@ export class Conversazione {
   private query: QueryChat | null = null
   private ingresso = new IngressoDiMessaggi()
   private ciclo: Promise<void> = Promise.resolve()
+  /** Il collegamento all'app di Claude è già stato chiesto a questa `query`. */
+  private collegata = false
   private esiste: boolean
   private inChiusura = false
   private readonly trascrizione: Trascrizione
@@ -122,7 +133,7 @@ export class Conversazione {
     this.esiste = d.esiste
     this.contestoUsato = d.contestoUsato
     this.finestra = d.contestoUsato?.totale ?? null
-    this.trascrizione = new Trascrizione(d.messaggi, (dati) => d.emetti(d.id, dati), d.adesso, nomeNelleFrasi(d.motore), () => this.chiudiIlLavoroDelGiro())
+    this.trascrizione = new Trascrizione(d.messaggi, (dati) => d.emetti(d.id, dati), d.adesso, nomeNelleFrasi(d.motore), () => this.chiudiIlLavoroDelGiro(), d.lingua)
     this.task = new ElencoTask(d.adesso)
   }
 
@@ -143,7 +154,7 @@ export class Conversazione {
     return this.trascrizione.messaggi
   }
 
-  /** Quanto Claude ha lavorato in tutta la conversazione, senza le attese del creator (`docs/CHAT.md`, «Il tempo di lavoro»). */
+  /** Quanto Claude ha lavorato in tutta la conversazione, senza le attese del creator (`docs/CHAT.md`, «API», il campo `lavoro`). */
   get lavoro(): TempoDiLavoro {
     const inCorso = this.stato === "lavora" || this.stato === "aspetta"
     return { ms: lavoroDeiGiri(this.messaggi, inCorso) + this.lavoroDelGiro, da: this.lavoraDalle?.toISOString() ?? null }
@@ -179,6 +190,7 @@ export class Conversazione {
 
   private avvia(): void {
     this.ingresso = new IngressoDiMessaggi()
+    this.collegata = false
     const opzioni: Options = {
       cwd: this.d.lavoro,
       ...aperturaDelMetodo(this.d.codice, this.d.lavoro),
@@ -206,10 +218,10 @@ export class Conversazione {
   private async leggi(query: QueryChat): Promise<void> {
     try {
       for await (const messaggio of query) this.ricevi(messaggio)
-      if (!this.inChiusura && this.stato !== "pronta") this.errore(`${this.d.motore} si è chiuso prima di finire la risposta: riscrivi il messaggio.`)
+      if (!this.inChiusura && this.stato !== "pronta") this.errore(frase(`${this.d.motore} si è chiuso prima di finire la risposta: riscrivi il messaggio.`, `${this.d.motore} closed before finishing the answer: write the message again.`))
     } catch (errore) {
       // Un errore che ha già la sua frase per il creator (`ErroreChat`) si mostra com'è, senza altro intorno.
-      if (!this.inChiusura) this.errore(errore instanceof ErroreChat ? errore.message : `Il collegamento con ${this.d.motore} si è interrotto (${fraseDi(errore)}): riscrivi il messaggio.`)
+      if (!this.inChiusura) this.errore(errore instanceof ErroreChat ? errore.testo : frase(`Il collegamento con ${this.d.motore} si è interrotto (${fraseDi(errore)}): riscrivi il messaggio.`, `The connection with ${this.d.motore} was interrupted (${fraseDi(errore)}): write the message again.`))
     } finally {
       // Una query finita male tiene ancora i suoi flussi: si chiude, e il messaggio dopo ne apre una nuova.
       query.close()
@@ -217,14 +229,31 @@ export class Conversazione {
         this.query = null
         this.ingresso.chiudi()
       }
-      this.annullaRichieste("La conversazione si è chiusa.", false)
+      this.annullaRichieste(CONVERSAZIONE_CHIUSA_ORA, false)
       this.annunciaTask(this.task.azzera())
       this.d.elencoCambiato(this.id)
     }
   }
 
-  private errore(frase: string): void {
-    this.trascrizione.finisciConErrore(frase)
+  /**
+   * Come una chat aperta nel terminale con il controllo remoto: la conversazione compare nell'app di Claude e si continua da lì.
+   * Lo apre Claude Code con il suo login (le chat di Mango Code non l'hanno): da qui non passa nessun accesso, e l'indirizzo
+   * della sessione che risponde non si tiene né si scrive. Una conversazione ripresa si riaggancia da sé alla sua sessione.
+   */
+  private collega(query: QueryChat): void {
+    if (this.collegata) return
+    this.collegata = true
+    if (!query.enableRemoteControl) {
+      if (this.d.motore === "Claude Code") console.error(`chat: l'SDK installato non sa collegare la conversazione ${this.id} all'app di Claude.`)
+      return
+    }
+    query
+      .enableRemoteControl(true, `Mango Animation · ${abbrevia(this.titolo, 80)}`)
+      .catch((errore: unknown) => console.error(`chat: la conversazione ${this.id} non è collegata all'app di Claude: ${abbrevia(fraseDi(errore), 300)}`))
+  }
+
+  private errore(testo: Frase): void {
+    this.trascrizione.finisciConErrore(testo)
     this.imposta("errore")
   }
 
@@ -242,6 +271,7 @@ export class Conversazione {
         this.esiste = true
         this.acceso = { modello: m.model, effort: m.effort ?? null }
         this.annuncia()
+        if (this.query) this.collega(this.query)
       } else {
         if (m.subtype === "compact_boundary") this.annunciaContesto(null)
         if (m.subtype === "commands_changed") this.d.comandiCambiati(m.commands)
@@ -332,7 +362,8 @@ export class Conversazione {
         if (cambi.effort === null) this.acceso = { ...this.acceso, effort: null }
       }
     } catch (errore) {
-      throw new ErroreChat(502, `${this.d.motore} non ha accettato il cambio: ${errore instanceof Error ? errore.message : String(errore)}`)
+      const d = dettaglioDi(errore)
+      throw new ErroreChat(502, frase(`${this.d.motore} non ha accettato il cambio: ${d.it}`, `${this.d.motore} did not accept the change: ${d.en}`))
     } finally {
       this.annuncia()
     }
@@ -356,33 +387,33 @@ export class Conversazione {
     if (strumento !== DOMANDA && this.sempre.has(strumento)) return Promise.resolve({ behavior: "allow", updatedInput: ingresso })
     const id = opzioni.toolUseID
     const domande = strumento === DOMANDA ? domandeDa(ingresso) : null
-    if (strumento === DOMANDA && domande === null) return Promise.resolve({ behavior: "deny", message: "La domanda non è scritta bene: servono da 1 a 4 domande, ciascuna con le sue opzioni." })
-    const richiesta: RichiestaChat = domande ? { id, tipo: "domanda", domande } : { id, tipo: "permesso", strumento, ingresso, frase: frasePerIlPermesso(nomeNelleFrasi(this.d.motore), strumento, ingresso) }
+    if (strumento === DOMANDA && domande === null) return Promise.resolve({ behavior: "deny", message: DOMANDA_STORTA.in(this.d.lingua()) })
+    const richiesta: RichiestaChat = domande ? { id, tipo: "domanda", domande } : { id, tipo: "permesso", strumento, ingresso, frase: frasePerIlPermesso(nomeNelleFrasi(this.d.motore), strumento, ingresso).in(this.d.lingua()) }
     return new Promise<PermissionResult>((risolvi) => {
       this.richieste.set(id, { richiesta, ingresso, risolvi })
-      opzioni.signal.addEventListener("abort", () => this.annulla(id, "Il lavoro è stato fermato prima della risposta.", true), { once: true })
+      opzioni.signal.addEventListener("abort", () => this.annulla(id, LAVORO_FERMATO_PRIMA, true), { once: true })
       this.d.emetti(this.id, { evento: "richiesta", richiesta })
       this.imposta("aspetta")
     })
   }
 
-  private annulla(id: string, motivo: string, daFermare: boolean): void {
+  private annulla(id: string, motivo: Frase, daFermare: boolean): void {
     const attesa = this.richieste.get(id)
     if (!attesa) return
     this.richieste.delete(id)
-    attesa.risolvi({ behavior: "deny", message: motivo, ...(daFermare ? { interrupt: true } : {}) })
+    attesa.risolvi({ behavior: "deny", message: motivo.in(this.d.lingua()), ...(daFermare ? { interrupt: true } : {}) })
     this.d.emetti(this.id, { evento: "risposta", richiesta: id })
     if (this.stato === "aspetta" && this.richieste.size === 0) this.imposta(this.query ? "lavora" : "pronta")
   }
 
-  private annullaRichieste(motivo: string, daFermare: boolean): void {
+  private annullaRichieste(motivo: Frase, daFermare: boolean): void {
     ;[...this.richieste.keys()].forEach((id) => this.annulla(id, motivo, daFermare))
   }
 
   /** La risposta del creator a una richiesta; se non è scritta bene non succede niente e la richiesta resta. */
   rispondi(id: string, corpo: Oggetto): void {
     const attesa = this.richieste.get(id)
-    if (!attesa) throw new ErroreChat(404, "Questa richiesta non c'è più: ha già avuto risposta, oppure è già stata ritirata.")
+    if (!attesa) throw new ErroreChat(404, frase("Questa richiesta non c'è più: ha già avuto risposta, oppure è già stata ritirata.", "This request is gone: it has already been answered, or withdrawn."))
     const { richiesta } = attesa
     const risultato = richiesta.tipo === "permesso" ? this.rispostaAlPermesso(richiesta, attesa.ingresso, corpo) : this.rispostaAllaDomanda(richiesta, attesa.ingresso, corpo)
     this.richieste.delete(id)
@@ -393,31 +424,36 @@ export class Conversazione {
 
   private rispostaAlPermesso(richiesta: Extract<RichiestaChat, { tipo: "permesso" }>, ingresso: Oggetto, corpo: Oggetto): PermissionResult {
     for (const campo of Object.keys(corpo)) {
-      if (campo !== "scelta" && campo !== "motivo") throw new ErroreChat(400, `«${campo}» non è un campo della risposta: ci sono «scelta» e, con «no», «motivo».`)
+      if (campo !== "scelta" && campo !== "motivo") {
+        throw new ErroreChat(400, frase(`«${campo}» non è un campo della risposta: ci sono «scelta» e, con «no», «motivo».`, `«${campo}» is not a field of the answer: the fields are «scelta» and, with «no», «motivo».`))
+      }
     }
     const { scelta, motivo } = corpo
-    if (scelta !== "consenti" && scelta !== "sempre" && scelta !== "no") throw new ErroreChat(400, "Per un permesso la «scelta» è «consenti», «sempre» o «no».")
-    if (motivo !== undefined && (scelta !== "no" || typeof motivo !== "string")) throw new ErroreChat(400, "Il «motivo» è un testo e vale solo per «no».")
-    if (scelta === "no") return { behavior: "deny", message: `Il permesso di usare ${richiesta.strumento} non è stato dato${eTestoNonVuoto(motivo) ? `: ${motivo.trim()}` : "."}` }
+    if (scelta !== "consenti" && scelta !== "sempre" && scelta !== "no") throw new ErroreChat(400, frase("Per un permesso la «scelta» è «consenti», «sempre» o «no».", "For a permission, the «scelta» is «consenti», «sempre» or «no»."))
+    if (motivo !== undefined && (scelta !== "no" || typeof motivo !== "string")) throw new ErroreChat(400, frase("Il «motivo» è un testo e vale solo per «no».", "The «motivo» is text and applies only to «no»."))
+    if (scelta === "no") {
+      const perche = eTestoNonVuoto(motivo) ? `: ${motivo.trim()}` : "."
+      return { behavior: "deny", message: frase(`Il permesso di usare ${richiesta.strumento} non è stato dato${perche}`, `Permission to use ${richiesta.strumento} was not given${perche}`).in(this.d.lingua()) }
+    }
     if (scelta === "sempre") this.sempre.add(richiesta.strumento)
     return { behavior: "allow", updatedInput: ingresso }
   }
 
   private rispostaAllaDomanda(richiesta: Extract<RichiestaChat, { tipo: "domanda" }>, ingresso: Oggetto, corpo: Oggetto): PermissionResult {
     for (const campo of Object.keys(corpo)) {
-      if (campo !== "scelta") throw new ErroreChat(400, `«${campo}» non è un campo della risposta: c'è solo «scelta».`)
+      if (campo !== "scelta") throw new ErroreChat(400, frase(`«${campo}» non è un campo della risposta: c'è solo «scelta».`, `«${campo}» is not a field of the answer: the only field is «scelta».`))
     }
     const scelta = corpo["scelta"]
     const risposte = eOggetto(scelta) ? scelta["risposte"] : undefined
-    if (!eOggetto(risposte)) throw new ErroreChat(400, "Per una domanda la «scelta» è { risposte: { <domanda>: <opzione o testo> } }.")
+    if (!eOggetto(risposte)) throw new ErroreChat(400, frase("Per una domanda la «scelta» è { risposte: { <domanda>: <opzione o testo> } }.", "For a question, the «scelta» is { risposte: { <domanda>: <option or text> } }."))
     const domande = new Set(richiesta.domande.map((d) => d.domanda))
     const estranea = Object.keys(risposte).find((chiave) => !domande.has(chiave))
-    if (estranea !== undefined) throw new ErroreChat(400, `«${estranea}» non è una delle domande fatte.`)
+    if (estranea !== undefined) throw new ErroreChat(400, frase(`«${estranea}» non è una delle domande fatte.`, `«${estranea}» is not one of the questions asked.`))
     const answers: Record<string, string> = {}
     for (const { domanda } of richiesta.domande) {
       const risposta = risposte[domanda]
       const testo = Array.isArray(risposta) ? risposta.filter(eTestoNonVuoto).join(", ") : risposta
-      if (!eTestoNonVuoto(testo)) throw new ErroreChat(400, `Manca la risposta alla domanda «${domanda}».`)
+      if (!eTestoNonVuoto(testo)) throw new ErroreChat(400, frase(`Manca la risposta alla domanda «${domanda}».`, `The answer to the question «${domanda}» is missing.`))
       answers[domanda] = testo.trim()
     }
     return { behavior: "allow", updatedInput: { ...ingresso, answers } }
@@ -430,30 +466,31 @@ export class Conversazione {
     if (!query) throw new ErroreChat(409, CONVERSAZIONE_CHIUSA)
     if (this.stato === "pronta" || this.stato === "errore") return
     this.trascrizione.fermata = true
-    this.annullaRichieste("Il lavoro è stato fermato.", true)
+    this.annullaRichieste(LAVORO_FERMATO, true)
     await query.interrupt()
   }
 
   /** Come Ctrl+B nel terminale: i comandi e i sottoagenti in primo piano vanno in background, e Claude legge subito ciò che il creator ha scritto. */
   async inBackground(): Promise<void> {
     if (!this.query) throw new ErroreChat(409, CONVERSAZIONE_CHIUSA)
-    if (!this.task.inPrimoPiano) throw new ErroreChat(409, "Non c'è un lavoro in corso da mandare in background.")
-    await this.query.backgroundTasks().catch((errore: unknown) => this.nonRiuscito("non ha spostato il lavoro in background", errore))
+    if (!this.task.inPrimoPiano) throw new ErroreChat(409, frase("Non c'è un lavoro in corso da mandare in background.", "There is no running job to send to the background."))
+    await this.query.backgroundTasks().catch((errore: unknown) => this.nonRiuscito(frase("non ha spostato il lavoro in background", "did not move the job to the background"), errore))
   }
 
   async fermaTask(id: string): Promise<void> {
     if (!this.query) throw new ErroreChat(409, CONVERSAZIONE_CHIUSA)
-    if (!this.task.ha(id)) throw new ErroreChat(404, "Questo lavoro non c'è più: è già finito, o qualcuno l'ha già fermato.")
-    await this.query.stopTask(id).catch((errore: unknown) => this.nonRiuscito("non ha fermato il lavoro", errore))
+    if (!this.task.ha(id)) throw new ErroreChat(404, frase("Questo lavoro non c'è più: è già finito, o qualcuno l'ha già fermato.", "This job is gone: it has already finished, or someone stopped it."))
+    await this.query.stopTask(id).catch((errore: unknown) => this.nonRiuscito(frase("non ha fermato il lavoro", "did not stop the job"), errore))
   }
 
-  private nonRiuscito(cosa: string, errore: unknown): never {
-    throw new ErroreChat(502, `${this.d.motore} ${cosa}: ${errore instanceof Error ? errore.message : String(errore)}`)
+  private nonRiuscito(cosa: Frase, errore: unknown): never {
+    const d = dettaglioDi(errore)
+    throw new ErroreChat(502, frase(`${this.d.motore} ${cosa.it}: ${d.it}`, `${this.d.motore} ${cosa.en}: ${d.en}`))
   }
 
   async chiudi(): Promise<void> {
     this.inChiusura = true
-    this.annullaRichieste("La conversazione si è chiusa.", false)
+    this.annullaRichieste(CONVERSAZIONE_CHIUSA_ORA, false)
     this.ingresso.chiudi()
     this.query?.close()
     await this.ciclo

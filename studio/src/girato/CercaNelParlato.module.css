@@ -1,0 +1,103 @@
+.campo input {
+  width: 100%;
+  height: 2.1rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font-size: 0.9rem;
+}
+
+.nascosto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.risultati {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.conto,
+.nessuno {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--grigio);
+}
+
+.errore {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--rosso);
+}
+
+.file h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.giorno {
+  font-weight: 400;
+  color: var(--grigio);
+}
+
+.file ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.file li + li {
+  border-top: 1px solid var(--filo);
+}
+
+.risultato {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  background: none;
+  color: var(--inchiostro);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.risultato:hover {
+  background: var(--carta-scura);
+}
+
+.tempo {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--grigio);
+}
+
+.frase {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.frase mark {
+  padding: 0 0.1rem;
+  border-radius: 2px;
+  background: var(--carta-scura);
+  color: var(--inchiostro);
+  font-weight: 600;
+}

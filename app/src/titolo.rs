@@ -1,14 +1,10 @@
 //! La barra del titolo di Windows, dello stesso colore della pagina che la finestra mostra (la pagina
-//! d'attesa dell'app o lo studio): un plugin a parte, perché lo studio è una pagina remota (127.0.0.1)
-//! e un comando remoto vuole permessi suoi (`capabilities/default.json`).
-
-use tauri::plugin::Builder;
-use tauri::{App, Wry};
+//! d'attesa dell'app o lo studio): il suo comando sta fra quelli del ponte (`build.rs`), perché lo studio è una pagina remota (127.0.0.1).
 
 /// Legge il colore di sfondo della pagina e lo manda alla finestra; si ripete a ogni cambio di tema.
 pub const SINCRONIA: &str = r#"
 (() => {
-  const call = (r, g, b) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-titolo|colore_barra_titolo", { r, g, b }).catch(() => {});
+  const call = (r, g, b) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|colore_barra_titolo", { r, g, b }).catch(() => {});
   let ultimo = "";
   const sfondo = (el) => {
     for (; el; el = el.parentElement) {
@@ -28,12 +24,14 @@ pub const SINCRONIA: &str = r#"
   addEventListener("DOMContentLoaded", sincronizza);
   addEventListener("load", sincronizza);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(sincronizza, 50));
-  setInterval(sincronizza, 1000);
+  // Il tema cambia con un attributo o una classe sulla radice (lo studio: `data-tema`), una vista nuova con l'indirizzo: si guardano quelli, non il tempo.
+  addEventListener("hashchange", sincronizza);
+  addEventListener("DOMContentLoaded", () => new MutationObserver(() => setTimeout(sincronizza, 50)).observe(document.documentElement, { attributes: true }));
 })();
 "#;
 
 #[tauri::command]
-fn colore_barra_titolo(finestra: tauri::WebviewWindow, r: u8, g: u8, b: u8) -> Result<(), String> {
+pub(crate) fn colore_barra_titolo(finestra: tauri::WebviewWindow, r: u8, g: u8, b: u8) -> Result<(), String> {
     use windows::Win32::Foundation::{BOOL, HWND};
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE};
     let hwnd = HWND(finestra.hwnd().map_err(|e| e.to_string())?.0);
@@ -51,6 +49,10 @@ fn colore_barra_titolo(finestra: tauri::WebviewWindow, r: u8, g: u8, b: u8) -> R
     Ok(())
 }
 
-pub fn installa(app: &App) -> tauri::Result<()> {
-    app.handle().plugin(Builder::<Wry>::new("mango-animation-titolo").invoke_handler(tauri::generate_handler![colore_barra_titolo]).build())
+#[cfg(test)]
+mod prove {
+    #[test]
+    fn il_colore_della_barra_segue_i_cambi_di_tema_senza_guardare_il_tempo() {
+        assert!(!super::SINCRONIA.contains("setInterval") && super::SINCRONIA.contains("MutationObserver"));
+    }
 }

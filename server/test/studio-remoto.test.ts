@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { createHash } from "node:crypto"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import type { NetworkInterfaceInfo } from "node:os"
@@ -318,8 +318,14 @@ describe("la richiesta che passa", () => {
   test("se il server dello studio non risponde: 502 con una frase", async () => {
     const { a, cookie } = await accesa()
     a.server.ricevitore.collegaStudio(1)
-    const r = await dallaRete(a, "/api/video", cookie)
-    expect(r.status).toBe(502)
+    const errori = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const r = await dallaRete(a, "/api/video", cookie)
+      expect(r.status).toBe(502)
+      expect(errori.mock.calls.flat().join(" ")).toContain("/api/video non ha avuto risposta dal server interno")
+    } finally {
+      errori.mockRestore()
+    }
   })
 })
 

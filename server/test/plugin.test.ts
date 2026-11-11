@@ -1,12 +1,12 @@
-// Il metodo come plugin di Claude Code (`docs/ARCHITETTURA.md`, «Il plugin»): manifesto, skill, hook di avvio e server MCP «video» fuori dall'app.
+// Il metodo come plugin di Claude Code (`docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude»): manifesto, skill, hook di avvio e server MCP «video» fuori dall'app.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { afterAll, describe, expect, test } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { delimiter, join, resolve } from "node:path"
 import { trovaLavoro } from "../../plugin/lavoro"
-import { fileDelMetodo, LIMITE_DI_UN_HOOK, pezziDelMetodo } from "../../plugin/metodo"
+import { fileDelMetodo, LIMITE_DI_UN_HOOK, testoDelMetodo } from "../../plugin/metodo"
 
 const REPO = resolve(import.meta.dir, "..", "..")
 const leggiJson = (relativo: string): Record<string, unknown> => JSON.parse(readFileSync(join(REPO, relativo), "utf8")) as Record<string, unknown>
@@ -34,7 +34,7 @@ const hookDiAvvio = (): string[] => {
   const gruppi = (leggiJson("plugin/hooks.json")["hooks"] as { SessionStart: { hooks: { type: string; command: string }[] }[] }).SessionStart
   return gruppi.flatMap((g) => g.hooks).map((h) => h.command)
 }
-const hookDelMetodo = (): string[] => hookDiAvvio().filter((c) => / metodo \d+$/.test(c))
+const hookDelMetodo = (): string[] => hookDiAvvio().filter((c) => c.endsWith(" metodo"))
 const hookDellAmbiente = (): string => hookDiAvvio().find((c) => c.endsWith(" ambiente"))!
 
 /** Lancia un hook come lo lancia Claude Code (la sua riga, con la cartella del plugin al posto della variabile). */
@@ -82,29 +82,34 @@ describe("le skill", () => {
 
 describe("le regole che il plugin dà a Claude all'avvio", () => {
   test("sono il CLAUDE.md del metodo e le regole sempre caricate, non quelle di chi sviluppa il codice", () => {
-    expect(fileDelMetodo(REPO)).toEqual(["CLAUDE.md", ".claude/rules/contenuto.md", ".claude/rules/montaggio.md", ".claude/rules/processo.md"])
+    expect(fileDelMetodo(REPO)).toEqual(["CLAUDE.md", ".claude/rules/processo.md"])
   })
 
-  test("c'è un hook per ogni pezzo, e nessun pezzo passa il limite di un hook", () => {
-    const pezzi = pezziDelMetodo(REPO, "C:/lavoro")
-    expect(hookDelMetodo().map((c) => Number(/(\d+)$/.exec(c)![1]))).toEqual(pezzi.map((_, i) => i + 1))
-    for (const pezzo of pezzi) expect(pezzo.length).toBeLessThan(LIMITE_DI_UN_HOOK)
+  test("un hook solo dà le regole, e ci stanno con un margine", () => {
+    expect(hookDelMetodo()).toHaveLength(1)
+    expect(testoDelMetodo(REPO, "C:/lavoro").length).toBeLessThan(LIMITE_DI_UN_HOOK)
   })
 
-  test("in una cartella di lavoro ogni hook scrive il suo pezzo, e tutti insieme le regole intere", () => {
+  test("in una cartella di lavoro l'hook scrive le regole intere, con dove stanno e la cartella di lavoro", () => {
     const lavoro = cartella(true)
-    const uscite = hookDelMetodo().map((c) => eseguiHook(c, lavoro))
-    for (const u of uscite) {
-      expect(u.codice).toBe(0)
-      expect(u.fuori.length).toBeLessThan(LIMITE_DI_UN_HOOK)
-      expect(u.fuori).toContain(`The working folder is ${resolve(lavoro)}.`)
-    }
-    const tutto = uscite.map((u) => u.fuori).join("\n")
-    for (const file of fileDelMetodo(REPO)) {
-      const testo = readFileSync(join(REPO, file), "utf8").replaceAll("\r\n", "\n").trimEnd()
-      expect(tutto).toContain(testo.slice(0, 200))
-      expect(tutto).toContain(testo.slice(-200))
-    }
+    const u = eseguiHook(hookDelMetodo()[0]!, lavoro)
+    expect(u.codice).toBe(0)
+    expect(u.fuori.length).toBeLessThan(LIMITE_DI_UN_HOOK)
+    expect(u.fuori).toContain(`The working folder is ${resolve(lavoro)}.`)
+    for (const file of fileDelMetodo(REPO)) expect(u.fuori).toContain(readFileSync(join(REPO, file), "utf8").replaceAll("\r\n", "\n").trimEnd())
+  })
+
+  test("regole che non entrano in un hook sono un errore che lo dice, non un testo tagliato in silenzio", () => {
+    const radice = cartella(false)
+    mkdirSync(join(radice, ".claude", "rules"), { recursive: true })
+    writeFileSync(join(radice, "CLAUDE.md"), "x".repeat(LIMITE_DI_UN_HOOK))
+    expect(() => testoDelMetodo(radice, "C:/lavoro")).toThrow("sposta una regola in .claude/metodo/")
+    cpSync(join(REPO, "plugin"), join(radice, "plugin"), { recursive: true })
+    const lavoro = cartella(true)
+    const r = Bun.spawnSync([process.execPath, "run", join(radice, "plugin", "sessione.ts"), "metodo"], { cwd: lavoro, env: ambienteMinimo(), stdout: "pipe", stderr: "pipe" })
+    expect(r.exitCode).toBe(1)
+    expect(r.stdout.toString()).toBe("")
+    expect(r.stderr.toString()).toContain("sposta una regola in .claude/metodo/")
   })
 
   test("in una cartella che non è di lavoro nessun hook dice o cambia niente", () => {

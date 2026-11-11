@@ -150,12 +150,12 @@ export function leggiBlocchi(testo: string): Blocco[] {
   return blocchi
 }
 
-const SCHEMI_SICURI = /^(https?:|mailto:|#|\/)/i
+const SCHEMI_SICURI = /^(https?:|mailto:|#)/i
 
-/** Un collegamento si apre solo se è web, posta, interno alla pagina o relativo: mai `javascript:` e simili. */
+/** Un collegamento si apre solo se è web, posta o interno alla pagina: mai `javascript:`, mai un percorso del computer. */
 export const indirizzoSicuro = (href: string): boolean => SCHEMI_SICURI.test(href.trim())
 
-export function leggiInline(testo: string): Inline[] {
+function leggiInline(testo: string): Inline[] {
   const fuori: Inline[] = []
   let parziale = ""
   const vuota = () => {

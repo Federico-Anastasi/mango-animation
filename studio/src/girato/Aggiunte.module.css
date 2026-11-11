@@ -1,0 +1,69 @@
+.zona {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 2px dashed var(--inchiostro);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--carta) 88%, transparent);
+  pointer-events: none;
+}
+
+.zona p {
+  margin: 0;
+  padding: 0 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.elenco {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--filo);
+  border-radius: 6px;
+}
+
+.elenco ul {
+  flex: 1 1 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.elenco li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.elenco li b {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.elenco progress {
+  width: 100%;
+  height: 0.5rem;
+  accent-color: var(--inchiostro);
+}
+
+.errore {
+  color: var(--rosso);
+}
+
+.elenco li:not([data-stato="errore"]) span {
+  color: var(--grigio);
+}

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { installaEventi, installaRete, type Chiamata } from "./rete"
 
 const CHIAVE = "mango-animation.primo-giro"
-const PROFILO_VUOTO = { valido: true, presente: false, canali: [], problemi: [] }
-const PROFILO_FATTO = (canali: Array<{ piattaforma: string; nome?: string }>) => ({ valido: true, presente: true, canali, problemi: [] })
+const PROFILO_VUOTO = { valido: true, presente: false, canali: [], profilo: {}, problemi: [] }
+const PROFILO_FATTO = (canali: Array<{ piattaforma: string; nome?: string }>) => ({ valido: true, presente: true, canali, profilo: {}, problemi: [] })
 
 const CANALE_VUOTO = { ultima: null, letture: [], video: [] }
 const CLASSIFICA_VUOTA = { quando: null, io: null, quando_io: null, come: [], righe: [] }
@@ -94,9 +94,70 @@ describe("il primo giro", () => {
   })
 })
 
+describe("il primo giro parte con un modello grande", () => {
+  const MODELLI = [
+    { id: "default", nome: "Predefinito (Sonnet 4.6)", descrizione: "", effort: [], reale: "claude-sonnet-4-6" },
+    { id: "claude-opus-4-6", nome: "Opus 4.6", descrizione: "", effort: [], reale: "claude-opus-4-6" },
+    { id: "opus", nome: "Opus 5.5", descrizione: "", effort: [], reale: "claude-opus-5-5" },
+    { id: "opus[1m]", nome: "Opus 5.5 (1M)", descrizione: "", effort: [], reale: "claude-opus-5-5[1m]" },
+    { id: "claude-haiku-4-5", nome: "Haiku 4.5", descrizione: "", effort: [], reale: "claude-haiku-4-5" },
+  ]
+  const corpoDellaNuova = (chiamate: Chiamata[]) => chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo
+
+  it("la conversazione del primo giro usa l'Opus più recente, anche se il creator aveva un modello piccolo, e non cambia la scelta ricordata", async () => {
+    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": MODELLI })
+    vi.resetModules()
+    window.localStorage.clear()
+    window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "claude-haiku-4-5", effort: null }))
+    window.location.hash = ""
+    ;(await import("../src/lingua")).scegliLingua("it")
+    const { App } = await import("../src/App")
+    render(<App />)
+    await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
+    expect(corpoDellaNuova(chiamate)).toEqual({ testo: expect.stringMatching(/primo giro/), modello: "opus" })
+    expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "claude-haiku-4-5", effort: null })
+  })
+
+  it("senza Opus fra i modelli ripiega su «Predefinito», senza errore", async () => {
+    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": MODELLI.filter((m) => !/opus/.test(m.id)) })
+    await nuovoStudio()
+    await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
+    expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "default" })
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("se i modelli non si leggono, il primo giro parte lo stesso con «Predefinito»", async () => {
+    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": () => new Response(JSON.stringify({ errore: "No." }), { status: 502 }) })
+    await nuovoStudio()
+    await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
+    expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "default" })
+  })
+
+  it("«Rifai il primo giro» usa Opus", async () => {
+    const chiamate = rete(PROFILO_FATTO([]), { "GET /api/chat/modelli": MODELLI })
+    await nuovoStudio()
+    fireEvent.click(await screen.findByRole("button", { name: /^Chat/ }))
+    fireEvent.click(await screen.findByRole("button", { name: "Rifai il primo giro" }))
+    await waitFor(() => expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "opus" }))
+  })
+
+  it("se il creator ha scelto Mango Code, il primo giro resta con Mango Code", async () => {
+    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": [...MODELLI, { id: "mango-code/toq", nome: "Mango Code · TOQ", descrizione: "", effort: [], reale: "mango-code/toq" }] })
+    vi.resetModules()
+    window.localStorage.clear()
+    window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "mango-code/toq", effort: null }))
+    window.location.hash = ""
+    ;(await import("../src/lingua")).scegliLingua("it")
+    const { App } = await import("../src/App")
+    render(<App />)
+    await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
+    expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "mango-code/toq" })
+  })
+})
+
 describe("le pagine dei canali senza dati", () => {
-  async function pagina(vista: string, profilo: unknown) {
-    const chiamate = rete(profilo)
+  async function pagina(vista: string, profilo: unknown, extra: Record<string, unknown> = {}) {
+    const chiamate = rete(profilo, extra)
     vi.resetModules()
     window.localStorage.setItem(CHIAVE, "saltato")
     window.location.hash = `#/${vista}`
@@ -106,10 +167,10 @@ describe("le pagine dei canali senza dati", () => {
     return chiamate
   }
 
-  it("senza un canale dicono cosa fanno e portano a collegarlo", async () => {
-    for (const [vista, titolo] of [["pubblico", "Pubblico"], ["classifica", "Classifica"], ["crescita", "Crescita"]] as const) {
+  it("senza un canale una pagina sola, la stessa da ogni indirizzo del canale, dice cosa c'è e porta a collegarlo", async () => {
+    for (const vista of ["pubblico", "classifica", "crescita", "canale/crescita"]) {
       const chiamate = await pagina(vista, PROFILO_FATTO([]))
-      expect(await screen.findByRole("heading", { level: 1, name: titolo })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { level: 1, name: "Canale" })).toBeInTheDocument()
       fireEvent.click(await screen.findByRole("button", { name: "Collega un canale" }))
       await waitFor(() => expect(messaggiAClaude(chiamate)[0]).toMatch(/collegare il mio canale/))
       document.body.innerHTML = ""
@@ -119,7 +180,16 @@ describe("le pagine dei canali senza dati", () => {
   it("con TikTok chiedono a Claude di leggerlo", async () => {
     const chiamate = await pagina("classifica", PROFILO_FATTO([{ piattaforma: "tiktok", nome: "@alice.cucina" }]))
     fireEvent.click(await screen.findByRole("button", { name: "Leggi i dati di TikTok" }))
-    await waitFor(() => expect(messaggiAClaude(chiamate)).toEqual(["Rifai la classifica dei profili di TikTok."]))
+    await waitFor(() => expect(messaggiAClaude(chiamate)).toEqual(["Aggiorna i dati di TikTok."]))
+  })
+
+  it("la lettura del canale parte sempre con Claude Code, che ha il browser, anche se la scelta di prima era Mango Code, e non cambia quella scelta", async () => {
+    window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "mango-code/toq", effort: "low" }))
+    const modelli = ["default", "mango-code/toq"].map((id) => ({ id, nome: id, descrizione: "", effort: ["low"], reale: id }))
+    const chiamate = await pagina("classifica", PROFILO_FATTO([{ piattaforma: "tiktok", nome: "@alice.cucina" }]), { "GET /api/chat/modelli": modelli })
+    fireEvent.click(await screen.findByRole("button", { name: "Leggi i dati di TikTok" }))
+    await waitFor(() => expect(chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo).toEqual({ testo: "Aggiorna i dati di TikTok.", modello: "default" }))
+    expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "mango-code/toq", effort: "low" })
   })
 
   it("con solo Instagram dicono che la lettura automatica arriverà e propongono a Claude di guardare il profilo", async () => {

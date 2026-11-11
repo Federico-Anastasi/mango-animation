@@ -12,6 +12,7 @@ import { motoreDellaChat, motoreDi, type MotoreChat } from "./motore"
 import { negozio, useChat, type StatoNegozio } from "./negozio"
 import { avviaPrimoGiro, saltaPrimoGiro, usePrimoGiroInCorso } from "./primoGiro"
 import { chiudiChat, LARGHEZZA_MINIMA, ripristinaLarghezzaChat, scegliLarghezzaChat, SOGLIA_STRETTA, usePannelloChat } from "./pannello"
+import { ponteTrascinamento } from "./trascinamento"
 import { useAllegati } from "./useAllegati"
 import styles from "./PannelloChat.module.css"
 import { t } from "../lingua"
@@ -28,12 +29,7 @@ const ascoltaFinestra = (ascolta: () => void) => {
 }
 
 /** La finestra è stretta come un telefono: la chat prende tutto lo schermo. */
-export const useStretta = (): boolean => useSyncExternalStore(ascoltaFinestra, () => window.innerWidth <= SOGLIA_STRETTA)
-
-/** Nell'app i file lasciati sulla finestra arrivano col loro percorso (`app/src/trascinamento.rs`); nel browser il ponte non c'è e vale il `drop` della pagina. */
-type EventoTrascinamento = { tipo: "esce" } | { tipo: "entra" | "sopra" | "lascia"; x: number; y: number; percorsi?: string[] }
-type PonteTrascinamento = { su: (ascolta: (evento: EventoTrascinamento) => void) => () => void }
-const ponteTrascinamento = () => (window.__MANGO_ANIMATION__ as { trascinamento?: PonteTrascinamento } | undefined)?.trascinamento ?? null
+const useStretta = (): boolean => useSyncExternalStore(ascoltaFinestra, () => window.innerWidth <= SOGLIA_STRETTA)
 
 const massimaPer = (finestra: number) => Math.max(LARGHEZZA_MINIMA, Math.min(LARGHEZZA_MASSIMA, finestra - LARGHEZZA_PAGINA_MINIMA))
 

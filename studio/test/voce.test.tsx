@@ -288,6 +288,20 @@ describe("mentre il creator parla", () => {
   })
 })
 
+describe("chiudere la chat mentre il microfono si apre", () => {
+  it("quando il microfono finisce di aprirsi si richiude, senza campo in cui scrivere", async () => {
+    const { ponte } = ponteFinto()
+    let apri = (_id: number) => undefined as void
+    ponte.avvia.mockReturnValue(new Promise<number>((r) => (apri = r)))
+    const { unmount } = render(<Compositore chat={CHAT} allegati={ALLEGATI} onLista={() => {}} />)
+    await clic(microfono())
+    unmount()
+    expect(ponte.ferma).not.toHaveBeenCalled()
+    await act(async () => apri(1))
+    expect(ponte.ferma).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe("finire", () => {
   it("il clic per finire rimette subito a riposo, anche se l'app non risponde e `fine` non arriva", async () => {
     const { ponte, manda } = ponteFinto()
@@ -425,7 +439,7 @@ describe("il ponte dell'app", () => {
     expect(await voce!.avvia("en")).toBe(7)
     await voce!.ferma("en")
     await voce!.stato("en")
-    expect(invoke.mock.calls.map((c) => c[0])).toEqual(["plugin:mango-animation-voce|voce_avvia", "plugin:mango-animation-voce|voce_ferma", "plugin:mango-animation-voce|voce_stato"])
+    expect(invoke.mock.calls.map((c) => c[0])).toEqual(["plugin:mango-animation|voce_avvia", "plugin:mango-animation|voce_ferma", "plugin:mango-animation|voce_stato"])
     expect(invoke.mock.calls.map((c) => c[1])).toEqual([{ lingua: "en" }, { lingua: "en" }, { lingua: "en" }])
     const visti: EventoVoce[] = []
     const smetti = voce!.su((e) => visti.push(e))

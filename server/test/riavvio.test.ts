@@ -18,7 +18,7 @@ async function aspetta<T>(prova: () => T | Promise<T>, ms = 8000): Promise<NonNu
   }
 }
 
-const registro = (pid: number, exe = EXE): string => JSON.stringify({ pid, exe })
+const registro = (pid: number, exe = EXE, porta?: number): string => JSON.stringify({ pid, exe, ...(porta === undefined ? {} : { porta }) })
 
 interface Scenario {
   /** Il contenuto di app.json prima di cominciare. */
@@ -31,8 +31,10 @@ interface Scenario {
   finestra?: boolean
   /** Dopo la chiusura qualcun altro tiene la porta. */
   portaTenuta?: boolean
-  /** Cosa fa l'app lanciata: si registra e fa rispondere il server, si registra senza server, esce subito o resta viva senza registrarsi. */
-  avvio?: "parte" | "senza-server" | "esce" | "muta"
+  /** Cosa fa l'app lanciata: si registra e fa rispondere il server, si registra senza server, si registra senza dire la porta, esce subito o resta viva senza registrarsi. */
+  avvio?: "parte" | "senza-server" | "senza-porta" | "esce" | "muta"
+  /** La porta in cui risponde lo studio dell'app lanciata (e che scrive in `app.json`); di serie la 47431. */
+  portaApp?: number
   /** I file che esistono. */
   esistono?: string[]
 }
@@ -44,6 +46,8 @@ function sistemaFinto(s: Scenario = {}) {
     processi: new Map<number, string>(Object.entries(s.processi ?? {}).map(([pid, immagine]) => [Number(pid), immagine])),
     porta: false,
     server: false,
+    /** La porta del server acceso, vecchio o nuovo. */
+    portaServer: Number(/"porta":\s*(\d+)/.exec(s.registro ?? "")?.[1] ?? 47431),
     tempo: 0,
     prossimo: 900,
     chiamate: [] as string[],
@@ -80,8 +84,8 @@ function sistemaFinto(s: Scenario = {}) {
       stato.chiamate.push(`uccidi ${pid}`)
       finisce(pid)
     },
-    portaOccupata: async () => stato.porta,
-    serverRisponde: async () => stato.server,
+    portaOccupata: async (porta) => stato.porta && porta === stato.portaServer,
+    serverRisponde: async (porta) => stato.server && porta === stato.portaServer,
     avvia: (exe, ambiente) => {
       const pid = stato.prossimo++
       stato.chiamate.push(`avvia ${exe}`)
@@ -89,7 +93,8 @@ function sistemaFinto(s: Scenario = {}) {
       if (s.avvio === "esce") return pid
       stato.processi.set(pid, exe)
       if (s.avvio === "muta") return pid
-      stato.registro = registro(pid, exe)
+      stato.portaServer = s.portaApp ?? 47431
+      stato.registro = registro(pid, exe, s.avvio === "senza-porta" ? undefined : stato.portaServer)
       stato.porta = true
       stato.server = s.avvio !== "senza-server"
       return pid
@@ -302,7 +307,7 @@ describe("riavvia-app: la logica", () => {
     sistema.avvia = (exe, ambiente) => {
       const pid = avvia(exe, ambiente)
       stato.processi.set(5000, ALTRO)
-      stato.registro = registro(5000, EXE)
+      stato.registro = registro(5000, EXE, 47431)
       stato.server = true
       return pid
     }
@@ -313,9 +318,22 @@ describe("riavvia-app: la logica", () => {
     expect(errore).toContain("server.log")
   })
 
-  test("la porta è quella chiesta", async () => {
-    const r = await esegui({}, { porta: 48000 })
-    expect(r.righe.at(-1)).toBe("Accesa: pid 900, server su http://127.0.0.1:48000")
+  test("aspetta la porta che l'app dichiara in app.json, non quella di serie: l'app può ripiegare su un'altra", async () => {
+    const r = await esegui({ portaApp: 56837 })
+    expect(r.errore).toBeNull()
+    expect(r.righe.at(-1)).toBe("Accesa: pid 900, server su http://127.0.0.1:56837")
+  })
+
+  test("un'app registrata che non ha ancora detto la porta non è pronta, anche se la porta di serie risponde", async () => {
+    const r = await esegui({ avvio: "senza-porta" })
+    expect(r.errore).toContain(String.raw`logs\server.log`)
+    expect(r.stato.tempo).toBeGreaterThanOrEqual(120_000)
+  })
+
+  test("la porta da liberare è quella dichiarata dall'app che si chiude", async () => {
+    const r = await esegui({ registro: registro(1234, EXE, 56837), processi: { 1234: EXE }, portaTenuta: true })
+    expect(r.errore).toBeNull()
+    expect(r.testo).toContain("porta 56837 è ancora occupata")
   })
 })
 

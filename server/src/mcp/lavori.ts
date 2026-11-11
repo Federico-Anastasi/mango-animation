@@ -14,7 +14,7 @@ interface InfoLavoro {
 interface Lavori {
   in_corso: (InfoLavoro & { stima: number | null; trascorsi: number; fine_prevista: string | null }) | null
   in_coda: (InfoLavoro & { stima: number | null })[]
-  finiti: (InfoLavoro & { esito: "riuscito" | "fallito" | "fermato" | "interrotto"; errore: string | null })[]
+  finiti: (InfoLavoro & { esito: "riuscito" | "fallito" | "fermato" | "interrotto"; errore: string | null; risultato?: unknown })[]
 }
 
 export interface StatoLavoro {
@@ -29,6 +29,8 @@ export interface StatoLavoro {
   fine_prevista?: string | null
   esito?: "riuscito" | "fallito" | "fermato" | "interrotto"
   errore?: string | null
+  /** Di un lavoro finito che dà qualcosa a chi l'aspettava (`scene-foto`). */
+  risultato?: unknown
   righe: string[]
 }
 
@@ -48,7 +50,7 @@ export async function statoDelLavoro(api: Api, id: string): Promise<StatoLavoro>
   const inCoda = lavori.in_coda.find((l) => l.id === id)
   if (inCoda) return { ...base(inCoda), stato: "in coda", stima: inCoda.stima, righe: [] }
   const finito = lavori.finiti.find((l) => l.id === id)
-  if (finito) return { ...base(finito), stato: "finito", esito: finito.esito, errore: finito.errore, righe: (finito.righe ?? []).slice(-RIGHE_DA_DARE) }
+  if (finito) return { ...base(finito), stato: "finito", esito: finito.esito, errore: finito.errore, ...(finito.risultato === undefined ? {} : { risultato: finito.risultato }), righe: (finito.righe ?? []).slice(-RIGHE_DA_DARE) }
   throw new ErroreStrumento(`Non trovo il lavoro «${id}»: non è in corso né in coda, e non è fra gli ultimi 20 finiti. Controlla l'id che ti ha dato lo strumento «lavoro».`)
 }
 

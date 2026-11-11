@@ -7,7 +7,6 @@ use crate::codice;
 use crate::lavoro;
 use crate::sposta::{self, Avanzamento, Fallita, Fase, Spostata, StatoSpostamento};
 use crate::lingua::t;
-use crate::mangocode;
 use crate::computer::installa::{Evento, SondeVere, HUGGING_FACE};
 use crate::computer::piano::{calcola, Funzioni, Luoghi, ModelliScelti, SceltaPython};
 use crate::computer::{self, applica, computer_pronto, esegui_piano, hw, manifesto, profilo, vista, Dove, Progresso, Risposta};
@@ -78,39 +77,46 @@ impl Risposte {
     }
 }
 
-/// Mostra `stato` e aspetta che il creator risponda.
-fn chiedi(app: &AppHandle, stato: Stato) -> Azione {
+/// Mostra `stato` e aspetta una risposta che `accetta` riconosce (le altre, un «Ricontrolla» di Claude Code arrivato tardi, si lasciano cadere). Se il canale delle risposte si chiude
+/// torna `se_chiude`.
+fn chiedi_fra<T>(app: &AppHandle, stato: Stato, se_chiude: T, accetta: impl Fn(Azione) -> Option<T>) -> T {
     let risposte = &app.state::<Interno>().risposte;
     let ricevitore = risposte.apri();
     imposta_stato(app, stato);
-    let azione = ricevitore.recv();
+    let risposta = loop {
+        match ricevitore.recv() {
+            Ok(azione) => {
+                if let Some(risposta) = accetta(azione) {
+                    break risposta;
+                }
+            }
+            Err(_) => break se_chiude,
+        }
+    };
     risposte.chiudi();
-    // La pagina non risponde più solo se l'app si sta chiudendo: l'avvio non ha più niente da fare.
-    azione.unwrap_or(Azione::Continua)
+    risposta
+}
+
+/// Mostra `stato` e aspetta che il creator risponda, qualunque cosa.
+fn chiedi(app: &AppHandle, stato: Stato) -> Azione {
+    chiedi_fra(app, stato, Azione::Continua, Some)
 }
 
 /// Mostra lo stato dell'aggiornamento e aspetta se il creator lo vuole (`true`: «Aggiorna ora», o «Riprova» dopo un errore) o no (`false`, anche se la pagina si chiude).
 fn chiedi_aggiornamento(app: &AppHandle, stato: StatoAggiornamento) -> bool {
-    let risposte = &app.state::<Interno>().risposte;
-    let ricevitore = risposte.apri();
-    imposta_stato(app, Stato { fase: "aggiornamento".into(), aggiornamento: Some(stato), ..Default::default() });
-    let vuole = loop {
-        match ricevitore.recv() {
-            Ok(Azione::Aggiorna) => break true,
-            Ok(Azione::Continua) | Err(_) => break false,
-            Ok(_) => {}
-        }
+    let accetta = |azione| match azione {
+        Azione::Aggiorna => Some(true),
+        Azione::Continua => Some(false),
+        _ => None,
     };
-    risposte.chiudi();
-    vuole
+    chiedi_fra(app, Stato { fase: "aggiornamento".into(), aggiornamento: Some(stato), ..Default::default() }, false, accetta)
 }
 
 /// Scrive `nome` nella cartella dei registri dell'app (`%LOCALAPPDATA%\dev.mango.animation\logs\`): un errore che non si può dire al creator, ma che chi lo cerca deve trovare.
 fn scrivi_nel_registro(app: &AppHandle, nome: &str, testo: &str) {
     let Ok(file) = app.path().app_log_dir().map(|c| c.join(nome)) else { return };
     let _ = std::fs::create_dir_all(file.parent().unwrap_or(Path::new("")));
-    let _ = std::fs::write(file, format!("{testo}
-"));
+    let _ = std::fs::write(file, format!("{testo}\n"));
 }
 
 /// Scarica e installa la versione che il creator ha voluto, mostrando l'avanzamento. Su Windows l'app si chiude prima di arrivare in fondo: arrivarci è un errore.
@@ -154,6 +160,7 @@ pub fn aggiornamento_del_prodotto(app: &AppHandle, radice: &Path) {
     if !e_l_app_installata(radice) {
         return;
     }
+    aggiornamento::togli_installatori_vecchi(&std::env::temp_dir());
     imposta_stato(app, crate::attesa(0, t("Cerco una versione nuova", "Looking for a new version")));
     let proposta = match aggiornamento::cerca(app) {
         Ok(Some(proposta)) => proposta,
@@ -201,7 +208,7 @@ pub fn computer_del_creator(app: &AppHandle, radice: &Path, lavoro: &Path) -> Re
     let piano_per = |funzioni: &Funzioni| calcola(&luoghi, &SondeVere { percorsi: percorso_con(&luoghi, &base) }, &computer, funzioni, &modelli, variabile_python, &elementi);
 
     computer_pronto(
-        &computer,
+        || hw::leggi(&luoghi.dati),
         Funzioni::dal_profilo(&profilo_iniziale),
         &piano_per,
         |stato| chiedi_computer(app, stato),
@@ -247,21 +254,15 @@ fn scrivi_le_scelte(lavoro: &Path, scelte: &Funzioni) -> Result<(), String> {
     }
 }
 
-/// Mostra lo stato del computer e aspetta una risposta che lo riguarda; le altre (un «Ricontrolla» di Claude Code arrivato tardi) si lasciano cadere.
+/// Mostra lo stato del computer e aspetta una risposta che lo riguarda.
 fn chiedi_computer(app: &AppHandle, stato: computer::StatoComputer) -> Risposta {
-    let risposte = &app.state::<Interno>().risposte;
-    let ricevitore = risposte.apri();
-    imposta_stato(app, Stato { fase: "computer".into(), computer: Some(stato), ..Default::default() });
-    let risposta = loop {
-        match ricevitore.recv() {
-            Ok(Azione::Funzioni(scelte)) => break Risposta::Funzioni(scelte),
-            Ok(Azione::Prepara) => break Risposta::Prepara,
-            Ok(Azione::Continua) | Err(_) => break Risposta::Continua,
-            Ok(_) => {}
-        }
+    let accetta = |azione| match azione {
+        Azione::Funzioni(scelte) => Some(Risposta::Funzioni(scelte)),
+        Azione::Prepara => Some(Risposta::Prepara),
+        Azione::Continua => Some(Risposta::Continua),
+        _ => None,
     };
-    risposte.chiudi();
-    risposta
+    chiedi_fra(app, Stato { fase: "computer".into(), computer: Some(stato), ..Default::default() }, Risposta::Continua, accetta)
 }
 
 /// Dove stanno i video, al primo avvio (`docs/APP.md`): la pagina propone la cartella in Documenti con lo spazio libero e l'avviso di OneDrive, e il creator la tiene, ne sceglie un'altra
@@ -277,21 +278,10 @@ pub fn cartella_del_creator(app: &AppHandle, proposta: Option<PathBuf>, impostaz
     )
 }
 
-/// Mostra la cartella in discussione e aspetta una risposta che la riguarda; le altre (un «Ricontrolla» di Claude Code arrivato tardi) si lasciano cadere.
+/// Mostra la cartella in discussione e aspetta una risposta che la riguarda.
 fn chiedi_cartella(app: &AppHandle, stato: StatoCartella) -> Azione {
-    let risposte = &app.state::<Interno>().risposte;
-    let ricevitore = risposte.apri();
-    imposta_stato(app, Stato { fase: "cartella".into(), cartella: Some(stato), ..Default::default() });
-    let azione = loop {
-        match ricevitore.recv() {
-            Ok(azione @ (Azione::Cartella(_) | Azione::ScegliCartella | Azione::UsaCartella)) => break azione,
-            Ok(_) => {}
-            // La pagina non risponde più solo se l'app si sta chiudendo.
-            Err(_) => break Azione::Ricontrolla,
-        }
-    };
-    risposte.chiudi();
-    azione
+    let accetta = |azione| matches!(azione, Azione::Cartella(_) | Azione::ScegliCartella | Azione::UsaCartella).then_some(azione);
+    chiedi_fra(app, Stato { fase: "cartella".into(), cartella: Some(stato), ..Default::default() }, Azione::Ricontrolla, accetta)
 }
 
 /// Il giro della scelta, senza finestra: `dialogo` è il dialogo di sistema, `ricorda` prepara e ricorda la cartella, `chiedi` mostra lo stato e aspetta.
@@ -327,25 +317,31 @@ fn cartella_pronta(
     }
 }
 
-/// La cartella dei dati, dopo lo spostamento che il creator ha chiesto dallo studio (`sposta.rs`), se l'ha chiesto: copia di tutto con avanzamento, verifica e, solo allora, gli originali tolti.
+/// La cartella dei dati, dopo lo spostamento che il creator ha chiesto dallo studio (`sposta.rs`), se l'ha chiesto: copia di tutto con avanzamento, verifica, la nuova cartella ricordata e, solo allora, gli originali tolti.
 /// Succede qui, prima del server, perché nessun file sia in uso. Torna la cartella da usare: la nuova a spostamento finito, quella di prima se il creator lo lascia.
 pub fn spostamento_del_creator(app: &AppHandle, attuale: PathBuf, impostazioni: &Path) -> Result<PathBuf, String> {
-    let Some(destinazione) = lavoro::spostamento_in_attesa(impostazioni) else { return Ok(attuale) };
+    let Some(destinazione) = lavoro::spostamento_in_attesa(std::env::var(lavoro::VARIABILE).ok().as_deref(), impostazioni) else { return Ok(attuale) };
     let risposte = &app.state::<Interno>().risposte;
     let mut ultimo: Option<Instant> = None;
     spostamento_pronto(
         attuale,
         destinazione,
         impostazioni,
-        |da, a, mostra| {
+        |da, a, mostra, ricorda| {
             risposte.annulla.store(false, Ordering::SeqCst);
-            sposta::sposta(da, a, &risposte.annulla, &mut |avanzamento| {
-                // I pezzi arrivano a decine al secondo: la pagina li vede cinque volte al secondo, e sempre il cambio di fase.
-                if ultimo.is_none_or(|t| t.elapsed() > Duration::from_millis(200)) || avanzamento.fase != Fase::Copia {
-                    ultimo = Some(Instant::now());
-                    mostra(avanzamento);
-                }
-            })
+            sposta::sposta(
+                da,
+                a,
+                &risposte.annulla,
+                &mut |avanzamento| {
+                    // I pezzi arrivano a decine al secondo: la pagina li vede cinque volte al secondo, e sempre il cambio di fase.
+                    if ultimo.is_none_or(|t| t.elapsed() > Duration::from_millis(200)) || avanzamento.fase != Fase::Copia {
+                        ultimo = Some(Instant::now());
+                        mostra(avanzamento);
+                    }
+                },
+                ricorda,
+            )
         },
         |stato| imposta_stato(app, Stato { fase: "spostamento".into(), spostamento: Some(stato), ..Default::default() }),
         |stato| chiedi_spostamento(app, stato),
@@ -354,37 +350,26 @@ pub fn spostamento_del_creator(app: &AppHandle, attuale: PathBuf, impostazioni: 
 
 /// Mostra come è finito lo spostamento e aspetta: `Ricontrolla` è «Riprova», `Continua` è «Continua».
 fn chiedi_spostamento(app: &AppHandle, stato: StatoSpostamento) -> Azione {
-    let risposte = &app.state::<Interno>().risposte;
-    let ricevitore = risposte.apri();
-    imposta_stato(app, Stato { fase: "spostamento".into(), spostamento: Some(stato), ..Default::default() });
-    let azione = loop {
-        match ricevitore.recv() {
-            Ok(azione @ (Azione::Ricontrolla | Azione::Continua)) => break azione,
-            Ok(_) => {}
-            // La pagina non risponde più solo se l'app si sta chiudendo.
-            Err(_) => break Azione::Ricontrolla,
-        }
-    };
-    risposte.chiudi();
-    azione
+    let accetta = |azione| matches!(azione, Azione::Ricontrolla | Azione::Continua).then_some(azione);
+    chiedi_fra(app, Stato { fase: "spostamento".into(), spostamento: Some(stato), ..Default::default() }, Azione::Ricontrolla, accetta)
 }
 
 /// Il giro dello spostamento, senza finestra: `sposta` lo fa davvero (o finto, in una prova) dicendo l'avanzamento a `mostra`; `chiedi` mostra come è finita e aspetta il creator.
-/// A spostamento finito la nuova cartella è quella ricordata; se non è andato, o il creator ha annullato, gli originali sono dove erano e il creator sceglie se riprovare o continuare
+/// La nuova cartella diventa quella ricordata (`ricorda`, che `sposta` chiama a copia verificata) prima che si tolga un originale; se non è andato, o il creator ha annullato, gli originali sono dove erano e il creator sceglie se riprovare o continuare
 /// con la cartella di prima (e lo spostamento chiesto si cancella).
 fn spostamento_pronto(
     attuale: PathBuf,
     destinazione: PathBuf,
     impostazioni: &Path,
-    mut sposta: impl FnMut(&Path, &Path, &mut dyn FnMut(Avanzamento)) -> Result<Spostata, Fallita>,
+    mut sposta: impl FnMut(&Path, &Path, &mut dyn FnMut(Avanzamento), &mut dyn FnMut() -> Result<(), String>) -> Result<Spostata, Fallita>,
     mostra: impl Fn(StatoSpostamento),
     mut chiedi: impl FnMut(StatoSpostamento) -> Azione,
 ) -> Result<PathBuf, String> {
     loop {
         mostra(StatoSpostamento::in_corso(Avanzamento::default(), &attuale, &destinazione));
-        match sposta(&attuale, &destinazione, &mut |avanzamento| mostra(StatoSpostamento::in_corso(avanzamento, &attuale, &destinazione))) {
+        let mut ricorda = || lavoro::salva_scelta(impostazioni, &destinazione).map(|_| ()).map_err(|e| format!("{e:#}"));
+        match sposta(&attuale, &destinazione, &mut |avanzamento| mostra(StatoSpostamento::in_corso(avanzamento, &attuale, &destinazione)), &mut ricorda) {
             Ok(spostata) => {
-                lavoro::salva_scelta(impostazioni, &destinazione).map_err(|e| format!("{e:#}"))?;
                 if !spostata.rimasti.is_empty() {
                     chiedi(StatoSpostamento::con_avanzi(&spostata, &attuale, &destinazione));
                 }
@@ -408,24 +393,21 @@ pub fn claude_del_creator(app: &AppHandle) -> Result<PathBuf, String> {
     let indicato = std::env::var(claude::VARIABILE).ok();
     let casa = std::env::var_os("USERPROFILE").map(PathBuf::from);
     let appdata = std::env::var_os("APPDATA").map(PathBuf::from);
-    let dati_di_mango_code = mangocode::cartella_dei_dati(&|nome| std::env::var(nome).ok());
     claude_pronto(
         || claude::trova(indicato.as_deref(), &percorsi, casa.as_deref(), appdata.as_deref()),
         claude::esamina,
         claude::accedi,
         claude::installa,
-        || dati_di_mango_code.as_deref().is_some_and(mangocode::pronto),
         |stato| chiedi(app, Stato { fase: "claude".into(), claude: Some(stato), ..Default::default() }),
     )
 }
 
-/// Il giro dei controlli, senza finestra: `trova`, `esamina`, `accedi`, `installa` e `mango_code_pronto` sono quelli veri o quelli finti di una prova, `chiedi` mostra lo stato e aspetta.
+/// Il giro dei controlli, senza finestra: `trova`, `esamina`, `accedi` e `installa` sono quelli veri o quelli finti di una prova, `chiedi` mostra lo stato e aspetta.
 fn claude_pronto(
     trova: impl Fn() -> Result<Option<PathBuf>, String>,
     esamina: impl Fn(&Path) -> StatoClaude,
     accedi: impl Fn(&Path) -> Result<(), String>,
     installa: impl Fn() -> Result<(), String>,
-    mango_code_pronto: impl Fn() -> bool,
     mut chiedi: impl FnMut(StatoClaude) -> Azione,
 ) -> Result<PathBuf, String> {
     let mut avviso: Option<String> = None;
@@ -443,7 +425,7 @@ fn claude_pronto(
         let provato_a_installare = std::mem::take(&mut dopo_l_installazione);
         let messaggio = avviso.take().or(stato.messaggio).or_else(|| (provato_a_installare && !stato.trovato).then(claude::installazione_non_riuscita));
         let comando = (!stato.trovato).then(|| claude::COMANDO_DI_INSTALLAZIONE.to_owned());
-        match chiedi(StatoClaude { messaggio, comando, mango_code: mango_code_pronto(), ..stato }) {
+        match chiedi(StatoClaude { messaggio, comando, ..stato }) {
             Azione::Accedi => {
                 if let Some(p) = &programma {
                     avviso = accedi(p).err();
@@ -501,7 +483,7 @@ mod prove {
     #[test]
     fn se_claude_code_va_la_pagina_non_si_ferma_a_chiedere() {
         let p = Prova::nuova(&[]);
-        let esito = claude_pronto(|| Ok(Some(programma())), |_| pronto(), |_| unreachable!(), senza_installare, || false, |s| p.chiedi(s));
+        let esito = claude_pronto(|| Ok(Some(programma())), |_| pronto(), |_| unreachable!(), senza_installare, |s| p.chiedi(s));
         assert_eq!(esito, Ok(programma()));
         assert!(p.mostrati.borrow().is_empty());
     }
@@ -514,7 +496,7 @@ mod prove {
             giri.set(giri.get() + 1);
             Ok((giri.get() >= 3).then(programma))
         };
-        let esito = claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, || false, |s| p.chiedi(s));
+        let esito = claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, |s| p.chiedi(s));
         assert_eq!(esito, Ok(programma()));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati.len(), 2);
@@ -537,7 +519,7 @@ mod prove {
             acceduto.set(true);
             Ok(())
         };
-        assert_eq!(claude_pronto(trova, esamina, accedi, installa, || false, |s| p.chiedi(s)), Ok(programma()));
+        assert_eq!(claude_pronto(trova, esamina, accedi, installa, |s| p.chiedi(s)), Ok(programma()));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati.len(), 2);
         assert!(!mostrati[0].trovato && mostrati[0].comando.is_some());
@@ -553,7 +535,7 @@ mod prove {
             Ok(())
         };
         let trova = || Ok((tentativi.get() >= 2).then(programma));
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), installa, || false, |s| p.chiedi(s)), Ok(programma()));
+        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), installa, |s| p.chiedi(s)), Ok(programma()));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati.len(), 2);
         assert_eq!(mostrati[0].messaggio, None);
@@ -570,7 +552,7 @@ mod prove {
             giri.set(giri.get() + 1);
             Ok((giri.get() >= 4).then(programma))
         };
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), installa, || false, |s| p.chiedi(s)), Ok(programma()));
+        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), installa, |s| p.chiedi(s)), Ok(programma()));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati[1].messaggio.as_deref(), Some("Non riesco ad avviare l'installazione di Claude Code: PowerShell non c'è."));
         assert_eq!(mostrati[2].messaggio, None);
@@ -585,7 +567,7 @@ mod prove {
             acceduto.set(true);
             Ok(())
         };
-        let esito = claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, || false, |s| p.chiedi(s));
+        let esito = claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, |s| p.chiedi(s));
         assert_eq!(esito, Ok(programma()));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati.len(), 1);
@@ -605,7 +587,7 @@ mod prove {
             }
         };
         let accedi = |_: &Path| Err("L'accesso a Claude Code non è finito entro dieci minuti: riprova.".into());
-        let esito = claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, || false, |s| p.chiedi(s));
+        let esito = claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, |s| p.chiedi(s));
         assert_eq!(esito, Ok(programma()));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati[0].messaggio, None);
@@ -620,42 +602,8 @@ mod prove {
             giri.set(giri.get() + 1);
             Ok((giri.get() >= 4).then(programma))
         };
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, || false, |s| p.chiedi(s)), Ok(programma()));
+        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, |s| p.chiedi(s)), Ok(programma()));
         assert_eq!(p.mostrati.borrow().len(), 3);
-    }
-
-    #[test]
-    fn la_pagina_dice_se_mango_code_e_acceso_ma_non_cambia_cosa_serve() {
-        let p = Prova::nuova(&[Azione::Continua, Azione::Ricontrolla]);
-        let giri = Cell::new(0);
-        let trova = || {
-            giri.set(giri.get() + 1);
-            Ok((giri.get() >= 3).then(programma))
-        };
-        // Mango Code c'è, ma Claude Code manca: «Continua» non fa passare, serve ancora Claude Code.
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, || true, |s| p.chiedi(s)), Ok(programma()));
-        assert!(p.mostrati.borrow().iter().all(|s| s.mango_code && !s.trovato));
-        assert_eq!(p.mostrati.borrow().len(), 2);
-    }
-
-    #[test]
-    fn senza_mango_code_acceso_la_pagina_non_ne_parla() {
-        let p = Prova::nuova(&[Azione::Accedi]);
-        let acceduto = Cell::new(false);
-        let esamina = |_: &Path| if acceduto.get() { pronto() } else { non_collegato() };
-        let accedi = |_: &Path| {
-            acceduto.set(true);
-            Ok(())
-        };
-        claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, || false, |s| p.chiedi(s)).unwrap();
-        assert!(p.mostrati.borrow().iter().all(|s| !s.mango_code));
-    }
-
-    #[test]
-    fn con_claude_code_collegato_mango_code_non_si_guarda_nemmeno() {
-        let p = Prova::nuova(&[]);
-        let esito = claude_pronto(|| Ok(Some(programma())), |_| pronto(), |_| unreachable!(), senza_installare, || unreachable!("non serve guardare Mango Code"), |s| p.chiedi(s));
-        assert_eq!(esito, Ok(programma()));
     }
 
     #[test]
@@ -667,14 +615,14 @@ mod prove {
             acceduto.set(true);
             Ok(())
         };
-        assert_eq!(claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, || false, |s| p.chiedi(s)), Ok(programma()));
+        assert_eq!(claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, |s| p.chiedi(s)), Ok(programma()));
         assert_eq!(p.mostrati.borrow().len(), 2);
     }
 
     #[test]
     fn una_variabile_che_indica_un_programma_che_non_c_e_e_un_errore_e_non_una_pagina_da_aspettare() {
         let p = Prova::nuova(&[]);
-        let esito = claude_pronto(|| Err("Il programma indicato non c'è.".into()), |_| unreachable!(), |_| unreachable!(), senza_installare, || false, |s| p.chiedi(s));
+        let esito = claude_pronto(|| Err("Il programma indicato non c'è.".into()), |_| unreachable!(), |_| unreachable!(), senza_installare, |s| p.chiedi(s));
         assert_eq!(esito, Err("Il programma indicato non c'è.".into()));
         assert!(p.mostrati.borrow().is_empty());
     }
@@ -796,10 +744,14 @@ mod prove {
             SpostamentoFinto { esiti: RefCell::new(esiti.into()), chiamate: RefCell::default() }
         }
 
-        fn sposta(&self, da: &Path, a: &Path, mostra: &mut dyn FnMut(Avanzamento)) -> Result<Spostata, Fallita> {
+        fn sposta(&self, da: &Path, a: &Path, mostra: &mut dyn FnMut(Avanzamento), ricorda: &mut dyn FnMut() -> Result<(), String>) -> Result<Spostata, Fallita> {
             self.chiamate.borrow_mut().push((da.to_path_buf(), a.to_path_buf()));
             mostra(Avanzamento { fatti_byte: 3 << 20, totale_byte: 10 << 20, file_fatti: 1, file_totali: 4, ..Default::default() });
-            self.esiti.borrow_mut().pop_front().expect("lo spostamento è stato chiesto una volta in più")
+            let esito = self.esiti.borrow_mut().pop_front().expect("lo spostamento è stato chiesto una volta in più");
+            if esito.is_ok() {
+                ricorda().map_err(Fallita::Errore)?;
+            }
+            esito
         }
     }
 
@@ -817,10 +769,10 @@ mod prove {
         let (impostazioni, attuale, destinazione) = cartelle_di_prova();
         let f = SpostamentoFinto::nuovo(vec![Ok(Spostata { rimasti: vec![] })]);
         let mostrati = RefCell::new(Vec::new());
-        let pronta = spostamento_pronto(attuale.clone(), destinazione.clone(), impostazioni.path(), |d, a, m| f.sposta(d, a, m), |s| mostrati.borrow_mut().push(s), |_| unreachable!("non c'era niente da chiedere")).unwrap();
+        let pronta = spostamento_pronto(attuale.clone(), destinazione.clone(), impostazioni.path(), |d, a, m, r| f.sposta(d, a, m, r), |s| mostrati.borrow_mut().push(s), |_| unreachable!("non c'era niente da chiedere")).unwrap();
         assert_eq!(pronta, destinazione);
         assert_eq!(lavoro::trova_lavoro(None, impostazioni.path(), None), lavoro::Esito::Pronta(destinazione.clone()));
-        assert_eq!(lavoro::spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(lavoro::spostamento_in_attesa(None, impostazioni.path()), None);
         let m = mostrati.borrow();
         assert_eq!((m[0].fase.as_str(), m[0].fatti_mb), ("copia", 0));
         assert_eq!((m[1].fatti_mb, m[1].totale_mb, m[1].file_fatti, m[1].file_totali), (3, 10, 1, 4));
@@ -832,7 +784,7 @@ mod prove {
         let (impostazioni, attuale, destinazione) = cartelle_di_prova();
         let f = SpostamentoFinto::nuovo(vec![Err(Fallita::Errore("Non riesco a copiare ripresa.mp4: il disco è pieno.".into())), Ok(Spostata { rimasti: vec![] })]);
         let chiesti = RefCell::new(Vec::new());
-        let pronta = spostamento_pronto(attuale.clone(), destinazione.clone(), impostazioni.path(), |d, a, m| f.sposta(d, a, m), |_| {}, |s| {
+        let pronta = spostamento_pronto(attuale.clone(), destinazione.clone(), impostazioni.path(), |d, a, m, r| f.sposta(d, a, m, r), |_| {}, |s| {
             chiesti.borrow_mut().push(s);
             Azione::Ricontrolla
         })
@@ -848,14 +800,14 @@ mod prove {
         let (impostazioni, attuale, destinazione) = cartelle_di_prova();
         let f = SpostamentoFinto::nuovo(vec![Err(Fallita::Annullata)]);
         let chiesti = RefCell::new(Vec::new());
-        let pronta = spostamento_pronto(attuale.clone(), destinazione, impostazioni.path(), |d, a, m| f.sposta(d, a, m), |_| {}, |s| {
+        let pronta = spostamento_pronto(attuale.clone(), destinazione, impostazioni.path(), |d, a, m, r| f.sposta(d, a, m, r), |_| {}, |s| {
             chiesti.borrow_mut().push(s.fase);
             Azione::Continua
         })
         .unwrap();
         assert_eq!(pronta, attuale);
         assert_eq!(*chiesti.borrow(), vec!["annullato".to_owned()]);
-        assert_eq!(lavoro::spostamento_in_attesa(impostazioni.path()), None);
+        assert_eq!(lavoro::spostamento_in_attesa(None, impostazioni.path()), None);
         assert_eq!(lavoro::trova_lavoro(None, impostazioni.path(), None), lavoro::Esito::Pronta(attuale));
     }
 
@@ -865,7 +817,7 @@ mod prove {
         let rimasti: Vec<PathBuf> = (1..=7).map(|n| attuale.join(format!("ripresa-{n}.mp4"))).collect();
         let f = SpostamentoFinto::nuovo(vec![Ok(Spostata { rimasti })]);
         let chiesti = RefCell::new(Vec::new());
-        let pronta = spostamento_pronto(attuale, destinazione.clone(), impostazioni.path(), |d, a, m| f.sposta(d, a, m), |_| {}, |s| {
+        let pronta = spostamento_pronto(attuale, destinazione.clone(), impostazioni.path(), |d, a, m, r| f.sposta(d, a, m, r), |_| {}, |s| {
             chiesti.borrow_mut().push(s);
             Azione::Continua
         })
@@ -874,6 +826,37 @@ mod prove {
         let c = chiesti.borrow();
         assert_eq!((c[0].fase.as_str(), c[0].rimasti, c[0].primi_rimasti.len()), ("avanzi", 7, 5));
         assert_eq!(lavoro::trova_lavoro(None, impostazioni.path(), None), lavoro::Esito::Pronta(destinazione));
+    }
+
+    #[test]
+    fn un_blocco_fra_la_copia_e_la_rimozione_degli_originali_lascia_la_cartella_nuova_ricordata_e_tutti_i_video_al_loro_posto() {
+        let (impostazioni, attuale, destinazione) = cartelle_di_prova();
+        std::fs::write(attuale.join("archivio").join("ripresa.mp4"), vec![9u8; 3 << 20]).unwrap();
+        std::fs::write(attuale.join("profilo.json"), b"{}").unwrap();
+        // Il programma si ferma appena comincia a togliere gli originali: il panico fa da interruzione, e nessuna riga dopo di lui gira.
+        let interrotto = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = spostamento_pronto(
+                attuale.clone(),
+                destinazione.clone(),
+                impostazioni.path(),
+                |da, a, mostra, ricorda| {
+                    sposta::sposta(da, a, &AtomicBool::new(false), &mut |avanzamento| {
+                        mostra(avanzamento);
+                        if avanzamento.fase == Fase::Rimozione {
+                            panic!("interruzione");
+                        }
+                    }, ricorda)
+                },
+                |_| {},
+                |_| unreachable!(),
+            );
+        }));
+        assert!(interrotto.is_err());
+        // Al riavvio: la cartella ricordata è la nuova, non resta niente da spostare, e la nuova ha i video (gli originali non sono stati toccati).
+        assert_eq!(lavoro::trova_lavoro(None, impostazioni.path(), None), lavoro::Esito::Pronta(destinazione.clone()));
+        assert_eq!(lavoro::spostamento_in_attesa(None, impostazioni.path()), None);
+        assert_eq!(std::fs::read(destinazione.join("archivio").join("ripresa.mp4")).unwrap().len(), 3 << 20);
+        assert!(destinazione.join("profilo.json").is_file() && attuale.join("archivio").join("ripresa.mp4").is_file());
     }
 
     #[test]

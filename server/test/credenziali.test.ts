@@ -1,4 +1,5 @@
-// Il server non legge né passa le credenziali di claude.ai dell'utente: Claude Code usa l'accesso che ha già, da sé.
+// Il codice del server non legge né passa le credenziali di claude.ai dell'utente: Claude Code usa l'accesso che ha già, da sé. Che il server non si possa usare per prelevare
+// un file qualunque lo garantisce `allegati-locali.test.ts`: un percorso si prende solo se il creator l'ha scelto con un gesto.
 import { expect, test } from "bun:test"
 import { Glob } from "bun"
 import { join, resolve } from "node:path"

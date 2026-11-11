@@ -2,6 +2,7 @@
 
 use super::anonimizza::{anonimizza, Chi};
 use crate::computer::hw;
+use crate::rete;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde_json::{json, Value};
 use std::io::{Read, Seek, SeekFrom};
@@ -205,13 +206,13 @@ impl Segnalazione {
 
     pub(super) fn spedisci(&self, dsn: &Dsn, png: Option<&[u8]>) -> Result<(), String> {
         let corpo = self.busta(dsn, &uuid::Uuid::new_v4().simple().to_string(), Utc::now(), png);
-        ureq::post(&dsn.endpoint)
-            .timeout(Duration::from_secs(30))
-            .set("Content-Type", "application/x-sentry-envelope")
-            .set("X-Sentry-Auth", &format!("Sentry sentry_version=7, sentry_client=mango-animation/{}, sentry_key={}", self.ingresso.versione, dsn.chiave))
-            .send_bytes(&corpo)
+        rete::agente(&dsn.endpoint, Duration::from_secs(30))
+            .post(&dsn.endpoint)
+            .header("Content-Type", "application/x-sentry-envelope")
+            .header("X-Sentry-Auth", &format!("Sentry sentry_version=7, sentry_client=mango-animation/{}, sentry_key={}", self.ingresso.versione, dsn.chiave))
+            .send(&corpo)
             .map(|_| ())
-            .map_err(|e| e.to_string())
+            .map_err(|e| rete::spiega(&e, &dsn.endpoint).unwrap_or_else(|| e.to_string()))
     }
 
     /// Senza Sentry: il testo in un file nella cartella dei registri.
@@ -250,7 +251,7 @@ pub(super) mod aiuti {
     }
 
     pub fn chi() -> Chi {
-        Chi::nuovo(&["Gianni"], "PC-STUDIO", vec!["q7Zk2m_Vd9XaB4nTe1LpW0sRyH3cUfJo5GiN8xAt6MQ".into()])
+        Chi::nuovo(&["Gianni"], &["PC-STUDIO"], vec!["q7Zk2m_Vd9XaB4nTe1LpW0sRyH3cUfJo5GiN8xAt6MQ".into()])
     }
 
     /// Una cartella dei registri com'è sul computer di un creator: i registri dell'app, e accanto altro che non deve uscire.
@@ -266,7 +267,7 @@ pub(super) mod aiuti {
 
     pub fn segnalazione(errore: Option<&str>, nota: Option<&str>) -> (Segnalazione, tempfile::TempDir) {
         let cartella = registri();
-        (Segnalazione::raccogli(ingresso(errore, nota), "Microsoft Windows [Version 10.0.26200.9711]".into(), computer(), &Schermata::Allegata, cartella.path(), &chi()), cartella)
+        (Segnalazione::raccogli(ingresso(errore, nota), "Microsoft Windows [Version 10.0.19045.1]".into(), computer(), &Schermata::Allegata, cartella.path(), &chi()), cartella)
     }
 
     pub fn ora() -> DateTime<Utc> {
@@ -328,7 +329,7 @@ mod prove {
         assert_eq!((tag["gpu"].as_str(), tag["vram_mib"].as_str(), tag["ram_mib"].as_str()), (Some("NVIDIA GeForce RTX 3060 Ti"), Some("8192"), Some("32768")));
         assert_eq!((tag["lingua"].as_str(), tag["app"].as_str()), (Some("it"), Some("installata")));
         assert_eq!(e["contexts"]["os"]["name"], "Windows");
-        assert_eq!(e["contexts"]["os"]["version"], "Microsoft Windows [Version 10.0.26200.9711]");
+        assert_eq!(e["contexts"]["os"]["version"], "Microsoft Windows [Version 10.0.19045.1]");
         assert_eq!(e["contexts"]["device"]["cpu_description"], "AMD Ryzen 7 5800X (16 threads)");
         assert_eq!(e["contexts"]["device"]["memory_size"], 32768u64 * 1024 * 1024);
         assert_eq!(e["contexts"]["gpu"]["name"], "NVIDIA GeForce RTX 3060 Ti");
@@ -381,7 +382,7 @@ mod prove {
     fn il_riepilogo_dice_versione_computer_e_se_la_schermata_e_allegata() {
         let (s, _c) = segnalazione(None, None);
         let r = s.riassunto();
-        for c in ["Mango Animation 0.1.0", "Windows [Version 10.0.26200.9711]", "AMD Ryzen 7 5800X (16 threads), RAM 32768 MiB", "GPU 0: NVIDIA GeForce RTX 3060 Ti (8192 MiB)"] {
+        for c in ["Mango Animation 0.1.0", "Windows [Version 10.0.19045.1]", "AMD Ryzen 7 5800X (16 threads), RAM 32768 MiB", "GPU 0: NVIDIA GeForce RTX 3060 Ti (8192 MiB)"] {
             assert!(r.contains(c), "{c} manca in:\n{r}");
         }
         assert!(s.testo.contains("Screenshot: attached"));

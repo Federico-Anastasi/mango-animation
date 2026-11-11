@@ -69,30 +69,22 @@ pub fn dividi_comando(riga: &str) -> Result<Vec<String>, Errore> {
     Ok(parole)
 }
 
-/// La cartella con `motore/`, dove il motore di base si lancia: `MANGO_ANIMATION_RADICE`, o risalendo da `partenza`.
-pub fn radice_del_codice(partenza: &Path, da_ambiente: Option<&str>) -> Option<PathBuf> {
-    let e_radice = |c: &Path| c.join("motore").join("__main__.py").is_file();
-    match da_ambiente.filter(|v| !v.is_empty()) {
-        Some(indicata) => Some(PathBuf::from(indicata)).filter(|c| e_radice(c)),
-        None => partenza.ancestors().flat_map(|c| [c.join("codice"), c.to_path_buf()]).find(|c| e_radice(c)),
-    }
-}
-
-/// Il comando del motore dalle variabili d'ambiente (`ambiente`), da dove sta l'eseguibile (`partenza`) e dalla cartella dei dati (`lavoro`), da cui il motore legge stile e profilo.
-pub fn comando_del_motore(ambiente: &dyn Fn(&str) -> Option<String>, partenza: &Path, lavoro: Option<&Path>) -> Result<Comando, Errore> {
+/// Il comando del motore dalle variabili d'ambiente (`ambiente`), dalla radice del codice che l'app ha già trovato (`radice`, `radice.rs`: il motore sta in `motore/` lì dentro)
+/// e dalla cartella dei dati (`lavoro`), da cui il motore legge stile e profilo.
+pub fn comando_del_motore(ambiente: &dyn Fn(&str) -> Option<String>, radice: Option<&Path>, lavoro: Option<&Path>) -> Result<Comando, Errore> {
     let python_e_utf8: Vec<(OsString, OsString)> = [("PYTHONUNBUFFERED", OsString::from("1")), ("PYTHONUTF8", OsString::from("1"))]
         .into_iter()
         .chain(lavoro.map(|l| ("MANGO_ANIMATION_LAVORO", l.as_os_str().to_owned())))
         .map(|(k, v)| (OsString::from(k), v))
         .collect();
-    let radice = radice_del_codice(partenza, ambiente("MANGO_ANIMATION_RADICE").as_deref());
+    let radice = radice.filter(|r| r.join("motore").join("__main__.py").is_file());
     if let Some(riga) = ambiente(VARIABILE_COMANDO).filter(|r| !r.trim().is_empty()) {
         let mut parole = dividi_comando(&riga)?.into_iter();
         let exe = parole.next().ok_or_else(|| Errore::new("comando_non_valido", format!("{VARIABILE_COMANDO} è vuota."), format!("{VARIABILE_COMANDO} is empty.")))?;
-        let cwd = radice.unwrap_or_else(|| partenza.to_path_buf());
+        let cwd = radice.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
         return Ok(Comando { exe: exe.into(), args: parole.map(OsString::from).collect(), cwd, ambiente: python_e_utf8.to_vec(), di_base: false });
     }
-    let cwd = radice.ok_or_else(|| {
+    let cwd = radice.map(Path::to_path_buf).ok_or_else(|| {
         Errore::new(
             "motore_mancante",
             "Non trovo il motore della dettatura (la cartella motore/) risalendo dall'app. L'app va tenuta dentro la cartella di Mango Animation, oppure si indica con MANGO_ANIMATION_RADICE.",

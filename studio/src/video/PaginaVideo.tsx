@@ -3,12 +3,15 @@ import { api } from "../api"
 import { Bottone } from "../comuni/Bottone"
 import { GuardaDalTelefono } from "../comuni/GuardaDalTelefono"
 import { Icona } from "../comuni/icone"
+import { Schede } from "../comuni/Schede"
 import { Caricamento, Errore } from "../comuni/Stati"
 import { copiaVideo, useCopia } from "../dati"
 import { SCHEDE, SCHEDE_CAROSELLO, scriviIndirizzo, vai, type SchedaVideo } from "../indirizzo"
 import { t } from "../lingua"
-import { pluralizza } from "../testo"
+import { nomeFile, pluralizza } from "../testo"
 import type { DettaglioVideo, Scheda, StatoVideo } from "../tipi"
+import { FILE_FINITI, nonFallire, uscitaDi } from "./liste"
+import { RigaDeiPassi } from "./RigaDeiPassi"
 import styles from "./PaginaVideo.module.css"
 
 const ProvaVideo = lazy(() => import("./ProvaVideo").then((m) => ({ default: m.ProvaVideo })))
@@ -76,16 +79,17 @@ export function PaginaVideo({ slug, scheda, parametri }: { slug: string; scheda:
       setErrore(t("Il titolo non può restare vuoto.", "The title cannot be left empty."))
       return
     }
-    salvaScheda({ ...video.scheda, titolo: nuovo }).catch(() => undefined)
+    nonFallire(salvaScheda({ ...video.scheda, titolo: nuovo }))
   }
 
   const proprieta: PropsScheda = { video, salvaScheda }
   const carosello = video.scheda.formato === "carosello"
-  const prova = carosello ? undefined : video.uscite.find((u) => u.file.endsWith("/uscite/prova.mp4"))
+  const prova = carosello ? undefined : uscitaDi(video, "prova.mp4")
   const schede: readonly SchedaVideo[] = carosello ? SCHEDE_CAROSELLO : prova ? ["prova", ...SCHEDE] : SCHEDE
-  const diPartenza: SchedaVideo = carosello ? "slide" : prova && video.piano === null ? "prova" : "montaggio"
+  const senzaMontaggio = video.piano === null && !video.uscite.some((u) => FILE_FINITI.includes(nomeFile(u.file)))
+  const diPartenza: SchedaVideo = carosello ? "slide" : prova && video.piano === null ? "prova" : senzaMontaggio ? "scheda" : "montaggio"
   const attiva = scheda !== null && schede.includes(scheda) ? scheda : diPartenza
-  const sidaTogliere = video.scheda.stato === "proposta" && !video.uscite.some((u) => u.file.endsWith("finale.mp4"))
+  const sidaTogliere = video.scheda.stato === "proposta" && !uscitaDi(video, "finale.mp4")
   const nellaCartella = [
     video.materiali.length > 0 && t("{quanti} nei materiali", "{quanti} in the materials", { quanti: pluralizza(video.materiali.length, t("file", "file"), t("file", "files")) }) + (video.materiali.some((m) => /\/materiali\/anteprima\.[^/]+$/.test(m.file)) ? t(" (anche l'anteprima)", " (and the preview)") : ""),
     video.uscite.some((u) => u.stesso_file === null) && t("{quanti} nelle uscite", "{quanti} in the outputs", { quanti: pluralizza(video.uscite.filter((u) => u.stesso_file === null).length, t("file", "file"), t("file", "files")) }),
@@ -124,7 +128,7 @@ export function PaginaVideo({ slug, scheda, parametri }: { slug: string; scheda:
         <div className={styles.riga}>
           <label className={styles.stato}>
             <span>{t("Stato", "Status")}</span>
-            <select value={video.scheda.stato} onChange={(e) => salvaScheda({ ...video.scheda, stato: e.target.value as StatoVideo }).catch(() => undefined)}>
+            <select value={video.scheda.stato} onChange={(e) => nonFallire(salvaScheda({ ...video.scheda, stato: e.target.value as StatoVideo }))}>
               {STATI.map((s) => (
                 <option key={s} value={s}>
                   {nomeStato(s)}
@@ -157,6 +161,7 @@ export function PaginaVideo({ slug, scheda, parametri }: { slug: string; scheda:
             </Bottone>
           </div>
         )}
+        {video.fase && <RigaDeiPassi fase={video.fase} />}
         {errore && (
           <p className={styles.errore} role="alert">
             {errore}
@@ -165,13 +170,7 @@ export function PaginaVideo({ slug, scheda, parametri }: { slug: string; scheda:
         {video.problemi.scheda.length > 0 && <Errore messaggio={t("La scheda di questo video ha un errore: chiedi nella chat di sistemarla. Qui vedi l'ultima scheda valida.", "This video's card has an error: ask in the chat to fix it. Here you see the last valid card.")} dettaglio={video.problemi.scheda} />}
         {video.problemi.piano.length > 0 && <Errore messaggio={t("Il piano di questo video ha un errore: chiedi nella chat di sistemarlo.", "This video's plan has an error: ask in the chat to fix it.")} dettaglio={video.problemi.piano} />}
       </div>
-      <nav className={styles.schede} aria-label={t("Schede del video", "Video tabs")}>
-        {schede.map((s) => (
-          <a key={s} href={scriviIndirizzo({ vista: "video", slug, scheda: s })} className={styles.scheda} aria-current={s === attiva ? "page" : undefined}>
-            {nomeScheda(s)}
-          </a>
-        ))}
-      </nav>
+      <Schede etichetta={t("Schede del video", "Video tabs")} schede={schede.map((id) => ({ id, nome: nomeScheda(id) }))} attiva={attiva} indirizzo={(id) => scriviIndirizzo({ vista: "video", slug, scheda: id })} />
       <div className={styles.contenuto}>
         <Suspense fallback={<Caricamento />}>
           {attiva === "prova" && prova && <ProvaVideo prova={prova} />}

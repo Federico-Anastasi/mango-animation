@@ -12,7 +12,7 @@
 // che non si trova resta fuori dal JSON, e si dice. Una voce con `"filmato": [da, a]` è una pagina che si muove: si filma grande quanto lo
 // schermo del telefono, col tempo della pagina fermo fra un fotogramma e l'altro (`orologio.mjs`), in `filmato-<nome>.webm`, e la cattura
 // ferma è quella a `da`. Esce con 1 se una pagina non è stata presa. Le misure: `pagina` dello stile.
-import { chromium } from "../studio/node_modules/@playwright/test/index.mjs";
+import { apriChrome } from "./chrome.mjs";
 import { spawn } from "node:child_process";
 import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -22,7 +22,7 @@ import { leggiStile } from "./stile.mjs";
 
 const STILE = leggiStile(fileURLToPath(new URL("..", import.meta.url)), process.env.MANGO_ANIMATION_LAVORO);
 const { larghezza: LARGHEZZA, densita: DENSITA, finestra: FINESTRA, sotto_le_frasi: SOTTO } = STILE.pagina;
-const FORMATO = STILE.formato;
+const FORMATO = STILE.formati.verticale;
 
 /** La posizione del testo `frase` nella pagina, in px CSS: si cerca nei nodi di testo, così vale anche per una frase dentro un paragrafo
  * lungo, e si uniscono i riquadri quando la frase è scritta su più righe. Le occorrenze nascoste (l'indice chiuso di Wikipedia da
@@ -152,7 +152,7 @@ const TELEFONO = {
   locale: "it-IT",
   userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
 };
-const browser = await chromium.launch({ channel: "chrome", headless: !process.env.PAGINA_VISIBILE });
+const browser = await apriChrome({ headless: !process.env.PAGINA_VISIBILE });
 const contesto = await browser.newContext({ ...TELEFONO, viewport: { width: LARGHEZZA, height: FINESTRA } });
 const pagina = await contesto.newPage();
 let mancate = 0;

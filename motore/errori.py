@@ -22,6 +22,10 @@ class Errore(Exception):
         return dice(self.it, self.en)
 
 
+class FormatiMescolati(Errore):
+    """Le scene di un video hanno formati diversi: `valida` lo riporta fra gli errori del piano, ogni altro uso lo lascia salire."""
+
+
 class Frase(str):
     """Una frase che si legge in italiano (è la stringa) e porta l'inglese in `en`: per gli elenchi di problemi e avvisi."""
 

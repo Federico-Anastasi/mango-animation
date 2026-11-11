@@ -1,11 +1,15 @@
 // Cosa sta guardando il creator nello studio: parte con ogni messaggio, così Claude sa di quale video e scheda si parla.
 import { copiaVideo, useCopia, type Copia } from "../dati"
-import { useIndirizzo, type Indirizzo, type SchedaVideo, type VistaApp } from "../indirizzo"
+import { useIndirizzo, type Indirizzo, type SchedaVideo } from "../indirizzo"
 import type { DettaglioVideo } from "../tipi"
 import type { ContestoChat } from "./tipi"
 
 const NOME_SCHEDA: Record<SchedaVideo, string> = { prova: "Prova", montaggio: "Montaggio", slide: "Slide", scheda: "Scheda", controllo: "Controllo", copertina: "Copertina", file: "File" }
-const NOME_VISTA: Record<VistaApp, string> = { video: "Elenco dei video", girato: "Girato", pubblico: "Pubblico", classifica: "Classifica", crescita: "Crescita", produzione: "Produzione", stile: "Stile", motori: "Motori" }
+const NOME_VISTA = { video: "Elenco dei video", girato: "Girato", produzione: "Produzione" } as const
+const NOME_PARTE = { pubblico: "Pubblico", classifica: "Classifica", crescita: "Crescita", profilo: "Profilo", stile: "Stile", computer: "Computer", telefono: "Telefono", generali: "Generali" } as const
+
+/** Il nome della vista fuori dai video; le schede del canale e le sezioni delle impostazioni hanno il loro. */
+const nomeVista = (i: Indirizzo): string => (i.vista === "canale" ? NOME_PARTE[i.parte] : i.vista === "impostazioni" ? `Impostazioni › ${NOME_PARTE[i.parte]}` : NOME_VISTA[i.vista])
 
 const nessunStato = { dato: null, errore: null, caricato: true }
 const nessunVideo: Copia<DettaglioVideo> = { stato: () => nessunStato, iscriviti: () => () => undefined, rileggi: async () => undefined }
@@ -31,7 +35,7 @@ export function useSguardo(): Sguardo {
   const slug = indirizzo.vista === "video" ? indirizzo.slug : null
   const video = useCopia(slug ? copiaVideo(slug) : nessunVideo).dato
   const scheda = slug ? schedaAperta(indirizzo, video) : null
-  return { slug, vista: slug ? (scheda ? NOME_SCHEDA[scheda] : NOME_VISTA.video) : NOME_VISTA[indirizzo.vista] }
+  return { slug, vista: slug ? (scheda ? NOME_SCHEDA[scheda] : NOME_VISTA.video) : nomeVista(indirizzo) }
 }
 
 /** Ciò che parte con ogni messaggio: il video e la scheda. Claude lo legge, il creator non lo vede nel messaggio. */

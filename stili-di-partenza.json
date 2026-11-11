@@ -1,0 +1,28 @@
+{
+  "scuro": {
+    "nome": { "it": "Scuro", "en": "Dark" },
+    "descrizione": { "it": "Fondo scuro, accento azzurro, titolo su un'etichetta gialla.", "en": "Dark background, soft blue accent, title on a yellow label." },
+    "stile": {
+      "colori": { "carta": "#15151A", "carta_scura": "#0D0D10", "grigio": "#9A9AA6", "filo": "#33333D", "inchiostro": "#F4F4F6", "rosso": "#FF5C5C", "blu": "#5AA9FF", "giallo": "#FFD166", "verde": "#4ADE80" },
+      "titolo": { "fondo": "giallo", "colore": "nero" }
+    }
+  },
+  "caldo": {
+    "nome": { "it": "Caldo", "en": "Warm" },
+    "descrizione": { "it": "Carta color crema, accento rosso mattone, lettere più tonde.", "en": "Warm cream paper, brick-red accent, rounder lettering." },
+    "stile": {
+      "colori": { "carta": "#F6EEDF", "carta_scura": "#EADFC9", "grigio": "#7A6E5D", "filo": "#D8CAB0", "inchiostro": "#2E2418", "rosso": "#C2502B", "blu": "#2F5D62", "giallo": "#E0A526", "verde": "#5E7F3B" },
+      "caratteri": { "titoli": "font/Metropolis-Medium.ttf" },
+      "titolo": { "fondo": "inchiostro", "colore": "carta" }
+    }
+  },
+  "vivace": {
+    "nome": { "it": "Vivace", "en": "Vivid" },
+    "descrizione": { "it": "Bianco con rosso acceso e blu, sottotitoli parola per parola, titolo in maiuscolo su un'etichetta rossa.", "en": "White with strong red and blue, word-by-word subtitles, title in capitals on a red label." },
+    "stile": {
+      "colori": { "rosso": "#FF3B5C", "blu": "#2B59FF", "giallo": "#FFD60A", "verde": "#00B86B" },
+      "sottotitoli": { "modo": "parola per parola", "scrittura": "minuscola", "corpo": 64 },
+      "titolo": { "fondo": "rosso", "colore": "bianco", "maiuscolo": true }
+    }
+  }
+}

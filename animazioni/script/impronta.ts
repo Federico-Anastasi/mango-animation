@@ -98,7 +98,7 @@ export async function sorgentiDi(radice: string, slug: string, sigla: string, la
 }
 
 /** Dello stile (quello di serie con sopra quello del creator) contano le parti che la pagina delle animazioni legge (`src/standard/stile.ts`, `vite.config.ts`, le scene): il resto (voce, taglio, sagoma, uscita, i sottotitoli…) non cambia un fotogramma. */
-export const PARTI_DELLO_STILE = ["formato", "formati", "colori", "caratteri", "titolo", "telefono", "quadri"] as const;
+export const PARTI_DELLO_STILE = ["formati", "colori", "caratteri", "titolo", "telefono", "quadri"] as const;
 
 /** Lo stile come lo vede la pagina: le parti sopra, e dei `quadri` solo quelli che un sorgente nomina, senza i loro sottotitoli (si mettono sul video intero). */
 export function stileDelleAnimazioni(stile: Record<string, unknown>, sorgenti: string): string {

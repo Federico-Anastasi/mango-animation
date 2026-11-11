@@ -3,10 +3,11 @@
 // messaggi dell'SDK di Claude Code, così trascrizione, richieste e studio restano gli stessi.
 import type { Options, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk"
 import { join } from "node:path"
-import { jsonDaTesto, leggiTesto, scrivi, testoJson } from "../disco"
+import { eOggetto, jsonDaTesto, leggiTesto, rinomina, scrivi, testoJson } from "../disco"
+import { frase, type Frase } from "../lingua"
 import { osserva } from "../osservatore"
 import { cartellaDellaChat } from "./allegati"
-import { contestoDaUsage, eOggetto, type Oggetto } from "./traduzione"
+import { contestoDaUsage, type Oggetto } from "./traduzione"
 import { VociSpente } from "./vociSpente"
 import { ErroreChat, type FunzioneQuery, type MessaggioSessione, type MisuraDelContesto, type ModelloChat, type QueryChat, type VoceSessione } from "./tipi"
 
@@ -17,9 +18,9 @@ export const eDiMangoCode = (modello: string | null | undefined): boolean => typ
 /** Come si presenta a Mango Code ogni chiamata, che il suo registro scrive. */
 export const CHI_CHIAMA = { "user-agent": "Mango Animation" }
 
-const FRASE_CHIUSO = "Mango Code ha chiuso il collegamento: riscrivi il messaggio."
-const FRASE_SPENTO = "Mango Code è spento: aprilo dalla sua icona e riscrivi il messaggio."
-const FRASE_NON_PRONTO = "Mango Code si sta preparando o non è pronto: guarda la sua finestra e riscrivi il messaggio."
+const FRASE_CHIUSO = frase("Mango Code ha chiuso il collegamento: riscrivi il messaggio.", "Mango Code closed the connection: write the message again.")
+const FRASE_SPENTO = frase("Mango Code è spento: aprilo dalla sua icona e riscrivi il messaggio.", "Mango Code is off: open it from its icon and write the message again.")
+const FRASE_NON_PRONTO = frase("Mango Code si sta preparando o non è pronto: guarda la sua finestra e riscrivi il messaggio.", "Mango Code is getting ready or is not ready: look at its window and write the message again.")
 
 const dettaglioDi = (errore: unknown): string => (errore instanceof Error ? errore.message : String(errore))
 
@@ -55,8 +56,10 @@ export async function statoDiMangoCode(dati: string): Promise<StatoMangoCode> {
   if (typeof s["agent"] !== "string" || typeof s["engine"] !== "string") return typeof s["reason"] === "string" ? { stato: "nonPronto" } : spento
   try {
     const r = await fetch(`${s["agent"]}/global/health`, { headers: CHI_CHIAMA, signal: AbortSignal.timeout(3000) })
+    if (!r.ok) console.error(`chat di Mango Code: il controllo di salute ha risposto ${r.status}: lo conto spento.`)
     return r.ok ? { stato: "pronto", servizio: { pid: s["pid"], agente: s["agent"], motore: s["engine"] } } : spento
-  } catch {
+  } catch (errore) {
+    console.error(`chat di Mango Code: è acceso ma non risponde al controllo di salute: ${dettaglioDi(errore)}`)
     return spento
   }
 }
@@ -83,10 +86,20 @@ export class RegistroMangoCode {
     this.percorso = join(archivio, ".chat", "mango-code.json")
   }
 
-  async tutti(): Promise<Record<string, Ricordo>> {
+  /** Il file com'è, `{}` se non c'è; `null` se c'è ma non è un oggetto JSON. */
+  private async leggi(): Promise<Oggetto | null> {
     const testo = await leggiTesto(this.percorso)
-    const letto = testo === null ? null : jsonDaTesto(testo)
-    const valore = letto && eOggetto(letto.valore) ? letto.valore : {}
+    if (testo === null) return {}
+    const letto = jsonDaTesto(testo)
+    return letto && eOggetto(letto.valore) ? letto.valore : null
+  }
+
+  async tutti(): Promise<Record<string, Ricordo>> {
+    const valore = await this.leggi()
+    if (valore === null) {
+      console.error(`chat di Mango Code: ${this.percorso} non si legge: le conversazioni di Mango Code non compaiono nell'elenco finché non si scrive di nuovo.`)
+      return {}
+    }
     return Object.fromEntries(
       Object.entries(valore).flatMap(([id, r]) =>
         eOggetto(r) && typeof r["sessione"] === "string" && typeof r["modello"] === "string" && typeof r["titolo"] === "string" && typeof r["aggiornata"] === "number"
@@ -104,8 +117,14 @@ export class RegistroMangoCode {
   cambia(id: string, cambio: (vecchio: Ricordo | undefined) => Ricordo): Promise<void> {
     this.scrittura = this.scrittura
       .then(async () => {
-        const tutti = await this.tutti()
         await cartellaDellaChat(this.archivio)
+        // Un file che non si legge non si riscrive in silenzio: resta accanto, con un altro nome.
+        if ((await this.leggi()) === null) {
+          const messo = `${this.percorso}.illeggibile`
+          await rinomina(this.percorso, messo)
+          console.error(`chat di Mango Code: ${this.percorso} non si leggeva ed è stato messo da parte in ${messo}.`)
+        }
+        const tutti = await this.tutti()
         await scrivi(this.percorso, testoJson({ ...tutti, [id]: cambio(tutti[id]) }))
       })
       .catch((errore) => console.error(`chat di Mango Code: non riesco a scrivere ${this.percorso}: ${errore instanceof Error ? errore.message : String(errore)}`))
@@ -215,8 +234,8 @@ class QueryMangoCode implements QueryChat {
   }
 
   /** `nonRiuscito` è la frase per il creator se Mango Code risponde con un errore (secondo lo stato); ciò che ha risposto va nel registro. */
-  private async chiama(metodo: string, percorso: string, corpo?: unknown, nonRiuscito: (stato: number) => string = () => "Mango Code non ha preso il messaggio: riprova."): Promise<unknown> {
-    if (!this.servizio) throw new Error("Mango Code non è collegato.")
+  private async chiama(metodo: string, percorso: string, corpo?: unknown, nonRiuscito: (stato: number) => Frase = () => frase("Mango Code non ha preso il messaggio: riprova.", "Mango Code did not take the message: try again.")): Promise<unknown> {
+    if (!this.servizio) throw new ErroreChat(502, frase("Mango Code non è collegato.", "Mango Code is not connected."))
     const separatore = percorso.includes("?") ? "&" : "?"
     const r = await fetch(`${this.servizio.agente}${percorso}${separatore}directory=${encodeURIComponent(this.cartella)}`, {
       method: metodo,
@@ -252,7 +271,7 @@ class QueryMangoCode implements QueryChat {
       if (this.sessione === null) {
         const titolo = parti.flatMap((p) => (p["type"] === "text" && typeof p["text"] === "string" ? [p["text"].replace(/^\[Context:[^\]]*\]\s*/, "")] : [])).join(" ").slice(0, 60)
         const creata = await this.chiama("POST", "/session", { title: titolo || "Mango Animation" })
-        if (!eOggetto(creata) || typeof creata["id"] !== "string") throw new ErroreChat(502, "Mango Code non ha aperto la conversazione: riprova.")
+        if (!eOggetto(creata) || typeof creata["id"] !== "string") throw new ErroreChat(502, frase("Mango Code non ha aperto la conversazione: riprova.", "Mango Code did not open the conversation: try again."))
         this.sessione = creata["id"]
         const sessione = this.sessione
         await this.registro.cambia(this.id, () => ({ sessione, modello: this.modello, titolo: titolo || "Mango Animation", aggiornata: this.o.adesso().getTime() }))
@@ -273,7 +292,10 @@ class QueryMangoCode implements QueryChat {
   private async dichiaraIlMetodo(): Promise<void> {
     if (this.metodo === this.cartella) return
     // Un Mango Code senza le cartelle in più non ha la rotta: è vecchio. Ogni altro errore è di quel momento.
-    await this.chiama("PUT", "/mango/extra-folders", { folders: [this.metodo] }, (stato) => (stato === 404 || stato === 405 ? "Questa versione di Mango Code è troppo vecchia: aggiornala." : "Mango Code non ha preso il metodo del prodotto: riprova."))
+    await this.chiama("PUT", "/mango/extra-folders", { folders: [this.metodo] }, (stato) =>
+        stato === 404 || stato === 405
+          ? frase("Questa versione di Mango Code è troppo vecchia: aggiornala.", "This version of Mango Code is too old: update it.")
+          : frase("Mango Code non ha preso il metodo del prodotto: riprova.", "Mango Code did not take the method of the product: try again."))
   }
 
   /** Lo strumento «video» passato alla cartella, come a Claude Code (il server MCP resta finché Mango Code è acceso). */
@@ -299,7 +321,7 @@ class QueryMangoCode implements QueryChat {
     })
     if (!r.ok || !r.body) {
       console.error(`chat di Mango Code: gli eventi hanno risposto ${r.status}`)
-      throw new ErroreChat(502, "Mango Code non risponde.")
+      throw new ErroreChat(502, frase("Mango Code non risponde.", "Mango Code is not answering."))
     }
     const lettore = r.body.getReader()
     const decodifica = new TextDecoder()
@@ -491,7 +513,7 @@ class QueryMangoCode implements QueryChat {
     }
   }
 
-  interrupt = async (): Promise<unknown> => (this.sessione ? this.chiama("POST", `/session/${this.sessione}/abort`, undefined, () => "Mango Code non ha fermato il lavoro: riprova.") : null)
+  interrupt = async (): Promise<unknown> => (this.sessione ? this.chiama("POST", `/session/${this.sessione}/abort`, undefined, () => frase("Mango Code non ha fermato il lavoro: riprova.", "Mango Code did not stop the job: try again.")) : null)
 
   close = (): void => {
     this.chiusa = true
@@ -500,12 +522,12 @@ class QueryMangoCode implements QueryChat {
   }
 
   setModel = async (modello?: string): Promise<void> => {
-    if (!eDiMangoCode(modello)) throw new Error("Una conversazione di Mango Code resta di Mango Code: per Claude apri una conversazione nuova.")
+    if (!eDiMangoCode(modello)) throw new ErroreChat(400, frase("Una conversazione di Mango Code resta di Mango Code: per Claude apri una conversazione nuova.", "A Mango Code conversation stays with Mango Code: to use Claude, start a new conversation."))
     this.modello = (modello ?? "").slice(PREFISSO.length)
   }
 
   applyFlagSettings = async (impostazioni: { effortLevel: string | null }): Promise<void> => {
-    if (impostazioni.effortLevel !== null) throw new Error("Mango Code non ha livelli di effort.")
+    if (impostazioni.effortLevel !== null) throw new ErroreChat(400, frase("Mango Code non ha livelli di effort.", "Mango Code has no effort levels."))
   }
 
   supportedModels = async (): Promise<never[]> => []
@@ -513,7 +535,7 @@ class QueryMangoCode implements QueryChat {
   supportedCommands = async (): Promise<never[]> => []
 
   stopTask = async (): Promise<void> => {
-    throw new Error("Mango Code non ha lavori da fermare uno per uno: usa «Ferma».")
+    throw new ErroreChat(400, frase("Mango Code non ha lavori da fermare uno per uno: usa «Ferma».", "Mango Code has no jobs to stop one by one: use «Stop»."))
   }
 
   backgroundTasks = async (): Promise<boolean> => false
@@ -550,10 +572,16 @@ export class MangoCode {
         const nome = typeof m["name"] === "string" ? m["name"] : m["id"]
         const contesto = contestoDel(m)
         const immagini = eOggetto(m["capabilities"]) && eOggetto(m["capabilities"]["input"]) && m["capabilities"]["input"]["image"] === true
-        const descrizione = ["Mango Code, sul computer", contesto ? `${Math.round(contesto / 1024)}k di contesto` : null, immagini ? "vede le immagini" : "non vede le immagini"].filter((d): d is string => d !== null).join(" · ")
+        const k = contesto ? Math.round(contesto / 1024) : null
+        const unisci = (voci: (string | null)[]) => voci.filter((v): v is string => v !== null).join(" · ")
+        const descrizione = frase(
+          unisci(["Mango Code, sul computer", k ? `${k}k di contesto` : null, immagini ? "vede le immagini" : "non vede le immagini"]),
+          unisci(["Mango Code, on this computer", k ? `${k}k of context` : null, immagini ? "sees images" : "does not see images"]),
+        )
         return [{ id: `${PREFISSO}${m["id"]}`, nome: `Mango Code · ${nome}`, descrizione, effort: [], reale: `${PREFISSO}${m["id"]}` }]
       })
-    } catch {
+    } catch (errore) {
+      console.error(`chat di Mango Code: non riesco a leggere i suoi modelli: ${dettaglioDi(errore)}`)
       return []
     }
   }
@@ -577,7 +605,8 @@ export class MangoCode {
     if (!ricordo || !s) return null
     try {
       return (await contestiDeiModelli(s, cartella)).get(ricordo.modello) ?? null
-    } catch {
+    } catch (errore) {
+      console.error(`chat di Mango Code: non riesco a leggere il contesto del modello: ${dettaglioDi(errore)}`)
       return null
     }
   }
@@ -602,11 +631,11 @@ export class MangoCode {
     const ricordo = await this.registro.di(id)
     if (!ricordo) return null
     const stato = await statoDiMangoCode(this.o.dati)
-    if (stato.stato === "nonPronto") throw new ErroreChat(502, "Questa conversazione è di Mango Code, che non è ancora pronto: guarda la sua finestra e riprova.")
-    if (stato.stato !== "pronto") throw new ErroreChat(502, "Questa conversazione è di Mango Code, che è spento: apri Mango Code per rileggerla.")
+    if (stato.stato === "nonPronto") throw new ErroreChat(502, frase("Questa conversazione è di Mango Code, che non è ancora pronto: guarda la sua finestra e riprova.", "This conversation is with Mango Code, which is not ready yet: look at its window and try again."))
+    if (stato.stato !== "pronto") throw new ErroreChat(502, frase("Questa conversazione è di Mango Code, che è spento: apri Mango Code per rileggerla.", "This conversation is with Mango Code, which is off: open Mango Code to read it again."))
     const s = stato.servizio
     const r = await fetch(`${s.agente}/session/${ricordo.sessione}/message?directory=${encodeURIComponent(cartella)}`, { headers: CHI_CHIAMA })
-    if (!r.ok) throw new ErroreChat(502, `Mango Code non dà i messaggi della conversazione (${r.status}).`)
+    if (!r.ok) throw new ErroreChat(502, frase(`Mango Code non dà i messaggi della conversazione (${r.status}).`, `Mango Code does not return the messages of the conversation (${r.status}).`))
     const messaggi = ((await r.json()) as unknown[]).filter(eOggetto)
     return messaggi.flatMap((m) => righeDi(m))
   }

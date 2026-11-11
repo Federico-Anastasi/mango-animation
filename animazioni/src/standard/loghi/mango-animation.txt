@@ -1,0 +1,3 @@
+L'icona di Mango Animation: copia di `app/icons/sorgente.svg` di questo repository (10 novembre 2026).
+Marchio di Federico Anastasi: non è coperto dalla licenza del codice (`TRADEMARKS.md`).
+Usata, con la scritta «mango animation», quando un video nomina il prodotto (`standard/marchio.tsx`).

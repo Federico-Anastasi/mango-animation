@@ -1,17 +1,7 @@
 # Strumenti
 
-Comandi che non montano: la lettura del canale TikTok, gli sticker, le miniature dei video senza piano. Si lanciano
+Comandi che non montano: la lettura del canale TikTok, gli sticker, le foto di oggetti. Si lanciano
 dalla radice del codice, con `MANGO_ANIMATION_LAVORO` che indica la cartella di lavoro: l'`archivio/` di cui parlano è quello della cartella di lavoro. Per portare dentro video nuovi: skill `archivia`.
-
-## analisi_tiktok
-
-    python -m strumenti.analisi_tiktok [--lettura NOME] [--giorni N] [--json] [--scrivi FILE]
-
-Legge una lettura del canale TikTok (predefinita: l'ultima di `ultima.json`) e ne ricava i rapporti per 1000
-visualizzazioni — mi piace, commenti, condivisioni, salvati, nuovi follower — con quanto si guarda (tempo medio,
-frazione di durata, % fino in fondo, ore viste) e i totali. Stampa in markdown; `--json` dà i numeri nudi,
-`--giorni` tiene solo i video usciti negli ultimi N giorni, `--scrivi` mette il markdown in un file: l'analisi
-del canale, che sta nella cartella dei dati del creator, la scrive questo comando.
 
 ## leggi_tiktok
 
@@ -30,7 +20,7 @@ I Preferiti (i video salvati dal creator) li legge ogni giro, i primi `--preferi
 in `archivio/canali/tiktok/preferiti.json` (`docs/ARCHIVIO.md`, «I Preferiti di TikTok»). `--solo-preferiti` fa solo questo, senza una lettura
 precedente e senza toccare le letture; se non ne trova nessuno non riscrive il file ed esce con 1.
 
-Pilota il Chrome del creator via CDP (Playwright): Chrome dev'essere **aperto** col collegamento acceso
+Serve il pacchetto Python `playwright` (l'app non lo installa; se manca, il comando dice come). Pilota il Chrome del creator via CDP (Playwright): Chrome dev'essere **aperto** col collegamento acceso
 (`chrome://inspect/#remote-debugging`; `DevToolsActivePort` nel profilo), e a ogni giro chiede di consentirlo: il comando lo dice e aspetta
 3 minuti che il creator prema «Consenti». Apre una scheda propria e non tocca quelle aperte. `--da` limita i video letti (predefinito: 30 giorni
 fa); `--prova` non scrive niente; `--grezzi` salva anche il testo delle pagine, che serve a rimettere a posto le
@@ -43,29 +33,19 @@ espressioni quando TikTok cambia le sue pagine.
 Le pagine vere da mettere a schermo, in formato telefono, e dove stanno le frasi che poi le scene cerchiano. Si lancia dal
 comando del motore, che dopo la cattura fa i ritagli per le scene: l'elenco `materiali/pagine.json`, ciò che scrive e le misure
 dello stile (`pagina`) sono in `docs/MOTORE.md`, «Le pagine vere». A mano: `node strumenti/pagina.mjs <pagine.json> [nome …]`, con
-`PAGINA_VISIBILE=1` per il Chrome visibile.
-
-## immagini.py
-
-    python -m strumenti.immagini materiali/immagini.json [pdf:rapporto foto:ritratto …]
-
-Le immagini vere dei video: pagine di PDF rese a immagine e foto portate alla misura che serve. `pdf` prende
-`file`, `pagine`, `scala`, `larghezza`, `qualita`, `in` e `frasi` (per pagina: `{ "1": { "chiave": "testo" } }`);
-le pagine finiscono una sotto l'altra in un'immagine sola, così la telecamera ci scorre sopra senza cambi di
-pagina. `foto` prende `file`, `larghezza`, `qualita`, `in`. Accanto a ogni immagine scrive `<nome>.json` con le
-misure e i riquadri trovati nel testo.
+`PAGINA_VISIBILE=1` per il Chrome visibile. Serve `node`, Google Chrome e i pacchetti di `studio/` (`bun install` lì: Playwright viene da lì); se manca qualcosa il comando lo dice. Lo stesso vale per `carosello.mjs`.
 
 ## sticker
 
     python -m strumenti.sticker <giorno/file del girato> <istante> <nome>
 
 Prende il fotogramma della sagoma di una ripresa a quell'istante e ne fa uno sticker: il busto, tagliato sul petto e
-ai lati (dove entrano le mani), con un bordo bianco pieno. Lo scrive in `archivio/sticker/<nome>.png`, con accanto
+ai lati (dove entrano le mani), con un bordo bianco pieno; le misure sono la sezione `sticker` dello stile. Lo scrive in `archivio/sticker/<nome>.png`, con accanto
 `<nome>.json` (ripresa e istante). Serve una ripresa già scontornata: la sagoma copre solo i tratti montati.
 
     python -m strumenti.sticker --provini [giorno]
 
-Per scegliere l'espressione: di ogni ripresa scontornata (o solo di quelle del giorno dato) otto sticker di prova presi a
+Per scegliere l'espressione: di ogni ripresa scontornata (o solo di quelle del giorno dato) `sticker.per_ripresa` (otto di serie) sticker di prova presi a
 distanze uguali nei tratti scontornati, numerati, in fogli da 24 `archivio/sticker/provini/provini-<n>.jpg`; `provini.json`
 dice di ogni numero ripresa e istante, da passare al comando qui sopra. I fogli di prima si tolgono; la cartella non si versiona.
 
@@ -82,19 +62,6 @@ sagoma, sulla scheda video) e scrive `<nome>.png`, ritagliato stretto; con `--in
 Aggiorna `fonti.json` (per nome: file, pagina, licenza, autore) senza perdere le altre voci: molte licenze chiedono il
 credito. Un 429 o una rete che non risponde si aspettano e si ritentano, poi un errore. Le misure sono in `stile.json`, `oggetti`.
 Uno scontorno che viene male (oggetti trasparenti, tinta come lo sfondo) si riprende con un'altra foto o con `--intero`.
-
-## miniature
-
-    python -m strumenti.miniature
-
-Per ogni video con un file in `uscite/` scrive `miniatura.jpg` e `misure.json` (la durata): servono all'elenco per i
-video senza piano. Si rilancia quando entra un video uscito da un altro programma.
-
-## Prove
-
-    pytest strumenti
-
-File sintetici di pochi secondi in una cartella temporanea.
 
 ## avvisi_terzi
 

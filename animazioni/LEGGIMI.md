@@ -23,12 +23,12 @@ Da `animazioni/` (o con `bun run --cwd animazioni …` dalla radice del repo).
 | `bun test` | le prove: ancore, registro delle scene, impronta, scene del creator |
 
 `registra` stampa una riga per scena ed esce con 1 e una frase in italiano se una scena non esiste, un file di
-tempi è sbagliato, il montaggio chiede una scena in un formato diverso da quello del suo video, o la pagina dà errore. Costruisce da sé la pagina se un sorgente è più nuovo di `dist/`, una volta sola anche con più processi insieme (blocco `dist.lock`, costruzione in `dist.nuova/` e scambio). Rende più scene insieme, una ogni quattro processori, ognuna nella sua pagina e col suo ffmpeg. Il browser disegna sulla scheda video (Direct3D), dieci volte più in fretta che sul processore: quella di `macchina.scheda_video` del profilo del creator (l'indice di `nvidia-smi`; `docs/ARCHITETTURA.md`, «Il profilo»), senza profilo la prima scheda NVIDIA che c'è, e la riga `animazioni: disegno su …` dice quale. Con `scheda_video: null`, o senza schede NVIDIA, disegna sul processore e lo dice. `ANIMAZIONI_SCHEDA=<un pezzo del nome>` nell'ambiente (`registra`, `foto`; ad esempio `1660`) ne sceglie un'altra per quella volta, oppure `ANIMAZIONI_SCHEDA=processore` (o `ANIMAZIONI_PROCESSORE=1`). Se la scheda voluta non si trova, la resa si ferma: non ripiega su un'altra. Se sta già lavorando, lo avvisa e va avanti.
+tempi è sbagliato, il montaggio chiede una scena in un formato diverso da quello del suo video, o la pagina dà errore. Costruisce da sé la pagina se un sorgente è più nuovo di `dist/`, una volta sola anche con più processi insieme (blocco `dist.lock`, costruzione in `dist.nuova/` e scambio). Rende più scene insieme, una ogni `parallelismo.processori_per_lavoro` processori dello stile (4 di serie), ognuna nella sua pagina e col suo ffmpeg. Il browser disegna sulla scheda video (Direct3D), dieci volte più in fretta che sul processore: quella di `macchina.scheda_video` del profilo del creator (l'indice di `nvidia-smi`; `docs/ARCHITETTURA.md`, «Il profilo»), senza profilo la prima scheda NVIDIA che c'è, e la riga `animazioni: disegno su …` dice quale. Con `scheda_video: null`, o senza schede NVIDIA, disegna sul processore e lo dice. `ANIMAZIONI_SCHEDA=<un pezzo del nome>` nell'ambiente (`registra`, `foto`; ad esempio `1660`) ne sceglie un'altra per quella volta, oppure `ANIMAZIONI_SCHEDA=processore` (o `ANIMAZIONI_PROCESSORE=1`). Se la scheda voluta non si trova, la resa si ferma: non ripiega su un'altra. Se sta già lavorando, lo avvisa e va avanti.
 
 **Non rifà una scena già resa**: accanto a `<sigla>.mp4` scrive `<sigla>.mp4.impronta`, un hash dei tempi che il
 montaggio le ha dato e dei sorgenti da cui viene: il file della scena (`<sigla>.tsx` nella cartella del suo video, se
 c'è; altrimenti `scene.tsx`) con tutto ciò che importa a catena, la pagina comune (`src/` fuori da `scene/`; per una scena del creator anche i file del prodotto che importa con `@animazioni/…`),
-lo stile unito (solo le parti che la pagina legge, `PARTI_DELLO_STILE` in `script/impronta.ts`: formato, formati, colori, caratteri, titolo, telefono e i quadri che un sorgente nomina, senza i loro sottotitoli; cambiare la voce, l'uscita, la sagoma, i sottotitoli o un quadro che nessuna scena nomina, nel file del prodotto come in quello del creator, non rifà nessuna scena) e gli script di resa. Stessi tempi e stessi sorgenti, il file resta; cambia una cosa, si rifà: un file di
+lo stile unito (solo le parti che la pagina legge, `PARTI_DELLO_STILE` in `script/impronta.ts`: formati, colori, caratteri, titolo, telefono e i quadri che un sorgente nomina, senza i loro sottotitoli; cambiare la voce, l'uscita, la sagoma, i sottotitoli o un quadro che nessuna scena nomina, nel file del prodotto come in quello del creator, non rifà nessuna scena) e gli script di resa. Stessi tempi e stessi sorgenti, il file resta; cambia una cosa, si rifà: un file di
 un'altra scena, anche dello stesso video, non conta. Se un file della scena usa `import()` o `import.meta.glob`, o
 importa qualcosa che non si trova, l'impronta copre l'intera cartella del video e `registra` lo scrive. Se tutte le
 scene sono già rese, `registra` non costruisce la pagina né apre il browser; l'ultima riga è
@@ -103,7 +103,8 @@ Regole di stile (le controlla `foto`):
   `docs/PIANO.md`, «I lati che il telefono taglia»): si disegna sempre su 1080, e ciò che sta vicino ai bordi resta visibile.
 - Testo mai sotto i 40 px; allineato a sinistra sul bordo della fascia; italiano con accenti e apostrofo tipografico.
 - Colori solo dai token di `stile.json` (`var(--carta)`, `--inchiostro`, `--rosso`, `--blu`…). Un rosso per scena,
-  sul numero o il segno che conta.
+  sul numero o il segno che conta. Fanno eccezione gli aspetti che sono identità fissa e il creator non cambia: i film in 3D (`aspetto3d.ts`),
+  la finestra da vecchio computer (`finestra.tsx`), il mango e la sigla.
 - Niente glow, gradienti, ombre morbide, elenchi puntati, animazione decorativa.
 - Ingresso 0,7 s con `curve.entra`, spostamenti 1,2 s con `curve.dolce`, conteggi 0,8–0,9 s, uscita 0,5 s; fra due cose
   che entrano almeno 0,5 s.
@@ -117,9 +118,9 @@ ogni istante, senza stato fra un fotogramma e l'altro. Le scritte stanno su text
 
 ## Gli elementi standard
 
-In `src/standard/`, legati a `stile.json` a tempo di build (`stile.ts`: formato, fascia di serie e `fasciaDi(quadro)`, titolo; i colori diventano le
+In `src/standard/`, legati a `stile.json` a tempo di build (`stile.ts`: formati, fascia di serie e `fasciaDi(quadro)`, titolo; i colori diventano le
 variabili CSS `--carta`, `--carta-scura`, `--grigio`, `--filo`, `--inchiostro`, `--rosso`, `--blu`, `--nero`,
-`--verde`). Ognuno ha la sua scena dimostrativa nel video `standard` (sigle `std-…`), che si vede in `dev`.
+`--verde`). Quelli con una scena nella colonna sotto hanno la loro scena dimostrativa nel video `standard` (sigle `std-…`), che si vede in `dev`; gli altri si provano nelle scene dei video.
 
 | elemento | file | scena |
 |---|---|---|
@@ -134,7 +135,7 @@ variabili CSS `--carta`, `--carta-scura`, `--grigio`, `--filo`, `--inchiostro`, 
 | le pagine e le foto vere in banda: `Tela`, `Pagina`, `Foto`, `Foglio`, `inquadra`, `vicino`; il nome di una persona: `Etichetta` | `pagine.tsx` | — (si vede nei video di notizia) |
 | un filmato dentro la scena (una pagina che si muove, `filmato` di `python -m motore pagina`): `Filmato`, portato all'istante `t` a ogni fotogramma; `vai` torna solo quando ogni filmato è fermo su quel fotogramma (`filmatiAlPosto`). In WebM (VP9) | `filmato.tsx` | — |
 | la AI blu e l'umano a inchiostro: `AI`, `Umano`; i cammini: `Cammino`, `Croce`, `Bandiera`, `lungo` | `personaggi.tsx` | — (come sopra) |
-| i loghi dei prodotti nominati: `Logo`, `CLAUDE`, `CHATGPT` (i file e la loro licenza in `loghi/`) | `loghi.tsx` | — (come sopra) |
+| i loghi dei prodotti nominati: `Logo`, `CLAUDE`, `CHATGPT`, `META` (i file e la loro licenza in `loghi/`) | `loghi.tsx` | — (come sopra) |
 | il palco 3D: `Palco3D`, `ripresa`, `inquadra`, le scritte su un piano (`Scritta`), la notazione | `palco3d.tsx`, `notazione.ts`, `aspetto3d.ts` | `sigla` |
 
 Un elemento nuovo: un file in `standard/` che legge da `stile.ts` ogni misura e colore dello stile, e la sua scena

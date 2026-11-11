@@ -18,7 +18,7 @@ import type { Miniature, MisureMiniatura } from "./miniature"
 import { segnaGliStessiFile } from "./montato"
 import { pezziDichiarati } from "./sagoma"
 import { eHeic, type Sonda } from "./sonda"
-import { leggiPosizione, muovi, registraNuovaVersione } from "./storia"
+import { descriviVersioni, leggiPosizione, leggiVersione, leggiVersioni, muovi, registraNuovaVersione, ripristina, type VersioneDelPiano } from "./storia"
 import { frase, Frase, type Testo } from "./lingua"
 
 const FILE_PREPARATI: Record<string, Exclude<keyof Preparato, "sagoma_pezzi">> = {
@@ -316,7 +316,7 @@ export class Elaboratore {
     if (aspetti.has("uscite")) await this.ricaricaUscite(voce)
     if (aspetti.has("controllo")) await this.ricaricaControllo(voce)
     if (aspetti.has("materiali")) {
-      await this.ricaricaAnteprima(voce)
+      await this.ricaricaMateriali(voce)
       this.annuncia(slug, "materiali")
     }
   }
@@ -432,8 +432,9 @@ export class Elaboratore {
     this.programmaImmagineDellaProva(voce)
   }
 
-  /** L'anteprima è il file `materiali/anteprima.<estensione>` più recente: chi la cambia, anche con un'estensione diversa, vince su quella di prima. */
-  private async ricaricaAnteprima(voce: VoceVideo): Promise<void> {
+  /** L'anteprima è il file `materiali/anteprima.<estensione>` più recente: chi la cambia, anche con un'estensione diversa, vince su quella di prima. Qui si guarda anche se c'è il testo registrato. */
+  private async ricaricaMateriali(voce: VoceVideo): Promise<void> {
+    voce.testoRegistrato = (await statistica(join(this.percorsi.materiali(voce.slug), "testo-registrato.md")))?.isFile() ?? false
     const trovati = await Promise.all(
       ESTENSIONI_ANTEPRIMA.map(async (estensione) => {
         const nome = `anteprima.${estensione}`
@@ -515,21 +516,36 @@ export class Elaboratore {
   private accodaRisolvi(slug: string, conDipendenti: boolean): void {
     if (!this.avviato) return
     const da = conDipendenti ? [slug, ...this.indice.dipendenti(slug)] : [slug]
-    da.filter((s) => this.indice.video.get(s)?.pianoTesto != null).forEach((s) => this.coda.accoda({ comando: "risolvi", argomenti: [s], slug: s, file: null }))
+    da.filter((s) => this.indice.video.get(s)?.pianoValido != null).forEach((s) => this.coda.accoda({ comando: "risolvi", argomenti: [s], slug: s, file: null }))
   }
 
   /** Salva il piano come lo manda l'interfaccia: la versione di prima va in storia. Dice se qualcosa è cambiato. */
   salvaPiano(slug: string, nuovoTesto: string): Promise<boolean> {
+    return this.conBlocco(slug, () => this.scriviPiano(slug, nuovoTesto))
+  }
+
+  /** Il piano di adesso, ritoccato da `ritocca` (che lo controlla e lancia se non va), salvato nello stesso blocco: due ritocchi insieme si mettono in fila e nessuno si perde. `null` se il video non ha un piano. */
+  ritoccaPiano(slug: string, ritocca: (piano: unknown) => Promise<unknown>): Promise<unknown> {
     return this.conBlocco(slug, async () => {
       const voce = this.indice.video.get(slug)
-      if (!voce) return false
+      if (!voce) return null
       await this.pianoDaDisco(voce)
-      if (voce.pianoTesto === nuovoTesto) return false
-      if (voce.pianoTesto !== null) await registraNuovaVersione(this.percorsi.storia(slug), voce.storia, voce.pianoTesto)
-      await scrivi(this.percorsi.piano(slug), nuovoTesto)
-      await this.pianoDaDisco(voce, nuovoTesto)
-      return true
+      if (voce.pianoTesto === null) return null
+      const ritoccato = await ritocca(JSON.parse(voce.pianoTesto))
+      await this.scriviPiano(slug, testoJson(ritoccato))
+      return ritoccato
     })
+  }
+
+  private async scriviPiano(slug: string, nuovoTesto: string): Promise<boolean> {
+    const voce = this.indice.video.get(slug)
+    if (!voce) return false
+    await this.pianoDaDisco(voce)
+    if (voce.pianoTesto === nuovoTesto) return false
+    if (voce.pianoTesto !== null) await registraNuovaVersione(this.percorsi.storia(slug), voce.storia, voce.pianoTesto)
+    await scrivi(this.percorsi.piano(slug), nuovoTesto)
+    await this.pianoDaDisco(voce, nuovoTesto)
+    return true
   }
 
   /** Torna alla versione di prima o a quella dopo. Dice se c'era dove andare. */
@@ -543,6 +559,42 @@ export class Elaboratore {
       await scrivi(this.percorsi.piano(slug), testo)
       await this.pianoDaDisco(voce, testo)
       return true
+    })
+  }
+
+  /** Le versioni del piano, dalla più recente; `null` se il video non ha un piano. */
+  versioniDelPiano(slug: string): Promise<VersioneDelPiano[] | null> {
+    return this.conBlocco(slug, async () => {
+      const voce = this.indice.video.get(slug)
+      if (!voce) return null
+      await this.pianoDaDisco(voce)
+      if (voce.pianoTesto === null) return null
+      return descriviVersioni(await leggiVersioni(this.percorsi.storia(slug), voce.storia), voce.storia, { testo: voce.pianoTesto, mtime: voce.pianoMtime })
+    })
+  }
+
+  /** Il piano della versione `n` di `storia/`, o `null` se non c'è. */
+  async pianoDellaVersione(slug: string, n: number): Promise<unknown> {
+    const testo = await leggiVersione(this.percorsi.storia(slug), n)
+    return testo === null ? null : (jsonDaTesto(testo)?.valore ?? null)
+  }
+
+  /** Il piano di adesso va in storia e la versione `n` torna in uso (`controlla` rifiuta un piano che non va più, come lo schema o il girato di oggi). */
+  ripristinaPiano(slug: string, n: number, controlla: (piano: unknown) => Promise<void>): Promise<"manca" | "uguale" | "fatto"> {
+    return this.conBlocco(slug, async () => {
+      const voce = this.indice.video.get(slug)
+      if (!voce) return "manca"
+      await this.pianoDaDisco(voce)
+      if (voce.pianoTesto === null) return "manca"
+      const vecchio = await leggiVersione(this.percorsi.storia(slug), n)
+      if (vecchio === null) return "manca"
+      if (vecchio === voce.pianoTesto) return "uguale"
+      await controlla(jsonDaTesto(vecchio)?.valore)
+      const testo = await ripristina(this.percorsi.storia(slug), voce.storia, n, voce.pianoTesto)
+      if (testo === null) return "manca"
+      await scrivi(this.percorsi.piano(slug), testo)
+      await this.pianoDaDisco(voce, testo)
+      return "fatto"
     })
   }
 

@@ -2,7 +2,8 @@
 //! Si scarica solo ciò che le funzioni accese richiedono e che il computer non ha già (`docs/MOTORI.md`).
 
 use super::hw::Computer;
-use super::manifesto::{Elemento, Posto, Tipo};
+use super::manifesto::{Archivio, Elemento, Posto, Tipo};
+use super::scarica::parziale;
 use crate::lingua::t;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -185,9 +186,10 @@ impl Piano {
     }
 }
 
-const BASE: &[&str] = &["jsonschema", "numpy", "PIL", "pillow_heif", "soundfile", "yt_dlp"];
+const BASE: &[&str] = &["jsonschema", "numpy", "PIL", "pillow_heif", "yt_dlp", "playwright"];
 // yt-dlp resta all'ultima, di proposito: i siti cambiano spesso e una versione fissata smette di scaricare.
-const PACCHETTI_BASE: &[&str] = &["jsonschema==4.26.0", "numpy==2.4.3", "Pillow==12.1.1", "pillow-heif==1.8.1", "soundfile==0.14.0", "yt-dlp"];
+// playwright serve a `strumenti/leggi_tiktok.py`, che pilota il Chrome del creator: i browser di Playwright non si scaricano.
+const PACCHETTI_BASE: &[&str] = &["jsonschema==4.26.0", "numpy==2.4.3", "Pillow==12.1.1", "pillow-heif==1.8.1", "yt-dlp", "playwright==1.62.0"];
 const INDICE_CUDA: &str = "https://download.pytorch.org/whl/cu124";
 const INDICE_PROCESSORE: &str = "https://download.pytorch.org/whl/cpu";
 
@@ -214,7 +216,7 @@ pub fn moduli_per(f: &Funzioni) -> Vec<&'static str> {
 fn gruppi_per(f: &Funzioni, con_cuda: bool) -> (Vec<Gruppo>, u64) {
     let semplici = |p: &[&str]| p.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
     let mut gruppi = vec![Gruppo { pacchetti: semplici(PACCHETTI_BASE), indice: None }];
-    let mut peso = 300 * MB;
+    let mut peso = 340 * MB;
     let mut altri = Vec::new();
     if f.attiva("trascrizione") || f.attiva("dettatura") {
         // `requests`: faster-whisper 1.1.0 lo importa e non lo dichiara, e huggingface_hub non lo porta più.
@@ -222,7 +224,7 @@ fn gruppi_per(f: &Funzioni, con_cuda: bool) -> (Vec<Gruppo>, u64) {
         peso += 120 * MB;
         if con_cuda && !(f.attiva("allineamento") || f.attiva("sagoma")) {
             // Sulla scheda faster-whisper cerca da solo la cublas di CUDA 12, che Windows non ha: la porta torch con CUDA (che qui non c'è) o questo pacchetto.
-            altri.push("nvidia-cublas-cu12==12.4.5.8");
+            altri.extend(["nvidia-cublas-cu12==12.4.5.8"]);
             peso += 380 * MB;
         }
     }
@@ -255,8 +257,7 @@ fn specifiche(gruppi: &[Gruppo]) -> BTreeSet<String> {
 pub fn segna_python_installato(luoghi: &Luoghi, gruppi: &[Gruppo]) -> Result<(), String> {
     let file = luoghi.pacchetti_python();
     std::fs::create_dir_all(file.parent().unwrap_or(Path::new(""))).map_err(|e| e.to_string())?;
-    std::fs::write(&file, specifiche(gruppi).into_iter().collect::<Vec<_>>().join("
-")).map_err(|e| t(format!("non riesco a scrivere {} ({e})", file.display()), format!("I can't write {} ({e})", file.display())))
+    std::fs::write(&file, specifiche(gruppi).into_iter().collect::<Vec<_>>().join("\n")).map_err(|e| t(format!("non riesco a scrivere {} ({e})", file.display()), format!("I can't write {} ({e})", file.display())))
 }
 
 /// Tutto ciò che si chiede è già stato installato (e senza l'elenco non si sa cosa c'è: no).
@@ -295,13 +296,38 @@ pub fn js_aggiornato(cartella: &Path) -> bool {
     std::fs::read_to_string(cartella.join("node_modules").join(FILE_IMPRONTA_JS)).is_ok_and(|scritta| scritta == impronta_js(cartella))
 }
 
-fn voce_di(e: &Elemento, ordine: u8) -> Voce {
-    Voce { id: e.id.clone(), nome: e.nome.clone(), scopo: t(&e.scopo, &e.scopo_en), funzione: e.funzione.clone(), licenza: t(&e.licenza, &e.licenza_en), fonte: e.fonte.clone(), peso: e.peso(), lavoro: Lavoro::Elemento(Box::new(e.clone())), ordine }
+/// Quanto di un elemento è già arrivato nei suoi `.parte`: uno scarico interrotto riprende da lì, e di spazio serve solo il resto.
+fn gia_arrivato(e: &Elemento, luoghi: &Luoghi) -> u64 {
+    let byte = |destinazione: PathBuf| std::fs::metadata(parziale(&destinazione)).map_or(0, |m| m.len());
+    match &e.tipo {
+        Tipo::Archivio(a) => byte(zip_scaricato(luoghi, a)),
+        Tipo::File(f) => byte(destinazione_del_file(luoghi, f.posto, &f.nome)),
+        Tipo::Hf(r) => r.file.iter().map(|f| byte(cartella_hf(&luoghi.hf, &r.repo, &r.revisione).join(&f.nome))).sum(),
+    }
+}
+
+fn voce_di(e: &Elemento, ordine: u8, luoghi: &Luoghi) -> Voce {
+    Voce {
+        id: e.id.clone(),
+        nome: e.nome.clone(),
+        scopo: t(&e.scopo, &e.scopo_en),
+        funzione: e.funzione.clone(),
+        licenza: t(&e.licenza, &e.licenza_en),
+        fonte: e.fonte.clone(),
+        peso: e.peso().saturating_sub(gia_arrivato(e, luoghi)),
+        lavoro: Lavoro::Elemento(Box::new(e.clone())),
+        ordine,
+    }
 }
 
 /// Dove un elemento di Hugging Face tiene i suoi file nella cache: `models--org--nome/snapshots/<revisione>/`.
 pub fn cartella_hf(hf: &Path, repo: &str, revisione: &str) -> PathBuf {
     hf.join(format!("models--{}", repo.replace('/', "--"))).join("snapshots").join(revisione)
+}
+
+/// Dove sta lo zip di un archivio scaricato. Si toglie solo a estrazione finita: se c'è ancora, i file estratti possono essere a metà.
+pub fn zip_scaricato(luoghi: &Luoghi, a: &Archivio) -> PathBuf {
+    luoghi.dati.join("scarichi").join(a.url.rsplit('/').next().unwrap_or("scarico"))
 }
 
 fn file_di_dimensione(p: &Path, dimensione: u64) -> bool {
@@ -319,10 +345,11 @@ pub fn destinazione_del_file(luoghi: &Luoghi, posto: Posto, nome: &str) -> PathB
 /// Un elemento che il computer ha già?
 fn presente(e: &Elemento, luoghi: &Luoghi, sonde: &dyn Sonde) -> bool {
     match (&e.tipo, e.id.as_str()) {
-        (Tipo::Archivio(_), "bun") => sonde.nel_percorso("bun") || luoghi.bin().join("bun.exe").is_file(),
-        (Tipo::Archivio(_), "uv") => sonde.nel_percorso("uv") || luoghi.bin().join("uv.exe").is_file(),
-        (Tipo::Archivio(_), "ffmpeg") => (sonde.nel_percorso("ffmpeg") && sonde.nel_percorso("ffprobe")) || luoghi.ffmpeg().join("ffmpeg.exe").is_file(),
-        (Tipo::Archivio(a), _) => a.estrai.iter().all(|x| luoghi.dati.join(&x.a).is_file()),
+        // Un programma estratto dall'app c'è solo a estrazione finita: con lo zip ancora lì, l'`.exe` può essere troncato (disco pieno, antivirus).
+        (Tipo::Archivio(a), "bun") => sonde.nel_percorso("bun") || (luoghi.bin().join("bun.exe").is_file() && !zip_scaricato(luoghi, a).exists()),
+        (Tipo::Archivio(a), "uv") => sonde.nel_percorso("uv") || (luoghi.bin().join("uv.exe").is_file() && !zip_scaricato(luoghi, a).exists()),
+        (Tipo::Archivio(a), "ffmpeg") => (sonde.nel_percorso("ffmpeg") && sonde.nel_percorso("ffprobe")) || (luoghi.ffmpeg().join("ffmpeg.exe").is_file() && luoghi.ffmpeg().join("ffprobe.exe").is_file() && !zip_scaricato(luoghi, a).exists()),
+        (Tipo::Archivio(a), _) => a.estrai.iter().all(|x| luoghi.dati.join(&x.a).is_file()) && !zip_scaricato(luoghi, a).exists(),
         (Tipo::File(f), _) => file_di_dimensione(&destinazione_del_file(luoghi, f.posto, &f.nome), f.dimensione),
         (Tipo::Hf(r), _) => {
             // Un modello già nella cache, di qualunque revisione: `from_pretrained` lo trova da `refs/main`.
@@ -333,7 +360,7 @@ fn presente(e: &Elemento, luoghi: &Luoghi, sonde: &dyn Sonde) -> bool {
     }
 }
 
-fn chromium_c_e(luoghi: &Luoghi) -> bool {
+pub fn chromium_c_e(luoghi: &Luoghi) -> bool {
     std::fs::read_dir(&luoghi.playwright).is_ok_and(|voci| voci.flatten().any(|v| {
         let nome = v.file_name().to_string_lossy().into_owned();
         nome.starts_with("chromium-") || nome.starts_with("chromium_headless_shell-")
@@ -361,7 +388,7 @@ pub fn calcola(luoghi: &Luoghi, sonde: &dyn Sonde, computer: &Computer, funzioni
     if python == SceltaPython::DaPreparare {
         let uv = elemento("uv");
         if !presente(uv, luoghi, sonde) {
-            voci.push(voce_di(uv, 0));
+            voci.push(voce_di(uv, 0, luoghi));
         }
         voci.push(Voce {
             id: "python".into(),
@@ -380,7 +407,7 @@ pub fn calcola(luoghi: &Luoghi, sonde: &dyn Sonde, computer: &Computer, funzioni
     for (id, ordine) in [("bun", 1u8), ("ffmpeg", 2)] {
         let e = elemento(id);
         if !presente(e, luoghi, sonde) {
-            voci.push(voce_di(e, ordine));
+            voci.push(voce_di(e, ordine, luoghi));
         }
     }
 
@@ -422,7 +449,7 @@ pub fn calcola(luoghi: &Luoghi, sonde: &dyn Sonde, computer: &Computer, funzioni
             None => funzioni.attiva(f),
         };
         if voluto && !presente(e, luoghi, sonde) {
-            voci.push(voce_di(e, 6));
+            voci.push(voce_di(e, 6, luoghi));
         }
     }
     for (funzione, in_inglese, modello) in [("trascrizione", "transcription", &modelli.trascrizione), ("dettatura", "dictation", &modelli.dettatura)] {
@@ -536,10 +563,68 @@ pub mod prove {
     }
 
     #[test]
+    fn di_un_modello_a_meta_si_conta_solo_il_resto_cosi_dopo_un_riavvio_lo_spazio_non_si_sbaglia() {
+        let t = tempfile::tempdir().unwrap();
+        let l = luoghi(t.path());
+        let manifesto = elementi();
+        let modello = manifesto.iter().find(|e| e.id.starts_with("whisper-")).unwrap();
+        let Tipo::Hf(r) = &modello.tipo else { panic!("non è un modello") };
+        let peso = |l: &Luoghi| calcola(l, &tutto_il_resto_c_e(), &computer(false), &Funzioni::dal_profilo(&json!({})), &modelli(), true, &manifesto).voci.iter().find(|v| v.id == modello.id).map(|v| v.peso);
+        assert_eq!(peso(&l), Some(modello.peso()));
+        // Metà del primo file è già nel suo `.parte`: l'elemento pesa quanto manca.
+        let primo = &r.file[0];
+        let cartella = cartella_hf(&l.hf, &r.repo, &r.revisione);
+        std::fs::create_dir_all(&cartella).unwrap();
+        std::fs::File::create(parziale(&cartella.join(&primo.nome))).unwrap().set_len(primo.dimensione / 2).unwrap();
+        assert_eq!(peso(&l), Some(modello.peso() - primo.dimensione / 2));
+    }
+
+    #[test]
+    fn un_programma_estratto_ma_con_lo_zip_ancora_nella_cartella_degli_scarichi_non_conta_come_presente() {
+        let t = tempfile::tempdir().unwrap();
+        let l = luoghi(t.path());
+        let manifesto = piccoli(elementi());
+        let archivio = |id: &str| match &manifesto.iter().find(|e| e.id == id).unwrap().tipo {
+            Tipo::Archivio(a) => a.clone(),
+            _ => panic!("non è un archivio"),
+        };
+        for cartella in [l.bin(), l.ffmpeg()] {
+            std::fs::create_dir_all(cartella).unwrap();
+        }
+        for file in [l.bin().join("bun.exe"), l.ffmpeg().join("ffmpeg.exe"), l.ffmpeg().join("ffprobe.exe")] {
+            std::fs::write(file, "x").unwrap();
+        }
+        let senza_programmi = Finte { programmi: ["uv"].into_iter().collect(), ..Default::default() };
+        let piano = || calcola(&l, &senza_programmi, &computer(false), &tutte_accese(), &modelli(), true, &manifesto);
+        assert!(!ids(&piano()).contains(&"bun") && !ids(&piano()).contains(&"ffmpeg"));
+        // L'estrazione si è fermata a metà: lo zip c'è ancora, i file estratti non si credono.
+        std::fs::create_dir_all(l.dati.join("scarichi")).unwrap();
+        for id in ["bun", "ffmpeg"] {
+            std::fs::write(zip_scaricato(&l, &archivio(id)), "zip").unwrap();
+        }
+        assert!(ids(&piano()).contains(&"bun") && ids(&piano()).contains(&"ffmpeg"));
+        // Anche senza ffprobe l'ffmpeg estratto non basta.
+        std::fs::remove_file(zip_scaricato(&l, &archivio("ffmpeg"))).unwrap();
+        std::fs::remove_file(l.ffmpeg().join("ffprobe.exe")).unwrap();
+        assert!(ids(&piano()).contains(&"ffmpeg"));
+    }
+
+    #[test]
     fn le_funzioni_non_nominate_dal_profilo_sono_accese_e_una_spenta_si_legge() {
         let f = Funzioni::dal_profilo(&json!({ "motori": { "sagoma": { "attiva": false }, "trascrizione": { "dove": "scheda" } } }));
         assert!(f.attiva("trascrizione") && f.attiva("pulizia_voce") && !f.attiva("sagoma"));
         assert!(!f.attiva("una_funzione_che_non_c_e"));
+    }
+
+    #[test]
+    fn i_modelli_che_lo_stile_di_serie_chiede_all_app_li_trova_e_sa_scaricarli_senza_ripiegare_in_silenzio() {
+        // `ModelliScelti::da` ripiega su un modello suo se lo stile cambia struttura: lo stile vero deve dare i tre nomi, e il manifesto avere i modelli.
+        let stile: Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../stile.json")).unwrap()).unwrap();
+        let manifesto = elementi();
+        for percorso in ["/preparati/modello_trascrizione", "/dettatura/dispositivi/cuda/modello", "/dettatura/dispositivi/cpu/modello"] {
+            let modello = stile.pointer(percorso).and_then(Value::as_str).unwrap_or_else(|| panic!("stile.json non ha {percorso}: l'app ripiegherebbe su un modello suo"));
+            assert!(manifesto.iter().any(|e| e.id == format!("whisper-{modello}")), "il manifesto non ha il modello «{modello}» di {percorso}");
+        }
     }
 
     #[test]
@@ -813,8 +898,17 @@ pub mod prove {
         let t = tempfile::tempdir().unwrap();
         let l = luoghi(t.path());
         let p = calcola(&l, &tutto_il_resto_c_e(), &computer(false), &Funzioni::dal_profilo(&json!({ "motori": { "trascrizione": { "attiva": false }, "allineamento": { "attiva": false }, "sagoma": { "attiva": false }, "segui": { "attiva": false }, "pulizia_voce": { "attiva": false }, "dettatura": { "attiva": false } } })), &modelli(), false, &piccoli(elementi()));
-        assert_eq!(p.peso_totale(), 300 * MB);
-        assert_eq!(p.servono_mb(), 600 + 1024);
+        assert_eq!(p.peso_totale(), 340 * MB);
+        assert_eq!(p.servono_mb(), 680 + 1024);
+    }
+
+    #[test]
+    fn playwright_per_la_lettura_di_tiktok_sta_nel_gruppo_di_base() {
+        let spenta = Funzioni::dal_profilo(&json!({ "motori": { "trascrizione": { "attiva": false }, "allineamento": { "attiva": false }, "sagoma": { "attiva": false }, "segui": { "attiva": false }, "pulizia_voce": { "attiva": false }, "dettatura": { "attiva": false } } }));
+        assert!(moduli_per(&spenta).contains(&"playwright"));
+        let (gruppi, _) = gruppi_per(&spenta, false);
+        assert_eq!(gruppi.len(), 1);
+        assert!(gruppi[0].pacchetti.iter().any(|p| p == "playwright==1.62.0"));
     }
 
     #[test]

@@ -78,7 +78,7 @@ describe("la pagina dell'aggiornamento", () => {
 })
 
 const COMANDO = "irm https://claude.ai/install.ps1 | iex"
-const claude = (c: Record<string, unknown>, lingua = "it") => ({ fase: "claude", lingua, claude: { trovato: false, percorso: null, versione: null, collegato: false, account: null, abbonamento: null, messaggio: null, comando: COMANDO, mango_code: false, ...c } })
+const claude = (c: Record<string, unknown>, lingua = "it") => ({ fase: "claude", lingua, claude: { trovato: false, percorso: null, versione: null, collegato: false, messaggio: null, comando: COMANDO, ...c } })
 const html = readFileSync(join(import.meta.dir, "..", "ui", "index.html"), "utf8")
 
 describe("la pagina di Claude Code", () => {
@@ -138,22 +138,9 @@ describe("la pagina di Claude Code", () => {
     expect(el("abbonamento-testo").textContent).toBe("Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.")
   })
 
-  test("con Mango Code acceso lo dice in una riga, e Claude Code resta obbligatorio", () => {
-    nuovoStato(claude({ mango_code: true }))
-    expect([el("mango-code").hidden, el("mango-code").textContent]).toEqual([false, "Ho trovato anche Mango Code: potrai usarlo come motore nella chat."])
-    expect([el("installa").hidden, el("ricontrolla").hidden]).toEqual([false, false])
-    expect(html).not.toContain("usa-mango-code")
-    nuovoStato(claude({ trovato: true, percorso: "C:\claude.exe", versione: "2.1.318", comando: null, mango_code: true }))
-    expect([el("mango-code").hidden, el("accedi").hidden]).toEqual([false, false])
-    nuovoStato(claude({ mango_code: true }, "en"))
-    expect(el("mango-code").textContent).toBe("I also found Mango Code: you will be able to use it as an engine in the chat.")
-  })
-
-  test("senza Mango Code acceso non ce n'è traccia", () => {
-    nuovoStato(claude({ mango_code: false }))
-    expect(el("mango-code").hidden).toBe(true)
-    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
-    expect(el("mango-code").hidden).toBe(true)
+  test("la pagina non parla di Mango Code: fra i motori della chat lo offre il server", () => {
+    expect(html).not.toContain("mango-code")
+    expect(readFileSync(join(import.meta.dir, "..", "ui", "app.js"), "utf8")).not.toContain("Mango Code")
   })
 
   test("le altre pagine non mostrano niente di Claude Code", () => {
@@ -300,7 +287,7 @@ const conIlPonte = () => {
   invioAttivo = true
   el("segnalazione").hidden = true
   el("segnala-schermata-riga").hidden = true
-  el("segnala-schermata").checked = true
+  el("segnala-schermata").checked = false
 }
 
 const scrivi = (nota: string) => {
@@ -320,7 +307,8 @@ describe("«Segnala un problema»", () => {
     el("segnala").click()
     expect(el("segnalazione").hidden).toBe(false)
     expect([el("segnala-nota-etichetta").textContent, el("segnala-schermata-nome").textContent, el("segnala-invia").textContent]).toEqual(["Cosa è successo?", "Includi una schermata della finestra", "Invia"])
-    expect(el("segnala-schermata").checked).toBe(true)
+    // La finestra può mostrare i video e la chat: la schermata parte solo se il creator la accende.
+    expect(el("segnala-schermata").checked).toBe(false)
     el("segnala-chiudi").click()
     expect(el("segnalazione").hidden).toBe(true)
 
@@ -375,6 +363,7 @@ describe("«Segnala un problema»", () => {
     nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
     el("segnala").click()
     scrivi("si blocca all'avvio")
+    el("segnala-schermata").checked = true
     await premiInvia()
     expect(inviate).toEqual([{ invio: { errore: null, nota: "si blocca all'avvio", schermata: true }, riquadroVisibile: false }])
     expect([el("segnala-esito").textContent, el("segnala-nota").value, el("segnalazione").hidden, el("segnala-invia").disabled]).toEqual(["Inviato, grazie", "", false, false])
@@ -384,7 +373,6 @@ describe("«Segnala un problema»", () => {
     conIlPonte()
     nuovoStato({ fase: "attesa", lingua: "en", secondi: 0, messaggio: "x" })
     el("segnala").click()
-    el("segnala-schermata").checked = false
     await premiInvia()
     expect(inviate).toEqual([{ invio: { errore: null, nota: "", schermata: false }, riquadroVisibile: true }])
     expect(el("segnala-esito").textContent).toBe("Sent, thank you")
@@ -395,6 +383,14 @@ describe("«Segnala un problema»", () => {
     nuovoStato({ fase: "errore", lingua: "it", messaggio: "Il server non si accende.", log: "server.log" })
     await premiInvia()
     expect(inviate[0]?.invio.errore).toBe("Il server non parte\nIl server non si accende.")
+  })
+
+  test("un errore prima del server non dice che il server non parte e non manda a cercare un registro che non c'è", async () => {
+    conIlPonte()
+    nuovoStato({ fase: "errore", lingua: "it", messaggio: "Il profilo non si legge.", log: null })
+    expect(el("titolo").textContent).toBe("Non riesco a preparare l'app")
+    expect(el("dettaglio").textContent).toBe("")
+    expect(el("log").textContent).toBe("Il profilo non si legge.")
   })
 
   test("l'errore dell'aggiornamento e quello del computer pronto viaggiano allo stesso modo", async () => {

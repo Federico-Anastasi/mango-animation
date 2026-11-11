@@ -13,40 +13,23 @@ pub const PONTE: &str = r#"
   window.__MANGO_ANIMATION__ = Object.freeze({
     ...window.__MANGO_ANIMATION__,
     computer: Object.freeze({
-      leggi: () => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-computer|computer_leggi"),
+      leggi: () => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|computer_leggi"),
     }),
   });
 })();
 "#;
 
-/// I comandi del plugin: gli stessi in `build.rs` (permessi), in `PONTE` e in `capabilities/`.
-#[cfg(test)]
-const COMANDI: [&str; 1] = ["computer_leggi"];
-
 #[tauri::command]
-async fn computer_leggi(app: tauri::AppHandle) -> Result<Computer, String> {
+pub(crate) async fn computer_leggi(app: tauri::AppHandle) -> Result<Computer, String> {
     let dati = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("computer");
     // `nvidia-smi` si lancia: fuori dal thread della pagina.
     tauri::async_runtime::spawn_blocking(move || hw::leggi(&dati)).await.map_err(|e| e.to_string())
-}
-
-pub fn installa(app: &tauri::App) -> tauri::Result<()> {
-    app.handle().plugin(tauri::plugin::Builder::<tauri::Wry>::new("mango-animation-computer").invoke_handler(tauri::generate_handler![computer_leggi]).build())
 }
 
 #[cfg(test)]
 mod prove {
     use super::*;
 
-    #[test]
-    fn il_ponte_i_permessi_e_la_capability_dicono_gli_stessi_comandi() {
-        let (build, capability) = (include_str!("../../build.rs"), include_str!("../../capabilities/default.json"));
-        for comando in COMANDI {
-            assert!(PONTE.contains(&format!("\"plugin:mango-animation-computer|{comando}\"")), "{comando} non è nel ponte");
-            assert!(build.contains(&format!("\"{comando}\"")), "{comando} non è nei permessi di build.rs");
-        }
-        assert!(build.contains("\"mango-animation-computer\"") && capability.contains("mango-animation-computer:default"));
-    }
 
     #[test]
     fn il_ponte_ha_il_nome_che_lo_studio_cerca() {

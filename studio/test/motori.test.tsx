@@ -180,7 +180,7 @@ describe("la pagina dei motori", () => {
     rete({})
     render(<Motori />)
     expect(await screen.findByRole("heading", { name: "Understanding what I say" })).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "Engines" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Computer" })).toBeInTheDocument()
     expect(screen.getAllByText("I want it")).toHaveLength(6)
     expect(screen.getByLabelText("Where it runs: Understanding what I say")).toBeInTheDocument()
     expect(screen.queryByText("La voglio")).toBeNull()

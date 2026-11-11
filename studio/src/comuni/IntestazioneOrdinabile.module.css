@@ -1,0 +1,13 @@
+.ordina {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ordina:hover {
+  color: var(--inchiostro);
+  text-decoration: underline;
+}

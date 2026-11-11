@@ -66,11 +66,16 @@ describe("la prova di un video, prima del girato", () => {
       await scriviProva(join(c.archivio, "video", "forno", "uscite", "prova.mp4"))
     })
     await aspetta(async () => (await elenco(a))[0]?.miniatura === "video/forno/uscite/prova.jpg")
+    await a.server.miniature.attendi()
+    const primaDelRifacimento = (await stat(jpg(a, "forno"))).mtimeMs
 
     // Il file di prima, ma nero per intero: il fotogramma vecchio è bianco.
     const nuova = join(a.archivio, "video", "forno", "uscite", "prova.mp4")
     await ffmpeg(["-f", "lavfi", "-i", "color=c=black:s=108x192:r=10:d=20", "-pix_fmt", "yuv420p", nuova])
-    await aspetta(async () => (await luminosita(jpg(a, "forno"))) < 50, 15_000)
+    // Si aspetta guardando la data del file, non aprendolo: un lettore che lo tiene aperto (ffmpeg, a ogni giro) fa fallire la sostituzione dell'immagine.
+    await aspetta(async () => (await stat(jpg(a, "forno"))).mtimeMs > primaDelRifacimento, 15_000)
+    await a.server.miniature.attendi()
+    expect(await luminosita(jpg(a, "forno"))).toBeLessThan(50)
 
     await a.server.miniature.attendi()
     const dopo = (await stat(jpg(a, "forno"))).mtimeMs

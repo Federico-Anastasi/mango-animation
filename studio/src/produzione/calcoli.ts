@@ -1,9 +1,7 @@
 // I conti della produzione: quali video sono fatti, quanto lavoro di Claude è costato ognuno e cosa ha reso. Ogni cifra passa di qui:
 // il conto sta in un posto solo e si può provare.
-import { istante } from "../testo"
+import { GIORNO, istante } from "../testo"
 import type { ConsumoDiUnVideo, VideoDelCanale, VoceElenco } from "../tipi"
-
-export const GIORNO = 86_400_000
 
 export interface VideoFatto {
   slug: string

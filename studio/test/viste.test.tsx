@@ -10,7 +10,7 @@ import { SchedaDelVideo } from "../src/video/SchedaDelVideo"
 import { Girato } from "../src/girato/Girato"
 import { PaginaStile } from "../src/stile/PaginaStile"
 import type { FileGrezzo, Lavoro, Scheda, StatoLavori, VoceElenco } from "../src/tipi"
-import { conUscite, dettaglioDiProva, stileDiProva } from "./fixture"
+import { caratteriDiProva, conUscite, dettaglioDiProva, partenzeDiProva, stileDiProva } from "./fixture"
 import { errore, installaEventi, installaRete, type Chiamata } from "./rete"
 
 let chiamate: Chiamata[]
@@ -24,17 +24,21 @@ const voce = (slug: string, extra: Partial<Scheda> = {}, resto: Partial<VoceElen
   miniatura: null,
   anteprima: null,
   ha_piano: true,
+  quadri: [],
   ha_finale: true,
+  fase: null,
   ultimo_cambio: "2026-10-09T10:00:00",
   ...resto,
 })
 
-const nessunConsumo = { pronto: true, video: {}, senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } } }
-
 const registrazioneFerma = { disponibile: true, motivo: null, dispositivi: { microfoni: ["Microfono di prova"], camere: ["Camera di prova"] }, in_corso: null, ultima: null }
 
+let cambiaRisposta: (chiave: string, risposta: unknown) => void
+
 function rete(rotte: Record<string, unknown>) {
-  chiamate = installaRete({ "GET /api/consumi": nessunConsumo, "GET /api/registrazione": registrazioneFerma, "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] }, "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: "Windows blocca il programma: sbloccalo in Sicurezza di Windows." }, "POST /api/arrivi/controlla": {}, "GET /api/accesso-studio": { acceso: false, in_ascolto: true, casa: null, fuori: null, pronto: true, motivo: null }, ...rotte }).chiamate
+  const finta = installaRete({ "GET /api/registrazione": registrazioneFerma, "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] }, "GET /api/arrivi": { acceso: true, in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: "Windows blocca il programma: sbloccalo in Sicurezza di Windows." }, "POST /api/arrivi/controlla": {}, "GET /api/accesso-studio": { acceso: false, in_ascolto: true, casa: null, fuori: null, pronto: true, motivo: null }, "GET /api/stile/partenza": partenzeDiProva(), "GET /api/caratteri": caratteriDiProva(), ...rotte })
+  chiamate = finta.chiamate
+  cambiaRisposta = finta.imposta
 }
 
 beforeEach(() => {
@@ -50,7 +54,7 @@ afterEach(() => {
 describe("l'elenco dei video", () => {
   const elenco = [
     voce("uno", { stato: "in lavorazione", serie: "ricette" }),
-    voce("due", { stato: "proposta" }, { durata: null, ha_finale: false, ha_piano: false }),
+    voce("due", { stato: "proposta" }, { durata: null, ha_finale: false, ha_piano: false, fase: { passo: 3, azione: "prova" } }),
     voce("tre", { stato: "pubblicato", pubblicazioni: [{ canale: "tiktok", data: "2026-10-07T13:15" }], numeri: [{ data: "2026-10-08", canale: "tiktok", visualizzazioni: 1240 }, { data: "2026-10-09", canale: "tiktok", visualizzazioni: 1810 }, { data: "2026-10-09", canale: "shorts", visualizzazioni: 530 }] }),
     voce("quattro", { stato: "scartato" }),
   ]
@@ -61,13 +65,20 @@ describe("l'elenco dei video", () => {
     expect(await screen.findByRole("heading", { name: "In lavorazione" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Proposte" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Pubblicati" })).toBeInTheDocument()
-    expect(screen.getByText("non ancora montato")).toBeInTheDocument()
+    expect(screen.getByText("Passo 3 di 8 · Prova")).toBeInTheDocument()
+    expect(screen.queryByText("non ancora montato")).toBeNull()
     expect(screen.getByText("1.810 visualizzazioni su tiktok")).toBeInTheDocument()
     expect(screen.getByText("530 visualizzazioni su shorts")).toBeInTheDocument()
     expect(screen.getByText(/uscito il 7 ott 2026/)).toBeInTheDocument()
     const scartati = screen.getByRole("heading", { name: "Scartati" }).closest("details")!
     expect(scartati).not.toHaveAttribute("open")
     expect(screen.getByRole("link", { name: /Video uno/ })).toHaveAttribute("href", "#/video/uno")
+  })
+
+  it("con una sola visualizzazione dice «1 visualizzazione», al singolare", async () => {
+    rete({ "GET /api/video": [voce("uno", { stato: "pubblicato", numeri: [{ data: "2026-10-08", canale: "tiktok", visualizzazioni: 1 }] })] })
+    render(<ElencoVideo />)
+    expect(await screen.findByText("1 visualizzazione su tiktok")).toBeInTheDocument()
   })
 
   it("una proposta senza anteprima lo dice con un segno discreto; con l'anteprima non lo dice, e gli altri stati nemmeno", async () => {
@@ -283,6 +294,20 @@ describe("la prova di un video", () => {
     expect(screen.queryByText("Le animazioni con la battuta da dire, per registrare")).not.toBeInTheDocument()
   })
 
+  it("un video senza piano né prova si apre sulla scheda col copione, non sul Montaggio vuoto", async () => {
+    rete({ "GET /api/video/prova": { ...dettaglioDiProva(), ...senzaPiano, ...conUscite([]) } })
+    render(<PaginaVideo slug="prova" scheda={null} parametri={new URLSearchParams()} />)
+    expect((await schede()).find((a) => a.getAttribute("aria-current") === "page")?.textContent).toBe("Scheda")
+    expect(await screen.findByRole("heading", { name: "Il copione" })).toBeInTheDocument()
+  })
+
+  it("un video senza piano ma col file finito si apre sul Montaggio, che lo mostra", async () => {
+    const uscite = conUscite([{ file: "video/prova/uscite/finale.mp4", byte: 1, cambiato: "2026-10-27T14:37:00" }])
+    rete({ "GET /api/video/prova": { ...dettaglioDiProva(), ...senzaPiano, ...uscite } })
+    render(<PaginaVideo slug="prova" scheda={null} parametri={new URLSearchParams()} />)
+    expect((await schede()).find((a) => a.getAttribute("aria-current") === "page")?.textContent).toBe("Montaggio")
+  })
+
   it("chiedere la Prova a un video che non l'ha porta alla scheda di partenza", async () => {
     rete({ "GET /api/video/prova": dettaglioDiProva(), "GET /api/stile": stileDiProva(), "GET /api/grezzo": [], "GET /api/animazioni": {} })
     render(<PaginaVideo slug="prova" scheda="prova" parametri={new URLSearchParams()} />)
@@ -460,13 +485,12 @@ describe("la scheda del video", () => {
     expect(screen.getAllByText("–").length).toBeGreaterThan(0)
   })
 
-  it("senza pubblicazioni e numeri dice cosa manca", async () => {
+  it("senza pubblicazioni e numeri dice cosa manca", () => {
     rete({})
     render(<SchedaDelVideo video={dettaglioDiProva()} salvaScheda={vi.fn()} />)
     expect(screen.getByText(/Non è ancora stato pubblicato/)).toBeInTheDocument()
     expect(screen.getByText(/Nessun numero registrato/)).toBeInTheDocument()
     expect(screen.getByText(/Nessun hashtag/)).toBeInTheDocument()
-    await screen.findByText("Nessuna conversazione di Claude ha lavorato su questo video.")
   })
 
   describe("gli elenchi della scheda si scrivono", () => {
@@ -601,15 +625,14 @@ describe("la scheda del video", () => {
       expect(within(riga).getByLabelText("Canale")).toHaveValue("instagram")
     })
 
-    it("senza scaletta la sezione c'è, vuota, con il modo di scriverla", async () => {
+    it("senza scaletta la sezione c'è, vuota, con il modo di scriverla", () => {
       apri()
       expect(screen.getByRole("heading", { name: "La scaletta" })).toBeInTheDocument()
       expect(screen.queryByRole("list", { name: "La scaletta" })).toBeNull()
       expect(screen.getByLabelText("Nuovo passo")).toBeInTheDocument()
-      await screen.findByText("Nessuna conversazione di Claude ha lavorato su questo video.")
     })
 
-    it("la scaletta elenca i passi in ordine, ognuno con cosa aprire, cosa fare, cosa spiegare", async () => {
+    it("la scaletta elenca i passi in ordine, ognuno con cosa aprire, cosa fare, cosa spiegare", () => {
       apri({ scaletta: [{ apri: "Il sito", fai: "Scegli la scheda", spiega: "Rosso non entra" }, { apri: "Il programma" }] })
       const passi = within(screen.getByRole("list", { name: "La scaletta" })).getAllByRole("listitem")
       expect(passi).toHaveLength(2)
@@ -618,7 +641,6 @@ describe("la scheda del video", () => {
       expect(within(passi[0]!).getByLabelText("Cosa spiegare")).toHaveValue("Rosso non entra")
       expect(within(passi[1]!).getByLabelText("Cosa aprire")).toHaveValue("Il programma")
       expect(within(passi[1]!).getByLabelText("Cosa fare")).toHaveValue("")
-      await screen.findByText("Nessuna conversazione di Claude ha lavorato su questo video.")
     })
 
     it("un passo si aggiunge in fondo, si scrive, si sposta e si toglie; un campo svuotato sparisce dal passo", async () => {
@@ -670,42 +692,12 @@ describe("la scheda del video", () => {
     })
   })
 
-  describe("il lavoro di Claude", () => {
-    const conto = { tempo: 6420, giri: 17, token: { scritti: 234_000, riletti: 130_253_512, nuovi: 1_223_662 }, dal: "2026-10-30T09:00:00", al: "2026-11-03T11:40:00" }
-    const consumiDi = (video: Record<string, unknown>, pronto = true) => ({ pronto, video, senza_video: nessunConsumo.senza_video })
-
-    it("dice quanto ha lavorato Claude su questo video e quanto ha scritto, letto e riletto", async () => {
-      rete({ "GET /api/consumi": consumiDi({ prova: conto, altro: { ...conto, tempo: 60 } }) })
-      render(<SchedaDelVideo video={dettaglioDiProva()} salvaScheda={vi.fn()} />)
-      const blocco = await screen.findByRole("region", { name: "Il lavoro di Claude" })
-      await waitFor(() => expect(blocco).toHaveTextContent("1 h 47 min"))
-      expect(blocco).toHaveTextContent("17 richieste, dal 30 ott 2026 al 3 nov 2026")
-      expect(blocco).toHaveTextContent("234 milascritti da Claude")
-      expect(blocco).toHaveTextContent("1,2 milioniletti per la prima volta")
-      expect(blocco).toHaveTextContent("130 milioniriletti dalla conversazione")
-      expect(blocco).toHaveTextContent("Un «token» è un pezzo di testo")
-      expect(blocco).toHaveTextContent("Il lavoro fatto con Mango Code non è contato.")
-    })
-
-    it("dice quando nessuna conversazione ha lavorato sul video, e quando sta ancora leggendo", async () => {
-      rete({ "GET /api/consumi": consumiDi({}) })
-      const { unmount } = render(<SchedaDelVideo video={dettaglioDiProva()} salvaScheda={vi.fn()} />)
-      expect(await screen.findByText("Nessuna conversazione di Claude ha lavorato su questo video.")).toBeInTheDocument()
-      unmount()
-      rete({ "GET /api/consumi": consumiDi({}, false) })
-      render(<SchedaDelVideo video={dettaglioDiProva()} salvaScheda={vi.fn()} />)
-      expect(await screen.findByText(/Sto ancora leggendo le conversazioni di Claude/)).toBeInTheDocument()
-    })
-
-    it("i conti si aggiornano quando il server dice che sono cambiati, senza ricaricare la pagina", async () => {
-      rete({ "GET /api/consumi": consumiDi({ prova: conto }) })
-      render(<SchedaDelVideo video={dettaglioDiProva()} salvaScheda={vi.fn()} />)
-      const blocco = await screen.findByRole("region", { name: "Il lavoro di Claude" })
-      await waitFor(() => expect(blocco).toHaveTextContent("1 h 47 min"))
-      rete({ "GET /api/consumi": consumiDi({ prova: { ...conto, tempo: 8400 } }) })
-      act(() => eventi.istanze[0]!.manda({ tipo: "consumi" }))
-      await waitFor(() => expect(blocco).toHaveTextContent("2 h 20 min"))
-    })
+  it("la scheda non porta i numeri del lavoro di Claude: stanno solo in Produzione", async () => {
+    rete({})
+    render(<SchedaDelVideo video={dettaglioDiProva()} salvaScheda={vi.fn()} />)
+    await screen.findByRole("heading", { name: "Note" })
+    expect(screen.queryByRole("region", { name: "Il lavoro di Claude" })).toBeNull()
+    expect(chiamate.some((c) => c.percorso.includes("/api/consumi"))).toBe(false)
   })
 
   it("se non si riesce a salvare lascia il testo scritto e dice perché", async () => {
@@ -755,6 +747,19 @@ describe("il controllo", () => {
     fireEvent.click(screen.getByRole("checkbox"))
     await waitFor(() => expect(salva).toHaveBeenCalled())
     expect(salva.mock.calls[0]![0].da_verificare[0].stato).toBe("a posto")
+  })
+
+  it("se la spunta non si salva lo dice, e al tentativo dopo riuscito la frase sparisce", async () => {
+    rete({})
+    const salva = vi.fn().mockRejectedValueOnce(new Error("Il server è occupato.")).mockResolvedValue(undefined)
+    const video = dettaglioDiProva()
+    video.scheda = scheda({ da_verificare: [{ cosa: "Il numero detto a voce", stato: "aperto" }] })
+    render(<ControlloVideo video={video} salvaScheda={salva} />)
+    fireEvent.click(screen.getByRole("checkbox"))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Il server è occupato.")
+    fireEvent.click(screen.getByRole("checkbox"))
+    await waitFor(() => expect(salva).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
   })
 })
 
@@ -889,21 +894,32 @@ describe("il girato", () => {
     await waitFor(() => expect(chiamate.find((c) => c.metodo === "PUT")?.corpo).toMatchObject({ tipo: "ripresa", origine: "telefono", note: "Una nota" }))
   })
 
-  it("il riquadro degli arrivi dice se il telefono può mandare e gli ultimi arrivati", async () => {
-    rete({ "GET /api/grezzo": giorni, "GET /api/video": [], "GET /api/arrivi": { in_ascolto: true, indirizzo: "192.168.1.20:47420", qr: "<svg xmlns='http://www.w3.org/2000/svg'/>", errore: null, ultimi: [{ file: "2026-10-06/20261006-prova.mp4", quando: "2026-10-06T22:28:01", byte: 412_000 }], firewall: "consentito", pronto: true, motivo: null, carica: "http://192.168.1.20:47420/carica?chiave=k", qr_carica: "<svg xmlns='http://www.w3.org/2000/svg'/>" } })
+  it("nel Girato resta di ciò che arriva dal telefono quanto serve mentre si riceve: se può mandare e cosa è arrivato, con la via alle impostazioni", async () => {
+    rete({ "GET /api/grezzo": giorni, "GET /api/video": [], "GET /api/arrivi": { acceso: true, in_ascolto: true, indirizzo: "192.168.1.20:47420", qr: "<svg xmlns='http://www.w3.org/2000/svg'/>", errore: null, ultimi: [{ file: "2026-10-06/20261006-prova.mp4", quando: "2026-10-06T22:28:01", byte: 412_000 }], firewall: "consentito", pronto: true, motivo: null, carica: "http://192.168.1.20:47420/carica?chiave=k", qr_carica: "<svg xmlns='http://www.w3.org/2000/svg'/>" } })
     render(<Girato file={undefined} />)
-    expect(await screen.findByText("192.168.1.20:47420")).toBeInTheDocument()
-    expect(screen.getByAltText(/installare la Scorciatoia/)).toBeInTheDocument()
-    expect(screen.getByAltText(/pagina che manda i video/)).toBeInTheDocument()
-    expect(screen.getByText("20261006-prova.mp4")).toBeInTheDocument()
+    expect(await screen.findByText("20261006-prova.mp4")).toBeInTheDocument()
+    expect(screen.getByText(/Il telefono può mandare i file/)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Impostazioni del telefono" })).toHaveAttribute("href", "#/impostazioni/telefono")
+    // I codici da inquadrare, l'indirizzo e i bottoni per collegare o scollegare stanno nelle impostazioni.
+    expect(screen.queryByAltText(/installare la Scorciatoia/)).toBeNull()
+    expect(screen.queryByText("192.168.1.20:47420")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Scollega i telefoni" })).toBeNull()
   })
 
-  it("se il telefono non può arrivare dice perché, e «Controlla di nuovo» rifà il controllo", async () => {
+  it("con la ricezione dal telefono spenta il Girato manda a collegarlo nelle impostazioni, senza accenderla da qui", async () => {
+    rete({ "GET /api/grezzo": giorni, "GET /api/video": [], "GET /api/arrivi": { acceso: false, in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "non-controllato", pronto: false, motivo: null, guarda: null, qr_guarda: null, carica: null, qr_carica: null } })
+    render(<Girato file={undefined} />)
+    expect(await screen.findByText(/Dal telefono non può arrivare niente/)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "collega un telefono" })).toHaveAttribute("href", "#/impostazioni/telefono")
+    expect(screen.queryByRole("button", { name: "Collega un telefono" })).toBeNull()
+  })
+
+  it("se il telefono non può arrivare il Girato dice perché e manda alle impostazioni, dove si controlla di nuovo", async () => {
     rete({ "GET /api/grezzo": giorni, "GET /api/video": [] })
     render(<Girato file={undefined} />)
     expect(await screen.findByText(/Windows blocca il programma/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Controlla di nuovo" }))
-    await waitFor(() => expect(chiamate.some((c) => c.metodo === "POST" && c.percorso === "/api/arrivi/controlla")).toBe(true))
+    expect(screen.getByRole("link", { name: "Impostazioni del telefono" })).toHaveAttribute("href", "#/impostazioni/telefono")
+    expect(screen.queryByRole("button", { name: "Controlla di nuovo" })).toBeNull()
   })
 
   it("un file con la scheda rifiutata lo dice nell'elenco, non «in arrivo»", async () => {
@@ -912,6 +928,15 @@ describe("il girato", () => {
     render(<Girato file={undefined} />)
     expect(await screen.findByText(/Scheda da correggere/)).toBeInTheDocument()
     expect(screen.queryByText(/Scheda in arrivo/)).toBeNull()
+  })
+
+  it("l'origine si dice solo se si sa: un file «altro» non è «da altro»", async () => {
+    const preparato = { parole: null, sagoma: null, leggero: null, onda: null, miniatura: null, trascrizione: null }
+    const file = (nome: string, origine: "telefono" | "altro"): FileGrezzo => ({ file: `2026-10-09/${nome}`, nome, byte: 1000, scheda: { tipo: "ripresa", origine, durata: 4 }, scheda_problemi: [], preparato, usato_in: [] })
+    rete({ "GET /api/grezzo": [{ giorno: "2026-10-09", file: [file("dal-telefono.mp4", "telefono"), file("portato-a-mano.mp4", "altro")] }], "GET /api/video": [] })
+    render(<Girato file={undefined} />)
+    expect(await screen.findByText(/da telefono/)).toBeInTheDocument()
+    expect(screen.queryByText(/da altro/)).toBeNull()
   })
 
   it("un file senza scheda si mostra e si può classificare", async () => {
@@ -924,14 +949,56 @@ describe("il girato", () => {
     await waitFor(() => expect(chiamate.find((c) => c.metodo === "PUT")?.corpo).toEqual({ tipo: "diretta", origine: "altro" }))
   })
 
-  it("senza girato dice come arrivano i file", async () => {
-    rete({ "GET /api/grezzo": [], "GET /api/video": [] })
+  it("se il server rifiuta la scheda (409: quella scritta nel file non è valida) la frase arriva a chi cambia il tipo", async () => {
+    const senza: FileGrezzo = { file: "2026-10-09/nuovo.mp4", nome: "nuovo.mp4", byte: 1000, scheda: null, scheda_problemi: [], preparato: { parole: null, sagoma: null, leggero: null, onda: null, miniatura: null, trascrizione: null }, usato_in: [] }
+    rete({ "GET /api/grezzo": [{ giorno: "2026-10-09", file: [senza] }], "GET /api/video": [], "PUT /api/grezzo/scheda?file=2026-10-09%2Fnuovo.mp4": errore(409, "La scheda scritta nel file non è valida: correggila prima.") })
+    render(<Girato file="2026-10-09/nuovo.mp4" />)
+    await screen.findByRole("heading", { name: "nuovo.mp4" })
+    fireEvent.change(screen.getAllByLabelText("Tipo")[1]!, { target: { value: "diretta" } })
+    expect(await screen.findByRole("alert")).toHaveTextContent("La scheda scritta nel file non è valida: correggila prima.")
+  })
+
+  it("la frase del rifiuto sparisce quando il tentativo dopo riesce", async () => {
+    const senza: FileGrezzo = { file: "2026-10-09/nuovo.mp4", nome: "nuovo.mp4", byte: 1000, scheda: null, scheda_problemi: [], preparato: { parole: null, sagoma: null, leggero: null, onda: null, miniatura: null, trascrizione: null }, usato_in: [] }
+    let rifiuta = true
+    rete({ "GET /api/grezzo": [{ giorno: "2026-10-09", file: [senza] }], "GET /api/video": [], "PUT /api/grezzo/scheda?file=2026-10-09%2Fnuovo.mp4": () => (rifiuta ? errore(409, "La scheda scritta nel file non è valida: correggila prima.") : {}) })
+    render(<Girato file="2026-10-09/nuovo.mp4" />)
+    await screen.findByRole("heading", { name: "nuovo.mp4" })
+    fireEvent.change(screen.getAllByLabelText("Tipo")[1]!, { target: { value: "diretta" } })
+    expect(await screen.findByRole("alert")).toHaveTextContent("non è valida")
+    rifiuta = false
+    fireEvent.change(screen.getAllByLabelText("Tipo")[1]!, { target: { value: "schermo" } })
+    await waitFor(() => expect(chiamate.filter((c) => c.metodo === "PUT")).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+  })
+
+  it("senza girato propone di aggiungere un video o mandarlo dal telefono, e apre la cartella", async () => {
+    rete({ "GET /api/grezzo": [], "GET /api/video": [], "POST /api/apri": {} })
     render(<Girato file={undefined} />)
-    expect(await screen.findByText(/Nel girato non c'è ancora niente/)).toBeInTheDocument()
+    expect(await screen.findByText(/Aggiungi un video dal computer.*dal telefono/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Apri la cartella del girato" }))
+    await waitFor(() => expect(chiamate.find((c) => c.percorso === "/api/apri")?.corpo).toEqual({ percorso: "grezzo" }))
+  })
+
+  it("se la cartella del girato non si apre, lo dice con la frase del server", async () => {
+    rete({ "GET /api/grezzo": [], "GET /api/video": [], "POST /api/apri": errore(404, "La cartella non c'è.") })
+    render(<Girato file={undefined} />)
+    fireEvent.click(await screen.findByRole("button", { name: "Apri la cartella del girato" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("La cartella non c'è.")
   })
 })
 
 describe("lo stile", () => {
+  it("comincia dagli stili di partenza, poi ciò che il primo giro fa vedere (colori, sottotitoli e titolo), coi nomi in parole, e i quadri vengono in fondo", async () => {
+    rete({ "GET /api/stile": stileDiProva() })
+    render(<PaginaStile />)
+    await screen.findByRole("heading", { name: "I colori" })
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Parti da uno stile", "I colori", "Sottotitoli e titolo", "La voce", "I tagli", "Il video che esce", "I quadri"])
+    expect(screen.getByLabelText("Colore Testo")).toBeInTheDocument()
+    expect(screen.queryByText(/carta|inchiostro/)).toBeNull()
+    expect(screen.getByText("Avanzate: livelli in decibel").closest("details")).not.toHaveAttribute("open")
+  })
+
   it("cambia un valore, salva lo stile intero; senza modifiche Salva è spento", async () => {
     rete({ "GET /api/stile": stileDiProva(), "PUT /api/stile": {} })
     render(<PaginaStile />)
@@ -947,6 +1014,57 @@ describe("lo stile", () => {
     expect(inviato.sottotitoli.corpo).toBe(62)
     expect(inviato.quadri["girato-pieno"]).toBeDefined()
     expect(await screen.findByText("Salvato")).toBeInTheDocument()
+  })
+
+  describe("lo stile cambia nel file mentre c'è una bozza aperta", () => {
+    const modificaCorpo = async () => {
+      render(<PaginaStile />)
+      const corpo = (await screen.findAllByRole("textbox", { name: /^Corpo$/ }))[0]!
+      fireEvent.change(corpo, { target: { value: "62" } })
+      fireEvent.blur(corpo)
+    }
+    const cambiaNelFile = async () => {
+      const nuovo = stileDiProva()
+      nuovo.sottotitoli.stacco = 0.9
+      rete({ "GET /api/stile": nuovo, "PUT /api/stile": {} })
+      act(() => eventi.istanze[0]!.manda({ tipo: "stile" }))
+      await screen.findByText(/Lo stile è cambiato nel frattempo/)
+    }
+
+    it("lo dice e non si salva finché non si sceglie; «Tieni le mie» salva la bozza", async () => {
+      rete({ "GET /api/stile": stileDiProva(), "PUT /api/stile": {} })
+      await modificaCorpo()
+      await cambiaNelFile()
+      expect(screen.getByRole("button", { name: "Salva" })).toBeDisabled()
+      fireEvent.click(screen.getByRole("button", { name: "Tieni le mie" }))
+      expect(screen.queryByText(/Lo stile è cambiato nel frattempo/)).toBeNull()
+      fireEvent.click(screen.getByRole("button", { name: "Salva" }))
+      await waitFor(() => expect(chiamate.find((c) => c.metodo === "PUT")).toBeDefined())
+      expect((chiamate.find((c) => c.metodo === "PUT")!.corpo as ReturnType<typeof stileDiProva>).sottotitoli.corpo).toBe(62)
+    })
+
+    it("«Prendi le nuove» lascia la bozza e mostra lo stile del file", async () => {
+      rete({ "GET /api/stile": stileDiProva(), "PUT /api/stile": {} })
+      await modificaCorpo()
+      await cambiaNelFile()
+      fireEvent.click(screen.getByRole("button", { name: "Prendi le nuove" }))
+      expect(screen.queryByText(/Lo stile è cambiato nel frattempo/)).toBeNull()
+      expect(screen.getByRole("button", { name: "Salva" })).toBeDisabled()
+      expect(screen.getAllByRole("textbox", { name: /^Corpo$/ })[0]).toHaveValue(String(stileDiProva().sottotitoli.corpo))
+      expect(chiamate.find((c) => c.metodo === "PUT")).toBeUndefined()
+    })
+
+    it("senza una bozza lo stile nuovo si prende da solo, senza avvisi", async () => {
+      rete({ "GET /api/stile": stileDiProva() })
+      render(<PaginaStile />)
+      await screen.findByRole("heading", { name: "I colori" })
+      const nuovo = stileDiProva()
+      nuovo.sottotitoli.stacco = 0.9
+      rete({ "GET /api/stile": nuovo })
+      act(() => eventi.istanze[0]!.manda({ tipo: "stile" }))
+      await waitFor(() => expect(chiamate.filter((c) => c.percorso === "/api/stile").length).toBeGreaterThan(0))
+      expect(screen.queryByText(/Lo stile è cambiato nel frattempo/)).toBeNull()
+    })
   })
 
   it("un valore non valido dice perché e non si può salvare", async () => {
@@ -969,6 +1087,33 @@ describe("lo stile", () => {
     fireEvent.blur(campo)
     fireEvent.click(screen.getByRole("button", { name: "Salva" }))
     expect(await screen.findByText(/non si può togliere/)).toBeInTheDocument()
+  })
+
+  it("i quadri usati dai video sono aperti, gli altri stanno sotto «Tutti i quadri», chiuso di serie", async () => {
+    rete({ "GET /api/stile": stileDiProva(), "GET /api/video": [voce("uno", {}, { quadri: ["sagoma-su-animazione"] }), voce("due", {}, { quadri: ["sagoma-su-animazione"] })] })
+    render(<PaginaStile />)
+    const inUso = await screen.findByRole("img", { name: "Il quadro Sagoma su animazione disegnato in scala" })
+    expect(inUso.closest("details")).toBeNull()
+    const altri = screen.getByText("Tutti i quadri").closest("details")!
+    expect(altri).not.toHaveAttribute("open")
+    expect(within(altri).getByRole("img", { name: "Il quadro Schermo e viso disegnato in scala" })).toBeInTheDocument()
+    expect(within(altri).queryByRole("img", { name: "Il quadro Sagoma su animazione disegnato in scala" })).toBeNull()
+  })
+
+  it("se nessun video usa un quadro, tutti i quadri stanno sotto «Tutti i quadri», chiuso, e la pagina lo dice", async () => {
+    rete({ "GET /api/stile": stileDiProva(), "GET /api/video": [voce("uno")] })
+    render(<PaginaStile />)
+    const altri = (await screen.findByText("Tutti i quadri")).closest("details")!
+    expect(altri).not.toHaveAttribute("open")
+    expect(within(altri).getAllByRole("img").length).toBe(Object.keys(stileDiProva().quadri).length)
+    expect(screen.getByText(/Nessun video usa ancora un quadro/)).toBeInTheDocument()
+  })
+
+  it("se l'elenco dei video non si legge, la pagina c'è lo stesso con tutti i quadri sotto «Tutti i quadri»", async () => {
+    rete({ "GET /api/stile": stileDiProva(), "GET /api/video": errore(500, "Non va.") })
+    render(<PaginaStile />)
+    const altri = (await screen.findByText("Tutti i quadri")).closest("details")!
+    expect(within(altri).getAllByRole("img").length).toBe(Object.keys(stileDiProva().quadri).length)
   })
 
   it("disegna ogni quadro con le misure scritte", async () => {
@@ -1047,7 +1192,9 @@ describe("lo stile con la testa al centro", () => {
 })
 
 describe("la cornice", () => {
-  it("dice cosa sta girando e lo si può fermare; il telefono è pronto o spento", async () => {
+  const arriviPronti = { acceso: true, in_ascolto: true, indirizzo: "192.168.1.5:47932", qr: null, errore: null, ultimi: [], firewall: "aperto", pronto: true, motivo: null }
+
+  it("dice cosa sta girando e lo si può fermare", async () => {
     rete({
       "GET /api/lavori": { in_corso: { id: "l1", slug: "uno", comando: "monta", iniziato: "2026-10-09T10:00:00", righe: ["Rendo le scene"] }, in_coda: [{ id: "l2", slug: "uno", comando: "controlla" }], finiti: [{ id: "l0", slug: "uno", comando: "risolvi", esito: "fallito", errore: "Il piano non ha scene." }] },
       "GET /api/video": [voce("uno")],
@@ -1055,7 +1202,6 @@ describe("la cornice", () => {
     })
     render(<Cornice vista="video" />)
     expect(await screen.findByText("Lavoro in corso")).toBeInTheDocument()
-    expect(await screen.findByText("Telefono non pronto")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: /Lavoro in corso/ }))
     const pannello = await screen.findByRole("dialog", { name: "Lavori" })
     expect(within(pannello).getByText(/Montaggio · Video uno/)).toBeInTheDocument()
@@ -1063,6 +1209,58 @@ describe("la cornice", () => {
     expect(within(pannello).getByText("Il piano non ha scene.")).toBeInTheDocument()
     fireEvent.click(within(pannello).getByRole("button", { name: "Ferma" }))
     await waitFor(() => expect(chiamate.some((c) => c.metodo === "DELETE" && c.percorso === "/api/lavori/l1")).toBe(true))
+  })
+
+  it("i segni di stato compaiono solo quando servono: senza lavori e senza telefono pronto la barra non li mostra", async () => {
+    rete({ "GET /api/video": [] })
+    render(<Cornice vista="girato" />)
+    await waitFor(() => expect(chiamate.some((c) => c.percorso === "/api/arrivi")).toBe(true))
+    await waitFor(() => expect(chiamate.some((c) => c.percorso === "/api/lavori")).toBe(true))
+    expect(screen.queryByText(/Telefono/)).toBeNull()
+    expect(screen.queryByText(/Nessun lavoro/)).toBeNull()
+    expect(screen.queryByRole("button", { name: /Lavor|attesa/ })).toBeNull()
+    expect(screen.getByRole("button", { name: /Registra/ })).toBeInTheDocument()
+  })
+
+  it("il telefono compare quando può mandare i file e porta al Girato, dove si collega", async () => {
+    rete({ "GET /api/video": [], "GET /api/arrivi": arriviPronti })
+    render(<Cornice vista="video" />)
+    expect(await screen.findByRole("link", { name: /Telefono pronto/ })).toHaveAttribute("href", "#/girato")
+  })
+
+  it("un lavoro in coda dà il segno dei lavori, e a lavoro finito il segno sparisce", async () => {
+    rete({ "GET /api/video": [], "GET /api/lavori": { in_corso: null, in_coda: [{ id: "l2", slug: "uno", comando: "controlla" }], finiti: [] } })
+    render(<Cornice vista="video" />)
+    expect(await screen.findByRole("button", { name: /1 in attesa/ })).toBeInTheDocument()
+    cambiaRisposta("GET /api/lavori", { in_corso: null, in_coda: [], finiti: [{ id: "l2", slug: "uno", comando: "controlla", esito: "finito" }] })
+    act(() => eventi.istanze[0]!.manda({ tipo: "lavori" }))
+    await waitFor(() => expect(screen.queryByRole("button", { name: /attesa/ })).toBeNull())
+    expect(screen.queryByText(/Nessun lavoro/)).toBeNull()
+    expect(screen.queryByRole("button", { name: /Lavori/ })).toBeNull()
+  })
+
+  it("se il lavoro finisce mentre il pannello è aperto, il pannello resta e dice che la scheda video è libera", async () => {
+    rete({ "GET /api/video": [], "GET /api/lavori": { in_corso: null, in_coda: [{ id: "l2", slug: "uno", comando: "controlla" }], finiti: [] } })
+    render(<Cornice vista="girato" />)
+    fireEvent.click(await screen.findByRole("button", { name: /1 in attesa/ }))
+    await screen.findByRole("dialog", { name: "Lavori" })
+    cambiaRisposta("GET /api/lavori", { in_corso: null, in_coda: [], finiti: [] })
+    act(() => eventi.istanze[0]!.manda({ tipo: "lavori" }))
+    expect(await screen.findByText(/la scheda video è libera/)).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Girato" })).toHaveAttribute("aria-current", "page")
+  })
+
+  it("le foto di una scena stanno in coda come gli altri lavori, con il loro nome e senza un video o un file", async () => {
+    rete({
+      "GET /api/lavori": { in_corso: { id: "l1", slug: "uno", comando: "monta", iniziato: "2026-10-09T10:00:00", righe: [] }, in_coda: [{ id: "l2", slug: null, comando: "scene-foto", file: null }], finiti: [{ id: "l0", slug: null, comando: "scene-foto", file: null, esito: "riuscito" }] },
+      "GET /api/video": [voce("uno")],
+    })
+    render(<Cornice vista="video" />)
+    fireEvent.click(await screen.findByRole("button", { name: /Lavoro in corso/ }))
+    const pannello = await screen.findByRole("dialog", { name: "Lavori" })
+    expect(within(pannello).getAllByText("Foto di una scena")).toHaveLength(2)
+    expect(within(pannello).queryByText(/Foto di una scena ·/)).toBeNull()
+    expect(within(pannello).queryByText(/girato/)).toBeNull()
   })
 
   it("dice quanto dura il lavoro in corso e verso che ora finisce; senza storia dice che non si sa", async () => {
@@ -1114,14 +1312,6 @@ describe("la cornice", () => {
       await waitFor(() => expect(chiamate.some((c) => c.percorso === "/api/video/uno")).toBe(true))
       expect(within(pannello).queryByText(/Il piano è cambiato/)).not.toBeInTheDocument()
     })
-  })
-
-  it("senza lavori dice che la scheda video è libera", async () => {
-    rete({ "GET /api/video": [] })
-    render(<Cornice vista="girato" />)
-    fireEvent.click(await screen.findByRole("button", { name: /Nessun lavoro/ }))
-    expect(await screen.findByText(/la scheda video è libera/)).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Girato" })).toHaveAttribute("aria-current", "page")
   })
 
   it("«Registra» apre il pannello: si sceglie cosa registrare e parte", async () => {

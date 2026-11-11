@@ -3,10 +3,9 @@
 import { join } from "node:path"
 import { impronta, nuovaLettura, type Classifica, type Crescita,type IndiceCanali, type LetturaDelCanale, type ProfiloInClassifica, type VideoDelCanale } from "./canale"
 import type { Percorsi } from "./configurazione"
-import { elenca, jsonDaTesto, leggiTesto } from "./disco"
+import { elenca, eOggetto, jsonDaTesto, leggiTesto } from "./disco"
 
 const FILE_SINGOLI = new Set(["esito.json", "profilo.json", "video.json", "messaggi.json"])
-const eOggetto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v)
 const eNumero = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v)
 const eProfilo = (v: unknown): v is ProfiloInClassifica => eOggetto(v) && typeof v["nome"] === "string" && typeof v["cosa_fa"] === "string" && eNumero(v["follower"]) && eNumero(v["mi_piace"]) && eNumero(v["visualizzazioni"])
 
@@ -23,14 +22,21 @@ function comeClassifica(letto: unknown): Classifica | null {
   }
 }
 
-const eTappa = (v: unknown): boolean => eOggetto(v) && typeof v["data"] === "string" && eNumero(v["follower"])
+const eTesto = (v: unknown): v is string => typeof v === "string"
+const eTesti = (v: unknown): boolean => Array.isArray(v) && v.every(eTesto)
+const eElencoDi = (v: unknown, chiavi: string[], conVideo = false): boolean =>
+  Array.isArray(v) && v.every((x) => eOggetto(x) && chiavi.every((k) => eTesto(x[k])) && (!conVideo || eTesti(x["video"])))
+const eTappa = (v: unknown): boolean => eOggetto(v) && typeof v["data"] === "string" && !Number.isNaN(Date.parse(v["data"])) && eNumero(v["follower"])
 const eScenario = (v: unknown): v is Crescita["scenari"][number] => eOggetto(v) && typeof v["nome"] === "string" && Array.isArray(v["tappe"]) && v["tappe"].every(eTappa)
 
+/** La crescita com'è scritta se è intera: la pagina la legge senza controllare, quindi un pezzo che manca o una data che non si legge la rende «non scritta». */
 function comeCrescita(letto: unknown): Crescita | null {
   if (!eOggetto(letto) || typeof letto["quando"] !== "string" || typeof letto["obiettivo"] !== "string") return null
   const scenari = letto["scenari"]
   if (!Array.isArray(scenari) || !scenari.every(eScenario)) return null
   if (!scenari.some((s) => s.nome === letto["obiettivo"])) return null
+  if (!eTappa(letto["partenza"]) || !eElencoDi(letto["settimana"], ["giorno", "cosa"]) || !eElencoDi(letto["tipi"], ["nome", "spiega"], true) || !eElencoDi(letto["consigli"], ["titolo", "testo"])) return null
+  if (!eElencoDi(letto["novita"], ["nome", "cosa", "per_te", "giudizio"]) || !eTesti(letto["mix"]) || !eTesti(letto["come"])) return null
   return { ...letto, quando: letto["quando"], obiettivo: letto["obiettivo"], scenari }
 }
 
@@ -76,7 +82,10 @@ export class CaricatoreCanali {
     const firma = String(Bun.hash(testo))
     if (this.firmeCrescita.get(canale) === firma) return false
     const crescita = comeCrescita(jsonDaTesto(testo)?.valore)
-    if (!crescita) return false
+    if (!crescita) {
+      console.error(`crescita.json di «${canale}» non è completo: tengo quello di prima (o la pagina vuota) finché non lo sistemi.`)
+      return false
+    }
     this.indice.crescite.set(canale, crescita)
     this.firmeCrescita.set(canale, firma)
     return true

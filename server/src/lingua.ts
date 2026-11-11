@@ -52,6 +52,13 @@ export const italiano = (testo: Testo): string => (typeof testo === "string" ? t
 
 export const nellaLinguaDi = (testo: Testo, lingua: Lingua): string => (typeof testo === "string" ? testo : testo.in(lingua))
 
+/** Il dettaglio di un errore da mettere dentro una frase: nelle due lingue se l'errore ha la sua frase, altrimenti il testo che ha (viene dal sistema o da Claude Code, in inglese). */
+export function dettaglioDi(errore: unknown): Frase {
+  if (errore instanceof ErroreConFrase) return frase(italiano(errore.testo), nellaLinguaDi(errore.testo, "en"))
+  const testo = errore instanceof Error ? errore.message : String(errore)
+  return frase(testo, testo)
+}
+
 /** Un errore la cui frase può essere nelle due lingue; `message` è l'italiano. */
 export class ErroreConFrase extends Error {
   readonly testo: Testo

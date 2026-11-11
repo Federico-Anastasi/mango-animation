@@ -8,6 +8,7 @@ import { MangoCode } from "./chat/mangocode"
 import { conIlClaudeDelCreator } from "./chat/metodo"
 import { cartellaDelleSessioni, sessioniDiClaudeCode } from "./chat/sessioni"
 import type { OpzioniConsumi } from "./consumi/consumi"
+import { VARIABILE_PID_APP } from "./riavvio"
 import { prestitoDaMangoCode, type PrestitoSchede } from "./schede"
 import { elencaConFfmpeg, type OpzioniRegistrazione } from "./registrazione"
 
@@ -45,6 +46,8 @@ export interface Opzioni {
   ytdlp: string[] | null
   registrazione: OpzioniRegistrazione
   animazioni: { cartella: string; comando: string[] }
+  /** Il comando che rende i fotogrammi chiave di una scena; la sigla si aggiunge in fondo. */
+  comandoSceneFoto: string[]
   /** Claude Code per la chat: la funzione `query` dell'SDK e la lettura delle sue conversazioni; le prove ne mettono di finte. */
   chat: OpzioniChat
   /** Le conversazioni di Claude Code da cui si ricava il lavoro di Claude per video (`consumi/`): la loro cartella e quanto devono restare ferme prima di rileggerle. */
@@ -63,6 +66,8 @@ export interface Opzioni {
   mostraInEsplora: (percorso: string, eCartella: boolean) => void
   /** Apre un indirizzo nel browser di sistema; sostituibile per non aprire finestre nelle prove. */
   apriNelBrowser: (indirizzo: string) => void
+  /** Il server l'ha acceso l'app: il creator guarda lo studio nella sua finestra, non nel browser. */
+  nellApp: boolean
 }
 
 export interface Percorsi {
@@ -186,6 +191,7 @@ export function opzioniDaAmbiente(ambiente: Record<string, string | undefined> =
       elenca: elencaConFfmpeg,
     },
     animazioni: { cartella: cartellaAnimazioni, comando: [process.execPath, "run", "--cwd", cartellaAnimazioni, "elenco"] },
+    comandoSceneFoto: [process.execPath, "run", "--silent", "--cwd", cartellaAnimazioni, "foto", "--"],
     arrivi: { porta: portaDa(ambiente["MANGO_ANIMATION_PORTA_ARRIVI"], PORTA_ARRIVI_DI_DEFAULT), limiteByte: LIMITE_ARRIVI_BYTE, indirizzo: null },
     chat: {
       query: conIlClaudeDelCreator(query, ambiente["MANGO_ANIMATION_CLAUDE"]),
@@ -201,5 +207,6 @@ export function opzioniDaAmbiente(ambiente: Record<string, string | undefined> =
     leggiFirewall: leggiConPowerShell,
     mostraInEsplora,
     apriNelBrowser,
+    nellApp: (ambiente[VARIABILE_PID_APP] ?? "") !== "",
   }
 }

@@ -184,6 +184,5 @@ button:disabled { opacity: 0.45; cursor: default; filter: none; }
 .altre .scelta { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; width: 100%; text-align: left; padding: 8px 12px; }
 .altre .scelta .nome { word-break: break-all; }
 .altre .scelta .peso { color: var(--tenue); font-size: 13px; white-space: nowrap; }
-.nota-mango-code { font-size: 13px; }
 #spostamento-barra { width: 100%; height: 10px; margin: 0 0 8px; accent-color: var(--accento); }
 #spostamento-barra[hidden], #spostamento-conti[hidden] { display: none; }

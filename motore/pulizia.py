@@ -15,14 +15,14 @@ from .voce import livello
 
 PROGRAMMA = Path.home() / ".cache" / "mango-animation" / "modelli" / "deep-filter-0.5.6-x86_64-pc-windows-msvc.exe"
 # DeepFilterNet lavora solo a 48 kHz.
-CAMPIONI = 48000
+FREQUENZA_DELLA_PULIZIA = 48000
 
 
 def filtra(grezza, pulita, stile):
     """Scrive in `pulita` la voce di `grezza` senza rumore. Il programma la restituisce allineata (`-D`) ma qualche centesimo più corta."""
     if not PROGRAMMA.exists():
-        raise Errore(f"manca il programma che pulisce la voce (DeepFilterNet): scaricalo in {PROGRAMMA} da github.com/Rikorose/DeepFilterNet/releases (v0.5.6)",
-                     f"the program that cleans the voice (DeepFilterNet) is missing: download it to {PROGRAMMA} from github.com/Rikorose/DeepFilterNet/releases (v0.5.6)")
+        raise Errore(f"manca il programma che pulisce la voce (DeepFilterNet, {PROGRAMMA}): l'app lo scarica con la funzione «Voce pulita»: riaccendila dall'app; per montare senza, metti `voce.pulizia.attiva` a false nello stile",
+                     f"the program that cleans the voice (DeepFilterNet, {PROGRAMMA}) is missing: the app downloads it with the «Clean voice» function: turn it on again in the app; to edit without it, set `voce.pulizia.attiva` to false in the style")
     cartella = pulita.parent / ".deepfilter"
     cartella.mkdir(exist_ok=True)
     esito = subprocess.run([str(PROGRAMMA), "-D", "-a", str(stile["voce"]["pulizia"]["attenuazione_massima"]), "-o", str(cartella), str(grezza)],
@@ -51,11 +51,11 @@ def voce_pulita(elenco, cartella, stile):
     cartella.mkdir(parents=True, exist_ok=True)
     grezza, filtrata = cartella / f".{impronta}.grezza.wav", cartella / f".{impronta}.filtrata.wav"
     try:
-        ffmpeg("-f", "concat", "-safe", "0", "-i", elenco, "-vn", "-c:a", "pcm_s16le", "-ar", CAMPIONI, "-y", grezza)
+        ffmpeg("-f", "concat", "-safe", "0", "-i", elenco, "-vn", "-c:a", "pcm_s16le", "-ar", FREQUENZA_DELLA_PULIZIA, "-y", grezza)
         filtra(grezza, filtrata, stile)
-        campioni = round(info(grezza)["durata"] * CAMPIONI)
+        campioni = round(info(grezza)["durata"] * FREQUENZA_DELLA_PULIZIA)
         guadagno = livello_della_voce(grezza) - livello_della_voce(filtrata)
-        ffmpeg_su(uscita, "-i", filtrata, "-af", f"volume={guadagno:.2f}dB,apad=whole_len={campioni}", "-c:a", "pcm_s16le", "-ar", CAMPIONI)
+        ffmpeg_su(uscita, "-i", filtrata, "-af", f"volume={guadagno:.2f}dB,apad=whole_len={campioni}", "-c:a", "pcm_s16le", "-ar", FREQUENZA_DELLA_PULIZIA)
     finally:
         grezza.unlink(missing_ok=True)
         filtrata.unlink(missing_ok=True)

@@ -208,6 +208,26 @@ describe("GET /api/canale/:canale/crescita", () => {
     expect((await chiama(a, "GET", "/api/canale/Tik Tok/crescita")).stato).toBe(404)
   })
 
+  test("un file scritto a metà (manca una parte, o la data di partenza non si legge) non si carica, e il server dice quale file è incompleto", async () => {
+    const errori: string[] = []
+    const prima = console.error
+    console.error = (...argomenti: unknown[]) => void errori.push(argomenti.join(" "))
+    try {
+      for (const campo of ["partenza", "settimana", "tipi", "mix", "consigli", "novita", "come"]) {
+        const { [campo]: _tolto, ...senza } = CRESCITA as Record<string, unknown>
+        const a = await avviaAmbiente({}, (c) => scriviCrescita(c, senza))
+        expect((await chiama(a, "GET", "/api/canale/tiktok/crescita")).corpo).toEqual({ quando: null })
+      }
+      const dataRotta = await avviaAmbiente({}, (c) => scriviCrescita(c, { ...CRESCITA, partenza: { data: "boh", follower: 626 } }))
+      expect((await chiama(dataRotta, "GET", "/api/canale/tiktok/crescita")).corpo).toEqual({ quando: null })
+      const tipoSenzaVideo = await avviaAmbiente({}, (c) => scriviCrescita(c, { ...CRESCITA, tipi: [{ nome: "le mie prove", spiega: "il mio computer" }] }))
+      expect((await chiama(tipoSenzaVideo, "GET", "/api/canale/tiktok/crescita")).corpo).toEqual({ quando: null })
+    } finally {
+      console.error = prima
+    }
+    expect(errori.some((e) => /crescita\.json di «tiktok» non è completo/.test(e))).toBe(true)
+  })
+
   test("un file con un obiettivo che non è fra gli scenari, o con una tappa senza numero, non si carica", async () => {
     const a = await avviaAmbiente({}, (c) => scriviCrescita(c, { ...CRESCITA, obiettivo: "sognato" }))
     expect((await chiama(a, "GET", "/api/canale/tiktok/crescita")).corpo).toEqual({ quando: null })

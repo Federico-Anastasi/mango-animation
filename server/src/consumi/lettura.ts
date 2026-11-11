@@ -1,6 +1,7 @@
+import { eOggetto } from "../disco"
 // Il lavoro di Claude letto dai file delle conversazioni (`docs/API.md`, «Consumi»): ogni file si legge a righe, una volta, e poi solo ciò
 // che si aggiunge. Qui sta la regola; chi tiene i file e li osserva è `consumi.ts`.
-import { eOggetto } from "../chat/traduzione"
+
 
 export interface Token {
   /** `output_tokens`: ciò che Claude ha scritto. */

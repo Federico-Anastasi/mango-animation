@@ -16,14 +16,17 @@ percorsi dei file nelle risposte sono relativi all'archivio.
 
 Senza chiave la risposta è una frase in HTML per chi apre una pagina nel browser e JSON `{ errore }` per il resto. Il controllo dell'host e dell'origine viene prima della chiave (403).
 
+**I file scelti dal creator.** Una rotta che prende il percorso di un file del computer (`POST /api/chat/allegati/locale`, `POST /api/grezzo/aggiungi` con `{ percorso }`) lo accetta solo se il creator l'ha scelto con un gesto: l'ha lasciato sulla finestra dell'app o l'ha copiato in Esplora risorse. Solo l'app lo vede, e lo dice al server con `POST /api/app/percorsi` e la sua chiave, che sta in `archivio/arrivi/chiave-app.json` (la fa il server al primo avvio, come l'altra): la chiave delle API non basta. Un percorso detto così vale dieci minuti e una volta sola. Fuori dall'app, e per chi ha soltanto la chiave delle API, i file entrano per caricamento.
+
 **La lingua delle frasi.** Le frasi che il server dice a chi lo usa (`errore`, `problemi`, `motivo` e gli `errore` degli stati, l'`errore` di un lavoro finito) escono in italiano, o in inglese se la richiesta porta
 l'intestazione `X-Lingua: en` (`it` o niente: italiano; una lingua che non c'è: italiano). Lo studio la manda in ogni richiesta, con la lingua scelta dal pulsante in alto; Claude, gli strumenti e gli script
 non la mandano e leggono l'italiano. Il server scrive ogni frase nelle due lingue dove nasce (`server/src/lingua.ts`, `frase(italiano, inglese)`) e sceglie quando scrive la risposta; i log del terminale restano in italiano.
-Due eccezioni di forma, perché una frase nasce prima della richiesta che la leggerà:
+Tre eccezioni di forma, perché una frase nasce prima della richiesta che la leggerà o senza che la richiesta dica la lingua:
 
 - **I lavori del motore** partono nella lingua di chi li ha chiesti (`POST …/lavori` con `X-Lingua`): il server passa al motore `MANGO_ANIMATION_LINGUA=it|en`, e l'`errore` del lavoro (e quello salvato in `lavori.json`) è in quella lingua.
-  Un lavoro che parte da solo (il `risolvi` dopo una modifica del piano, `prepara-file` di un file che arriva) parla la lingua che lo studio ha dichiarato per ultima (l'ultima richiesta con `X-Lingua`; una richiesta senza l'intestazione, come quelle di Claude, non la cambia), italiano finché lo studio non ha scritto. Le righe di avanzamento (`righe`) sono nella stessa lingua, quelle del motore e quelle scritte dal server per lo scarico dal web; restano in italiano le righe `animazioni:` della resa e l'ultima riga di ffmpeg e yt-dlp quando un lavoro fallisce.
+  Un lavoro che parte da solo (il `risolvi` dopo una modifica del piano, `prepara-file` di un file che arriva) parla la lingua che lo studio ha dichiarato per ultima (l'ultima richiesta con `X-Lingua`; una richiesta senza l'intestazione, come quelle di Claude, non la cambia), italiano finché lo studio non ha scritto. Le righe di avanzamento (`righe`) sono nella stessa lingua, quelle del motore e quelle scritte dal server per lo scarico dal web e per la scheda video prestata a Mango Code; restano in italiano le righe `animazioni:` della resa e l'ultima riga di ffmpeg e yt-dlp quando un lavoro fallisce.
   Una pagina aperta dal browser (l'interfaccia non costruita, il 401 senza chiave o senza sessione) non porta `X-Lingua`: segue `Accept-Language` (italiano se parla italiano o se manca, inglese altrimenti), come lo studio senza una scelta.
+- **Le pagine e le risposte del ricevitore del telefono** (sotto, «Il ricevitore degli arrivi») nascono quando il telefono bussa, senza `X-Lingua`: seguono `Accept-Language` del telefono, come ogni pagina aperta dal browser (italiano se parla italiano o se manca, inglese altrimenti), `lang` della pagina compreso. Il registro `registro.jsonl` resta in italiano.
 - **I file che il motore scrive per tutti** portano le due lingue: ogni avviso di `risolto.json` è `{ tratto, cosa, cosa_en }` (`cosa` italiano, `cosa_en` inglese; `cosa_en` può mancare, e lo studio mostra allora `cosa`).
 
 Le richieste con un corpo mandano JSON con `Content-Type: application/json`. Il corpo di un `PUT` è il
@@ -43,14 +46,17 @@ memoria e si aggiornano dai file delle conversazioni, di cui si legge solo ciò 
 
 | rotta | cosa fa |
 |---|---|
-| `GET /api/video` | l'elenco, dal più recente: `[{ slug, scheda, durata, miniatura, anteprima, ha_piano, ha_finale, ultimo_cambio }]`; `miniatura` è, nell'ordine, la copertina, la miniatura dell'uscita, la prima slide di un carosello, l'anteprima, quella del primo girato o un fotogramma della prova (quello che è uscito vince sull'anteprima; l'anteprima vince sulle immagini prese da sé). `anteprima` è `materiali/anteprima.<png, jpg, jpeg o webp>` (il più recente, se ce n'è più d'uno) o `null`: lo studio segna come «senza anteprima» una proposta che ne è priva. Compare, cambia e sparisce da sola con il file (evento `materiali`); la sua data entra in `ultimo_cambio`, che lo studio mette nell'indirizzo dell'immagine perché una rifatta si ricarichi |
+| `GET /api/video` | l'elenco, dal più recente: `[{ slug, scheda, durata, miniatura, anteprima, ha_piano, quadri, ha_finale, fase, ultimo_cambio }]` (`fase`: a che passo del metodo è il video, sotto; `quadri`: i quadri che il piano usa, quello di base e quelli delle scene; vuoto senza piano); `miniatura` è, nell'ordine, la copertina, la miniatura dell'uscita, la prima slide di un carosello, l'anteprima, quella del primo girato o un fotogramma della prova (quello che è uscito vince sull'anteprima; l'anteprima vince sulle immagini prese da sé). `anteprima` è `materiali/anteprima.<png, jpg, jpeg o webp>` (il più recente, se ce n'è più d'uno) o `null`: lo studio segna come «senza anteprima» una proposta che ne è priva. Compare, cambia e sparisce da sola con il file (evento `materiali`); la sua data entra in `ultimo_cambio`, che lo studio mette nell'indirizzo dell'immagine perché una rifatta si ricarichi |
 | `POST /api/video` | crea un video: `{ titolo, slug?, stato?, formato?, grezzo?: [file] }` → 201 `{ slug }`. Con `grezzo` (file come `giorno/nome`) nasce un piano col quadro `girato-pieno` e un pezzo per file. `formato` (`"video"` o `"carosello"`) va nella scheda; un carosello non ha girato né piano, quindi con `grezzo` è 400, e nasce `proposta` come ogni video; un altro valore è 400 |
 | `GET /api/video/:slug` | tutto di un video (sotto) |
 | `PUT /api/video/:slug/scheda` | sostituisce la scheda (validata sullo schema) → `{ ok }` |
 | `PATCH /api/video/:slug/scheda` | cambia solo i campi dati (JSON Merge Patch: gli oggetti si fondono, `null` toglie, testi e liste si sostituiscono); il risultato si valida sullo schema → `{ ok, scheda }`; se non va 400 con `problemi` e il file non cambia |
 | `PUT /api/video/:slug/piano` | sostituisce il piano (validato come sotto); la versione di prima va in `storia/`; mette in coda `risolvi` → `{ ok, puo_annullare, puo_rifare }` |
-| `PATCH /api/video/:slug/piano` | `[{ op, path, value? }]` → `{ ok, piano, puo_annullare, puo_rifare }`: i ritocchi applicati in ordine al piano scritto (`op` è `replace`, `add` o `remove`; `path` un JSON Pointer, `-` per la fine di una lista), poi il piano intero si valida e si salva come con `PUT`. Un percorso che non c'è è 400 con il numero del ritocco; un piano che non va è 400 e il file non cambia; un video senza piano è 409 |
+| `PATCH /api/video/:slug/piano` | `[{ op, path, value? }]` → `{ ok, piano, puo_annullare, puo_rifare }`: i ritocchi applicati in ordine al piano scritto (`op` è `replace`, `add`, `remove` o `test`; `path` un JSON Pointer, `-` per la fine di una lista; `test` non cambia niente e vuole il `value` che il campo deve avere, per un ritocco che non deve scavalcare le modifiche di un altro), poi il piano intero si valida e si salva come con `PUT`. Un percorso che non c'è è 400 con il numero del ritocco; un piano che non va è 400 e il file non cambia; un video senza piano è 409, e un `test` che non torna (il piano è cambiato dopo che chi ritocca l'ha letto, o il percorso non c'è più) è 409 e il file non cambia. Lo studio manda ogni gesto del montaggio così, con un `test` del valore di prima davanti a ogni cambio, e `PUT` resta per scrivere il piano intero. Due ritocchi insieme si mettono in fila: ognuno parte dal piano che ha lasciato l'altro |
 | `POST /api/video/:slug/annulla`, `/rifai` | torna alla versione di prima, o a quella dopo → `{ ok, piano, puo_annullare, puo_rifare }`; 409 se non c'è dove andare |
+| `GET /api/video/:slug/versioni` | le versioni del piano, dalla più recente: `{ versioni: [{ n, da, fino, scene, pezzi, in_uso }] }` (sotto, «La storia»); 404 senza piano |
+| `GET /api/video/:slug/versioni/:n` | il piano della versione `n` di `storia/`, com'era, senza toccare niente → `{ n, piano }`; 404 se non c'è |
+| `POST /api/video/:slug/versioni/:n/ripristina` | il piano di adesso va in `storia/` e la versione `n` torna in uso → `{ ok, piano, puo_annullare, puo_rifare }`; mette in coda `risolvi`. 404 se `n` non c'è, 409 se è già quella in uso, 400 (con `problemi`) se non passa più i controlli (per esempio un file del girato non c'è più) e il piano non cambia |
 | `POST /api/video/:slug/lavori` | `{ comando, … }` → 202 `{ id }`; 409 se il video non ha un piano (salvo `prova`). Un carosello (`formato: "carosello"` nella scheda) non ha piano e accetta solo `carosello`, che rende le sue slide; un video non lo accetta (409). `comando` è `prepara`, `risolvi`, `monta`, `controlla`, `carosello`, `prova` (la prova prima di registrare, dal copione della scheda: non vuole il piano, e la scheda resta `proposta`), oppure `anteprima` con `scena` (il nome di una scena) o con `da` e `a` (secondi del video, `a` dopo `da`), oppure `copertina` con `disegno` (il percorso dell'immagine) e, se serve, `istante` (secondo del video). Un campo che il comando non usa, o un testo che comincia per «-», è 400; un piano che non passa i controlli (sopra) è 409. Se la scheda è `proposta` passa a `in lavorazione` (validata come con `PUT …/scheda`), salvo con `prova`; gli altri stati non cambiano |
 | `GET /api/video/:slug/commenti` | i commenti del video del canale legato a questo (sotto, «Il canale») |
 | `DELETE /api/video/:slug` | solo una proposta senza montato e che non fa da base a un altro piano; altrimenti 409 (lo stato «scartato» è la via) |
@@ -60,7 +66,7 @@ passano lo schema (o non sono JSON) non restano nascosti: la scheda resta l'ulti
 dettaglio dice perché in `problemi`. Un video che non ha mai avuto una scheda valida non compare nell'elenco, e il suo dettaglio è un 404 con la frase «chiedi nella chat di sistemarla» e, in `problemi`, i motivi precisi (una frase ciascuno).
 
 `GET /api/video/:slug` dà `{ slug, cartella, scheda, piano, problemi, piano_risolto_da_base, risolto, risolto_aggiornato,
-controllo, uscite, montato, materiali, puo_annullare, puo_rifare, lavoro, montaggio_superato, piano_cambiato, piano_dopo_montato, fotogrammi }`:
+controllo, uscite, montato, materiali, puo_annullare, puo_rifare, fase, lavoro, montaggio_superato, piano_cambiato, piano_dopo_montato, fotogrammi }`:
 
 - `problemi` è `{ scheda: [frase], piano: [frase] }`: perché la scheda e il piano scritti nei file non passano i controlli di forma (le frasi
   sono in italiano, una per problema; un file che non è JSON dà «il file è scritto male e non si legge»). Vuote se tutto va. `scheda` è
@@ -79,6 +85,7 @@ controllo, uscite, montato, materiali, puo_annullare, puo_rifare, lavoro, montag
 - `montato`: `{ file, quando }` del video montato completo da guardare, o `null` senza montato: `uscite/con-copertina.mp4` se è lo stesso file di `finale.mp4` o non è più vecchio di lui
   (una copertina rimasta di un montaggio vecchio non conta), altrimenti `uscite/finale.mp4`. La scheda del telefono (`/guarda`) sceglie allo stesso modo.
 - `materiali`: `[{ file, byte }]`, stessi percorsi. Ogni file che compare o cambia in `materiali/` si annuncia (`cosa: "materiali"`); l'elenco dei video rilegge allora l'anteprima.
+- `fase`: `{ passo, azione }` o `null` (sotto, «La fase»), la stessa dell'elenco.
 - `lavoro`: `{ id, comando, stato: "in corso" | "in coda" }` se un lavoro di questo video gira o aspetta, altrimenti `null`.
 - `montaggio_superato` è vero quando un `monta` di questo video è in corso e il suo piano (o quello della sua base) o `stile.json`
   sono stati salvati dopo che è partito: quel montaggio finirebbe su un piano vecchio. Si ricava dalla memoria (l'orario di
@@ -92,6 +99,25 @@ controllo, uscite, montato, materiali, puo_annullare, puo_rifare, lavoro, montag
 - `fotogrammi`: un elemento per ogni tratto di `risolto.tratti`, nello stesso ordine: il percorso (relativo all'archivio) del fotogramma d'inizio di quel tratto, `null` se il tratto non ha girato
   o l'immagine non è ancora pronta. Il server li fa in un lavoro di sfondo, al decimo di secondo, quando un `risolto.json` nuovo (e all'avvio, per i video che ne hanno uno) nomina un tratto che non ne ha:
   `preparati/<file>/fotogrammi/<decimi>.jpg`, una volta per file e istante, e li tiene. Quando ne compare uno, l'evento `fotogrammi` (sotto) avvisa i video che usano il file.
+
+**La fase** (`server/src/fasi.ts`, l'unico posto che la decide) è il passo del metodo a cui è un video, ricavato dai file che già ci sono: nessuno la scrive. `passo` va da 1 a 8 (idea, copione, prova, riprese, animazioni, montaggio, correzioni, uscita); `azione` dice cosa c'è da fare o chiedere adesso, e lo studio la scrive in parole. Si va dal fondo, vale il primo che si verifica:
+
+| se | `passo` · `azione` |
+|---|---|
+| la scheda è di un carosello, o `scartato` | `null` |
+| stato `pubblicato` | 8 · `fatto` |
+| stato `pronto` | 8 · `pubblica` |
+| c'è `uscite/finale.mp4` e il piano è stato salvato dopo | 7 · `correzioni` |
+| c'è `uscite/finale.mp4` | 6 · `guarda` |
+| c'è un piano e una scena ha `animazione` | 6 · `monta` |
+| c'è `materiali/testo-registrato.md` | 5 · `animazioni` |
+| c'è un piano | 4 · `testo` |
+| c'è `uscite/prova.mp4` | 4 · `riprese` |
+| la scheda ha `proposta.aggancio` o `proposta.spezzoni` | 3 · `prova` |
+| c'è `materiali/anteprima.*` | 2 · `copione` |
+| altrimenti | 1 · `idea` |
+
+Un passo saltato (per esempio la prova) non conta: vale l'ultimo di cui c'è un segno. «Dopo il piano» è il confronto di date di `indice.pianoPiuNuovoDelFinale`, uguale per l'elenco e per il dettaglio. Cambia da sola con i file (eventi `scheda`, `piano`, `uscite`, `materiali`).
 
 **Il piano si valida** sullo schema (`motore/schemi/piano.schema.json`) e sui riferimenti, dopo aver
 applicato la `base`: la `base` esiste, ha un piano e non fa giri; il piano ha quadro, sorgenti e scene (anche
@@ -110,16 +136,25 @@ che non va, salvo `carosello` e `prova`, che il piano non lo usano.
 «rifai». Vale anche per ciò che Claude scrive da terminale in `piano.json`: il server salva la versione che
 aveva visto prima.
 
+**Le versioni** (`GET …/versioni`) sono i file di `storia/` più il piano di adesso. `n` è il numero del file (`null` per il piano di adesso quando non ha un file suo, cioè in testa alla storia);
+`in_uso` è vero per una riga sola (dopo un `annulla` è un file di `storia/`, e le versioni più nuove restano sopra di lei). Un file è stato scritto quando un'altra versione l'ha sostituito, quindi `fino` è la sua data e `da` quella del file di prima
+(`null` per la più vecchia, o se il file di prima è caduto fra le ultime 200); per la versione in uso `da` è la data di `piano.json` e `fino` è `null`. `scene` e `pezzi` sono quanti ne scrive il piano (quelli di una `base` non contano; `null` se il testo non si legge).
+`ripristina` non perde niente: il piano di adesso diventa una versione di `storia/` (anche le versioni «da rifare» restano), e `annulla` riporta a lui.
+
 ## Girato
 
 | rotta | cosa fa |
 |---|---|
 | `GET /api/grezzo` | i giorni, dal più recente: `[{ giorno, file: [{ file, nome, byte, scheda, scheda_problemi, preparato, usato_in: [slug] }] }]` |
 | `GET /api/grezzo/parole?file=…` | le parole coi tempi di un file preparato: `[{ p, da, a }]` |
+| `GET /api/grezzo/cerca?q=…` | cerca nel parlato di tutti i file preparati (sotto) → `{ q, risultati: [{ file, da, a, prima, trovato, dopo }], totale, cercati, non_letti }`; 400 se `q` ha meno di due lettere |
 | `PUT /api/grezzo/scheda?file=…` | scrive la scheda di un file → `{ ok }` |
-| `PATCH /api/grezzo/scheda?file=…` | cambia solo i campi dati della scheda di un file, come `PATCH /api/video/:slug/scheda` (gli oggetti si fondono, `null` toglie); il risultato si valida → `{ ok, scheda }`; se non va 400 con `problemi` e il file non cambia |
+| `PATCH /api/grezzo/scheda?file=…` | cambia solo i campi dati della scheda di un file, come `PATCH /api/video/:slug/scheda` (gli oggetti si fondono, `null` toglie); il risultato si valida → `{ ok, scheda }`; se non va 400 con `problemi` e il file non cambia; se la scheda scritta nel file non è valida, 409 con i suoi `problemi`: si corregge o si scrive intera con `PUT` |
 | `POST /api/grezzo/prepara` | `{ file, ritrascrivi? }` → 202 `{ id }`: mette in coda `prepara-file` (la sagoma no: la fa `monta`, dei soli tratti montati); con `ritrascrivi: true` rifà le parole anche se ci sono (`--ritrascrivi`) |
+| `POST /api/grezzo/aggiungi` | un video, una foto o un audio del computer nel girato di oggi → 201 `{ file, byte }` (`file` è `giorno/nome`). Un file per richiesta, in uno di due modi (sotto) |
 | `POST /api/grezzo/scarica` | `{ url, da?, a?, nome? }` → 202 `{ id }`: mette in coda `scarica`, che con yt-dlp porta nel girato un video del web, o solo il suo tratto (sotto) |
+
+**La ricerca nel parlato** (`server/src/parlato.ts`) cerca `q` nelle parole di `preparati/<giorno>/<file>/parole.json`, dei soli file che sono ancora nel girato, dal giorno più recente. Non bada a maiuscole, accenti e punteggiatura (`Perché` si trova con `perche`; l'apostrofo separa: `l'impasto` si trova con `impasto`). Più parole cercano una frase: parole di fila, tutte intere tranne l'ultima, che può essere l'inizio di una parola (`segreto è la pazien`). `risultati` ne porta al più cento, nell'ordine dei file e del tempo, e `totale` dice quanti sono in tutto: `file` è `giorno/nome`; `da` e `a` sono i secondi del file in cui comincia e finisce ciò che si è trovato; `trovato` sono le parole trovate come sono scritte, `prima` e `dopo` otto parole attorno. `cercati` sono i file col parlato cercati e `non_letti` quelli il cui `parole.json` non si legge (scritto male o non nella forma `[{ p, da, a }]`). Di ogni file il server tiene in memoria solo il testo semplificato (una quindicina di byte a parola, ~7 MB per mezzo milione di parole), ricaricato quando il file cambia di data o di peso, e rilegge le parole scritte dei soli file con un risultato. Misurato su 300 file da 1.500 parole: la prima ricerca 0,3 s, le altre 6 ms.
 
 `file` è sempre `giorno/nome`, come nei piani. `scheda_problemi` è la lista (vuota se tutto va) di ciò che nella scheda scritta nel file non passa lo schema,
 o «il file è scritto male e non si legge»: allora `scheda` è `null` finché non si corregge, e lo studio dice il motivo nella pagina del file. `preparato` è `{ parole, sagoma, sagoma_pezzi, leggero, onda, miniatura, foto,
@@ -143,6 +178,17 @@ Lo stesso fa per la prova di un video: da `uscite/prova.mp4` ricava `uscite/prov
 `miniatura_al` della durata (non il primo, che spesso è vuoto), e lo rifà se la prova cambia dopo di lui. Serve
 solo come ultima fonte della `miniatura` dell'elenco.
 
+**Aggiungere un file dal computer** (`aggiungi`). Entra in `grezzo/<oggi>/` per la strada degli arrivi dal telefono: nome `AAAAMMGG-HHMMSS-<nome ripulito>`, passaggio da `arrivi/.in-corso/`, `ffprobe` che misura e scheda scritta prima del file
+(`tipo` «ripresa», `origine` «altro», `arrivato`, durata e misure). Sono ammessi i generi che ammettono gli arrivi: video, foto e audio (le estensioni di `server/src/arrivi/nomi.ts`), fino al massimo degli arrivi (20 GB); un documento o un file di un altro
+genere è 415. Non è un arrivo dal telefono: non compare fra gli `ultimi` di `GET /api/arrivi` e il registro lo scrive come `aggiunto`. La risposta arriva a file collocato. Due modi:
+
+- **Il file nel corpo** (il browser, anche da un telefono che apre lo studio dalla rete): corpo grezzo, nome nell'intestazione `X-Nome-File` (codificato come URL), `Content-Length`. Si scrive a pezzi, mai intero in memoria. È l'unica rotta che accetta un corpo di oltre 16 MB (le altre,
+  con `Content-Length` più grande, sono 413). Se `Content-Length` c'è, un doppione e un file troppo grande si rifiutano prima di ricevere il corpo.
+- **Il percorso** (l'app): `{ percorso }` con `Content-Type: application/json`. Vale solo per un file scelto con un gesto (sopra, «I file scelti dal creator»); un file collegato con un hard link non costa spazio né tempo, e se il collegamento non si può (un altro disco) il file si copia, controllando lo spazio.
+
+Un file con lo stesso nome (senza il giorno e l'ora d'arrivo) e la stessa grandezza di uno già nel girato è un doppione, 409, e non si aggiunge due volte; un nome già preso con un'altra grandezza prende un numero (`-2`). Altri errori: 400 senza nome, vuoto, arrivato a metà o un percorso che non c'è più o è una cartella,
+403 un percorso non scelto, 413 troppo grande, 507 disco quasi pieno. Ogni errore ha la frase nella lingua dello studio.
+
 **Lo scarico dal web** (`scarica`, un lavoro della coda: uno alla volta come gli altri). `url` è un indirizzo `http://` o `https://`; `da` e `a`
 sono istanti del video, in secondi (`90`, `12.5`) o come `1:30` e `1:02:03`, con `a` dopo `da`: se manca `da` si parte dall'inizio, se manca `a` si va
 alla fine, se mancano tutti e due si scarica il video intero (per uno lungo si danno sempre, il disco è limitato). `nome` è il nome del file senza
@@ -160,39 +206,44 @@ riusciti, `null` finché non sono tre.
 
 | rotta | cosa fa |
 |---|---|
-| `GET /api/stile`, `PUT /api/stile` | legge lo stile unito (quello di serie del prodotto con sopra quello del creator, `docs/ARCHITETTURA.md`, «Lo stile») e scrive lo stile del creator; il `PUT` riceve lo stile completo, vuole `formato` e dei `quadri` con i loro `strati`, e rifiuta di togliere un quadro usato da un piano; nel file del creator (`stile.json` nella cartella di lavoro) scrive solo ciò che differisce dallo stile di serie, e non tocca mai quello del prodotto. Una chiave che il corpo non ha non si toglie: resta quella di serie. Poi ogni video con un piano viene risolto di nuovo |
+| `GET /api/stile/partenza` | i tre stili di partenza di `stili-di-partenza.json` (nella cartella del prodotto; lo legge anche la skill `welcome`): `[{ id, nome: {it, en}, descrizione: {it, en}, stile }]`, dove `stile` ha le quattro sezioni dell'aspetto (`colori`, `caratteri`, `sottotitoli`, `titolo`) già fuse con quelle dello stile di serie, pronte da disegnare. 404 se il file manca |
+| `GET /api/caratteri`, `POST /api/caratteri` | l'elenco dei caratteri che lo stile può nominare, `[{ file, nome, mio }]`: quelli di `font/` del prodotto e poi quelli di `font/` della cartella di lavoro (`mio: true`), col nome letto dal file; `file` è il percorso come lo scrive `caratteri` in `stile.json`. Il `POST` riceve `{ nome, dati }` (il nome del file e i suoi byte in base64), accetta `.ttf`, `.otf` e `.woff2` fino a 5 MB, controlla che il file sia un carattere che si legge e lo mette in `font/` della cartella di lavoro: lo stesso file due volte non si ripete, un altro con lo stesso nome prende un numero, un carattere del prodotto non si copre mai. Risponde `{ file, nome }`; un file che non va è un `400` (o `413` se è troppo grande) con la frase, e non scrive niente |
+| `GET /api/stile`, `PUT /api/stile` | legge lo stile unito (quello di serie del prodotto con sopra quello del creator, `docs/ARCHITETTURA.md`, «Lo stile») e scrive lo stile del creator; il `PUT` riceve lo stile completo, vuole `formati` (con il `verticale`) e dei `quadri` con i loro `strati`, e rifiuta di togliere un quadro usato da un piano; nel file del creator (`stile.json` nella cartella di lavoro) scrive solo ciò che differisce dallo stile di serie, e non tocca mai quello del prodotto. Una chiave che il corpo non ha non si toglie: resta quella di serie. Poi ogni video con un piano viene risolto di nuovo |
 | `GET /api/motori`, `PUT /api/motori` | la sezione `motori` di `profilo.json` (`docs/MOTORI.md`, §4): per funzione, `attiva` e `dove` (`scheda` o `processore`), e per la trascrizione `modello` e `calcolo`; `{}` se il profilo non la dice. Il `PUT` riceve la sezione intera, la fa passare dallo schema del profilo (`motore/schemi/profilo.schema.json`) e riscrive `profilo.json` con quella al posto di quella di prima, lasciando il resto com'è (senza profilo, lo crea con `versione` e `motori`); una sezione che lo schema non ammette è un `400` con la frase e `problemi`, e il file non cambia. Risponde con la sezione com'è dopo la scrittura |
-| `GET /api/macchina` | la sezione `macchina` del profilo (`scheda_video`, `scheda_registrazione`, `profilo_chrome`, `disco_quasi_pieno`), `{}` se il profilo non la dice: la pagina «Motori» la guarda accanto a ciò che l'app dice del computer. Cambia con l'evento `profilo` |
-| `GET /api/profilo` | `{ valido, presente, canali, problemi }`: `presente` dice se il creator ha già un profilo (un nome in `profilo.json`, o un file che non passa lo schema): senza, lo studio apre la chat e Claude fa il primo giro; `canali` sono i canali del profilo (`piattaforma`, `nome`), che le pagine dei canali leggono per dire cosa manca; `problemi` sono le frasi (nella lingua della richiesta) di ciò che in `profilo.json` non passa lo schema, o che il file non è JSON; vuote se il profilo va o non c'è. Il server in quel caso lavora con l'ultimo profilo valido, o senza profilo se non ce n'è mai stato uno. Cambia con l'evento `profilo`. Mentre `valido` è falso `PUT /api/motori` risponde `409` (con `problemi`) e non riscrive il file |
+| `GET /api/macchina` | la sezione `macchina` del profilo (`scheda_video`, `scheda_registrazione`, `profilo_chrome`, `disco_quasi_pieno`), `{}` se il profilo non la dice: la sezione Computer delle impostazioni la guarda accanto a ciò che l'app dice del computer. Cambia con l'evento `profilo` |
+| `GET /api/profilo` | `{ valido, presente, canali, profilo, problemi }`: `presente` dice se il creator ha già un profilo (un nome in `profilo.json`, o un file che non passa lo schema): senza, lo studio apre la chat e Claude fa il primo giro; `canali` sono i canali del profilo (`piattaforma`, `nome`), che le pagine dei canali leggono per dire cosa manca; `profilo` sono le sezioni che la pagina «Impostazioni › Profilo» mostra, com'è scritto in `profilo.json` (`creator`, `pubblico`, `canali`, `non_si_dice`; quelle che il profilo non dice mancano); `problemi` sono le frasi (nella lingua della richiesta) di ciò che in `profilo.json` non passa lo schema, o che il file non è JSON; vuote se il profilo va o non c'è. Il server in quel caso lavora con l'ultimo profilo valido, o senza profilo se non ce n'è mai stato uno. Cambia con l'evento `profilo`. Mentre `valido` è falso `PUT /api/motori` e `PUT /api/profilo` rispondono `409` (con `problemi`) e non riscrive il file |
+| `PUT /api/profilo` | cambia le sezioni date di `profilo.json` (`creator`, `pubblico`, `canali`, `non_si_dice`; `null` toglie una sezione) e lascia il resto com'è, `motori` e `macchina` compresi (senza profilo lo crea con `versione`). Il profilo che ne esce deve passare lo schema (`motore/schemi/profilo.schema.json`): se no è un `400` con la frase e `problemi`, e il file non cambia; una chiave che non è una di quelle quattro è un `400`. Se `profilo.json` non passa lo schema risponde `409` (con `problemi`) e non lo riscrive. Risponde come `GET /api/profilo`. È ciò che la pagina «Impostazioni › Profilo» chiama per «Salva»; la chat scrive lo stesso file, e ognuno vede ciò che ha scritto l'altro (evento `profilo`) |
 | `GET /api/animazioni` | le scene del prodotto e quelle del creator (`<lavoro>/animazioni/scene/`, che il server crea se manca), per video: `{ "<slug>": [{ sigla, titolo, durata }] }`; `{}` se il comando non c'è o fallisce (l'errore è nel terminale del server). Si rifà quando cambia un file di quelle cartelle, e se l'elenco è diverso lo annuncia l'evento `animazioni` |
+| `POST /api/animazioni/foto` | `{ sigla }` (la scena, come nel piano: «l1», «a3») → 202 `{ id }`: mette in coda `scene-foto`, che rende i fotogrammi chiave della scena nel browser sulla scheda video e controlla testo, fascia, lati e sfondo; 400 se la sigla non è una sigla. Il `risultato` del lavoro finito è `{ png, segnalazioni }`: i file dei fotogrammi e le segnalazioni dei controlli (vuote: superati; un controllo che non passa è un lavoro riuscito, non un errore). Una sigla che non c'è fa fallire il lavoro con le sigle che ci sono |
 | `GET /api/lavori` | `{ in_corso, in_coda, finiti }` (sotto) |
 | `DELETE /api/lavori/:id` | toglie dalla coda o ferma quello in corso → `{ ok, esito: "tolto" \| "fermato" }`; 404 se l'id non c'è più |
 | `GET /api/arrivi` | lo stato del ricevitore (sotto) |
 | `PUT /api/arrivi` | `{ acceso: true \| false }` collega o scollega i telefoni (la ricezione è spenta di base) e dà lo stato nuovo. Solo dal computer: dalla rete, `403` |
+| `POST /api/app/percorsi` | `{ percorsi: [percorso completo] }` con l'intestazione `X-Chiave-App` → `{ ok }`: l'app dice quali file ha scelto chi la usa (sotto). Senza la chiave dell'app, `403` |
 | `POST /api/arrivi/controlla` | rifà il controllo del firewall di Windows e dà lo stato aggiornato (come `GET /api/arrivi`) |
 | `GET /api/accesso-studio`, `PUT /api/accesso-studio`, `POST /api/accesso-studio/chiave` | lo studio dalla rete (sotto, «Lo studio sulla rete»): lo stato; `{ acceso: true \| false }` lo accende o lo spegne; la chiave nuova. Solo dal computer: dalla rete, `403` |
-| `POST /api/apri` | `{ percorso }` relativo all'archivio (un file o una cartella) → lo mostra in Esplora file; 400 fuori dall'archivio. Con `dove: "browser"` apre invece nel browser di sistema, già dentro (passando da `/entra`, la chiave non esce dal server): `{ dove: "browser", video: "<slug>", scheda? }` la pagina di un video, `{ dove: "browser", percorso }` un file (non una cartella) servito da `/media/` → `{ ok, aperto }`; 404 se il video o il file non c'è |
+| `POST /api/apri` | `{ percorso }` relativo all'archivio (un file o una cartella) → lo mostra in Esplora file; 400 fuori dall'archivio. Con `dove: "browser"` mostra invece una pagina o un file allo studio: se il server l'ha acceso l'app (`MANGO_ANIMATION_APP_PID`) e uno studio è collegato, manda l'evento `vai` e la finestra dell'app cambia pagina (i file di `grezzo/` e `video/` ce l'hanno; gli altri e il caso senza studio aprono il browser); altrimenti apre il browser di sistema, già dentro (passando da `/entra`, la chiave non esce dal server): `{ dove: "browser", video: "<slug>", scheda? }` la pagina di un video, `{ dove: "browser", percorso }` un file (non una cartella) servito da `/media/` → `{ ok, aperto }`; 404 se il video o il file non c'è |
 | `GET /api/registrazione` | lo stato della registrazione dello schermo (sotto) |
 | `POST /api/registrazione` | `{ modo: "schermo" \| "voce" \| "viso", microfono?, camera? }` → 201 con lo stato; 409 se una è già in corso, se manca ffmpeg o il dispositivo che serve |
 | `DELETE /api/registrazione` | la ferma e dà lo stato; 409 se non ce n'è una in corso |
 | `POST /api/registrazione/dispositivi` | cerca di nuovo microfoni e webcam e dà lo stato |
 
 **Il profilo.** `profilo.json` (nella cartella di lavoro) si rilegge quando cambia. Se passa lo schema è il nuovo profilo; se no resta l'ultimo valido
-(il motivo è nel terminale del server e in `GET /api/profilo`). All'avvio un profilo non valido non ferma il server: parte senza profilo, con lo stesso avviso. Del profilo il server usa `macchina.scheda_registrazione`, a ogni registrazione dello schermo, e scrive la sezione `motori` (`PUT /api/motori`); il motore e gli strumenti rileggono il file a ogni comando.
+(il motivo è nel terminale del server e in `GET /api/profilo`). All'avvio un profilo non valido non ferma il server: parte senza profilo, con lo stesso avviso. Del profilo il server usa `macchina.scheda_registrazione`, a ogni registrazione dello schermo, e scrive la sezione `motori` (`PUT /api/motori`) e le sezioni del creator (`PUT /api/profilo`); il motore e gli strumenti rileggono il file a ogni comando.
 
 **I lavori.** Uno solo alla volta. Ogni lavoro è `{ id, slug, comando, file, secondi_video }` (`slug` è `null` e `file` è
 `giorno/nome` per `prepara-file`). `in_corso` aggiunge `iniziato`, `righe` (le ultime 200 righe di stdout e
 stderr), `stima`, `trascorsi` (secondi da quando è partito) e `fine_prevista` (`iniziato` più la stima, ISO; `null` senza
 stima); `in_coda` aggiunge `accodato` e `stima`; `finiti` (gli ultimi 20, dal più recente, anche dopo un riavvio:
 stanno in `archivio/lavori.jsonl`) hanno `iniziato`, `finito`, `esito` (`"riuscito"`, `"fallito"`,
-`"fermato"` o `"interrotto"`), `errore` (l'ultima riga di stderr, `null` se è andato bene; se il processo esce con errore senza scrivere niente, una frase che manda alle righe, e l'ultima riga è «Uscito con codice N.») e le ultime 30 `righe`. Un lavoro **interrotto** è uno che il server stava eseguendo quando si è fermato (chiuso, o morto): quando un lavoro parte il server scrive la sua riga in `lavori.jsonl`, e al riavvio quelle senza la fine passano fra i finiti con `esito: "interrotto"`, una frase che dice di rilanciarlo (nella lingua di chi l'aveva chiesto) in `errore` e nessuna riga. Non si rimette in coda da solo. Chi lo aspettava (`lavoro_aspetta`) lo ritrova con `lavoro_stato`.
+`"fermato"` o `"interrotto"`), `errore` (l'ultima riga di stderr, `null` se è andato bene; se il processo esce con errore senza scrivere niente, una frase che manda alle righe, e l'ultima riga è «Uscito con codice N.») e le ultime 30 `righe`; un lavoro che dà qualcosa a chi lo aspettava (`scene-foto`) ha anche il suo `risultato`. Un lavoro **interrotto** è uno che il server stava eseguendo quando si è fermato (chiuso, o morto): quando un lavoro parte il server scrive la sua riga in `lavori.jsonl`, e al riavvio quelle senza la fine passano fra i finiti con `esito: "interrotto"`, una frase che dice di rilanciarlo (nella lingua di chi l'aveva chiesto) in `errore` e nessuna riga. Non si rimette in coda da solo. Chi lo aspettava (`lavoro_aspetta`) lo ritrova con `lavoro_stato`.
 
 `secondi_video` sono i secondi di video su cui il lavoro lavora, dall'indice in memoria: per `prepara` e `prepara-file` la
 durata del girato non ancora trascritto (0 se è tutto preparato), per `anteprima` la scena o il pezzo `da`–`a`, per gli
 altri comandi la durata del risolto; `null` se non si sa (un video senza risolto, un file senza durata nella scheda).
 `stima` sono i secondi che il lavoro dovrebbe durare, presi dagli ultimi 10 lavori **riusciti** con lo stesso comando:
 la mediana dei secondi impiegati per secondo di video, per `secondi_video`; se `secondi_video` è `null`, la mediana delle
-durate dei lavori che non lo sapevano. Con meno di 3 lavori così è `null`: non c'è storia per stimarlo. Si fissa quando il
+durate dei lavori che non lo sapevano. Con meno di 3 lavori così, o con `secondi_video` a 0 (un file già preparato), è `null`: non c'è storia per stimarlo. Si fissa quando il
 lavoro parte (in coda si calcola con ciò che si sa in quel momento). Il motore non dice quanto ha fatto del lavoro intero
 (le righe come «tratto 3/40» sono di una fase sola), quindi l'avanzamento è `trascorsi` contro `stima`. Quando
 `lavori.jsonl` supera le 100 righe si accorcia agli ultimi 20 finiti più i lavori da cui vengono le stime (le righe di partenza non servono più).
@@ -208,7 +259,7 @@ mentre il piano cambiava. Lo stile no: uno stile più nuovo del risolto non rif�
 
 **Gli arrivi.** `GET /api/arrivi` dà `{ acceso, in_ascolto, indirizzo, qr, errore, ultimi, firewall, pronto, motivo }`:
 
-- `acceso` è la scelta di chi usa il computer: **di base la ricezione dal telefono è spenta**, e finché non collega un telefono (Girato, «Collega un telefono», che fa `PUT /api/arrivi`) il computer non ascolta la rete
+- `acceso` è la scelta di chi usa il computer: **di base la ricezione dal telefono è spenta**, e finché non collega un telefono (Impostazioni › Telefono, «Collega un telefono», che fa `PUT /api/arrivi`) il computer non ascolta la rete
   per gli arrivi. Spenta, `in_ascolto` è falso, `indirizzo`, `qr`, `guarda` e `carica` sono `null`, `pronto` è falso e `motivo` lo dice; le rotte del telefono rispondono `404`. La scelta sta in
   `archivio/arrivi/ricezione.json` e resta dopo un riavvio.
 - `indirizzo` è `ip:porta` del computer sulla rete di casa (`null` senza rete o se non è in ascolto), `qr` è un
@@ -274,9 +325,11 @@ letture risponde con i campi vuoti, non con un errore.
   La riga di `io` ha i numeri dell'ultima lettura che ha letto bene profilo e video, e `quando_io` è il `quando`
   di quella lettura; senza una lettura così resta quella del file e `quando_io` è `quando`. Un canale senza il
   file risponde `{ quando: null, io: null, quando_io: null, come: [], righe: [] }`. Il file a metà resta com'era.
-- `crescita`: `crescita.json` del canale (`docs/ARCHIVIO.md`, «La crescita del canale»). Si carica solo se ha
-  `quando`, `obiettivo` e `scenari` con tappe `{ data, follower }`, e se `obiettivo` è il nome di uno scenario;
-  altrimenti, come un file a metà, resta quello di prima.
+- `crescita`: `crescita.json` del canale (`docs/ARCHIVIO.md`, «La crescita del canale»). Si carica solo se è intero:
+  `quando`, `obiettivo` e `scenari` con tappe `{ data, follower }` (e `obiettivo` è il nome di uno scenario), `partenza`
+  come una tappa, e `settimana`, `tipi` (ognuno con `video`), `mix`, `consigli`, `novita` e `come` con le loro voci, con le
+  date che si leggono; altrimenti, come un file a metà, resta quello di prima (o `{ quando: null }`) e il terminale
+  dice che `crescita.json` non è completo.
 - `commenti`: senza `lettura` si prende la più recente che ha il file di quel video. `nuovi` sono gli `id` che
   non c'erano nella lettura precedente che ha quel file; vuoto se non ce n'è una. 400 senza `video`, 404 se
   non ci sono commenti per quel video o per quella lettura.
@@ -298,39 +351,13 @@ Quanto lavoro di Claude è andato in ogni video: `GET /api/consumi` dà `{ pront
                              "dal": "2026-11-03T08:12:00.000Z", "al": "2026-11-03T11:40:00.000Z" } },
       "senza_video": { "tempo": 80400, "giri": 700, "token": { … } } }
 
-I conti si ricavano dai file delle conversazioni di Claude Code della cartella di lavoro (`~/.claude/projects/<cartella>/<id>.jsonl`, e le
-sottocartelle dei sottoagenti), da terminale o dalla chat di Claude Code, senza distinguerle. Le conversazioni di Mango Code non sono lette: il suo lavoro non è contato. Il server li legge tutti una volta, in sfondo (`pronto` è
-falso finché non ha finito: i conti di allora sono parziali), e poi di ogni file solo ciò che si aggiunge, quando l'osservatore dice che è
-cambiato (a file fermo da un paio di secondi: un giro in corso si vede a pausa). Come ogni altra lettura, la rotta risponde dalla memoria.
-Quando i conti cambiano arriva l'evento `consumi`; l'elenco dei video e la pagina di un video non dipendono da qui.
+I conti si ricavano dai file delle conversazioni di Claude Code della cartella di lavoro (`~/.claude/projects/<cartella>/<id>.jsonl` e le sottocartelle dei sottoagenti), da terminale o dalla chat, senza distinguerle; quelle di Mango Code non si leggono (i suoi modelli girano sul computer e non costano token a Claude). Il server li legge tutti una volta (`pronto` è falso finché non ha finito: i conti di allora sono parziali) e poi di ogni file solo ciò che si aggiunge, a file fermo da un paio di secondi; come ogni lettura, la rotta risponde dalla memoria, e quando i conti cambiano arriva l'evento `consumi`. Claude Code toglie da sé le conversazioni vecchie (di base dopo 30 giorni, `cleanupPeriodDays`): «da sempre» vuol dire «dalle conversazioni che ci sono ancora».
 
-- **Giro.** Un giro è un messaggio del creator (o di un lavoro in sfondo che sveglia Claude) con tutto ciò che Claude fa fino al messaggio
-  dopo. Gli esiti degli strumenti, i comandi e le note del sistema non aprono un giro; un messaggio senza nessuna risposta di Claude
-  (un comando, un'interruzione) non conta.
-- **Tempo di lavoro** (`tempo`, secondi): dal messaggio del creator all'ultima risposta di Claude del giro. Comprende l'attesa degli
-  strumenti (un montaggio, una resa) e di una domanda a cui il creator non ha ancora risposto; non comprende il tempo fra un giro e l'altro
-  (le pause del creator, un lavoro o un sottoagente lasciati in sfondo mentre Claude non fa altro: quando finiscono, il giro in cui Claude
-  risponde conta da sé). Non è il tempo di parete della conversazione. I sottoagenti non aggiungono tempo: ciò che fanno dentro il giro
-  che li ha lanciati è già lì.
-- **Token.** Per ogni richiesta a Claude, una volta sola (una risposta scritta in più pezzi ha la stessa riga d'uso in ognuno; una conversazione ripresa o
-  biforcata ripete richieste di un'altra, che si contano nel file più vecchio, cioè dove sono nate): `scritti` sono ciò che Claude ha scritto, `riletti` il contesto già
-  visto che a ogni richiesta viene riletto (da qui il numero grosso), `nuovi` il contesto messo per la prima volta (`input_tokens` più
-  `cache_creation_input_tokens`). Sono quelli dei sottoagenti, sommati al giro che li ha lanciati (l'id della chiamata che li ha lanciati sta nel
-  loro file di dati; senza quel legame contano da soli, con i video che toccano).
-- **A quale video va un giro.** Ogni giro va a un solo video, e un giro non si divide:
-  1. il video che le chiamate di strumento del giro (e dei suoi sottoagenti) hanno toccato più volte: per il suo percorso (`archivio/video/<slug>/…`,
-     `/api/video/<slug>`, `#/video/<slug>`), con `slug` negli strumenti «video», o come argomento di `python -m motore <comando> <slug>`; a parità, quello
-     della riga di contesto se è fra loro;
-  2. se nessuno strumento ha toccato un video, quello della riga di contesto che la chat manda col messaggio (`docs/CHAT.md`, `contesto`; anche la riga
-     `[Contesto: …]` delle conversazioni salvate): lo sviluppo del motore fatto da dentro la pagina di un video conta per quel video;
-  3. altrimenti il giro non è di nessun video: sta in `senza_video` (tempo e token compresi), e non si ripartisce.
-  Gli strumenti vincono sul contesto perché dicono cosa Claude ha fatto davvero, mentre la pagina aperta nello studio può essere rimasta quella di ieri;
-  da terminale c'è solo il primo criterio. Un `slug` è quello scritto, anche di un video che non c'è più.
+- **Giro**: un messaggio del creator (o di un lavoro in sfondo che sveglia Claude) con tutto ciò che Claude fa fino al messaggio dopo. Gli esiti degli strumenti e le note del sistema non aprono un giro; un messaggio senza risposta di Claude (un comando, un'interruzione) non conta.
+- **`tempo`** (secondi): dal messaggio del creator all'ultima risposta di Claude del giro, con l'attesa degli strumenti e di una domanda senza risposta, senza il tempo fra un giro e l'altro (le pause del creator, un lavoro lasciato in sfondo). I sottoagenti non aggiungono tempo.
+- **`token`**, per ogni richiesta a Claude una volta sola: `scritti` ciò che Claude ha scritto, `riletti` il contesto già visto che a ogni richiesta viene riletto (da qui il numero grosso), `nuovi` il contesto messo per la prima volta (`input_tokens` più `cache_creation_input_tokens`). Quelli dei sottoagenti si sommano al giro che li ha lanciati.
+- **A quale video va un giro**, a uno solo (non si divide): il video che le chiamate di strumento del giro hanno toccato più volte (per il percorso `archivio/video/<slug>/…`, `/api/video/<slug>`, `slug` degli strumenti «video», o argomento di `python -m motore <comando> <slug>`; a parità, quello della riga di contesto); se nessuno strumento ne ha toccato uno, quello della riga di contesto che la chat manda col messaggio (`docs/CHAT.md`, `contesto`); altrimenti il giro sta in `senza_video`. Da terminale c'è solo il primo criterio.
 - **`dal` e `al`**: il primo messaggio e l'ultima risposta dei giri del video.
-- **Mango Code non entra**: le sue conversazioni non hanno questi file (stanno in `archivio/.chat/mango-code.json`, con i messaggi
-  nel suo servizio) e i suoi modelli girano sul computer, non costano token a Claude.
-- **Fin dove arrivano i conti**: Claude Code toglie da sé le conversazioni più vecchie (di base dopo 30 giorni, `cleanupPeriodDays`
-  nelle sue impostazioni): un file tolto esce dai conti, quindi «da sempre» vuol dire «dalle conversazioni che ci sono ancora».
 
 ## La chat
 
@@ -343,7 +370,7 @@ Le rotte `/api/chat` sono in `docs/CHAT.md` (conversazioni con Claude Code, mess
 del file, solo dentro l'archivio. Il file resta aperto solo mentre si legge un pezzo, mai mentre si spedisce: su Windows un file
 aperto non si sostituisce, e un montaggio deve poter riscrivere il video che lo studio sta mostrando. Percorsi assoluti,
 `..`, `\` e `:` sono 400. Non si servono (404, maiuscole o no) `arrivi/` (chiavi, sessioni, registro) e le cartelle nascoste
-(`.chat/` con lo stato della chat, `.git/`), tranne gli allegati della chat in `.chat/allegati/`: passano anche dallo studio sulla rete. `GET /font/…` i caratteri del repo, con le stesse regole. Ogni altra rotta serve
+(`.chat/` con lo stato della chat, `.git/`), tranne gli allegati della chat in `.chat/allegati/`: passano anche dallo studio sulla rete. `GET /font/…` i caratteri, con le stesse regole: prima quelli di `font/` della cartella di lavoro, poi quelli del prodotto. Ogni altra rotta serve
 `studio/dist` (con `index.html` per le rotte dell'interfaccia); se `studio/dist` non c'è, una pagina in
 italiano dice di costruirlo con `bun run --cwd studio build`.
 
@@ -363,7 +390,8 @@ italiano dice di costruirlo con `bun run --cwd studio build`.
     { "tipo": "consumi" }                i conti del lavoro di Claude sono cambiati (sopra, «Consumi»)
     { "tipo": "modelli" }                Mango Code si è acceso o spento: i modelli della chat sono da rileggere (`docs/CHAT.md`, «Mango Code»)
     { "tipo": "comandi" }                i comandi con la barra della chat sono cambiati: da rileggere (`docs/CHAT.md`, «I comandi con la barra»)
-    { "tipo": "profilo" }                `profilo.json` è cambiato e il server ha il profilo nuovo, oppure ora non passa lo schema (`GET /api/profilo`); anche una scrittura di `PUT /api/motori`
+    { "tipo": "vai", "video"?, "scheda"?, "percorso"? }   lo studio porta la finestra su quella pagina o su quel file (`POST /api/apri`, `dove: "browser"`, nell'app)
+    { "tipo": "profilo" }                `profilo.json` è cambiato e il server ha il profilo nuovo, oppure ora non passa lo schema (`GET /api/profilo`); anche una scrittura di `PUT /api/motori` o di `PUT /api/profilo`
     { "tipo": "chat", "id": "…", "evento": … }   una conversazione con Claude Code: messaggi, parti, stato, richieste (`docs/CHAT.md`)
 
 Li genera un osservatore su `archivio/`, sui due `stile.json` (del prodotto e del creator), su `profilo.json`, su `motore/schemi/`, sulle cartelle delle
@@ -398,7 +426,7 @@ guardare dal telefono i video montati, le prove e il copione da leggere:
   il file vi si copia accanto e poi si toglie l'originale. Accetta video, audio e foto fino a 20 GB.
   Se `ffprobe` non legge il file il terminale dice quale file e perché (e all'avvio dice se `ffprobe` non c'è nel PATH): il file entra lo stesso, senza durata, e
   il server la completa da sé appena il file è fermo. Di una HEIC la scheda non porta misure: le dà il motore.
-  Risposte JSON: `201` ricevuto, `401` chiave, `413` troppo grande, `415` genere non accettato, `507` disco
+  La pagina e le frasi di ogni risposta (`messaggio`, `errore`) sono nella lingua del telefono. Risposte JSON: `201` ricevuto, `401` chiave, `413` troppo grande, `415` genere non accettato, `507` disco
   pieno, `400` file vuoto, a metà o illeggibile, `500` il computer non è riuscito a salvarlo. Un invio che il telefono interrompe (Wi-Fi lento, iPhone che sospende
   Comandi rapidi) è un `400` che dice che il collegamento si è interrotto; un errore imprevisto dice la causa (il codice, o «un altro programma tiene aperta la
   cartella» per i permessi di Windows). Ogni rifiuto è una riga di `registro.jsonl` con `motivo` e, per un errore imprevisto, `dettaglio`.
@@ -417,12 +445,12 @@ guardare dal telefono i video montati, le prove e il copione da leggere:
 `qr_carica` (i loro codici QR, in SVG).
 
 La chiave sta in `archivio/arrivi/chiave.json`; ogni richiesta, e ogni file collocato, è una riga di
-`archivio/arrivi/registro.jsonl`.
+`archivio/arrivi/registro.jsonl` (oltre le 1000 righe il file tiene le ultime 500).
 
 ## Lo studio sulla rete
 
 Lo stesso ricevitore (porta `47420`) serve anche lo studio intero (interfaccia, `/api/…`, `/media/…`), per usarlo dal telefono in casa e fuori casa con
-Tailscale. **Spento di base**; si accende dallo studio (Girato, «Lo studio dal telefono»), e la porta si apre per lui anche se gli arrivi restano spenti. Il server interno resta su `127.0.0.1:47431` e per chi lo usa da lì non cambia niente.
+Tailscale. **Spento di base**; si accende dallo studio (Impostazioni › Telefono, «Lo studio dal telefono»), e la porta si apre per lui anche se gli arrivi restano spenti. Il server interno resta su `127.0.0.1:47431` e per chi lo usa da lì non cambia niente.
 
 - **La chiave dello studio** è un'altra da quella degli arrivi (che sta nelle Scorciatoie del telefono): 24 byte casuali, confrontata a tempo costante, in
   `archivio/arrivi/studio-remoto.json` insieme a `acceso` e alle sessioni (di ognuna solo l'impronta SHA-256 e la scadenza; al massimo 20).
@@ -470,38 +498,11 @@ Ogni risultato è un testo JSON compatto (tranne `parole`, che è il testo del m
 ha `isError` vero e una frase in italiano: quella del server, o quella che il motore scrive su stderr, così com'è.
 `slug` è sempre quello di `video_elenco` (lettere minuscole, numeri, trattini).
 
-| strumento | argomenti | risultato |
-|---|---|---|
-| `video_elenco` | — | `[{ slug, titolo, stato, ha_piano, ha_finale }]`, dal più recente (`GET /api/video`) |
-| `video_leggi` | `slug` | `{ slug, scheda, piano, problemi, risolto, risolto_aggiornato, montato, lavoro }`; `montato` è `null` senza video montato, altrimenti `{ file, fatto_il, segue_il_piano, con_copertina }`: il `montato` del dettaglio (`fatto_il` è il suo `quando`), con `segue_il_piano` falso quando il piano o lo stile sono cambiati dopo il montaggio (l'opposto di `piano_dopo_montato`) e `con_copertina` vero quando il file è `con-copertina.mp4`; `problemi` come nel dettaglio (`{ scheda, piano }`, frasi: anche un piano scritto a mano nel file con un riferimento sbagliato); `risolto` è `{ durata, scene: [{ nome, quadro, inizio, durata, animazione }], avvisi }` o `null`: le parole e i tratti non ci sono (`GET /api/video/:slug`) |
-| `video_nuovo` | `titolo`, `riga` (una riga che dice di cosa parla; obbligatoria), `formato` (`video`, di base, o `carosello`), `girato` (facoltativo: file `giorno/nome` da cui parte) | `{ slug, formato, anteprima }`: il video nuovo come proposta (`POST /api/video`, con `girato` come `grezzo`: nasce anche il piano `girato-pieno`, un pezzo per file; un carosello col girato è l'errore del server), con l'indirizzo della sua pagina nello studio e il percorso della sua anteprima, fatta da `python -m motore anteprima-proposta` col titolo e la riga. Se l'anteprima non si fa il video c'è lo stesso e l'errore lo dice, con il comando per rifarla |
-| `scheda_cambia` | `slug`, `campi` (solo quelli da cambiare; `null` toglie) | la scheda nuova; una scheda che lo schema non ammette è un errore con cosa correggere e il file non cambia (`PATCH /api/video/:slug/scheda`) |
-| `piano_scrivi` | `slug`, `piano` (l'oggetto intero) | `{ ok, puo_annullare, puo_rifare }`; un piano non valido è un errore con cosa correggere e il file non cambia (`PUT /api/video/:slug/piano`) |
-| `piano_ritocca` | `slug`, `ritocchi` (`[{ op, path, value? }]`) | il piano nuovo (`PATCH /api/video/:slug/piano`): solo i campi indicati per percorso cambiano; un percorso che non c'è o un piano che non va è l'errore del server e il file non cambia |
-| `piano_annulla` | `slug` | `{ ok, piano, puo_annullare, puo_rifare }`: il piano di prima; errore se è già la prima versione (`POST /api/video/:slug/annulla`) |
-| `valida` | `slug` | `{ valido: true, avvisi: [frase] }`; se il piano non va, l'errore elenca cosa (`python -m motore valida`) |
-| `parole` | `slug` | il testo di `python -m motore parole`: ogni tratto con le sue parole e i loro istanti |
-| `foto` | `slug`, `secondi` (da 1 a 8 numeri, da 0 in su), `video` (`montato`, di base, `anteprima` o `prova`) | per ogni secondo un testo «Secondo N» (con la prova «Secondo N della prova») e l'immagine del montato, dell'ultima anteprima o della prova (`python -m motore foto`, con `--anteprima` o `--prova`). I secondi sono quelli del video montato, salvo nella prova che ha i suoi: nell'anteprima si traducono con `uscite/anteprima.json` (`docs/MOTORE.md`). Errore se il video non è montato o è più corto, se non c'è un'anteprima o non si sa quale pezzo copre, o se un secondo sta fuori da quel pezzo (la frase dice quale copre) |
-| `girato_foto` | `file` (`giorno/nome` nel grezzo), `secondi` (da 1 a 8) | per ogni secondo «Secondo N di <file>» e il fotogramma del file a quel suo secondo (`python -m motore foto-girato`). Errore se il file non c'è o è più corto |
-| `girato_parole` | `file` (`giorno/nome`), `da`, `a` (al più 600 s dopo) | `{ file, da, a, parole: [[parola, da, a]] }`: le parole del file preparato che cadono nella finestra (`GET /api/grezzo/parole`); un file che non c'è o non è preparato è l'errore del server |
-| `ascolta` | `slug` (il montato) oppure `file` (`giorno/nome`), `da`, `a` (al più 10 s dopo) | un testo JSON `{ da, passo, silenzio_db, livello, voce }` e l'immagine dello spettrogramma (`python -m motore ascolta`). Errore senza `slug` né `file`, con tutti e due, o con un pezzo oltre 10 s |
-| `slide` | `slug`, `numeri` (facoltativo, da 1 a 8 numeri dalla 1) | per ogni slide del carosello «Slide <n>» e l'immagine `uscite/slide-<n>.png` rimpicciolita, in ordine di numero: quelle chieste, o le prime 8 (e quante sono in tutto). Se la resa (`carosello`) di quel video è in coda o in corso, prima aspetta che finisca (al più 300 s). Errore se il video non è un carosello, se non ha ancora slide o se ne manca una chiesta |
-| `scene_foto` | `sigla` | un testo JSON `{ sigla, controlli: "superati" \| "falliti", segnalazioni: [frase] }`, poi per ogni fotogramma chiave il nome del file e l'immagine (`bun run --cwd animazioni foto -- <sigla>`, 300 s al massimo). Un controllo fallito non è un errore: esce con 1 e le segnalazioni sono il risultato; è un errore una sigla che non c'è o una pagina che non parte |
-| `lavoro` | `slug`, `comando` (anche `carosello` e `prova`), e per `anteprima` `scena` oppure `da` e `a`, per `copertina` `disegno` e `istante` | subito, come `lavoro_stato`: l'id, lo stato e la stima (`POST /api/video/:slug/lavori`, le stesse regole, anche la scheda che passa a «in lavorazione», salvo con `prova`) |
-| `girato_prepara` | `file` (`giorno/nome`), `ritrascrivi` (facoltativo) | subito, come `lavoro`: id, stato e stima di `prepara-file` per quel file (`POST /api/grezzo/prepara`); un file che non c'è o scritto male è l'errore del server. Prepararlo dalla shell salterebbe la coda: la scheda video è una sola |
-| `girato_scheda` | `file` (`giorno/nome`), `campi` | la scheda nuova del file (`PATCH /api/grezzo/scheda`): solo i campi dati cambiano, `null` toglie; il server la valida. Dopo aver cambiato la `lingua` di un file preparato, le parole si rifanno con `girato_prepara` e `ritrascrivi` |
-| `apri` | `video` (slug) con `scheda` facoltativa, oppure `percorso` di un file dell'archivio | apre la pagina o il file nel browser del creator, già dentro (`POST /api/apri` con `dove: "browser"`): l'unico modo di mostrargli qualcosa nel browser, la chiave non passa mai da chi lo chiede |
-| `girato_scarica` | `url`, `da`, `a` (secondi o `mm:ss`), `nome`; solo `url` è obbligatorio | subito, come `lavoro`: id, stato e stima di `scarica` (`POST /api/grezzo/scarica`, sopra). A lavoro finito (`lavoro_aspetta`) l'ultima riga è `Scaricato: <giorno>/<nome>.mp4`. Un tratto sbagliato, un indirizzo che non è web o yt-dlp mancante sono l'errore del server |
-| `web_testo` | `url`, `lingua` (due lettere) | il testo di un video in rete dai suoi sottotitoli (scritti, se no automatici: `lingua` e `lingua-orig`), senza scaricarlo: una riga per frase nuova, «mm:ss testo» (`server/src/vtt.ts`). Lancia yt-dlp da sé, non passa dalla coda: non usa la scheda video. Errore se yt-dlp manca o il video non ha sottotitoli in quella lingua |
-| `lavoro_stato` | `id` | `{ id, comando, slug, stato: "in coda" \| "in corso" \| "finito", stima?, trascorsi?, fine_prevista?, esito?, errore?, righe }`: le ultime 20 righe; `stima` (secondi, `null` senza storia) in coda e in corso; `trascorsi` (secondi) e `fine_prevista` (l'ora del computer, «15:42», o `null`) in corso; `esito` (`riuscito`, `fallito`, `fermato`, `interrotto`) e `errore` solo se è finito (`GET /api/lavori`); errore se l'id non è né in corso né in coda né fra gli ultimi 20 finiti |
-| `lavoro_aspetta` | `id`, `secondi` (da 1 a 300, di base 60) | come `lavoro_stato`, appena il lavoro finisce (i suoi file sono già nelle letture: `video_leggi` li vede); se il tempo scade prima, lo stato di allora (`in corso`). Ascolta `GET /api/eventi` e rilegge la coda solo quando cambia: niente richieste a intervalli |
+Gli strumenti sono quelli di `server/src/mcp/strumenti.ts`, e argomenti e risultati stanno nella descrizione che il modello legge: `video_elenco`, `video_leggi`, `video_nuovo`, `scheda_cambia`, `piano_scrivi`, `piano_ritocca`, `piano_annulla`, `valida`, `parole`, `foto`, `ascolta`, `slide`, `scene_foto`, `lavoro`, `lavoro_stato`, `lavoro_aspetta`, `apri`, `web_testo` e, per il girato, `girato_foto`, `girato_parole`, `girato_prepara`, `girato_scheda`, `girato_scarica`. Dove c'è una rotta, lo strumento la chiama (`scheda_cambia` è `PATCH /api/video/:slug`, `piano_scrivi` e `piano_ritocca` sono `PUT` e `PATCH …/piano`, `girato_parole`, `girato_prepara`, `girato_scheda` e `girato_scarica` sono le rotte di «Girato»); `girato_foto`, `valida`, `parole`, `foto` e `ascolta` lanciano il motore. `scene_foto` mette in coda `scene-foto` (`POST /api/animazioni/foto`), aspetta il lavoro come `slide` aspetta `carosello` e dà le foto rimpicciolite con le segnalazioni; se l'attesa scade (300 secondi) risponde con l'id del lavoro, e richiamato con quell'id (`lavoro`) dà il risultato senza rifare la resa.
 
 Le immagini sono JPEG con il lato lungo di 960 px al massimo (un verticale 1080×1920 arriva a 540×960): leggibili senza
 riempire il contesto. Le rimpicciolisce `ffmpeg`; la misura sta in `server/src/mcp/processi.ts`.
 
 ## Variabili d'ambiente
 
-`MANGO_ANIMATION_LAVORO` (la cartella di lavoro, obbligatoria: l'archivio è `<lavoro>/archivio`, il profilo `<lavoro>/profilo.json`; senza la cartella il server non parte e lo dice; un profilo che lo schema non ammette no, `GET /api/profilo`), `MANGO_ANIMATION_PORTA`, `MANGO_ANIMATION_PORTA_ARRIVI`,
-`MANGO_ANIMATION_PYTHON` (l'eseguibile, default `python`), `MANGO_ANIMATION_MODULO` (il modulo del motore, default
-`motore`), `MANGO_ANIMATION_CLAUDE` (il percorso del programma `claude` che la chat usa al posto della copia dell'SDK; lo passa l'app, `docs/CHAT.md`). Ai lavori del motore il server passa `MANGO_ANIMATION_LINGUA` (`it` o `en`). Le variabili dell'app sono in `docs/APP.md`. La macchina (schede video, profilo di Chrome) non si indica con variabili: sta in `profilo.json` (`docs/ARCHITETTURA.md`). Un lavoro è `<python> -m <modulo> <comando> <argomenti>` lanciato dalla cartella del codice, con
-`MANGO_ANIMATION_LAVORO` impostata.
+Sono in `docs/ARCHITETTURA.md`, «La cartella di lavoro»: la cartella di lavoro è obbligatoria (senza, il server non parte e lo dice) e il server la passa ai lavori del motore, allo strumento «video» e a Claude.

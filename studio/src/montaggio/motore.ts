@@ -133,6 +133,7 @@ export class MotorePiano {
   private cornice = 0
   private ultimoScena = 0
   private suonava = false
+  private fermo = false
   private mancanti = new Set<string>()
   private versioneScene = ""
   private ritardo = { valore: RITARDO_SALTO_S }
@@ -148,9 +149,16 @@ export class MotorePiano {
     private readonly canvas: HTMLCanvasElement,
     private readonly slot: [Slot, Slot],
     private readonly trasporto: Trasporto,
+    /** Il disegno si ferma con la frase di ciò che non va (uno stile con un colore che non c'è); `null` quando riparte. */
+    private readonly alErrore: (frase: string | null) => void,
   ) {}
 
   imposta(dati: DatiPiano): void {
+    if (this.fermo) {
+      this.fermo = false
+      this.alErrore(null)
+      this.cornice = requestAnimationFrame(this.giro)
+    }
     if (dati.versioneScene !== this.versioneScene) {
       this.versioneScene = dati.versioneScene
       this.mancanti.clear()
@@ -237,14 +245,14 @@ export class MotorePiano {
     if (scena) posiziona(slot.anim, tempoDiScena(scena.ancore, (secondo === null ? tratto.esce : tratto.esce + (s - tratto.da)) - scena.inizio))
   }
 
-  private sincronizza(t: number, suona: boolean): void {
+  private sincronizza(secondo: number, suona: boolean): void {
     const dati = this.dati!
     const tratti = dati.risolto.tratti
     this.saltiVisti = this.trasporto.salti()
     this.daRifare = false
-    const k = Math.max(trattoA(dati.risolto, t), t >= dati.risolto.durata ? tratti.length - 1 : 0)
+    const k = Math.max(trattoA(dati.risolto, secondo), secondo >= dati.risolto.durata ? tratti.length - 1 : 0)
     const tratto = tratti[k]!
-    const s = tratto.da + Math.min(Math.max(t - tratto.esce, 0), tratto.durata)
+    const s = tratto.da + Math.min(Math.max(secondo - tratto.esce, 0), tratto.durata)
     const a = this.attivo
     const giaLi = suona && this.caricato[a] === k && Math.abs(this.slot[a].girato.currentTime - s) < GIA_LI_S
     if (!giaLi) this.carica(a, k, s)
@@ -288,6 +296,16 @@ export class MotorePiano {
 
   private giro = (ora: number) => {
     this.cornice = requestAnimationFrame(this.giro)
+    try {
+      this.passo(ora)
+    } catch (e) {
+      cancelAnimationFrame(this.cornice)
+      this.fermo = true
+      this.alErrore(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  private passo(ora: number): void {
     const dati = this.dati
     if (!dati) return
     const tratti = dati.risolto.tratti
@@ -297,8 +315,8 @@ export class MotorePiano {
       this.disegnaVuoto()
       return
     }
-    let t = trasporto.t()
-    if (this.saltiVisti !== trasporto.salti() || this.daRifare) this.sincronizza(t, suona)
+    let secondo = trasporto.t()
+    if (this.saltiVisti !== trasporto.salti() || this.daRifare) this.sincronizza(secondo, suona)
     const k = this.caricato[this.attivo]
     const tratto = tratti[k]
     if (!tratto) return
@@ -317,23 +335,23 @@ export class MotorePiano {
           this.orologio = ora
           return
         }
-        t = tratto.esce + Math.max(s - tratto.da, 0)
-        trasporto.avanza(Math.min(t, tratto.esce + durataTratto))
+        secondo = tratto.esce + Math.max(s - tratto.da, 0)
+        trasporto.avanza(Math.min(secondo, tratto.esce + durataTratto))
       } else {
-        t += (ora - this.orologio) / 1000
-        if (t >= tratto.esce + durataTratto) {
+        secondo += (ora - this.orologio) / 1000
+        if (secondo >= tratto.esce + durataTratto) {
           this.passa(k)
           this.orologio = ora
           return
         }
-        trasporto.avanza(t)
+        trasporto.avanza(secondo)
       }
-      this.seguiAltri(slot, this.secondoNelFileDiSagoma(tratto, tratto.da + (t - tratto.esce)), scena ? tempoDiScena(scena.ancore, t - scena.inizio) : 0, true)
+      this.seguiAltri(slot, this.secondoNelFileDiSagoma(tratto, tratto.da + (secondo - tratto.esce)), scena ? tempoDiScena(scena.ancore, secondo - scena.inizio) : 0, true)
     } else {
       for (const el of [slot.girato, slot.sagoma, slot.anim]) if (!el.paused) el.pause()
-      const s = tratto.da + Math.min(Math.max(t - tratto.esce, 0), durataTratto)
+      const s = tratto.da + Math.min(Math.max(secondo - tratto.esce, 0), durataTratto)
       posiziona(slot.girato, s)
-      this.seguiAltri(slot, this.secondoNelFileDiSagoma(tratto, s), scena ? tempoDiScena(scena.ancore, t - scena.inizio) : 0, false)
+      this.seguiAltri(slot, this.secondoNelFileDiSagoma(tratto, s), scena ? tempoDiScena(scena.ancore, secondo - scena.inizio) : 0, false)
     }
     this.orologio = ora
     this.suonava = suona
@@ -420,7 +438,7 @@ export class MotorePiano {
           continue
         }
         const contieni = contieniLaVista(strato, vista !== undefined)
-        const f = finestraGirato({ sorgente: misure, vista: vista?.taglio ?? null, area, centro: strato.centro ?? [0.5, 0.5], zoom, avanzamento, contieni })
+        const f = finestraGirato({ sorgente: misure, vista: vista?.taglio ?? null, area, zoom, avanzamento, contieni })
         ctx.save()
         ctx.beginPath()
         ctx.rect(area.x, area.y, area.w, area.h)
@@ -475,9 +493,9 @@ export class MotorePiano {
     if (trovata !== undefined) return trovata
     const teste: MisuraTesta[] = []
     let tutte = true
-    for (const t of dati.risolto.tratti) {
-      const quadro = dati.stile.quadri[dati.risolto.scene[t.scena]?.quadro ?? ""]
-      const nome = t.sagoma?.sorgente ?? t.sorgente
+    for (const tr of dati.risolto.tratti) {
+      const quadro = dati.stile.quadri[dati.risolto.scene[tr.scena]?.quadro ?? ""]
+      const nome = tr.sagoma?.sorgente ?? tr.sorgente
       if (!quadro || nome === null || JSON.stringify(stratoDi(quadro, "sagoma")) !== chiave) continue
       const testa = dati.teste[nome]
       if (testa) teste.push(testa)

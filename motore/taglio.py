@@ -145,11 +145,11 @@ def _resto(forte, da, a):
     return None if da + passo * n == a else n
 
 
-def a_parole(sorgente, pezzo, ij, veri, stile):
+def a_parole(sorgente, pezzo, ij, veri, stile, fps):
     """Il pezzo a parole (le parole i..j-1 della sorgente, coi confini veri dell'allineamento) diventa i suoi tratti di voce:
-    [{da, durata, legato: [db o None, db o None], avvisi: {0: inizio, 1: fine}}], secondi del contenitore arrotondati al fotogramma; `avvisi` dice
+    [{da, durata, legato: [db o None, db o None], avvisi: {0: inizio, 1: fine}}], secondi del contenitore arrotondati al fotogramma (di `fps`, quelli del video); `avvisi` dice
     dove una `rifila` taglia la voce."""
-    ap, fps = stile["taglio"]["a_parole"], stile["formato"]["fps"]
+    ap = stile["taglio"]["a_parole"]
     i, j = ij
     comincia, finisce = veri[i][0], veri[j - 1][1]
     prima = max(veri[i - 1][1], comincia - ap["cerca_prima"]) if i - 1 in veri else comincia - ap["cerca_prima"]

@@ -8,7 +8,9 @@ const sfuggi = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 /** Una parola sola e corta ("ai") nel discorso non è quasi mai il video: il nome da solo si collega se è lungo o ha un trattino. */
 const nomeRiconoscibile = (slug: string) => slug.length >= 5 || slug.includes("-")
 
-function schedaDelFile(resto: string): SchedaVideo | undefined {
+export function schedaDelFile(resto: string): SchedaVideo | undefined {
+  if (resto === "/uscite/prova.mp4") return "prova"
+  if (resto === "/uscite/finale.mp4") return "montaggio"
   if (/^\/uscite\/slide-\d+\.\w+$/.test(resto)) return "slide"
   if (/^\/materiali\/copertina/.test(resto) || /con-copertina/.test(resto)) return "copertina"
   if (/^\/(piano|lavoro\/|storia\/)/.test(resto)) return "montaggio"

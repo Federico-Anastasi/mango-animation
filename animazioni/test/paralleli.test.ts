@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { aGruppi } from "../script/comune";
+import { aGruppi, paralleleSu } from "../script/comune";
+import { stileUnito } from "../script/percorsi";
 
 test("aGruppi fa tutto il lavoro, mai più di quanti alla volta", async () => {
   let insieme = 0;
@@ -21,4 +22,12 @@ test("aGruppi si ferma al primo errore e lo restituisce", async () => {
     if (v === 2) throw new Error("rotto");
   });
   await expect(lavoro).rejects.toThrow("rotto");
+});
+
+test("le scene rese insieme sono i processori divisi per quelli di ogni lavoro, scritti nello stile, e mai meno di una", () => {
+  const stile = stileUnito();
+  expect(stile.parallelismo.processori_per_lavoro).toBe(4);
+  expect(paralleleSu(16, stile)).toBe(4);
+  expect(paralleleSu(16, { ...stile, parallelismo: { processori_per_lavoro: 2 } })).toBe(8);
+  expect(paralleleSu(1, stile)).toBe(1);
 });

@@ -56,7 +56,7 @@ test("da un file vero di Claude Code: la risposta di un comando, che l'SDK non d
       ["system", "s1", "local_command", "<local-command-stdout>Set model to Sonnet</local-command-stdout>"],
       ["user", "u2", undefined, undefined],
     ])
-    expect(messaggiDaSessione(righe ?? [], radice).map((m) => [m.ruolo, m.parti])).toEqual([
+    expect(messaggiDaSessione(righe ?? [], radice, "it").map((m) => [m.ruolo, m.parti])).toEqual([
       ["utente", [{ tipo: "testo", testo: "/model sonnet" }]],
       ["claude", [{ tipo: "testo", testo: "Set model to Sonnet" }]],
       ["utente", [{ tipo: "testo", testo: "ciao" }]],

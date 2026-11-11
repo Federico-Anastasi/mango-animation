@@ -1,6 +1,7 @@
 // La geometria dell'anteprima «Piano»: dove va ogni strato di un quadro sul palco 1080×1920, alle misure di
 // `stile.json`. Funzioni pure: le usa il disegno sul palco (`motore.ts`) e i cartelli dei testi.
 import type { CSSProperties } from "react"
+import { t } from "../lingua"
 import type { Formato, Quadro, Rettangolo, Risolto, ScenaRisolta, Strato, Stile, Tratto, Zoom } from "../tipi"
 
 export interface Rett {
@@ -17,11 +18,11 @@ export interface Misure {
 
 export const comeRett = (r: Rettangolo): Rett => ({ x: r[0], y: r[1], w: r[2], h: r[3] })
 
-/** Il formato di un quadro: quello nominato in `formati`, oppure il verticale di `formato`. */
+/** Il formato di un quadro: quello nominato in `formati`, senza nome il `verticale`. */
 export function formatoDelQuadro(stile: Stile, quadro: Quadro): Formato {
-  if (quadro.formato === undefined) return stile.formato
-  const f = stile.formati?.[quadro.formato]
-  if (!f) throw new Error(`Il formato «${quadro.formato}» non è nello stile.`)
+  const nome = quadro.formato ?? "verticale"
+  const f = stile.formati[nome]
+  if (!f) throw new Error(t("Il formato «{formato}» non è nello stile.", "The format «{formato}» is not in the style.", { formato: nome }))
   return f
 }
 
@@ -31,7 +32,7 @@ export const contieniLaVista = (strato: Extract<Strato, { tipo: "girato" }>, con
 
 export function colore(stile: Stile, nome: string): string {
   const valore = stile.colori[nome]
-  if (valore === undefined) throw new Error(`Il colore «${nome}» non è in stile.`)
+  if (valore === undefined) throw new Error(t("Il colore «{nome}» non è nello stile.", "The color «{nome}» is not in the style.", { nome }))
   return valore
 }
 
@@ -48,29 +49,29 @@ export function aspettoDelCartello(stile: Stile, k: number): CSSProperties {
   }
 }
 
-/** Il secondo della scena animata a `t` secondi dall'inizio della scena nel video. Fra due ancore
+/** Il secondo della scena animata a `secondo` secondi dall'inizio della scena nel video. Fra due ancore
  * l'animazione scorre al suo passo e poi aspetta; prima della prima parte da zero, dopo l'ultima prosegue. */
-export function tempoDiScena(ancore: ScenaRisolta["ancore"], t: number): number {
-  if (ancore.length === 0) return t
+export function tempoDiScena(ancore: ScenaRisolta["ancore"], secondo: number): number {
+  if (ancore.length === 0) return secondo
   const ordinate = [...ancore].sort((a, b) => a[0] - b[0])
-  const dopo = ordinate.findIndex((a) => a[0] > t)
+  const dopo = ordinate.findIndex((a) => a[0] > secondo)
   if (dopo < 0) {
     const ultima = ordinate[ordinate.length - 1]!
-    return ultima[1] + (t - ultima[0])
+    return ultima[1] + (secondo - ultima[0])
   }
   const prima: [number, number] = dopo === 0 ? [0, 0] : ordinate[dopo - 1]!
-  return prima[1] + Math.min(t - prima[0], ordinate[dopo]![1] - prima[1])
+  return prima[1] + Math.min(secondo - prima[0], ordinate[dopo]![1] - prima[1])
 }
 
-/** A che punto del pezzo (0-1) è il video a `t`: serve allo zoom che cresce. */
-export function avanzamentoDelPezzo(risolto: Risolto, indiceTratto: number, t: number): number {
+/** A che punto del pezzo (0-1) è il video a `secondo`: serve allo zoom che cresce. */
+export function avanzamentoDelPezzo(risolto: Risolto, indiceTratto: number, secondo: number): number {
   const tratto = risolto.tratti[indiceTratto]
   if (!tratto) return 0
   const gruppo = risolto.tratti.filter((x) => x.scena === tratto.scena && x.pezzo === tratto.pezzo)
   const totale = gruppo.reduce((somma, x) => somma + x.durata, 0)
   if (totale <= 0) return 0
   const prima = gruppo.filter((x) => x.esce < tratto.esce).reduce((somma, x) => somma + x.durata, 0)
-  return Math.min(Math.max((prima + (t - tratto.esce)) / totale, 0), 1)
+  return Math.min(Math.max((prima + (secondo - tratto.esce)) / totale, 0), 1)
 }
 
 export function scalaDelloZoom(zoom: Zoom | null, avanzamento: number): number {
@@ -83,10 +84,11 @@ export function scalaDelloZoom(zoom: Zoom | null, avanzamento: number): number {
 const dentro = (valore: number, minimo: number, massimo: number) => Math.min(Math.max(valore, minimo), Math.max(minimo, massimo))
 
 /** La parte del fotogramma della sorgente (in px della sorgente) che finisce nello strato: la vista se
- * c'è, altrimenti quanto basta a riempire l'area attorno al centro del quadro; poi lo zoom, attorno al
- * suo centro (frazioni del fotogramma), senza uscire dalla vista. */
-export function finestraGirato(args: { sorgente: Misure; vista: Rettangolo | null; area: Rett; centro: [number, number]; zoom: Zoom | null; avanzamento: number; contieni: boolean }): Rett {
-  const { sorgente, vista, area, centro, zoom, avanzamento, contieni } = args
+ * c'è, altrimenti quanto basta a riempire l'area attorno al centro del fotogramma; poi lo zoom, attorno al
+ * suo centro (frazioni del fotogramma), senza uscire da quella parte. Gli stessi conti di `inquadra` in `motore/quadri.py`
+ * (`motore/prove/test_parita_studio.py` li confronta). */
+export function finestraGirato(args: { sorgente: Misure; vista: Rettangolo | null; area: Rett; zoom: Zoom | null; avanzamento: number; contieni: boolean }): Rett {
+  const { sorgente, vista, area, zoom, avanzamento, contieni } = args
   const base: Rett = vista ? comeRett(vista) : { x: 0, y: 0, w: sorgente.larghezza, h: sorgente.altezza }
   const aspetto = area.w / area.h
   let w = base.w
@@ -95,18 +97,14 @@ export function finestraGirato(args: { sorgente: Misure; vista: Rettangolo | nul
     if (base.w / base.h > aspetto) w = base.h * aspetto
     else h = base.w / aspetto
   }
-  let cx = base.x + centro[0] * base.w
-  let cy = base.y + centro[1] * base.h
+  const x = base.x + (base.w - w) / 2
+  const y = base.y + (base.h - h) / 2
   const scala = scalaDelloZoom(zoom, avanzamento)
-  if (scala > 1) {
-    w /= scala
-    h /= scala
-    if (zoom?.centro) {
-      cx = zoom.centro[0] * sorgente.larghezza
-      cy = zoom.centro[1] * sorgente.altezza
-    }
-  }
-  return { x: dentro(cx - w / 2, base.x, base.x + base.w - w), y: dentro(cy - h / 2, base.y, base.y + base.h - h), w, h }
+  if (scala <= 1) return { x, y, w, h }
+  const [zw, zh] = [w / scala, h / scala]
+  const cx = zoom?.centro ? zoom.centro[0] * sorgente.larghezza : x + w / 2
+  const cy = zoom?.centro ? zoom.centro[1] * sorgente.altezza : y + h / 2
+  return { x: dentro(cx - zw / 2, x, x + w - zw), y: dentro(cy - zh / 2, y, y + h - zh), w: zw, h: zh }
 }
 
 export interface Posa {
@@ -151,8 +149,8 @@ type StratoSagoma = Extract<Strato, { tipo: "sagoma" }>
  * da coprire ancora tutta la larghezza; come in `motore/quadri.py`. `teste` sono le misure delle riprese che il video mette in sagoma con questo strato. */
 export function scalaDellaSagoma(strato: StratoSagoma, palco: Misure, teste: readonly MisuraTesta[]): number {
   const margine = strato.scala_margine ?? 0
-  const scale = teste.map((t) => (palco.altezza - strato.testa) / (palco.altezza - Math.max(0, t.cima - strato.aria) - strato.aria) + margine)
-  if (strato.x === "testa") scale.push(...teste.map((t) => palco.larghezza / (2 * Math.min(t.centro, palco.larghezza - t.centro)) + margine))
+  const scale = teste.map((testa) => (palco.altezza - strato.testa) / (palco.altezza - Math.max(0, testa.cima - strato.aria) - strato.aria) + margine)
+  if (strato.x === "testa") scale.push(...teste.map((testa) => palco.larghezza / (2 * Math.min(testa.centro, palco.larghezza - testa.centro)) + margine))
   return Math.max(strato.scala_minima, ...scale)
 }
 

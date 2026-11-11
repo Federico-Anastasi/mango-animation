@@ -2,10 +2,11 @@
 // Le stesse righe si riconoscono quando la conversazione si rilegge dal suo file.
 import { link, mkdir, symlink } from "node:fs/promises"
 import { basename, isAbsolute, join, parse, relative } from "node:path"
-import { scrivi, statistica } from "../disco"
+import { eOggetto, scrivi, statistica } from "../disco"
+import { dettaglioDi, frase } from "../lingua"
 import { percorsoSicuro } from "../media"
 import { eComando } from "./comandi"
-import { eOggetto } from "./traduzione"
+
 import { ErroreChat, type Parte } from "./tipi"
 
 export const CARTELLA_ALLEGATI = ".chat/allegati"
@@ -70,9 +71,13 @@ export async function collegaAllegato(archivio: string, originale: string): Prom
   try {
     await link(originale, dove)
   } catch (errore) {
-    if (!(eOggetto(errore) && errore["code"] === "EXDEV")) throw new ErroreChat(500, `Non riesco a collegare il file fra gli allegati: ${errore instanceof Error ? errore.message : String(errore)}`)
+    if (!(eOggetto(errore) && errore["code"] === "EXDEV")) {
+      const d = dettaglioDi(errore)
+      throw new ErroreChat(500, frase(`Non riesco a collegare il file fra gli allegati: ${d.it}`, `I cannot link the file among the attachments: ${d.en}`))
+    }
     await symlink(originale, dove, "file").catch((e: unknown) => {
-      throw new ErroreChat(500, `Il file sta su un altro disco e non riesco a collegarlo: ${e instanceof Error ? e.message : String(e)}`)
+      const d = dettaglioDi(e)
+      throw new ErroreChat(500, frase(`Il file sta su un altro disco e non riesco a collegarlo: ${d.it}`, `The file is on another drive and I cannot link it: ${d.en}`))
     })
   }
   return `${CARTELLA_ALLEGATI}/${candidato}`
@@ -81,14 +86,14 @@ export async function collegaAllegato(archivio: string, originale: string): Prom
 /** Controlla gli `allegati` di una richiesta: percorsi relativi all'archivio, file che esistono. */
 export async function risolviAllegati(archivio: string, valore: unknown): Promise<Allegato[]> {
   if (valore === undefined) return []
-  if (!Array.isArray(valore)) throw new ErroreChat(400, "«allegati» deve essere un elenco di file, ciascuno come { percorso }.")
+  if (!Array.isArray(valore)) throw new ErroreChat(400, frase("«allegati» deve essere un elenco di file, ciascuno come { percorso }.", "«allegati» must be a list of files, each as { percorso }."))
   const allegati: Allegato[] = []
   for (const voce of valore) {
     const percorso = eOggetto(voce) ? voce["percorso"] : undefined
-    if (typeof percorso !== "string") throw new ErroreChat(400, "Ogni allegato è un oggetto con il suo «percorso», quello che ha dato il caricamento.")
+    if (typeof percorso !== "string") throw new ErroreChat(400, frase("Ogni allegato è un oggetto con il suo «percorso», quello che ha dato il caricamento.", "Each attachment is an object with its «percorso», the one the upload gave."))
     const assoluto = percorsoSicuro(archivio, percorso)
     const stato = assoluto === null ? null : await statistica(assoluto)
-    if (assoluto === null || !stato?.isFile()) throw new ErroreChat(400, `L'allegato «${percorso}» non c'è: caricalo di nuovo e riprova.`)
+    if (assoluto === null || !stato?.isFile()) throw new ErroreChat(400, frase(`L'allegato «${percorso}» non c'è: caricalo di nuovo e riprova.`, `The attachment «${percorso}» is missing: upload it again and try again.`))
     allegati.push({ percorso, assoluto, tipoImmagine: tipoImmagineDi(percorso), byte: stato.size })
   }
   return allegati
@@ -97,13 +102,13 @@ export async function risolviAllegati(archivio: string, valore: unknown): Promis
 /** Controlla il `contesto` di una richiesta. */
 export function leggiContesto(valore: unknown): Contesto | undefined {
   if (valore === undefined) return undefined
-  if (!eOggetto(valore)) throw new ErroreChat(400, "«contesto» deve essere un oggetto: { video?, vista? }.")
+  if (!eOggetto(valore)) throw new ErroreChat(400, frase("«contesto» deve essere un oggetto: { video?, vista? }.", "«contesto» must be an object: { video?, vista? }."))
   for (const campo of Object.keys(valore)) {
-    if (campo !== "video" && campo !== "vista") throw new ErroreChat(400, `«${campo}» non è un campo del contesto: ci sono «video» e «vista».`)
+    if (campo !== "video" && campo !== "vista") throw new ErroreChat(400, frase(`«${campo}» non è un campo del contesto: ci sono «video» e «vista».`, `«${campo}» is not a field of the context: the fields are «video» and «vista».`))
   }
   const { video, vista } = valore
-  if (video !== undefined && (typeof video !== "string" || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(video))) throw new ErroreChat(400, "Il «video» del contesto è il nome della sua cartella: lettere minuscole, numeri e trattini.")
-  if (vista !== undefined && typeof vista !== "string") throw new ErroreChat(400, "La «vista» del contesto è un testo.")
+  if (video !== undefined && (typeof video !== "string" || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(video))) throw new ErroreChat(400, frase("Il «video» del contesto è il nome della sua cartella: lettere minuscole, numeri e trattini.", "The «video» of the context is the name of its folder: lowercase letters, numbers and hyphens."))
+  if (vista !== undefined && typeof vista !== "string") throw new ErroreChat(400, frase("La «vista» del contesto è un testo.", "The «vista» of the context must be text."))
   return { ...(video === undefined ? {} : { video }), ...(vista === undefined ? {} : { vista }) }
 }
 

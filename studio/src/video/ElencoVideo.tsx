@@ -7,18 +7,19 @@ import { scriviIndirizzo } from "../indirizzo"
 import { t } from "../lingua"
 import { data, durata, istante, numero, pluralizza } from "../testo"
 import type { Scheda, StatoVideo, VoceElenco } from "../tipi"
+import { passoCorto } from "./passi"
 import styles from "./ElencoVideo.module.css"
 
-const gruppi = (): Array<{ stato: StatoVideo; nome: string; vuoto: string }> => [
-  { stato: "in lavorazione", nome: t("In lavorazione", "In progress"), vuoto: t("Nessun video in lavorazione.", "No videos in progress.") },
-  { stato: "proposta", nome: t("Proposte", "Proposals"), vuoto: t("Nessuna proposta.", "No proposals.") },
-  { stato: "pronto", nome: t("Pronti", "Ready"), vuoto: t("Nessun video pronto.", "No videos ready.") },
-  { stato: "pubblicato", nome: t("Pubblicati", "Published"), vuoto: t("Nessun video pubblicato.", "No videos published.") },
-  { stato: "scartato", nome: t("Scartati", "Discarded"), vuoto: t("Nessun video scartato.", "No videos discarded.") },
+const gruppi = (): Array<{ stato: StatoVideo; nome: string }> => [
+  { stato: "in lavorazione", nome: t("In lavorazione", "In progress") },
+  { stato: "proposta", nome: t("Proposte", "Proposals") },
+  { stato: "pronto", nome: t("Pronti", "Ready") },
+  { stato: "pubblicato", nome: t("Pubblicati", "Published") },
+  { stato: "scartato", nome: t("Scartati", "Discarded") },
 ]
 
 /** Per ogni canale, le visualizzazioni dell'ultima lettura. */
-export function ultimiNumeri(scheda: Scheda): Array<{ visualizzazioni: number; canale: string }> {
+function ultimiNumeri(scheda: Scheda): Array<{ visualizzazioni: number; canale: string }> {
   const perCanale = new Map<string, { visualizzazioni: number; t: number }>()
   for (const n of scheda.numeri ?? []) {
     const quando = istante(n.data)
@@ -28,7 +29,7 @@ export function ultimiNumeri(scheda: Scheda): Array<{ visualizzazioni: number; c
   return [...perCanale.entries()].map(([canale, v]) => ({ canale, visualizzazioni: v.visualizzazioni }))
 }
 
-export function CartaVideo({ voce }: { voce: VoceElenco }) {
+function CartaVideo({ voce }: { voce: VoceElenco }) {
   const { scheda } = voce
   const numeri = ultimiNumeri(scheda)
   const senzaAnteprima = scheda.stato === "proposta" && voce.anteprima === null
@@ -39,9 +40,9 @@ export function CartaVideo({ voce }: { voce: VoceElenco }) {
       <span className={styles.testo}>
         <span className={styles.titolo}>{scheda.titolo}</span>
         <span className={styles.meta}>
-          {scheda.formato === "carosello" ? <span>{t("carosello", "carousel")}</span> : voce.durata !== null ? <span className="mono">{durata(voce.durata)}</span> : <span>{t("non ancora montato", "not edited yet")}</span>}
+          {scheda.formato === "carosello" ? <span>{t("carosello", "carousel")}</span> : voce.durata !== null && <span className="mono">{durata(voce.durata)}</span>}
+          {voce.fase && voce.fase.azione !== "fatto" && <span>{passoCorto(voce.fase)}</span>}
           {scheda.serie && <span>{t("serie {serie}", "series {serie}", { serie: scheda.serie })}</span>}
-          {!voce.ha_finale && voce.ha_piano && <span>{t("da montare", "to edit")}</span>}
           {senzaAnteprima && <span className={styles.mancante}>{t("senza anteprima", "no preview")}</span>}
         </span>
         {scheda.stato === "pubblicato" && (
@@ -49,7 +50,7 @@ export function CartaVideo({ voce }: { voce: VoceElenco }) {
             {pubblicata && <span>{t("uscito il {data}", "out on {data}", { data: data(pubblicata.data) })}</span>}
             {numeri.map((n) => (
               <span key={n.canale}>
-                {n.visualizzazioni === 1 ? t("{n} visualizzazioni su {canale}", "{n} view on {canale}", { n: numero(n.visualizzazioni), canale: n.canale }) : t("{n} visualizzazioni su {canale}", "{n} views on {canale}", { n: numero(n.visualizzazioni), canale: n.canale })}
+                {n.visualizzazioni === 1 ? t("1 visualizzazione su {canale}", "1 view on {canale}", { canale: n.canale }) : t("{n} visualizzazioni su {canale}", "{n} views on {canale}", { n: numero(n.visualizzazioni), canale: n.canale })}
               </span>
             ))}
           </span>
@@ -112,7 +113,7 @@ export function ElencoVideo() {
           if (delGruppo.length === 0 && g.stato !== "in lavorazione") return null
           const corpo =
             delGruppo.length === 0 ? (
-              <Vuoto>{g.vuoto}</Vuoto>
+              <Vuoto>{t("Nessun video in lavorazione.", "No videos in progress.")}</Vuoto>
             ) : (
               <ul className={styles.griglia}>
                 {delGruppo.map((v) => (

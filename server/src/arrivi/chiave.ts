@@ -29,6 +29,7 @@ async function chiaveDelFile(cartella: string, file: string): Promise<string> {
 
 export const chiaveArrivi = (cartella: string): Promise<string> => chiaveDelFile(cartella, "chiave.json")
 export const chiaveApi = (cartella: string): Promise<string> => chiaveDelFile(cartella, "chiave-api.json")
+export const chiaveApp = (cartella: string): Promise<string> => chiaveDelFile(cartella, "chiave-app.json")
 export const leggiChiaveApi = (cartella: string): Promise<string | null> => leggiChiave(cartella, "chiave-api.json")
 
 const impronta = (testo: string): Buffer => createHash("sha256").update(testo).digest()

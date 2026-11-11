@@ -1,9 +1,4 @@
 {
-  "formato": {
-    "largo": 1080,
-    "alto": 1920,
-    "fps": 30
-  },
   "formati": {
     "verticale": {
       "largo": 1080,
@@ -242,7 +237,6 @@
     "campione": 5,
     "crf_tratti": 14,
     "preset": "slow",
-    "crf_copertina": 15,
     "anteprima": {
       "crf": 20,
       "preset": "veryfast"
@@ -275,7 +269,8 @@
         "x": 520,
         "y": 1235,
         "largo": 440,
-        "ancora": "sinistra"
+        "ancora": "sinistra",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -315,7 +310,8 @@
         "x": 540,
         "y": 805,
         "largo": 900,
-        "ancora": "centro"
+        "ancora": "centro",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -356,7 +352,8 @@
         "x": 540,
         "y": 805,
         "largo": 900,
-        "ancora": "centro"
+        "ancora": "centro",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -478,7 +475,8 @@
         "x": 540,
         "y": 1075,
         "largo": 440,
-        "ancora": "centro"
+        "ancora": "centro",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -570,7 +568,8 @@
         "x": 540,
         "y": 1380,
         "largo": 900,
-        "ancora": "centro"
+        "ancora": "centro",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -666,7 +665,8 @@
         "y": 980,
         "largo": 1500,
         "ancora": "centro",
-        "corpo": 64
+        "corpo": 64,
+        "contorno": 3
       },
       "titolo": {
         "x": 960,
@@ -738,7 +738,8 @@
         "x": 540,
         "y": 1500,
         "largo": 900,
-        "ancora": "centro"
+        "ancora": "centro",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -849,7 +850,8 @@
         "x": 540,
         "y": 740,
         "largo": 900,
-        "ancora": "centro"
+        "ancora": "centro",
+        "contorno": 3
       },
       "titolo": {
         "x": 540,
@@ -1004,6 +1006,8 @@
     "margine": 1.0,
     "scontorno": {
       "soglia_persona": 0.5,
+      "sopra_il_viso": 0.5,
+      "salto_maschera": 0.2,
       "passo_maschera": 4,
       "memoria_sam": 3,
       "scala_matting": 0.5,
@@ -1025,6 +1029,9 @@
     "lato": 960,
     "soglia_viso": 0.8,
     "morbido": 0.5
+  },
+  "parallelismo": {
+    "processori_per_lavoro": 4
   },
   "pagina": {
     "larghezza": 432,
@@ -1054,6 +1061,12 @@
     "raggio_trimap": 12,
     "soglia_ritaglio": 8,
     "margine_ritaglio": 4
+  },
+  "sticker": {
+    "bordo": 30,
+    "altezza_busto": 0.74,
+    "lati": 0.083,
+    "per_ripresa": 8
   },
   "scarico": {
     "altezza_massima": 1080,

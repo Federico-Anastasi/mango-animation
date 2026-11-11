@@ -3,7 +3,7 @@ import { api } from "../api"
 import { useChiudiFuori } from "../comuni/useChiudiFuori"
 import { registrazione, useCopia } from "../dati"
 import { t } from "../lingua"
-import { istante, tempoLeggibile } from "../testo"
+import { istante, nomeFile, tempoLeggibile } from "../testo"
 import type { ModoRegistrazione } from "../tipi"
 import { dispositivoDaUsare, ricorda, type TipoDispositivo } from "./dispositivi"
 import base from "./PannelloLavori.module.css"
@@ -14,8 +14,6 @@ const modi = (): Array<{ modo: ModoRegistrazione; nome: string; cosa: string }> 
   { modo: "voce", nome: t("Schermo e voce", "Screen and voice"), cosa: t("Lo schermo con la voce dal microfono, in un file solo.", "The screen with your voice from the microphone, in a single file.") },
   { modo: "viso", nome: t("Schermo, voce e viso", "Screen, voice and face"), cosa: t("In più la webcam, in un secondo file.", "Plus the webcam, in a second file.") },
 ]
-
-const nomeFile = (file: string): string => file.split("/").pop() ?? file
 
 /** Il tempo passato da `da`, aggiornato ogni secondo: è un orologio dell'interfaccia, non chiede niente al server. */
 export function Trascorso({ da }: { da: string }) {

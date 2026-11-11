@@ -1,42 +1,37 @@
 # L'interfaccia
 
 Una pagina nel browser su `http://127.0.0.1:47431`. Qui si guarda e si ritocca, e a destra c'è la chat con Claude
-(sotto, «La chat»). Ogni schermata risponde a una domanda sola. L'aspetto è quello di `base`: carta
+(sotto, «La chat»). Ogni schermata risponde a una domanda sola. L'aspetto sta in `src/theme.css`: carta
 `#F1F0EB`, inchiostro `#17171B`, rosso, blu, filo; Archivo per i titoli, Instrument Sans per il testo,
 Chivo Mono per numeri e tempi; niente ombre morbide, sfumature, bagliori; tema scuro dai token.
 
 Lo studio serve a guardare e a decidere; i lavori (preparare, calcolare e montare, controllare, rendere le slide) e i video nuovi si
 chiedono nella chat. Dove servirebbe uno di questi, la pagina dice a che punto è e, una volta per vista, in una riga di testo secondario,
-cosa si può chiedere nella chat («Per montare, rimontare o cambiare il video, chiedilo nella chat.»); nessun bottone scrive nella chat.
+cosa si può chiedere nella chat («Per prepararlo, chiedilo nella chat.»); l'unico bottone che scrive nella chat, e senza mandare, è quello della riga dei passi di un video (sotto).
 A mano restano i ritocchi del montaggio, lo stile, le parole della scheda e i gesti che la chat non fa (fermare un lavoro, registrare,
 togliere una proposta).
 
 ## La cornice
 
-Barra in alto: **Video**, **Girato**, **Pubblico**, **Classifica**, **Crescita**, **Produzione**, **Stile**, **Motori** (a 430 px le voci vanno su due righe); a destra lo stato dei lavori (cosa sta girando e cosa
+Barra in alto: **Video**, **Girato**, **Canale** (solo quando c'è un canale letto: sono Pubblico, Classifica e Crescita), **Produzione**, **Impostazioni** (sotto i 1000 px il menu va da solo sulla seconda riga e i segni di stato salgono accanto al marchio; a 430 px le cinque voci stanno su una riga e solo «Chat» tiene il suo nome fra i segni di stato); a destra, **solo quando servono**, lo stato dei lavori (compare con un lavoro in corso o in coda, e sparisce quando non c'è più niente; se il pannello è aperto resta finché lo si chiude; cosa sta girando e cosa
 aspetta, si apre in un pannello con le ultime righe e «Ferma»; sotto il lavoro in corso, quanto dura e verso che ora finisce
 («circa 4 min, finisce verso le 15:42», dalla stima del server), o che non si sa ancora se non ci sono abbastanza lavori uguali
 finiti; se il piano del video in montaggio è cambiato dopo la partenza,
 la barra dice «Piano cambiato» con un punto esclamativo rosso, e nel pannello, sotto quel lavoro, una frase spiega che il montaggio
-ripartirà da solo, che per non aspettare si ferma con «Ferma» e si chiede nella chat di rimontarlo), lo stato degli arrivi dal telefono, **Chat**
+ripartirà da solo, che per non aspettare si ferma con «Ferma» e si chiede nella chat di rimontarlo), «Telefono pronto» (compare solo quando il telefono può mandare i file e porta al Girato; per collegarlo si usa Impostazioni › Telefono), **Chat**
 (apre e chiude la chat, `Ctrl+J` da qualunque vista; il punto rosso dice che Claude lavora o aspetta una risposta) e
 **Registra**: un pannello dove si sceglie cosa registrare (solo lo schermo, schermo e voce, schermo voce e
 viso) e si avvia; per le voci con il microfono e per il viso anche quale microfono e quale webcam, fra quelli trovati: la scelta si ricorda
 nel browser e vale finché il dispositivo c'è, altrimenti il pannello torna al primo trovato (alla prima webcam non virtuale). Mentre registra la barra mostra il tempo passato e dal pannello si ferma. I file finiscono
 nel girato di oggi.
 
-**Lingua.** L'interfaccia è in italiano e in inglese. Un pulsante accanto al tema (la sigla della lingua in uso, `IT` o `EN`) passa dalla scelta del sistema all'italiano
-all'inglese: senza scelta vale la lingua del sistema (italiano per chi parla italiano, inglese per tutti gli altri); la scelta si ricorda nel browser e cambiandola la pagina si
+**Lingua.** L'interfaccia è in italiano e in inglese. Si sceglie in Impostazioni › Generali: la lingua del sistema, l'italiano o l'inglese; senza scelta vale la lingua del sistema (italiano per chi parla italiano, inglese per tutti gli altri); la scelta si ricorda nel browser e cambiandola la pagina si
 ridisegna da capo. Numeri, tempi e date seguono la lingua (`1,5 s` e `7 ott 2026` in italiano, `1.5 s` e `7 Oct 2026` in inglese). Le frasi che scrivono il server e il motore (un rifiuto, un errore,
-un avviso) escono nella lingua dello studio (`docs/API.md`, «La lingua delle frasi»), e così quelle dell'app e del suo motore di dettatura (`docs/APP.md`, «La dettatura»). I nomi dei quadri dello stile di serie
-(il menu «Quadro del video») hanno il loro nome inglese nello studio (`nomeQuadro`, `src/testo.ts`); un quadro aggiunto dal creator si chiama come l'ha chiamato lui. Restano in italiano i testi dei file di dati (il piano di crescita, le note), quelli di Claude
+un avviso) escono nella lingua dello studio (`docs/API.md`, «La lingua delle frasi»), e così quelle dell'app e del suo motore di dettatura (`docs/APP.md`, «La dettatura»). I nomi dei quadri e dei colori dello stile di serie
+(il menu «Quadro del video», i campioni di Stile) hanno un nome in parole in tutte e due le lingue (`nomeQuadro`, `nomeColore`, `src/testo.ts`); un quadro aggiunto dal creator si chiama come l'ha chiamato lui. Restano in italiano i testi dei file di dati (il piano di crescita, le note), quelli di Claude
 e le eccezioni che `docs/API.md` elenca.
 
-**Cartella dei dati** (solo nell'app, `docs/APP.md`): un bottone con la cartella apre un pannello che dice dove stanno i video e il girato, e
-«Sposta la cartella dei dati…» apre la scelta di sistema. La nuova cartella vale dal prossimo avvio, e all'avvio l'app sposta i file
-prima di accendere il server (con avanzamento e annulla, `docs/APP.md`): il pannello lo dice. Se la cartella è fissata all'avvio (`MANGO_ANIMATION_LAVORO`), il pannello dice che da lì non si cambia e non offre di spostarla.
-
-**Segnala un problema** (solo nell'app, `docs/APP.md`, «Le segnalazioni dei problemi»): un bottone con la bandierina, accanto a lingua e tema, apre un pannello con un campo facoltativo, l'interruttore della schermata e «Invia»; la vista d'errore comune offre lo stesso modulo («Segnala il problema») con il suo messaggio.
+**Segnala un problema** (solo nell'app, `docs/APP.md`, «Le segnalazioni dei problemi»): un bottone con la bandierina, fra i segni di stato, apre un pannello con un campo facoltativo, l'interruttore della schermata e «Invia»; la vista d'errore comune offre lo stesso modulo («Segnala il problema») con il suo messaggio.
 
 **Profilo da correggere**: se `profilo.json` non passa lo schema (`GET /api/profilo`, `valido: false`) sotto la barra compare un avviso rosso: lo studio lavora con l'ultimo profilo buono (o senza),
 si può chiedere nella chat di correggerlo o correggere il file a mano, e sotto stanno le frasi di ciò che non va. Compare e sparisce da solo con l'evento `profilo`; cambiando lingua le frasi si rileggono nella lingua nuova.
@@ -45,10 +40,10 @@ si può chiedere nella chat di correggerlo o correggere il file a mano, e sotto 
 
 Un pannello a destra delle viste (a 1400 e 1000 px), largo 420 px di partenza: si trascina il bordo sinistro (o si usano le frecce sul
 bordo a fuoco; il doppio clic torna alla larghezza di partenza); la larghezza e l'essere aperta si ricordano nel browser. A 430 px la chat
-prende tutto lo schermo, sopra la vista, col bottone «Torna alla vista»; un collegamento a un video scopre la vista. La testata dice il titolo della conversazione e, sotto, come sta («Pronta», «Sta lavorando», «Aspetta una tua risposta»), il tempo di lavoro di Claude in tutta la conversazione, «Sta lavorando · 12:14» (la somma delle risposte: va avanti mentre Claude lavora e resta ferma mentre aspetta il creator, `docs/CHAT.md`, `lavoro`; ogni risposta dice il suo tempo in fondo, «Fatto in 42 s») e quanto è pieno il contesto («Contesto 52%», con una barretta che sopra il 70% diventa arancione e sopra il 90% rossa; senza la misura del modello, «Contesto 146 mila token»; al passaggio, i token esatti e cosa succede quando si riempie). Ha l'elenco delle conversazioni (si riprende una vecchia, anche una aperta da terminale), «Nuova conversazione» e «Chiudi». Solo una conversazione di Mango Code dice con chi si parla: il suo segno e «Mango Code», che lo dice anche l'invito di una conversazione nuova (i motori stanno in `studio/src/chat/motore.ts`). L'assistente di Claude non ha né nome né segno nella chat. Finché una conversazione si sta aprendo, o non si apre, la testata non dice nessun motore e le frasi della chat non ne nominano uno.
+prende tutto lo schermo, sopra la vista, col bottone «Torna alla vista»; un collegamento a un video scopre la vista. La testata dice il titolo della conversazione e, sotto, come sta («Pronta», «Sta lavorando», «Aspetta una tua risposta»), il tempo di lavoro di Claude in tutta la conversazione, «Sta lavorando · 12:14» (la somma delle risposte: va avanti mentre Claude lavora e resta ferma mentre aspetta il creator, `docs/CHAT.md`, `lavoro`; ogni risposta dice il suo tempo in fondo, «Fatto in 42 s») e quanto è pieno il contesto («Contesto 52%», con una barretta che sopra il 70% diventa arancione e sopra il 90% rossa, e da lì dice «meglio una conversazione nuova»; senza la misura del modello, «Contesto 146 mila token»; al passaggio, i token esatti e cosa succede quando si riempie). Ha l'elenco delle conversazioni (si riprende una vecchia, anche una aperta da terminale), «Nuova conversazione» e «Chiudi». Solo una conversazione di Mango Code dice con chi si parla: il suo segno e «Mango Code», che lo dice anche l'invito di una conversazione nuova (i motori stanno in `studio/src/chat/motore.ts`). L'assistente di Claude non ha né nome né segno nella chat. Finché una conversazione si sta aprendo, o non si apre, la testata non dice nessun motore e le frasi della chat non ne nominano uno.
 **Il primo giro**: finché il creator non ha un profilo (`GET /api/profilo`, `presente: false`) la chat si apre da sola, più larga, e manda a Claude
 il primo messaggio; Claude comincia la skill `welcome` (`docs/CHAT.md`, «Il primo giro»). Sopra la conversazione sta un «Salta» discreto, che
-ferma Claude e non fa ripartire il giro; dalla chat vuota «Rifai il primo giro» lo rifà quando si vuole. La scelta di saltare o di aver cominciato si ricorda nel browser.
+ferma Claude e non fa ripartire il giro; dalla chat vuota «Rifai il primo giro» lo rifà quando si vuole. La scelta di saltare o di aver cominciato si ricorda nel browser. La conversazione del primo giro (e quella del «Rifai») parte con l'Opus più recente che l'elenco dei modelli offre, o con «Predefinito» se non ce n'è; il menu lo cambia, e la scelta ricordata per le altre conversazioni non si tocca (se il creator ha scelto Mango Code, resta Mango Code).
 
 Senza una conversazione la chat si apre su un
 invito (cosa fa: «Lavora sui tuoi file e monta i video, con il Claude Code installato sul computer») e sulle ultime conversazioni. Se una conversazione non si apre (per esempio perché è di Mango Code e Mango Code è spento) la chat dice perché, con «Riprova».
@@ -57,62 +52,34 @@ invito (cosa fa: «Lavora sui tuoi file e monta i video, con il Claude Code inst
   tabelle, citazioni; il codice in carattere a spaziatura fissa con «Copia») e arriva a pezzi senza scatti. Il pensiero sta chiuso
   («Ha ragionato»). Ogni strumento è una riga: icona, cosa fa in parole («Legge docs/PIANO.md», «Lancia: bun test», «Video · lavoro
   monta cinque-errori»), «in corso…» finché non finisce (dopo tre secondi diventa «in corso · 0:42» e va avanti da sé), «non riuscito» se è andato storto; un
-  passo che è durato almeno cinque secondi dice quanto («2 min 5 s»), uno breve no; un clic mostra cosa ha chiesto e cosa è tornato.
+  passo che è durato almeno cinque secondi dice quanto («2 min 5 s»), uno breve no; un clic mostra cosa ha chiesto e cosa è tornato. Gli strumenti finiti e riusciti di fila (almeno due, con i pensieri fra l'uno e l'altro) si raccolgono in una sola riga chiusa, «Ha lavorato · 9 passi · 1 min 8 s» (la durata, da quando è partito il primo a quando è finito l'ultimo, se dura almeno cinque secondi), che si apre con un clic sui passi di sempre. Restano sempre in vista lo strumento in corso, quello non riuscito, quelli che mostrano qualcosa (un'immagine, il lavoro in coda, la domanda a scelta, il piano proposto) e le richieste di permesso, che stanno fuori dai messaggi.
   Le immagini degli strumenti (foto dei video, slide) stanno nella conversazione e al clic si aprono a tutto schermo. Scorre da sola in
-  fondo solo se chi legge è già in fondo; se è salito a rileggere resta dov'è e compare «Vai in fondo». Mentre il motore lavora, sotto l'ultimo messaggio,
-  il passo che sta facendo adesso e da quanto (il tempo di tutta la conversazione è nella testata): «Sta pensando · 0:42», da quando è finito
-  l'ultimo strumento o è arrivato l'ultimo messaggio (e, all'inizio, da quando il server dice che è partito il giro, quindi riaprendo la chat
-  non riparte da zero); con uno strumento in corso «Aspetta lo strumento · 0:06», da quando è partito. In una conversazione di Mango
-  Code dice «Mango Code». Alla fine di un giro: «Fatto in 1 min 12 s», o in rosso perché si è fermato.
-- **I tempi attesi.** Un tempo che il creator sta aspettando ha un leggero risalto (un fondo azzurro tenue): la stima di un lavoro nella sua scheda
-  («circa 4 min, finisce verso le 15:42», e «circa 4 min» dopo «In attesa da 1 min 15 s» se è in coda; «più del previsto» se sfora) e nel pannello
-  dei lavori, e quelli che Claude scrive nel testo: una durata approssimata («circa 3 minuti», «~40 s», «qualche minuto», «meno di un minuto»), una durata
-  che la frase dà per ciò che manca («ci vorranno 90 secondi», «tra 2 minuti»), un orario previsto («verso le 15:42», «finisce alle 15:42»), in italiano e in
-  inglese (`studio/src/chat/stime.ts`). Non si segna una durata passata o un fatto («Fatto in 6 minuti», «un video di 40 secondi», «3 minuti fa»), un
-  conteggio («3 video») o un'ora senza contesto («alla scena 15:42»); nel codice, in linea o a blocco, niente. I cronometri sono un orologio della pagina
-  (un solo timer al secondo, acceso solo finché qualcosa corre).
-- **Il modello e l'effort.** Nella testata, sotto il titolo, due menu: **Modello** («Predefinito (Sonnet 5.5)», «Opus 5.5», «Sonnet 5.5», …:
-  i modelli che Claude Code offre, e dopo quelli di Mango Code se è acceso, «Mango Code · …»; una conversazione resta dell'uno o
-  dell'altro; quando il menu li offre tutti e due sono due gruppi, «Claude» e «Mango Code»: è l'unico posto in cui la chat scrive «Claude») ed **Effort** («Predefinito», «Basso», «Medio», «Alto», «Molto alto», «Massimo»: solo i livelli che il modello
-  ha; senza livelli il menu non compare, come con Mango Code). Una conversazione già iniziata offre solo i modelli del suo motore (il server non cambia motore a conversazione aperta); una nuova li offre tutti. Se Mango Code è spento, il menu di una sua conversazione dice «Mango Code (spento)». Cambiano la conversazione aperta dal messaggio dopo, senza interromperla, e l'ultima scelta diventa quella delle
-  conversazioni nuove (ricordata nel browser). Se Claude Code non accetta il cambio i menu restano com'erano e una riga rossa dice perché.
+  fondo solo se chi legge è già in fondo; se è salito a rileggere resta dov'è e compare «Vai in fondo». Mentre il motore lavora, sotto l'ultimo messaggio, il passo che sta facendo adesso e da quanto («Sta pensando · 0:42», «Aspetta lo strumento · 0:06»; il tempo di tutta la conversazione è nella testata); alla fine di un giro «Fatto in 1 min 12 s», o in rosso perché si è fermato.
+- **I tempi attesi.** Una durata che il creator sta aspettando (la stima di un lavoro nella sua scheda e nel pannello dei lavori, e quelle che Claude scrive nel testo: «circa 3 minuti», «verso le 15:42», in italiano e in inglese) ha un leggero risalto (`studio/src/chat/stime.ts`); non lo ha una durata passata, un conteggio o un'ora senza contesto. I cronometri sono un orologio della pagina: un solo timer al secondo, acceso solo finché qualcosa corre.
+- **Il modello e l'effort.** Nella testata due menu: **Modello** (i modelli che Claude Code offre e, se Mango Code è acceso, quelli di Mango Code, in due gruppi «Claude» e «Mango Code»; di Claude il menu mostra «Predefinito» e i tre modelli più recenti, e «Altri…» apre gli altri sotto «Altri» (restano tutti raggiungibili, e se il modello scelto è fra gli altri sono già aperti); i più recenti si riconoscono dalla versione nel nome, «Opus 5.5»; una conversazione già iniziata offre solo quelli del suo motore) ed **Effort** (solo i livelli che il modello ha; senza livelli il menu non compare). Cambiano la conversazione aperta dal messaggio dopo, senza interromperla, e l'ultima scelta vale per le conversazioni nuove (ricordata nel browser). Se Claude Code non accetta il cambio, una riga rossa dice perché.
 - **Le richieste.** La chat salta sempre i permessi di Claude Code (`docs/CHAT.md`, «I permessi»): arrivano le sue domande e, da Mango Code,
   i permessi che le sue regole chiedono. Un permesso dice cosa si vuole fare e ha «Consenti», «Consenti sempre» (per quello strumento, fino alla fine
   della conversazione) e «No», con un campo per dire perché (facoltativo). Una domanda ha le opzioni come bottoni con la loro descrizione,
   «Altro» con un campo di testo, e se ce n'è più d'una un solo «Invia le risposte». Finché non si risponde la conversazione sta ferma e il
   bottone Chat nella barra lo dice, anche a chat chiusa.
-- **I lavori in background.** Quando Claude aspetta un comando lungo o un sottoagente (dopo qualche secondo), accanto a «Sta
-  lavorando · 2:14» compare **«Manda in background»**, e vale anche `Ctrl+B` (solo se c'è qualcosa da spostare; altrimenti il tasto resta al
-  browser): il lavoro continua da solo, Claude va avanti e legge subito ciò che il creator ha scritto. Il messaggio in coda lo dice: «In coda: sarà
-  letto quando finisce il lavoro in corso. Con Ctrl+B si legge subito.» (con Mango Code, che non ha lavori in background: «In coda: Mango Code lo legge appena finisce.») Ogni lavoro in background è una scheda sotto la conversazione: cosa
-  fa, se è un comando o un sottoagente, «In background da 1 min 5 s» che va avanti, e «Ferma»; sparisce da sola quando il lavoro finisce. Se il
-  server rifiuta, una riga rossa dice perché. Con Mango Code non compaiono (`docs/CHAT.md`, «I lavori in background»).
-- **Il campo di testo.** Invio manda, Maiusc+Invio va a capo. Il campo dice con chi si parla solo per Mango Code («Scrivi a Mango Code»; per Claude «Scrivi un messaggio»); mentre il motore lavora si può scrivere e mandare («Scrivi pure: il messaggio va in coda», «Mango Code sta lavorando: …»: il messaggio resta «in coda»
-  finché lo legge) e c'è «Ferma»; mentre aspetta una risposta del creator dice «Aspetta una tua risposta qui sopra». Un'immagine incollata dagli appunti (anche uno screenshot), un file trascinato sul pannello, scelto con la graffetta o
-  (nell'app) copiato in Esplora risorse e incollato, uno o più, diventa un allegato, con anteprima se è un'immagine e la x per toglierlo;
-  il testo copiato resta testo; un allegato da solo basta. Un file incollato oltre i 16 MB (un video) si collega senza copiarlo; uno
-  trascinato oltre i 16 MB non sale, e la riga dell'allegato dice di incollarlo da Esplora risorse. Ciò che è scritto e non mandato resta se si chiude la chat e la si riapre.
-- **Il microfono** (solo nell'app Mango Animation, `docs/APP.md`; nel browser non c'è). Un clic sul microfono accanto alla graffetta, o
-  `Ctrl+Spazio`, comincia a dettare; un altro clic finisce, e il microfono torna subito cliccabile. Mentre ascolta il bottone è rosso e pulsa, e
-  sopra il campo una striscia dice «Ti ascolto» col tempo e il livello della voce. La prima dettatura dopo l'apertura dell'app, mentre il
-  modello si carica (una decina di secondi), la striscia dice «Preparo la dettatura…» e «Puoi già parlare»: il microfono ascolta, le parole
-  compaiono appena è pronta. Le parole entrano nel campo mentre il creator parla (con circa un secondo e mezzo di ritardo sulla prima parola, poi
-  una volta al secondo; sul processore, senza scheda NVIDIA, il doppio), nel punto del cursore o al posto di ciò che è selezionato: la frase
-  in corso si sostituisce man mano che cresce, quando è finita si chiude e la successiva comincia dopo. Se il creator scrive mentre detta, la frase
-  in corso riparte dal cursore di adesso. Le ultime parole che il motore consegna dopo la fine entrano ancora nel campo. Niente parte da
-  solo: il creator rilegge e manda con Invio, e mandare (Invio o «Manda») spegne il microfono: ciò che il motore consegna dopo non torna nel campo
-  vuoto. Il testo lo dà un motore locale (faster-whisper): l'audio non lascia il computer e non serve nessun login. Se manca il microfono o
-  Python, la striscia lo scrive in rosso e il bottone resta com'era. Chiusa la chat il microfono si spegne.
+- **I lavori in background.** Quando Claude aspetta un comando lungo o un sottoagente compare **«Manda in background»** (anche `Ctrl+B`, solo se c'è qualcosa da spostare): il lavoro continua da solo e Claude legge subito ciò che il creator ha scritto. Ogni lavoro in background è una scheda sotto la conversazione, con «Ferma», che sparisce quando il lavoro finisce. Con Mango Code non ci sono (`docs/CHAT.md`, «I lavori in background»).
+- **Il campo di testo.** Invio manda, Maiusc+Invio va a capo (su telefono e tablet Invio va a capo e si manda col pulsante). Mentre il motore lavora si può scrivere: il messaggio resta «in coda» finché lo legge; c'è «Ferma». Un'immagine incollata (anche uno screenshot), un file trascinato, scelto con la graffetta o (nell'app) copiato in Esplora risorse diventa un allegato, con anteprima se è un'immagine e la x per toglierlo. Un file incollato oltre i 16 MB si collega senza copiarlo; uno trascinato oltre i 16 MB non sale e la riga dell'allegato dice di incollarlo da Esplora risorse. Ciò che è scritto e non mandato resta se si chiude la chat e la si riapre. Una pagina può metterci una frase da rileggere (la riga dei passi di un video, «La pagina di un video»): niente parte da solo.
+- **Il microfono** (solo nell'app, `docs/APP.md`, «La dettatura»). Un clic accanto alla graffetta, o `Ctrl+Spazio`, comincia a dettare; un altro finisce. Le parole entrano nel campo mentre il creator parla, nel punto del cursore o al posto della selezione, ma niente parte da solo: il creator rilegge e manda con Invio, che spegne il microfono. Il testo lo dà un motore locale (faster-whisper): l'audio non lascia il computer. Se manca il microfono o Python, la striscia sopra il campo lo scrive in rosso. Chiusa la chat il microfono si spegne.
 - **Cosa sa Claude di dove sei.** Con ogni messaggio parte, senza che il creator lo scriva né lo veda, il video e la scheda che ha aperti
   (`docs/CHAT.md`, «contesto»): «questo carosello» basta.
 - **I video nelle risposte.** Il nome di un video e i percorsi della sua cartella (`archivio/video/<nome>/…`) sono collegamenti che aprono la
   vista giusta. Un lavoro messo in coda da Claude si vede nella conversazione come scheda viva: in attesa, o in corso con quanto va,
-  la stima, la fine prevista e «Ferma»; poi com'è finito.
+  la stima, la fine prevista e «Ferma»; poi com'è finito. Quando Claude fa «guarda» (lo strumento `apri`), dentro l'app la finestra cambia pagina da sola: un video con la sua scheda, un file di `video/…` sulla scheda che lo mostra, uno di `grezzo/…` sul Girato (messaggio `vai`, `docs/API.md`); a 430 px la chat si chiude per far vedere la pagina. Fuori dall'app apre il browser.
+- **I percorsi del computer nelle risposte.** Un file o una cartella del computer scritti da Claude (`file:///…`, `C:\…`, `\\server\…`, `/…`) non sono mai un collegamento che porta
+  la finestra altrove. Se stanno nell'archivio (c'è `archivio/` nel percorso) diventano un pulsante che li mostra in Esplora File
+  (`POST /api/apri`, e la frase del server se non si apre); gli altri si leggono come testo con «Copia». Solo `https:`, `mailto:` e `#…` sono collegamenti. Ogni «Copia» funziona anche dallo studio aperto dal telefono su `http://`, dove il browser non ha gli appunti moderni (si copia da un campo nascosto).
+- **Una pagina che si rompe.** Un'eccezione nel disegno di una vista (o un pezzo di interfaccia che non si scarica) mostra una frase con «Ricarica»
+  al posto della vista; la cornice e la chat restano. Se si rompe la cornice o la chat, la frase prende tutta la finestra.
 
 ## Video — «a che punto sono i miei video?»
 
 Cinque gruppi per stato, in quest'ordine: in lavorazione, proposte, pronti, pubblicati, scartati (chiuso).
-Ogni video è una carta: copertina o miniatura (per un carosello la prima slide, per una proposta la sua anteprima), titolo, durata (o «carosello»), serie, e per i pubblicati data e ultimi
+Ogni video è una carta: copertina o miniatura (per un carosello la prima slide, per una proposta la sua anteprima), titolo, durata (o «carosello»), a che passo è («Passo 3 di 8 · Prova», `fase` di `GET /api/video`; niente per un carosello, uno scartato o un video uscito), serie, e per i pubblicati data e ultimi
 numeri. Una proposta senza anteprima ha accanto un segno tratteggiato, «senza anteprima»: non è un errore, dice che manca l'immagine con cui si presenta (`docs/ARCHIVIO.md`, «L'anteprima»); sparisce da solo appena il file c'è, e un'anteprima rifatta si ricarica da sola. Cerca per titolo; filtra per serie. Sotto il titolo, «Per un video nuovo, chiedilo nella chat.»: il video (o il carosello) nasce dalla chat,
 come proposta e con la sua anteprima. «Dal telefono» (anche nella
 pagina di un video) mostra il codice da inquadrare col telefono nel Wi-Fi di casa: apre la pagina coi video montati,
@@ -121,9 +88,9 @@ ognuno nella versione completa, da salvare nella schermata Home.
 ## La pagina di un video
 
 Testata: titolo (si cambia sul posto), stato (si cambia da un menu), la cartella da copiare per Claude,
-«Apri la cartella», «Dal telefono». Sotto la testata, se la scheda o il piano scritti nel file non passano i controlli, un avviso dice con una frase
+«Apri la cartella», «Dal telefono». Sotto, **la riga dei passi** (`src/video/RigaDeiPassi.tsx`): gli otto passi del metodo (idea, copione, prova, riprese, animazioni, montaggio, correzioni, uscita) con i fatti segnati e quello di adesso in rilievo, e una frase su cosa dire nella chat per andare avanti, con **«Scrivila nella chat»**: apre la chat e mette la frase nel campo (dopo ciò che c'è già scritto, senza ripeterla se c'è) e non la manda (`proponiNellaChat`, `src/chat/bozza.ts`). Il passo lo dice il server, `fase` di `GET /api/video/:slug` (`docs/API.md`): lo studio mostra e basta. Sotto i 700 px di pagina (la chat accanto, il telefono) restano otto segni e «Passo 3 di 8 · Prova»; un video uscito li ha tutti fatti e non ha frase; un carosello e uno scartato non hanno la riga. Sotto la testata, se la scheda o il piano scritti nel file non passano i controlli, un avviso dice con una frase
 semplice di chiederne la correzione nella chat, e il perché preciso (per chi la sistema) sta in un riquadro che si apre a richiesta
-(la scheda mostrata è l'ultima valida); sparisce da solo appena il file è corretto. Sotto, cinque schede.
+(la scheda mostrata è l'ultima valida); sparisce da solo appena il file è corretto. Sotto, cinque schede, e davanti a tutte la **Prova** se c'è. Il video si apre sulla scheda che gli serve: la **Slide** per un carosello, la Prova se non ha ancora un piano, la **Scheda** (il copione) se non ha né piano né file finito, altrimenti il Montaggio.
 
 Un carosello ha tre schede sole: **Slide**, Scheda, File.
 
@@ -138,6 +105,10 @@ Con le slide, una riga dice che per renderle di nuovo si chiede nella chat; ment
 testo nella zona della didascalia, immagini o caratteri che non si caricano): ognuno è un collegamento che porta alla sua slide;
 «Nessun avviso» se sono zero; se la resa non è riuscita, dice perché. Prima di ogni resa non dice niente. Le slide rifatte si
 rivedono da sole, senza ricaricare la pagina.
+
+### Prova — «cosa devo registrare?»
+
+Solo se il video (non un carosello) ha `uscite/prova.mp4`: il video da guardare mentre si registra, con le animazioni e la frase da dire (`docs/MOTORE.md`, `prova`). Se il video non ha ancora un piano, la pagina si apre qui.
 
 ### Montaggio — «com'è montato, e cosa cambio?»
 
@@ -154,16 +125,16 @@ timeline.
     larghezza delle parole può scostarsi di qualche pixel da quella del montato.
   - **Montato**: il video completo che dice il server (`montato` del dettaglio, `docs/API.md`): `uscite/con-copertina.mp4`, che è lo stesso file di `finale.mp4` col primo fotogramma
     della copertina, o `uscite/finale.mp4` se la copertina manca o è di un montaggio più vecchio. Se il piano è cambiato dopo l'ultimo montaggio lo dice, con la data del piano e «Chiedi nella chat di rimontarlo» (lo sa dal server, quindi anche dopo aver ricaricato la pagina).
-- **Montaggio non aggiornato**: se il risolto è più vecchio del piano o dello stile, i ritocchi dei tratti sono bloccati e una riga lo dice. «Il montaggio si sta ricalcolando…» solo se un `risolvi` di questo video gira o aspetta
+- **Montaggio non aggiornato**: se il risolto è più vecchio del piano o dello stile, i ritocchi dei pezzi sono bloccati e una riga lo dice. «Il montaggio si sta ricalcolando…» solo se un `risolvi` di questo video gira o aspetta
   in coda; altrimenti «Il montaggio non segue ancora il piano o lo stile di adesso… chiedilo nella chat» (per esempio dopo un cambio di stile, che non rifà il risolto da solo all'avvio).
 - I file di `uscite/` si chiedono con la data del file nell'indirizzo: un file rifatto si ricarica, non resta
   quello vecchio in memoria del browser.
-- **Timeline**: righello in secondi; una riga per le scene; una per i tratti (il fotogramma d'inizio di quel tratto — finché il server non l'ha fatto, l'immagine del file —, onda della voce,
-  bordi che si trascinano e si agganciano ai confini delle parole; in rosso i bordi che cadono nel
+- **Timeline**: righello in secondi; una riga per le scene; una per i pezzi (il fotogramma d'inizio di quel pezzo — finché il server non l'ha fatto, l'immagine del file —, onda della voce,
+  bordi che si trascinano e si agganciano ai confini delle parole come le conta il motore (i tempi della trascrizione con lo sfasamento del piano, e dove il montaggio ha le parole allineate, i loro); in rosso i bordi che cadono nel
   parlato); una per le parole; una per le battute dei sottotitoli; una per titolo e suoni. La linea rossa del punto in cui sta il video,
   ingrandimento, scorrimento orizzontale dentro la timeline (la pagina non scorre di lato). Tasti, in tutta
-  la scheda tranne dentro un campo: spazio avvia o ferma, frecce (un fotogramma; con Maiusc mezzo secondo),
-  `S` divide il pezzo dove sta la linea rossa, `Canc` toglie il tratto o le parole scelte, `Ctrl+Z` / `Ctrl+Maiusc+Z`.
+  la scheda tranne dentro un campo: spazio avvia o ferma, frecce (un fotogramma dello stile; con Maiusc mezzo secondo; non sulle maniglie che le usano per allargare le colonne),
+  `S` divide il pezzo dove sta la linea rossa, `Canc` toglie il pezzo o le parole scelte, `Ctrl+Z` / `Ctrl+Maiusc+Z`.
   Li dice il suggerimento al passaggio sulle righe della timeline, in parole («Spazio: avvia o ferma ·
   Frecce: un fotogramma avanti o indietro, con Maiusc mezzo secondo · S: dividi qui il pezzo · Canc: togli
   il pezzo o le parole scelte»); annulla e rifai li dicono i loro bottoni.
@@ -172,23 +143,22 @@ timeline.
   su un'altra scena ci passa, e il menu «Porta in un'altra scena» del pannello fa lo stesso (in testa alla scena che viene dopo, in fondo a quella che viene
   prima). Non si sposta l'unico pezzo di una scena, né un pezzo che ha un punto dell'animazione della sua scena (un'ancora); un pezzo senza voce va
   solo in una scena che mostra la sola animazione. Il pezzo tiene la vista che aveva.
-- Un pezzo senza voce (`docs/PIANO.md`) è un tratto con un segno a righe al posto della miniatura, senza onda
+- Un pezzo senza voce (`docs/PIANO.md`) è un pezzo con un segno a righe al posto della miniatura, senza onda
   né bordi da trascinare; il suo pannello dice la durata e offre solo «Togli» e «Sposta»; non ha parole e
   l'anteprima mostra la sola animazione della scena.
-- **Pannello** del tratto scelto: sorgente, da e a al centesimo, vista, zoom (scala e centro, col punto
+- **Pannello** del pezzo scelto: sorgente, da e a al centesimo, vista, zoom (scala e centro, col punto
   da trascinare sull'anteprima), «Porta in un'altra scena», «Dividi qui», «Togli», «Sposta prima / dopo». Senza niente di scelto:
   quadro del video, modo dei sottotitoli, titolo, coda, e gli avvisi del risolto.
 - **Parole**: il parlato del video come testo; un clic porta la linea rossa lì, selezionare e «Togli» le
   toglie dal montaggio, doppio clic corregge come si scrive.
-- In alto «Annulla», «Rifai» e la riga «Per montare, rimontare o cambiare il video, chiedilo nella chat.» («Sto montando…» mentre
-  gira). Ogni ritocco scrive il piano e il risolto si aggiorna da sé; se il risolto non c'è ancora, la scheda lo dice e dice di chiedere
+- In alto «Annulla», «Rifai» e, mentre gira un montaggio, «Sto montando…». Sotto, **«Versioni · 4»** (`src/montaggio/Versioni.tsx`, solo se il piano ha versioni di prima): aperto, un elenco dal più recente con la data e l'ora («In uso adesso, dal 10 nov 2026, 15:30», «Fino al 10 nov 2026, 14:00») e quante scene e quanti pezzi scriveva ogni versione. Ognuna di prima ha **«Guarda»** (mostra com'era, scena per scena, cosa mostra e cosa dice, in sola lettura: niente cambia e niente si rende; non è l'immagine, perché l'anteprima «Piano» si compone dal montaggio calcolato, che per un piano vecchio non c'è) e **«Torna a questa»**, con conferma: il piano torna com'era, quello di adesso resta fra le versioni e il montaggio si ricalcola; il video montato cambia solo quando lo si rimonta. Una versione che non passa più i controlli (un file del girato che non c'è più) non torna e dice perché. Si vede anche quando il piano ha un errore, per tornare a uno che andava (`docs/API.md`, «La storia»). Ogni ritocco scrive il piano e il risolto si aggiorna da sé: un gesto è un solo `PATCH` con i soli campi che ha cambiato (`docs/API.md`), così ciò che Claude ha scritto nel frattempo in altri punti resta, e se ha cambiato proprio quel punto la riga dice «Il piano è cambiato nel frattempo», rilegge il piano e il gesto si rifà; se il risolto non c'è ancora, la scheda lo dice e dice di chiedere
   nella chat di calcolarlo. Un file del piano non ancora preparato è un avviso sotto l'anteprima, chiuso da «Per prepararlo, chiedilo
   nella chat.».
 
 ### Scheda — «cosa so di questo video?»
 
-La proposta (aggancio, centro, chiusa, note), la scaletta, didascalia e hashtag con «Copia», dove deve uscire, le pubblicazioni, i numeri per data in una tabella e il loro
-andamento, **il lavoro di Claude** su questo video (sotto) e le note.
+Il copione (aggancio, centro, chiusa, note; una riga dice che si corregge lì, anche a mano, e che la chat lo rilegge), la scaletta, didascalia e hashtag con «Copia», dove deve uscire, le pubblicazioni, i numeri per data in una tabella e il loro
+andamento e le note.
 
 Si scrivono tutti dalla pagina, e ogni cambio manda la scheda intera al server (`PUT /api/video/:slug/scheda`, validata sullo schema; se la rifiuta la frase dice perché e ciò che
 era scritto resta nel campo). I testi si salvano uscendo dal campo.
@@ -196,14 +166,9 @@ era scritto resta nel campo). I testi si salvano uscendo dal campo.
 - **La scaletta** (passi numerati: cosa aprire, cosa fare, cosa spiegare): ogni campo si scrive, un passo si sposta su e giù e si toglie, e in fondo se ne aggiunge uno scrivendo cosa
   aprire. «Cosa aprire» non può restare vuoto; «cosa fare» e «cosa spiegare» svuotati spariscono dal passo. Senza passi la sezione c'è lo stesso, con il campo per il primo.
 - **Gli hashtag**: si aggiungono scrivendoli (anche più di uno insieme, con o senza `#`, senza doppioni) e si tolgono con la croce. Senza hashtag la lista sparisce dalla scheda.
-- **Dove deve uscire** (`canali`): TikTok, YouTube, X da spuntare. Senza nessun canale la chiave sparisce dalla scheda (lo schema ne vuole almeno uno).
+- **Dove deve uscire** (`canali`): TikTok, Instagram, YouTube, X da spuntare. Senza nessun canale la chiave sparisce dalla scheda (lo schema ne vuole almeno uno).
 - **Dove è uscito** (`pubblicazioni`): per ognuna canale, giorno e ora, indirizzo (con «Apri l'indirizzo») e «Togli»; sotto, una riga per aggiungerne una, dove giorno e ora sono
   obbligatori e il canale parte dal primo dei canali del video. Un canale scritto nel file e fuori dall'elenco si vede e non si perde. Un indirizzo vuoto toglie la chiave.
-
-**Il lavoro di Claude.** Quattro numeri grandi, sommati da tutte le conversazioni di Claude che hanno lavorato sul video (`docs/API.md`, «Consumi»):
-il tempo di lavoro, con quante richieste e da quando a quando; ciò che Claude ha scritto; ciò che ha letto per la prima volta; ciò che ha riletto dalla
-conversazione. I conteggi sono in pezzi di testo («token», spiegati sotto i numeri) a parole: «234 mila», «1,2 milioni». Una nota dice che il lavoro fatto con Mango Code non è contato. Senza conversazioni su
-questo video la sezione lo dice; finché il server legge le conversazioni la prima volta dice che i conti sono parziali. Si aggiorna da sola.
 
 ### Controllo — «c'è qualcosa che non va?»
 
@@ -228,78 +193,47 @@ usato (o «mai usato»). Una foto (HEIC, JPEG, PNG… dall'estensione) si chiama
 altrimenti la miniatura; senza nessuna dice che non è ancora pronta. Una foto non ha né «Tipo» né parlato: restano «Da dove viene», le note e dove è usata.
 Aprendo un video: il lettore (la copia leggera se c'è, altrimenti l'originale; se il browser non lo apre lo dice), il parlato con i tempi (un clic salta lì), le note,
 «Non ancora preparato» se manca qualcosa, e una riga che dice cosa chiedere nella chat: «Per preparare questo file o farne un video nuovo,
-chiedilo nella chat.», o solo il video nuovo se il file è preparato. Filtri: mai usati, per tipo. In testa il riquadro
-degli arrivi: se il telefono può mandare, l'indirizzo, il codice da inquadrare, gli ultimi arrivati. Sotto, **«Lo studio dal telefono»**: spento di base; «Accendi»
+chiedilo nella chat.», o solo il video nuovo se il file è preparato. **«Aggiungi video»** (in testa alla pagina, e nel Girato vuoto) apre la finestra di scelta dei file del computer, più file insieme, e i file lasciati sulla pagina fanno lo stesso: mentre si trascinano, un riquadro tratteggiato copre la vista (non la chat) e dice dove rilasciare. I file entrano nel girato di oggi uno dopo l'altro,
+come quelli del telefono (`docs/API.md`, «Aggiungere un file dal computer»); sotto la testata un elenco mostra per ognuno l'avanzamento (percentuale, byte partiti, «il computer lo sta salvando»), «Aggiunto al girato», oppure perché non è entrato (non è un video, una foto o un audio; è già nel girato; è troppo grande; manca spazio sul computer), e resta finché non lo si chiude con «Chiudi l'elenco». Nell'app un file lasciato sulla finestra arriva col suo percorso e il server lo collega, senza copiarlo se sta sullo stesso disco; nel browser (anche dal telefono) il file parte col suo contenuto. Filtri: mai usati, per tipo. In testa alla lista, **«Cerca nel parlato»** (`src/girato/CercaNelParlato.tsx`, solo se c'è almeno un file): dalla seconda lettera, dopo un attimo, la lista dei giorni e i filtri lasciano il posto ai risultati, raggruppati per file (nome e giorno) con il secondo e la frase intorno, le parole trovate in evidenza (`GET /api/grezzo/cerca`, `docs/API.md`: senza badare a maiuscole e accenti). Un clic apre il file a quel punto (`#/girato?file=…&t=12.5`: il lettore va a quel secondo e il dettaglio torna in vista). Dice quanti sono in tutto se i risultati sono più di cento, cosa provare se non c'è niente, e di quanti file il parlato non si legge. Senza file propone prima **«Aggiungi video»**, poi dice che si può mandare dal telefono, e ha «Apri la cartella del girato». In testa una riga sul telefono, quanto serve mentre si riceve un file: se può mandare («Il telefono può mandare i file») e gli ultimi arrivati; se è spento manda a «collega un telefono», se non è pronto dice perché; in ogni caso un collegamento porta a Impostazioni › Telefono, dove sta il resto.
+Se la scheda di un file non passa i controlli, la pagina del file lo dice con una frase semplice (chiedere nella chat di sistemarla) al posto di «sto ancora leggendo il file»; il perché preciso sta in un riquadro che si apre a richiesta.
+
+## Canale — «come va il mio canale?»
+
+Tre schede di una voce: **Pubblico**, **Classifica**, **Crescita** (`#/canale/pubblico`, `#/canale/classifica`, `#/canale/crescita`; gli indirizzi di prima, `#/pubblico`, `#/classifica`, `#/crescita`, portano alla scheda giusta, e `#/canale` a Pubblico). La voce compare in barra solo quando c'è un canale letto (l'ultima lettura di `GET /api/canale/tiktok` esiste); per un creator nuovo non c'è, e la prima lettura si chiede da Impostazioni › Profilo («Leggi i dati di TikTok» accanto ai canali), da Produzione o dalla chat («aggiorna i dati di TikTok», skill `scarica-tiktok`). Finché non c'è nessuna lettura, da ogni indirizzo del canale la pagina è una sola: cosa farà, e un pulsante che apre la chat con la richiesta giusta. La pagina ha un titolo solo, «Canale»; le schede non ripetono il proprio.
+
+Se una rilettura dal server fallisce e restano i dati di prima, la scheda lo dice in cima («Dati del 3 nov 2026, 10:00: l'ultima rilettura non è riuscita.» con «Riprova»; `DatiVecchi` in `src/comuni/Stati.tsx`) invece di mostrarli come se fossero freschi. Una scheda senza i suoi dati (la classifica o il piano non fatti) dice cosa manca, in due righe, con un pulsante che apre la chat con la richiesta giusta (`src/comuni/PaginaVuota.tsx`); il pulsante segue i canali del profilo (`GET /api/profilo`, `canali`): senza canale «Collega un canale», con TikTok «Leggi i dati di TikTok» (la conversazione è sempre di Claude Code, che ha il browser del creator, anche se di solito si sceglie Mango Code: la scelta ricordata non cambia), con un solo altro canale la pagina dice che la lettura automatica non c'è ancora e propone di far guardare alla chat il profilo pubblico, con il permesso del creator.
+
+- **Pubblico — «cosa dice il pubblico, e come vanno i video usciti?»** L'ultima lettura del canale: quando è stata fatta e cosa le manca; follower e mi piace del profilo; la tabella dei video usciti con data e numeri e, in blu, la crescita dalla lettura precedente; i rapporti ogni 1000 visualizzazioni; i commenti del video scelto, con quelli nuovi segnati (se non si leggono, «Riprova»); i messaggi privati. L'intestazione di una colonna ordina la tabella, un secondo tocco la rovescia.
+- **Classifica — «a che punto sono fra i profili con cui mi confronto?»** I profili in archivio con posto, nome, follower, mi piace, visualizzazioni mediane e punteggio; la riga del creator è segnata e un riquadro fisso dice a che posto è. Si riordina per punteggio o per uno dei numeri.
+- **Crescita — «dove sono su TikTok, dove devo arrivare, e come?»** Il piano del canale (`crescita.json`) accanto alle letture vere: da dove viene (follower e grafico delle letture), dove andare (le tappe, con lo scenario scelto), cosa fare questa settimana, cosa porta follower per tipo di video. I numeri cambiano a ogni lettura; il piano lo riscrive Claude.
+
+## Produzione — «quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»
+
+Legge ciò che sta in archivio e i conti di Claude, e come Canale non aggiorna niente da sé (la lettura del canale si chiede nella chat; senza lettura la pagina lo dice). Un video è **fatto** quando è pronto o pubblicato (data della prima uscita, o dell'ultima modifica). Tre righe (ultima settimana, ultimo mese, da sempre) con quanti video e, in media, il lavoro di Claude; i video fatti con più e con meno lavoro; una riga per video con lavoro, visualizzazioni, minuti di lavoro ogni 1000 visualizzazioni, mi piace e nuovi follower dall'ultima lettura del canale. Si aggiorna da sola; finché il server legge le conversazioni avverte che i conti sono parziali. Il lavoro fatto con Mango Code non è contato. È una voce a sé, e non una scheda di Canale, perché serve a ogni creator, anche a chi non ha un canale letto; senza video fatti dice come cominciare.
+
+## Impostazioni — «dove cambio le cose che valgono sempre?»
+
+Una pagina con cinque sezioni, come schede (`#/impostazioni/profilo`, `/stile`, `/computer`, `/telefono`, `/generali`; `#/impostazioni` apre il Profilo). Gli indirizzi di prima, `#/stile` e `#/motori`, portano a Stile e a Computer, con la voce «Impostazioni» accesa. La pagina non ha un titolo suo: ogni sezione ha il proprio.
+
+- **Profilo — «chi sono per Mango Animation?»** I campi di `profilo.json` che il creator corregge a mano (`docs/PROFILO.md`): il nome e la lingua in cui parla; il pubblico (livello, lingua, testate, separate da virgole); i canali (piattaforma, nome, formato; si aggiungono e si tolgono); cosa non dice, una cosa per riga. Si salvano insieme con «Salva» (`PUT /api/profilo`): il server li fa passare dallo schema e, se non vanno, la frase dice quale campo e perché, e il form resta com'è scritto. «Annulla le modifiche» torna a ciò che c'è nel profilo. Ciò che la chat scrive nel profilo compare qui da solo (evento `profilo`); se cambia mentre si sta scrivendo, la pagina lo dice e offre «Ricarica dal profilo» invece di sostituirlo in silenzio. Il testo sopra i campi ricorda che si può anche dire in chat. Accanto ai canali, con TikTok, «Leggi i dati di TikTok» apre la chat con la richiesta (conversazione di Claude Code): è il modo di avere la prima lettura, che fa comparire «Canale» in barra; per gli altri canali dice che per ora si leggono solo i numeri di TikTok. Senza profilo la sezione propone soltanto il primo giro in chat («Fai il primo giro», che parte con l'Opus come quello che si apre da solo) e non offre i campi: un profilo scritto a mano prima del giro lo farebbe sembrare fatto. Se `profilo.json` non passa lo schema (l'avviso rosso sotto la barra dice perché) la sezione non offre i campi: finché non è corretto da qui non si cambia niente (`PUT /api/profilo` risponde `409`). Le altre sezioni del profilo (`macchina`, `motori`, `fonti_delle_idee`) non si cambiano da qui: `motori` e `macchina` stanno in Computer.
+- **Stile — «quali sono i miei standard?»** La pagina Stile (sotto), ospitata come sezione.
+- **Computer — «cosa fa girare il mio computer?»** La pagina dei motori (sotto), ospitata come sezione.
+- **Telefono — «come collego il telefono?»** Il riquadro **«Arrivi dal telefono»**: spento di base («Collega un telefono» lo accende; «Scollega i telefoni» lo spegne); acceso e pronto, dice che il telefono può mandare i file e mostra l'indirizzo con «Copia l'indirizzo», due codici da inquadrare (**iPhone: la Scorciatoia**, **Qualsiasi telefono: carica dalla pagina**) e gli ultimi arrivati; se non può arrivare dice perché, con «Controlla di nuovo». Sotto, **«Lo studio dal telefono»**: spento di base; «Accendi»
 mostra due strade, **In casa** (stesso Wi-Fi) e **Fuori casa (Tailscale)**, ognuna col suo codice da inquadrare, l'indirizzo e «Copia il link»; il telefono entra una volta col link e poi si ricorda.
 Dice che chi ha il link può far lavorare la chat sul computer. Con «Spegni» lo studio sulla rete smette di rispondere, chi era entrato esce
 subito e il link cambia (riaccendendo si inquadra il codice nuovo); «Rifai la chiave» dà un link nuovo e i telefoni già entrati devono rientrare.
 Senza Tailscale sul computer la strada di fuori casa lo dice; se Windows non lascia entrare dalla rete di Tailscale lo dice e spiega dove sbloccarlo, con «Controlla di nuovo».
-Il riquadro c'è solo aperto dal computer (`127.0.0.1`): dal telefono non si cambia l'accesso. Lo studio dal telefono è lo stesso, alle tre larghezze.
-Se la scheda di un file non passa i controlli, la pagina del file lo dice con una frase semplice (chiedere nella chat di sistemarla) al posto di «sto ancora leggendo il file»; il perché preciso sta in un riquadro che si apre a richiesta.
+Il riquadro dello studio c'è solo aperto dal computer (`127.0.0.1`): dal telefono non si cambia l'accesso. Nel Girato resta solo la riga con cosa arriva.
+- **Generali.** La **cartella dei dati** (solo nell'app, `docs/APP.md`): dice dove stanno i video e il girato, e «Sposta la cartella dei dati…» apre la scelta di sistema. La nuova cartella vale dal prossimo avvio, e all'avvio l'app sposta i file prima di accendere il server (con avanzamento e annulla, `docs/APP.md`): la sezione lo dice. Se la cartella è fissata all'avvio (`MANGO_ANIMATION_LAVORO`), dice che da lì non si cambia e non offre di spostarla. **Lingua e tema**: due scelte, la lingua (del sistema, italiano, inglese) e il tema (del sistema, chiaro, scuro); valgono per questo schermo e si ricordano nel browser. **Guida**: «Apri la guida» apre nel browser la guida (`docs/guida/`) nella lingua dello studio.
 
-## Pubblico — «cosa dice il pubblico, e come vanno i video usciti?»
+### Stile (Impostazioni › Stile)
 
-Ciò che l'ultima lettura del canale ha portato in archivio (skill `scarica-tiktok`): quando è stata fatta e
-cosa le manca; follower e mi piace del profilo; la tabella dei video usciti con la prima immagine, la data
-e i numeri, e in blu la crescita dalla lettura precedente; **i rapporti**, cioè quante volte ogni cosa è
-successa ogni 1000 visualizzazioni (mi piace, commenti, condivisioni, salvati, nuovi follower), con in testa
-la riga dei totali e le ore viste; l'intestazione di una colonna ordina la tabella, e un secondo tocco la
-rovescia; i commenti del video scelto, con le risposte e
-quelli nuovi segnati; i messaggi privati. Il titolo di un video porta alla sua scheda. L'interfaccia non
-aggiorna i dati da sé: dice di chiederlo nella chat («aggiorna i dati di TikTok»).
-
-Senza dati la pagina dice in due righe cosa fa e ha un pulsante che apre la chat con la richiesta giusta; lo stesso fanno Classifica e Crescita (`src/comuni/PaginaVuota.tsx`).
-Con i canali del profilo (`GET /api/profilo`, `canali`) il pulsante cambia: senza un canale, «Collega un canale»; con TikTok, «Leggi i dati di TikTok»; con un solo altro
-canale (Instagram, YouTube, X) la pagina dice che la lettura automatica non c'è ancora e propone di far guardare alla chat il profilo pubblico, con il permesso del creator.
-
-## Classifica — «a che punto sono fra i profili con cui mi confronto?»
-
-I profili della classifica in archivio, dal primo: posto, nome (porta al profilo su TikTok), cosa fa, follower,
-mi piace, visualizzazioni mediane, punteggio. La riga del creator è segnata e ha i numeri dell'ultima lettura del
-canale; un riquadro che resta in alto mentre si scorre dice a che posto è per il punteggio e per ognuno dei tre
-numeri. Si riordina per punteggio o per uno dei numeri; toccando di nuovo la stessa voce l'ordine si rovescia. La
-testata dice di quando sono i numeri degli altri e di quando i suoi; in fondo, come è stata fatta.
-
-## Crescita — «dove sono su TikTok, dove devo arrivare, e come?»
-
-Il piano del canale in archivio (`crescita.json`) accanto alle letture vere. **Da dove vieni**: follower di
-oggi, guadagnati negli ultimi 7 giorni e in media a settimana; il grafico delle letture con la strada dello
-scenario scelto per le quattro settimane dopo e una riga all'uscita dei due video più visti. **Dove andare**:
-il grafico fino all'ultima tappa, con la linea dello scenario scelto e la fascia fra il più basso e il più alto,
-e la tabella delle tappe. **Questa settimana**: i follower da guadagnare (la pendenza dello scenario scelto),
-dove essere al giorno del controllo, quelli guadagnati dal lunedì, e il piano dei giorni. **Cosa porta
-follower**: per ogni tipo di video, follower ogni mille visualizzazioni, parte dei follower e visualizzazioni
-mediane. Poi il mix dei video, i consigli, le novità di TikTok divise fra «da usare adesso», «più avanti» e
-«non per te», e come è fatto il piano. I numeri veri cambiano a ogni lettura; il piano lo riscrive Claude.
-
-## Produzione — «quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»
-
-Un video conta come **fatto** quando è pronto o pubblicato; la data è quella della prima uscita, o dell'ultima modifica se non è ancora uscito.
-Senza video fatti la pagina dice cosa mostra e ha il pulsante «Facciamo il primo video», che apre la chat.
-Le sezioni, dall'alto:
-
-- **Quanti video e quanto lavoro.** Tre righe, l'ultima settimana, l'ultimo mese e da sempre: quanti video fatti e, in media per video, il lavoro
-  di Claude, ciò che ha scritto, letto per la prima volta e riletto. La media è sui video di cui Claude ha un conto; quelli che ne sono privi sono
-  detti accanto al numero dei video. A 430 px ogni riga diventa un blocco con le sue etichette.
-- **I più lunghi e i più rapidi.** I video fatti con più e con meno lavoro di Claude (fino a tre per lista, e mai lo stesso video in
-  tutte e due); non compare con meno di due video.
-- **Quanto costa e quanto rende.** Una riga per ogni video fatto di cui Claude ha un conto: il lavoro di Claude, le visualizzazioni, i minuti di
-  lavoro ogni 1000 visualizzazioni (meno sono, più il video ha reso per quanto è costato), mi piace e nuovi follower, presi dall'ultima lettura del
-  canale per il video con lo stesso `slug`. In cima chi costa di più rispetto a quanto rende; chi non ha i numeri del canale, in fondo, con un trattino.
-  L'intestazione di Lavoro, Visite e Minuti ordina, un secondo tocco rovescia. Le barre accanto a lavoro e visite hanno la stessa scala. A 430 px
-  restano video, lavoro, visite e minuti, senza barre.
-
-Si aggiorna da sola quando cambiano i conti di Claude, l'elenco dei video o le letture del canale. Finché il server legge le conversazioni la prima
-volta avverte che i conti sono parziali; senza letture del canale dice di chiederle nella chat. Il lavoro fatto con Mango Code non è contato, e la nota lo dice.
-
-## Stile — «quali sono i miei standard?»
-
-Ogni quadro disegnato in scala, con le aree degli strati, dei sottotitoli e del titolo; i colori; il
-cartello dei sottotitoli e il titolo resi col testo di prova; le soglie della voce e dei tagli. I valori
-si cambiano e si salvano; un valore non valido dice perché. La persona sta «con la testa al centro» o spostata a mano di tanti px
+In ordine: **Parti da uno stile**, tre cartoline affiancate (Scuro, Caldo, Vivace: `stili-di-partenza.json`, `GET /api/stile/partenza`), ognuna con un cartello di esempio disegnato con i calcoli e il carattere dell'anteprima del montaggio (`src/stile/CartolineDiStile.tsx`) e «Usa questo», che mette nella bozza colori, sottotitoli, titolo e i due caratteri dello stile e lascia il resto (quadri, voce, tagli); si salva con «Salva» e si annulla con «Annulla le modifiche», e se ci sono già modifiche all'aspetto non salvate (che non siano quelle di un'altra cartolina) una riga chiede conferma prima di sostituirle; i colori (con il nome di ciò che fanno: «Sfondo», «Testo», «Linee»; il codice esadecimale sta nel suggerimento del campione); il
+cartello dei sottotitoli e il titolo resi nel loro carattere, con le scelte del carattere (dei sottotitoli e delle animazioni, del titolo: i caratteri del prodotto e quelli del creator col nome letto dal file) e «Aggiungi un carattere», che porta un file `.ttf`, `.otf` o `.woff2` nella cartella dei caratteri del creator (`POST /api/caratteri`; un file che non va o più grande di 5 MB dice perché); la voce, coi livelli in decibel sotto «Avanzate»; i tagli; il video che esce; in fondo ogni quadro disegnato in scala, con le aree degli strati, dei sottotitoli e del titolo. I valori
+si cambiano e si salvano; un valore non valido dice perché. Se lo stile cambia nel file mentre c'è una bozza aperta, una riga lo dice con due scelte, «Tieni le mie» e «Prendi le nuove», e finché non si sceglie «Salva» è spento. La persona sta «con la testa al centro» o spostata a mano di tanti px
 (nel disegno, con la testa al centro, la sagoma è centrata).
 
-## Motori — «cosa fa girare il mio computer?»
+### Computer (Impostazioni › Computer)
 
 Le funzioni pesanti del prodotto (capire cosa dico, tagli precisi sulle parole, la mia sagoma, seguire la persona nelle riprese larghe, voce pulita, dettare alla chat), una per riga: cosa fa e
 cosa succede se è spenta, un interruttore («La voglio» / «Spenta») e, per quelle che hanno una scelta, **dove gira**: «Come decide il computer» (nessuna indicazione nel profilo: la scheda
@@ -316,7 +250,7 @@ In cima, **Questo computer**: scheda NVIDIA con memoria libera e totale e capaci
 ## Regole
 
 - Tre larghezze: 1400, 1000 e 430 px. La pagina non scorre mai in orizzontale; ciò che deve scorrere
-  per conto suo scorre lì.
+  per conto suo scorre lì, e un'ombra sul bordo dice dove c'è altro (le tabelle: `scorri-con-segno`, `src/theme.css`). Chi sta accanto alla chat (a 860 px la vista è larga la metà) si stringe in base alla sua larghezza e non a quella dello schermo: query su contenitore, sull'involucro interno della pagina e non su `<main>`.
 - Un vuoto o un errore dice perché e cosa fare, nella lingua in uso. Niente slug, percorsi, nomi di comandi o di
   file JSON nei testi, tranne la cartella del video da copiare e i nomi dei file in «File» e «Girato».
 - Testi, numeri e date nelle due lingue, da `src/lingua.ts` (`t("italiano", "inglese")`) e `src/testo.ts` (`1,5 s` e `7 ott 2026, 13:15` in italiano; `1.5 s` e `7 Oct 2026, 13:15` in inglese).
@@ -326,14 +260,4 @@ In cima, **Questo computer**: scheda NVIDIA con memoria libera e totale e capaci
 
 ## Verificare nel browser
 
-Gli script di `studio/verifica/` guidano un browser vero (Playwright) e scrivono le foto in `studio/verifica/viste/`; chiudono solo i processi che hanno avviato, per PID. `fotografa.mjs` e `vive.mjs` lavorano contro un finto server su un archivio di esempio (`genera-archivio.ts`, `finto-server.ts`), `appunti-pagina.mjs` contro un server vero che avvia da sé, gli altri contro un server vero già acceso (`fedelta.mjs` anche contro il finto).
-
-- `fotografa.mjs`: ogni vista e scheda a 1400, 1000 e 430 px, nel tema chiaro e nello scuro; fallisce se la pagina scorre in orizzontale, se un controllo esce dal bordo, se una vista resta su «carico…» o se la console ha errori (`bun run foto` in `studio/`).
-- `vive.mjs`: le prove dal vivo di un browser contro il finto server (`bun run vive`).
-- `fedelta.mjs`: quanto l'anteprima «Piano» somiglia al montato. Per ogni secondo dato disegna il «Piano», prende lo stesso fotogramma del montato con ffmpeg e dice il PSNR fra i due, con i due fotogrammi affiancati.
-- `appunti-pagina.mjs`: gli allegati della chat (incolla, trascinamento, anteprima servita dal server) contro il server vero, con una cartella dei dati temporanea e porte di prova; il ponte degli appunti dell'app è finto nella pagina.
-- `chat-vera.mjs`: la chat contro un server vero con un Claude Code vero: si scrive tasto per tasto, si manda, si guarda la risposta, la riga di uno strumento e un file scritto senza permesso.
-- `chat-modello.mjs`: modello, effort, permessi, domande e Chrome della chat, contro un server vero con un Claude Code vero.
-- `vero.mjs`: foto di rotte indicate sul server vero (`node verifica/vero.mjs <cartella> <larghezza> <rotta...>`).
-
-Gli script sul server vero chiedono un server di prova su una porta libera (`MANGO_ANIMATION_PORTA`, mai quella in uso) con la stessa `MANGO_ANIMATION_LAVORO`: la chiave delle API la legge `chiave.mjs` dalla cartella di lavoro. `chat-vera.mjs` e `chat-modello.mjs` aprono conversazioni vere in quella cartella di lavoro (`chat-modello.mjs` dice alla fine l'id da cancellare).
+Gli script di `studio/verifica/` guidano un browser vero (Playwright) e dicono in testa cosa provano. `bun run foto` in `studio/` fotografa ogni vista e scheda a 1400, 1000 e 430 px, nel tema chiaro e nello scuro, e fallisce se la pagina scorre in orizzontale, se un controllo esce dal bordo, se una vista resta su «carico…» o se la console ha errori. Quelli contro un server vero vogliono un server di prova su una porta libera (`MANGO_ANIMATION_PORTA`, mai quella in uso) con la stessa `MANGO_ANIMATION_LAVORO`; chiudono solo i processi che hanno avviato, per PID.

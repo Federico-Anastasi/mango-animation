@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from . import animazioni
 from .archivio import scrivi_con
 from .errori import Errore, dice
-from .media import ffmpeg
+from .media import ffmpeg, scrivi_elenco
 from .profilo import leggi_profilo
 from .sorgenti import Sorgente
 from .sottotitoli import cartelli_del_titolo, cartello, chiave, posto, scheda_cartello
@@ -50,7 +50,7 @@ def tratti_dello_spezzone(archivio, slug, spezzone):
         return [(spezzone["da"], spezzone["a"])]
     sorgente = Sorgente(archivio, slug, f"lo spezzone di {spezzone['file']}", {"file": spezzone["file"]}, {})
     ij = sorgente.scegli(spezzone["minuto"], spezzone["dice"])
-    return [(g["da"], round(g["da"] + g["durata"], 3)) for g in a_parole(sorgente, spezzone, ij, sorgente.veri([ij])[0], archivio.stile)]
+    return [(g["da"], round(g["da"] + g["durata"], 3)) for g in a_parole(sorgente, spezzone, ij, sorgente.veri([ij])[0], archivio.stile, archivio.formato_di({})["fps"])]
 
 
 def copione(archivio, slug, proposta):
@@ -80,7 +80,8 @@ def tempi(voci, stile):
 
 def sequenze(frasi, scene):
     """Le frasi raggruppate per scena: ogni scena comincia alla frase che inizia con le sue parole `dalla` e dura fino alla scena dopo.
-    Le frasi prima della prima scena e quelle di una scena senza animazione sono del creator a tutto fotogramma."""
+    Le frasi prima della prima scena e quelle di una scena senza animazione sono del creator a tutto fotogramma, o, se la scena ha un
+    `girato`, quel girato muto nel posto del girato del suo quadro."""
     inizi, scena_di = {}, {}
     for s in scene:
         k = next((k for k, f in enumerate(frasi) if chiave(f["testo"]).startswith(chiave(s["dalla"]))), None)
@@ -90,11 +91,16 @@ def sequenze(frasi, scene):
         if inizi and k <= max(inizi):
             raise Errore(f"le scene della proposta vanno in ordine di copione: «{s['dalla']}» viene prima della scena che la precede",
                          f"the scenes of the proposal go in script order: «{s['dalla']}» comes before the scene that precedes it")
+        if s.get("girato") and s["animazione"] is not None:
+            raise Errore(f"la scena «{s['animazione']}» ha sia un'animazione sia un girato: il girato muto va sotto le frasi senza scena animata",
+                         f"the scene «{s['animazione']}» has both an animation and footage: muted footage goes under sentences without an animated scene")
         inizi[k], scena_di[k] = s["animazione"], s
     gruppi = []
     for k, f in enumerate(frasi):
         if not gruppi or k in inizi:
-            gruppi.append({"animazione": inizi.get(k), "parole": scena_di.get(k, {}).get("parole", {}), "frasi": []})
+            s = scena_di.get(k, {})
+            gruppi.append({"animazione": inizi.get(k), "parole": s.get("parole", {}), "frasi": [],
+                           **({"girato": s["girato"], "quadro": s.get("quadro")} if s.get("girato") else {})})
         gruppi[-1]["frasi"].append(f)
     for n, g in enumerate(gruppi):
         g["da"] = g["frasi"][0]["da"]
@@ -138,6 +144,8 @@ def _pezzo(archivio, gruppo, quadro, area, formato, cartella, n):
     L, A, fps = formato["largo"], formato["alto"], formato["fps"]
     durata = gruppo["a"] - gruppo["da"]
     codifica = ["-t", f"{durata:.3f}", "-r", fps, "-c:v", "libx264", "-preset", p["preset"], "-crf", p["crf"], "-pix_fmt", "yuv420p", "-an", "-y", uscita]
+    if gruppo.get("girato"):
+        return _pezzo_di_girato(archivio, gruppo, quadro, formato, codifica)
     if gruppo["animazione"] is None:
         ffmpeg("-loop", "1", "-framerate", fps, "-i", cartella / "creator.png", *codifica)
         return uscita
@@ -155,23 +163,47 @@ def _pezzo(archivio, gruppo, quadro, area, formato, cartella, n):
     return uscita
 
 
+def _pezzo_di_girato(archivio, gruppo, quadro_proposta, formato, codifica):
+    """Il fondo di una scena con un girato muto sotto le frasi (un podcast, un keynote che il creator racconta con la sua voce): il girato
+    scorre dal secondo `da` del file nel posto del girato del quadro della scena (`quadro`, altrimenti quello della proposta), senza audio.
+    Se il file finisce prima, resta sull'ultimo fotogramma."""
+    nome = gruppo.get("quadro")
+    quadro = archivio.stile["quadri"].get(nome) if nome else quadro_proposta
+    if quadro is None:
+        raise Errore(f"il quadro «{nome}» della scena col girato non c'è in stile.json", f"the frame «{nome}» of the scene with footage is not in stile.json")
+    strato = next((s for s in quadro["strati"] if s["tipo"] == "girato"), None)
+    if strato is None:
+        raise Errore(f"il quadro «{nome or 'della proposta'}» non ha uno strato `girato`: il girato della scena «{gruppo['frasi'][0]['testo'][:40]}…» non avrebbe dove stare",
+                     f"the frame «{nome or 'of the proposal'}» has no `girato` layer: the footage of the scene «{gruppo['frasi'][0]['testo'][:40]}…» would have nowhere to go")
+    L, A, fps = formato["largo"], formato["alto"], formato["fps"]
+    x, y, largo, alto = strato["area"]
+    durata = gruppo["a"] - gruppo["da"]
+    # Al vivo il girato riempie il suo posto e si taglia ai bordi, come nel montaggio; altrimenti ci sta dentro intero.
+    adatta = f"force_original_aspect_ratio=increase,crop={largo}:{alto}" if strato.get("al_vivo") else "force_original_aspect_ratio=decrease"
+    ffmpeg("-ss", f"{gruppo['girato']['da']:.3f}", "-t", f"{durata:.3f}", "-i", archivio.grezzo(gruppo["girato"]["file"]), "-filter_complex",
+           f"color=c={_esadecimale(archivio, quadro['fondo'])}:s={L}x{A}:r={fps}[f];"
+           f"[0:v]setpts=PTS-STARTPTS,fps={fps},scale={largo}:{alto}:{adatta},tpad=stop_mode=clone:stop_duration={durata:.3f}[g];"
+           f"[f][g]overlay=x={x}+({largo}-overlay_w)/2:y={y}+({alto}-overlay_h)/2,trim=duration={durata:.3f}", *codifica)
+    return codifica[-1]
+
+
 def _pezzo_di_spezzone(archivio, quadro, area, formato, cartella, n, durata, file, inizio, fermo):
     """Un tratto col girato di uno spezzone intero dentro l'area del girato, sul fondo del quadro: lo spezzone che scorre con la sua voce,
     o (`fermo`) il suo fotogramma al secondo `inizio`, muto, mentre parla il creator. Il resto del quadro, il posto del creator, resta vuoto."""
-    p, uscita = archivio.stile["prova"], cartella / f"pezzo-{n:02d}.mp4"
+    p, uscita, campioni = archivio.stile["prova"], cartella / f"pezzo-{n:02d}.mp4", archivio.stile["voce"]["campioni_audio"]
     L, A, fps = formato["largo"], formato["alto"], formato["fps"]
     x, y, largo, alto = area
     if fermo:
-        ingressi = ["-ss", f"{inizio:.3f}", "-i", archivio.grezzo(file), "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+        ingressi = ["-ss", f"{inizio:.3f}", "-i", archivio.grezzo(file), "-f", "lavfi", "-i", f"anullsrc=r={campioni}:cl=stereo"]
         video, audio = f"[0:v]trim=end_frame=1,setpts=PTS-STARTPTS,fps={fps},tpad=stop_mode=clone:stop_duration={durata:.3f}", "[1:a]anull"
     else:
         ingressi = ["-ss", f"{inizio:.3f}", "-t", f"{durata:.3f}", "-i", archivio.grezzo(file)]
-        video, audio = f"[0:v]setpts=PTS-STARTPTS,fps={fps}", "[0:a]aresample=48000,aformat=channel_layouts=stereo,apad"
+        video, audio = f"[0:v]setpts=PTS-STARTPTS,fps={fps}", f"[0:a]aresample={campioni},aformat=channel_layouts=stereo,apad"
     ffmpeg(*ingressi, "-filter_complex",
            f"color=c={_esadecimale(archivio, quadro['fondo'])}:s={L}x{A}:r={fps}[f];{video},scale={largo}:{alto}:force_original_aspect_ratio=decrease[g];"
            f"[f][g]overlay=x={x}+({largo}-overlay_w)/2:y={y}+({alto}-overlay_h)/2,trim=duration={durata:.3f}[v];{audio}[a]",
            "-map", "[v]", "-map", "[a]", "-t", f"{durata:.3f}", "-r", fps, "-c:v", "libx264", "-preset", p["preset"], "-crf", p["crf"], "-pix_fmt", "yuv420p",
-           "-c:a", "aac", "-ar", 48000, "-ac", 2, "-y", uscita)
+           "-c:a", "aac", "-ar", campioni, "-ac", 2, "-y", uscita)
     return uscita
 
 
@@ -290,7 +322,7 @@ def prova(archivio, slug, avanza=print):
     else:
         _cartello_del_creator(archivio, L, A, cartella / "creator.png")
         pezzi = [_pezzo(archivio, g, quadro, area, formato, cartella, n) for n, g in enumerate(gruppi)]
-    (cartella / "pezzi.txt").write_text("".join(f"file '{f.as_posix()}'\n" for f in pezzi), encoding="utf-8")
+    scrivi_elenco(cartella / "pezzi.txt", pezzi)
     disegni = _frasi_disegnate(archivio, quadro, frasi)
     disegna, colore_spezzone, pausa = _disegnatore(archivio, quadro), archivio.colore(stile["prova"]["colori"]["spezzone"]), stile["prova"]["pausa"]
     tradotti = [(s["da"], s["a"] + pausa, [disegna(s["spezzone"]["testo"], [colore_spezzone] * len(s["spezzone"]["testo"].split()))] if s["spezzone"].get("testo") else [])

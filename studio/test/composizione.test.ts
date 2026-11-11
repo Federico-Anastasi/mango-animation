@@ -33,19 +33,19 @@ describe("zoom e finestra del girato", () => {
   const area = { x: 0, y: 170, w: 1080, h: 810 }
 
   it("senza vista riempie l'area attorno al centro", () => {
-    const f = c.finestraGirato({ sorgente, vista: null, area, centro: [0.5, 0.5], zoom: null, avanzamento: 0, contieni: false })
+    const f = c.finestraGirato({ sorgente, vista: null, area, zoom: null, avanzamento: 0, contieni: false })
     expect(f.h).toBe(1080)
     expect(f.w).toBeCloseTo(1440)
     expect(f.x).toBeCloseTo(240)
   })
 
   it("la vista è il taglio da cui si parte", () => {
-    const f = c.finestraGirato({ sorgente, vista: [720, 280, 960, 720], area, centro: [0.5, 0.5], zoom: null, avanzamento: 0, contieni: false })
+    const f = c.finestraGirato({ sorgente, vista: [720, 280, 960, 720], area, zoom: null, avanzamento: 0, contieni: false })
     expect(f).toEqual({ x: 720, y: 280, w: 960, h: 720 })
   })
 
   it("lo zoom stringe la finestra attorno al suo centro, senza uscire dalla vista", () => {
-    const f = c.finestraGirato({ sorgente, vista: [720, 280, 960, 720], area, centro: [0.5, 0.5], zoom: { scala: 2, centro: [0.99, 0.1] }, avanzamento: 0, contieni: false })
+    const f = c.finestraGirato({ sorgente, vista: [720, 280, 960, 720], area, zoom: { scala: 2, centro: [0.99, 0.1] }, avanzamento: 0, contieni: false })
     expect(f.w).toBe(480)
     expect(f.x).toBe(720 + 960 - 480)
     expect(f.y).toBe(280)
@@ -58,7 +58,7 @@ describe("zoom e finestra del girato", () => {
   })
 
   it("`contieni` tiene tutto il fotogramma e lo centra nell'area", () => {
-    const f = c.finestraGirato({ sorgente, vista: null, area: { x: 0, y: 250, w: 1080, h: 1160 }, centro: [0.5, 0.5], zoom: null, avanzamento: 0, contieni: true })
+    const f = c.finestraGirato({ sorgente, vista: null, area: { x: 0, y: 250, w: 1080, h: 1160 }, zoom: null, avanzamento: 0, contieni: true })
     expect(f).toEqual({ x: 0, y: 0, w: 1920, h: 1080 })
     const posa = c.posaNellArea({ x: 0, y: 250, w: 1080, h: 1160 }, f, true)
     expect(posa.destinazione.w).toBe(1080)

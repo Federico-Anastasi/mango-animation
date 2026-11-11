@@ -9,7 +9,7 @@ export type SceltaLingua = "sistema" | Lingua
 const CHIAVE = "mango-animation.lingua"
 const ordine: readonly SceltaLingua[] = ["sistema", "it", "en"]
 
-export function leggiScelta(): SceltaLingua {
+function leggiScelta(): SceltaLingua {
   try {
     const salvata = localStorage.getItem(CHIAVE)
     return ordine.find((l) => l === salvata) ?? "sistema"
@@ -41,8 +41,6 @@ export function scegliLingua(nuova: SceltaLingua): void {
   }
   applica(nuova)
 }
-
-export const prossimaScelta = (attuale: SceltaLingua): SceltaLingua => ordine[(ordine.indexOf(attuale) + 1) % ordine.length]!
 
 /** La lingua in uso adesso. */
 export const lingua = (): Lingua => corrente

@@ -33,10 +33,10 @@ export function Andamento({ numeri }: { numeri: Numeri[] }) {
           0
         </text>
         <text x={MARGINE.sinistra} y={ALTO - 6} className={styles.testo}>
-          {data(t0)}
+          {data(t0 / 1000)}
         </text>
         <text x={LARGO - MARGINE.destra} y={ALTO - 6} textAnchor="end" className={styles.testo}>
-          {data(t1)}
+          {data(t1 / 1000)}
         </text>
         {canali.map((canale, i) => {
           const dei = punti.filter((p) => p.canale === canale).sort((a, b) => a.t - b.t)

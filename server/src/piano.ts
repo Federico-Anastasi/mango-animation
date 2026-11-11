@@ -24,6 +24,7 @@ export interface Pezzo {
 export interface Scena {
   nome: string
   quadro?: string
+  animazione?: string
   vista?: string
   pezzi: Pezzo[]
   ancore?: [string, number, number][]
@@ -161,3 +162,6 @@ export function controllaCompleto(piano: Piano): Frase[] {
 
 /** I file del girato (relativi a `grezzo/`, con `/`) che il piano usa. */
 export const fileDelPiano = (piano: Piano): string[] => Object.values(piano.sorgenti ?? {}).map((s) => s.file.replaceAll("\\", "/"))
+
+/** I quadri che il piano usa: quello di base e quelli delle scene, senza doppioni. */
+export const quadriDelPiano = (piano: Piano | null): string[] => [...new Set([piano?.quadro, ...(piano?.scene ?? []).map((s) => s.quadro)].filter((q): q is string => q !== undefined))]

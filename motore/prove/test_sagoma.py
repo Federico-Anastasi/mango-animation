@@ -17,10 +17,17 @@ PERSONA = (slice(600, 1900), slice(300, 800))
 
 @pytest.fixture
 def scontornatore_finto(monkeypatch):
-    """Lo scontorno senza la rete: la persona è sempre lo stesso rettangolo. Conta i fotogrammi che gli passano."""
-    conta = {"aperto": 0, "fotogrammi": 0}
+    """Lo scontorno senza la rete: la persona è sempre lo stesso rettangolo. Conta i fotogrammi che gli passano; ai primi `nessuno` fotogrammi che gli si
+    chiede di guardare risponde che non vede nessuno."""
+    conta = {"aperto": 0, "fotogrammi": 0, "nessuno": 0}
 
     class Finto:
+        def vede_persona(self, rgb):
+            if conta["nessuno"]:
+                conta["nessuno"] -= 1
+                return False
+            return True
+
         def intervallo(self, fotogrammi):
             for rgb in fotogrammi:
                 conta["fotogrammi"] += 1
@@ -77,7 +84,7 @@ def test_si_scontornano_solo_i_tratti_montati(archivio, scrivi_piano, prepara_si
     file = prepara_sintetico("tempo", PAROLE_TEMPO, sagoma=False)
     scrivi_piano("s", piano(file, (0.6, 2.4)))
     monta_con_animazioni(archivio, "s", tmp_path)
-    margine, fps = archivio.stile["sagoma"]["margine"], archivio.stile["formato"]["fps"]
+    margine, fps = archivio.stile["sagoma"]["margine"], archivio.stile["formati"]["verticale"]["fps"]
     [pezzo] = pezzi(archivio, file)
     da, a = pezzo["da"], pezzo["a"]
     assert da == pytest.approx(max(0.0, 0.6 - margine), abs=0.05) and a < 2.4 + margine + 0.1 and pezzo["inizio"] == da
@@ -86,6 +93,30 @@ def test_si_scontornano_solo_i_tratti_montati(archivio, scrivi_piano, prepara_si
     assert fotogrammi(sagoma) == pytest.approx((a - da) * fps, abs=1) and info(sagoma)["durata"] < 8 / 2
     assert alfa(sagoma, 1.0 - da)[1000, 500] > 200
     assert not (archivio.preparati(file) / "sagoma.webm").exists()
+
+
+def test_se_all_inizio_del_margine_non_c_e_nessuno_lo_scontorno_parte_quando_la_persona_entra(archivio, scrivi_piano, prepara_sintetico, scontornatore_finto, tmp_path):
+    file = prepara_sintetico("tempo", PAROLE_TEMPO, sagoma=False)
+    scrivi_piano("s", piano(file, (1.6, 2.4)))
+    scontornatore_finto["nessuno"] = 2
+    monta_con_animazioni(archivio, "s", tmp_path)
+    margine, fps = archivio.stile["sagoma"]["margine"], archivio.stile["formati"]["verticale"]["fps"]
+    [pezzo] = pezzi(archivio, file)
+    # Il pezzo copre ancora il tratto col suo margine, ma il file comincia dove la persona c'è: due tentativi dopo.
+    assert pezzo["da"] == pytest.approx(1.6 - margine, abs=0.05)
+    assert pezzo["inizio"] == pytest.approx(pezzo["da"] + 2 * prepara.FOTOGRAMMI_FRA_I_TENTATIVI / fps, abs=1e-3)
+    assert scontornatore_finto["fotogrammi"] == pytest.approx((pezzo["a"] - pezzo["inizio"]) * fps, abs=2)
+    assert alfa(file_del_pezzo(archivio, file, pezzo), 2.0 - pezzo["inizio"])[1000, 500] > 200
+
+
+def test_lo_scontorno_non_parte_dopo_l_inizio_del_tratto_anche_se_la_persona_entra_piu_tardi(archivio, scrivi_piano, prepara_sintetico, scontornatore_finto, tmp_path):
+    file = prepara_sintetico("tempo", PAROLE_TEMPO, sagoma=False)
+    # Il tratto comincia a 0,3 s, dentro il margine dall'inizio della ripresa: nessuno si vede nei primi 0,6 s.
+    scrivi_piano("s", piano(file, (0.3, 1.2)))
+    scontornatore_finto["nessuno"] = 6
+    monta_con_animazioni(archivio, "s", tmp_path)
+    [pezzo] = pezzi(archivio, file)
+    assert pezzo["inizio"] <= 0.3
 
 
 def test_rimontare_non_rifa_e_un_tratto_nuovo_scontorna_solo_il_nuovo(archivio, scrivi_piano, prepara_sintetico, scontornatore_finto, tmp_path):
@@ -99,7 +130,7 @@ def test_rimontare_non_rifa_e_un_tratto_nuovo_scontorna_solo_il_nuovo(archivio, 
     assert scontornatore_finto == prima
     scrivi_piano("s", piano(file, (0.6, 2.4), (6.0, 7.0)))
     monta_con_animazioni(archivio, "s", tmp_path)
-    fps = archivio.stile["formato"]["fps"]
+    fps = archivio.stile["formati"]["verticale"]["fps"]
     vecchio, nuovo = pezzi(archivio, file)
     assert vecchio == primo and file_del_pezzo(archivio, file, vecchio).stat().st_mtime_ns == data
     assert scontornatore_finto["aperto"] == prima["aperto"] + 1 and nuovo["da"] < 6.0 < 7.0 < nuovo["a"]

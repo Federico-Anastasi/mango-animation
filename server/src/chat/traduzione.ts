@@ -1,26 +1,29 @@
 // Dai blocchi dell'API di Claude alle Parti della chat: le stesse regole per la conversazione in diretta e per quella letta dal suo file.
+import { eOggetto } from "../disco"
+import type { Lingua } from "../lingua"
 import type { ImmagineDelloStrumento, Parte } from "./tipi"
 
 export type Oggetto = Record<string, unknown>
 
-export const eOggetto = (valore: unknown): valore is Oggetto => typeof valore === "object" && valore !== null && !Array.isArray(valore)
-
 const LIMITE_ESITO = 20_000
 
 /** L'esito di uno strumento può essere enorme (l'uscita di un comando): la chat ne tiene l'inizio e dice quanto manca. */
-function limita(testo: string): string {
-  return testo.length <= LIMITE_ESITO ? testo : `${testo.slice(0, LIMITE_ESITO)}\n… (altri ${testo.length - LIMITE_ESITO} caratteri non mostrati)`
+function limita(testo: string, lingua: Lingua): string {
+  if (testo.length <= LIMITE_ESITO) return testo
+  const manca = testo.length - LIMITE_ESITO
+  return `${testo.slice(0, LIMITE_ESITO)}\n… ${lingua === "en" ? `(${manca} more characters not shown)` : `(altri ${manca} caratteri non mostrati)`}`
 }
 
 const blocchiDi = (contenuto: unknown): Oggetto[] => (Array.isArray(contenuto) ? contenuto.filter(eOggetto) : [])
 
 /** Il testo di un risultato: una stringa, oppure i blocchi di testo uno dopo l'altro. */
-export function testoDelRisultato(contenuto: unknown): string {
-  if (typeof contenuto === "string") return limita(contenuto)
+export function testoDelRisultato(contenuto: unknown, lingua: Lingua): string {
+  if (typeof contenuto === "string") return limita(contenuto, lingua)
   return limita(
     blocchiDi(contenuto)
       .flatMap((b) => (b["type"] === "text" && typeof b["text"] === "string" ? [b["text"]] : []))
       .join("\n"),
+    lingua,
   )
 }
 
@@ -41,15 +44,15 @@ export function parteStrumento(blocco: Oggetto, quando?: string): Parte | null {
 }
 
 /** Mette l'esito di un blocco `tool_result` sulla Parte dello strumento a cui risponde; `quando` è l'istante in cui è tornato. */
-export function conEsito(parte: Extract<Parte, { tipo: "strumento" }>, risultato: Oggetto, quando?: string): Parte {
-  const testo = testoDelRisultato(risultato["content"])
+export function conEsito(parte: Extract<Parte, { tipo: "strumento" }>, risultato: Oggetto, lingua: Lingua, quando?: string): Parte {
+  const testo = testoDelRisultato(risultato["content"], lingua)
   const immagini = immaginiDelRisultato(risultato["content"])
   return {
     tipo: "strumento",
     id: parte.id,
     nome: parte.nome,
     ingresso: parte.ingresso,
-    ...(risultato["is_error"] === true ? { errore: testo || "Lo strumento ha dato un errore senza dire altro." } : { esito: testo }),
+    ...(risultato["is_error"] === true ? { errore: testo || (lingua === "en" ? "The tool gave an error without saying more." : "Lo strumento ha dato un errore senza dire altro.") } : { esito: testo }),
     ...(immagini.length > 0 ? { immagini } : {}),
     ...(parte.iniziato === undefined ? {} : { iniziato: parte.iniziato }),
     ...(quando === undefined ? {} : { finito: quando }),

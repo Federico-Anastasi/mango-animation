@@ -4,9 +4,7 @@
       {
         "hooks": [
           { "type": "command", "command": "bun run \"${CLAUDE_PLUGIN_ROOT}/plugin/sessione.ts\" ambiente" },
-          { "type": "command", "command": "bun run \"${CLAUDE_PLUGIN_ROOT}/plugin/sessione.ts\" metodo 1" },
-          { "type": "command", "command": "bun run \"${CLAUDE_PLUGIN_ROOT}/plugin/sessione.ts\" metodo 2" },
-          { "type": "command", "command": "bun run \"${CLAUDE_PLUGIN_ROOT}/plugin/sessione.ts\" metodo 3" }
+          { "type": "command", "command": "bun run \"${CLAUDE_PLUGIN_ROOT}/plugin/sessione.ts\" metodo" }
         ]
       }
     ]

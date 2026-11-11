@@ -35,6 +35,7 @@ export interface Sistema {
 export interface OpzioniRiavvio {
   /** La cartella locale dei dati dell'app, dove sta `app.json`. */
   dati: string
+  /** La porta del server quando nessuna app registrata dice la sua. */
   porta: number
   /** Solo ferma, non riaccende. */
   solaChiusura: boolean
@@ -52,6 +53,8 @@ const ATTESE = { chiusuraMs: 15_000, portaMs: 10_000, avvioMs: 120_000 }
 interface Istanza {
   pid: number
   exe: string
+  /** La porta in cui l'app dice che lo studio risponde; manca finché l'app non lo sa. */
+  porta: number | null
 }
 
 function leggiIstanza(testo: string | null): Istanza | null {
@@ -63,8 +66,9 @@ function leggiIstanza(testo: string | null): Istanza | null {
     return null
   }
   if (typeof valore !== "object" || valore === null) return null
-  const { pid, exe } = valore as Record<string, unknown>
-  return typeof pid === "number" && Number.isInteger(pid) && pid > 0 && typeof exe === "string" && exe !== "" ? { pid, exe } : null
+  const { pid, exe, porta } = valore as Record<string, unknown>
+  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0 || typeof exe !== "string" || exe === "") return null
+  return { pid, exe, porta: typeof porta === "number" && Number.isInteger(porta) && porta > 0 && porta <= 65535 ? porta : null }
 }
 
 /** Stesso eseguibile: senza maiuscole, con le barre di Windows e senza il prefisso dei percorsi lunghi. */
@@ -138,7 +142,7 @@ function senzaPidDell(ambiente: Record<string, string | undefined>): Record<stri
 }
 
 export async function riavvia(sistema: Sistema, opzioni: OpzioniRiavvio): Promise<void> {
-  const { dati, porta, scrivi } = opzioni
+  const { dati, scrivi } = opzioni
   const attese = opzioni.attese ?? ATTESE
   const app = await appRegistrata(sistema, opzioni)
   if (opzioni.solaChiusura && !app) return
@@ -150,6 +154,8 @@ export async function riavvia(sistema: Sistema, opzioni: OpzioniRiavvio): Promis
     throw new Error(`Non trovo ${exe}: va costruita con «cargo tauri build --no-bundle» da app/.`)
   }
 
+  // Il server vecchio sta dove l'app diceva; senza app registrata, dove lo mettono la variabile o la porta di serie.
+  const porta = app?.porta ?? opzioni.porta
   if (app) {
     scrivi(`Chiudo l'app (pid ${app.pid})…`)
     await fermaApp(sistema, app, scrivi, attese.chiusuraMs)
@@ -174,8 +180,9 @@ export async function riavvia(sistema: Sistema, opzioni: OpzioniRiavvio): Promis
   for (;;) {
     const nuova = leggiIstanza(await sistema.leggiRegistro(dati))
     const immagine = nuova ? await sistema.immagineDi(nuova.pid) : null
-    if (nuova && immagine !== null && stessoPercorso(immagine, exe) && (await sistema.serverRisponde(porta))) {
-      scrivi(`Accesa: pid ${nuova.pid}, server su http://127.0.0.1:${porta}`)
+    // L'app può aver ripiegato su un'altra porta: vale quella che scrive in `app.json` quando lo studio risponde.
+    if (nuova?.porta && immagine !== null && stessoPercorso(immagine, exe) && (await sistema.serverRisponde(nuova.porta))) {
+      scrivi(`Accesa: pid ${nuova.pid}, server su http://127.0.0.1:${nuova.porta}`)
       return
     }
     if (!sistema.vivo(lanciato)) {

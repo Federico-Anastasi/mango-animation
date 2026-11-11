@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { lingua, localeInUso, prossimaScelta, scegliLingua, t } from "../src/lingua"
+import { lingua, localeInUso, scegliLingua, t } from "../src/lingua"
 import * as testo from "../src/testo"
 import { DIVIETI, testiTradotti } from "./linguaggio"
 
@@ -29,12 +29,11 @@ describe("la lingua dell'interfaccia", () => {
     expect(lingua()).toBe("it")
   })
 
-  it("la scelta si ricorda nel browser e il pulsante passa dal sistema all'italiano all'inglese", () => {
+  it("la scelta si ricorda nel browser, e «sistema» la toglie", () => {
     scegliLingua("en")
     expect(localStorage.getItem("mango-animation.lingua")).toBe("en")
     scegliLingua("sistema")
     expect(localStorage.getItem("mango-animation.lingua")).toBeNull()
-    expect(["sistema", "it", "en"].map((s) => prossimaScelta(s as "sistema"))).toEqual(["it", "en", "sistema"])
   })
 })
 

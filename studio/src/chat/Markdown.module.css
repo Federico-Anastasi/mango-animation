@@ -67,6 +67,28 @@
   font-weight: 500;
 }
 
+.percorso {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blu);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.copia button {
+  height: auto;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.percorsoErrore {
+  color: var(--rosso);
+  font-size: 0.9em;
+}
+
 .codiceLink {
   text-decoration: none;
 }

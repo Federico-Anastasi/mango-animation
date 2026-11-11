@@ -85,4 +85,12 @@ describe("le API locali vogliono la chiave", () => {
     const r = await con(a, "/api/video", { method: "POST", headers: { "X-Chiave-Api": await chiaveDi(a), Origin: "https://altro.example", "Content-Type": "application/json" }, body: "{}" })
     expect(r.status).toBe(403)
   })
+
+  test("un'origine «null» o scritta male è 403, non un errore del server", async () => {
+    const a = await avviaAmbiente()
+    for (const origine of ["null", "non un indirizzo"]) {
+      const r = await con(a, "/api/video", { method: "POST", headers: { "X-Chiave-Api": await chiaveDi(a), Origin: origine, "Content-Type": "application/json" }, body: "{}" })
+      expect(r.status).toBe(403)
+    }
+  })
 })

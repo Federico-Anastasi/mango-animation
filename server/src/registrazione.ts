@@ -54,6 +54,8 @@ export interface StatoRegistrazione {
   ultima: { file: string[]; finita: string; errore: string | null } | null
 }
 
+const GIA_IN_CORSO = frase("Una registrazione è già in corso: fermala prima di avviarne un'altra.", "A recording is already running: stop it before starting another.")
+
 const SENZA_FFMPEG = frase(
   "Per registrare serve un programma che manca su questo computer (ffmpeg): va installato, poi riavvia Mango Animation.",
   "Recording needs a program that is missing on this computer (ffmpeg): install it, then restart Mango Animation.",
@@ -73,6 +75,8 @@ export async function elencaConFfmpeg(comando: string[]): Promise<Dispositivi> {
 export class Registrazione {
   private dispositivi: Dispositivi | null = null
   private inCorso: InCorso | null = null
+  /** Dal via a quando `inCorso` è pronto: una seconda richiesta in questo tempo non parte. */
+  private inPartenza = false
   private ultima: StatoRegistrazione["ultima"] = null
 
   constructor(
@@ -102,9 +106,19 @@ export class Registrazione {
   }
 
   async avvia(modo: Modo, scelta: Scelta = {}): Promise<void> {
+    if (this.inPartenza) throw new ErroreRegistrazione(GIA_IN_CORSO)
+    this.inPartenza = true
+    try {
+      await this.parti(modo, scelta)
+    } finally {
+      this.inPartenza = false
+    }
+  }
+
+  private async parti(modo: Modo, scelta: Scelta): Promise<void> {
     const comando = this.opzioni.comando
     if (comando === null) throw new ErroreRegistrazione(SENZA_FFMPEG)
-    if (this.inCorso) throw new ErroreRegistrazione(frase("Una registrazione è già in corso: fermala prima di avviarne un'altra.", "A recording is already running: stop it before starting another."))
+    if (this.inCorso) throw new ErroreRegistrazione(GIA_IN_CORSO)
     if (scelta.microfono !== undefined && !this.dispositivi?.microfoni.includes(scelta.microfono)) throw new ErroreRegistrazione(
         frase(
           `Il microfono «${scelta.microfono}» non è fra quelli trovati: scegline un altro, o «Cerca di nuovo i dispositivi».`,

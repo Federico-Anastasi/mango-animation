@@ -100,7 +100,7 @@ describe("l'elenco delle scene", () => {
 })
 
 describe("le parole e l'onda di un file preparato di nuovo", () => {
-  const sorgente = (parole: boolean): InfoSorgente => ({ nome: "a", file: "2026-10-06/a.mp4", larghezza: null, altezza: null, durata: 5, parole, leggero: null, sagoma: null, sagomaPezzi: null, miniatura: null, onda: null, trovato: true })
+  const sorgente = (parole: boolean): InfoSorgente => ({ nome: "a", file: "2026-10-06/a.mp4", larghezza: null, altezza: null, durata: 5, sfasamento: 0, parole, leggero: null, sagoma: null, sagomaPezzi: null, miniatura: null, onda: null, trovato: true })
 
   it("si rileggono se il file perde le parole e le riottiene", async () => {
     const { chiamate } = installaRete({ "GET /api/grezzo/parole?file=2026-10-06%2Fa.mp4": [{ p: "ciao", da: 0, a: 0.4 }] })

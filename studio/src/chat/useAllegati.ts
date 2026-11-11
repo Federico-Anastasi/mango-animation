@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react"
 import { caricaAllegato, caricaAllegatoLocale } from "./api"
-import { ricordaAnteprima, indirizzoImmagine, nomeDelFile } from "./allegati"
+import { ricordaAnteprima, indirizzoImmagine, nomeDelFile, rilasciaAnteprima } from "./allegati"
 import { t } from "../lingua"
 
 export interface AllegatoInCampo {
@@ -24,6 +24,8 @@ const troppoGrande = (): string =>
 export function useAllegati() {
   const [allegati, setAllegati] = useState<AllegatoInCampo[]>([])
   const prossima = useRef(1)
+  const correnti = useRef(allegati)
+  correnti.current = allegati
 
   const metti = useCallback((nome: string, immagine: boolean, anteprima: string | null, carica: () => Promise<string>) => {
     const chiave = prossima.current++
@@ -61,7 +63,11 @@ export function useAllegati() {
     [metti],
   )
 
-  const togli = useCallback((chiave: number) => setAllegati((prima) => prima.filter((a) => a.chiave !== chiave)), [])
+  const togli = useCallback((chiave: number) => {
+    const tolto = correnti.current.find((a) => a.chiave === chiave)
+    if (tolto?.anteprima?.startsWith("blob:")) rilasciaAnteprima(tolto.percorso, tolto.anteprima)
+    setAllegati((prima) => prima.filter((a) => a.chiave !== chiave))
+  }, [])
   const svuota = useCallback(() => setAllegati([]), [])
   return { allegati, aggiungi, aggiungiLocali, togli, svuota, staSalendo: allegati.some((a) => a.percorso === null && a.errore === null) }
 }

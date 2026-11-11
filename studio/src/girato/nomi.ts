@@ -1,6 +1,9 @@
 import { t } from "../lingua"
 import type { OrigineGrezzo, TipoGrezzo } from "../tipi"
 
+export const TIPI: readonly TipoGrezzo[] = ["ripresa", "diretta", "schermo", "altro"]
+export const ORIGINI: readonly OrigineGrezzo[] = ["telefono", "registrazione", "scaricato", "altro"]
+
 export function nomeTipo(tipo: TipoGrezzo): string {
   const nomi: Record<TipoGrezzo, string> = {
     ripresa: t("Ripresa", "Shot"),

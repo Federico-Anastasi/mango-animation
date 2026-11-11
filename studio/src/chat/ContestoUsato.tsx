@@ -41,6 +41,7 @@ export function ContestoUsato({ contesto }: { contesto: Contesto }) {
         <span className={styles.pieno} style={{ width: `${Math.min(percento, 100)}%` }} />
       </span>
       {t("Contesto {percento}%", "Context {percento}%", { percento })}
+      {livello !== "normale" && t(" · meglio una conversazione nuova", " · better start a new conversation")}
     </span>
   )
 }

@@ -31,6 +31,12 @@ class Sorgente:
         return Errore(f"la sorgente «{self.nome}» non ha una traccia audio: {cosa}", f"the source «{self.nome}» has no audio track: {cosa_en}")
 
     @property
+    def firma(self):
+        """Dimensione e data del file: se cambia una delle due, ciò che si è misurato o allineato su di lui non vale più."""
+        stato = self.percorso.stat()
+        return [stato.st_size, stato.st_mtime_ns]
+
+    @property
     def info(self):
         if self._info is None:
             self._info = info(self.percorso)
@@ -70,10 +76,9 @@ class Sorgente:
         """Il livello (dB, un valore per centesimo) di un pezzo di audio con i centesimi che cominciano esattamente a `da`: serve a tagliare
         al fotogramma giusto, dove la griglia fissa di `onda.bin` sbaglierebbe di qualche millisecondo. Si tiene in `livelli.json`."""
         file = self.preparati / "livelli.json"
-        dimensione = self.percorso.stat().st_size
         cache = leggi_json(file, "i livelli", "the levels") if file.exists() else {}
-        if cache.get("dimensione") != dimensione:
-            cache = {"dimensione": dimensione, "voci": {}}
+        if cache.get("firma") != self.firma:
+            cache = {"firma": self.firma, "voci": {}}
         chiave_cache = f"{da:.3f}+{durata:.3f}"
         if chiave_cache not in cache["voci"]:
             cache["voci"][chiave_cache] = [round(float(v), 3) for v in livello(pcm_16k(self.percorso, da, durata))]

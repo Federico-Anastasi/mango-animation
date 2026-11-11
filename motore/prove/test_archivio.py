@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from motore.archivio import Archivio, leggi_stile, scrivi_json, unisci_stile, valida
+from motore.archivio import Archivio, leggi_stile, scrivi_con, scrivi_json, unisci_stile, valida
 from motore.errori import Errore
 
 BASE = {
@@ -217,6 +217,20 @@ def test_l_archivio_legge_lo_stile_unito_se_la_cartella_di_lavoro_ne_ha_uno(tmp_
     assert a.stile == {"colori": {"carta": "#fff", "rosso": "#c00"}, "formati": {"verticale": {"largo": 1}}}
 
 
+def test_un_carattere_si_cerca_prima_nella_cartella_del_creator_poi_in_quella_del_prodotto(tmp_path):
+    codice, lavoro = tmp_path / "codice", tmp_path / "lavoro"
+    (codice / "font").mkdir(parents=True)
+    (lavoro / "font").mkdir(parents=True)
+    (codice / "stile.json").write_text('{"caratteri": {"titoli": "font/di-serie.ttf", "titolo": "font/mio.ttf", "perso": "font/non-c-e.ttf"}}', encoding="utf-8")
+    (codice / "font" / "di-serie.ttf").write_bytes(b"x")
+    (lavoro / "font" / "mio.ttf").write_bytes(b"y")
+    a = Archivio(radice=lavoro / "archivio", repo=codice)
+    assert a.font("titoli") == codice / "font" / "di-serie.ttf"
+    assert a.font("titolo") == lavoro / "font" / "mio.ttf"
+    with pytest.raises(Errore, match="non-c-e.ttf.*non c'è"):
+        a.font("perso")
+
+
 def test_uno_stile_del_creator_rotto_dice_quale_file_correggere(tmp_path):
     codice, lavoro = tmp_path / "codice", tmp_path / "lavoro"
     codice.mkdir()
@@ -228,3 +242,13 @@ def test_uno_stile_del_creator_rotto_dice_quale_file_correggere(tmp_path):
     (lavoro / "stile.json").write_text("[1]", encoding="utf-8")
     with pytest.raises(Errore, match="stile del creator.*oggetto"):
         leggi_stile(codice, lavoro)
+
+
+def test_un_lavoro_che_fallisce_non_lascia_il_file_provvisorio(tmp_path):
+    def rotto(dest):
+        dest.write_bytes(b"a meta")
+        raise OSError("disco pieno")
+
+    with pytest.raises(OSError, match="disco pieno"):
+        scrivi_con(tmp_path / "sagoma" / "1-2.webm", rotto)
+    assert list((tmp_path / "sagoma").iterdir()) == []

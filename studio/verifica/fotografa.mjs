@@ -1,6 +1,6 @@
-// Fotografa ogni vista e ogni scheda a tre larghezze (1400, 1000, 430 px), nel tema chiaro e in quello scuro,
+// Fotografa ogni vista e ogni scheda a tre larghezze (1400, 1000, 430 px, o quelle di `--larghezze`), nel tema chiaro e in quello scuro,
 // contro un server che serve l'interfaccia costruita (di default il finto server su 47531).
-//   node verifica/fotografa.mjs [--url http://127.0.0.1:47531] [--tema chiaro|scuro] [--lingua it|en] [--browser chrome] [--vista parte-del-nome] [--uscita cartella]
+//   node verifica/fotografa.mjs [--url http://127.0.0.1:47531] [--tema chiaro|scuro] [--lingua it|en] [--browser chrome] [--larghezze 1400,860,430] [--vista parte-del-nome] [--uscita cartella]
 // Fallisce se la pagina esce in orizzontale, se un controllo esce dal bordo destro, se un contenitore che
 // scorre da solo è più alto della parte visibile della pagina, se i pannelli del montaggio non sono alti quanto
 // l'anteprima accanto, se una vista resta su «carico…» o se la console ha errori. Le foto finiscono in `verifica/viste/`.
@@ -22,7 +22,7 @@ const SOLO_ITALIANO = ["chat-conversazione", "chat-permesso", "chat-immagine-gra
 // Con `--chat` ogni vista si fotografa con la chat aperta sulla conversazione d'esempio.
 const conChat = argomenti.includes("--chat")
 // A 430 px la chat copre la vista: con `--chat` le larghezze sono due, e a 430 la chat si fotografa con le sue scene.
-const larghezze = conChat ? [1400, 1000] : [1400, 1000, 430]
+const larghezze = valore("--larghezze", "") ? valore("--larghezze", "").split(",").map(Number) : conChat ? [1400, 1000] : [1400, 1000, 430]
 const cartella = valore("--uscita", join(dirname(fileURLToPath(import.meta.url)), "viste"))
 
 const FILE_DIRETTA = "2026-10-08/diretta-prova-cucina.mp4"
@@ -31,9 +31,11 @@ const VISTE = [
   { nome: "montaggio-pasta", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]" },
   { nome: "montaggio-ricetta", indirizzo: "#/video/ricetta-in-diretta/montaggio", prima: inPiano, pronta: "[data-testid=palco]" },
   { nome: "montaggio-variante", indirizzo: "#/video/variante-ricetta/montaggio", prima: inPiano, pronta: "[data-testid=palco]" },
+  // «Versioni»: aperte, con una versione di prima guardata; il finto server tiene tre versioni di pasta-fresca.
+  { nome: "montaggio-versioni", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: apriLeVersioni },
   { nome: "montaggio-tratto", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.locator("[data-tratto]").nth(3).click({ position: { x: 30, y: 25 } }) },
   { nome: "montaggio-zoom", indirizzo: "#/video/ricetta-in-diretta/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.locator("[data-tratto]").nth(1).click({ position: { x: 30, y: 25 } }) },
-  { nome: "montaggio-parole", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.getByRole("heading", { name: T("Il parlato", "Speech") }).locator("..").getByRole("button", { name: "modello" }).click() },
+  { nome: "montaggio-parole", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.getByRole("heading", { name: T("Il parlato", "Speech") }).locator("..").getByRole("button").first().click() },
   { nome: "montaggio-scena", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.getByRole("button", { name: "c2", exact: true }).click() },
   { nome: "montaggio-montato", indirizzo: "#/video/pasta-fresca/montaggio", pronta: "video", dopo: (p) => p.getByRole("button", { name: T("Montato", "Edited"), exact: true }).click() },
   { nome: "montaggio-lungo", indirizzo: "#/video/ricetta-intera/montaggio", prima: inPiano, pronta: "[data-testid=palco]" },
@@ -44,6 +46,7 @@ const VISTE = [
   { nome: "montaggio-senza-piano", indirizzo: "#/video/cena-fra-due-cucine/montaggio" },
   { nome: "scheda-pubblicato", indirizzo: "#/video/primo-video-pubblicato/scheda" },
   { nome: "scheda-proposta", indirizzo: "#/video/cena-fra-due-cucine/scheda" },
+  { nome: "proposta-di-partenza", indirizzo: "#/video/cena-fra-due-cucine" },
   { nome: "scheda-senza-elenchi", indirizzo: "#/video/animazioni-e-voce/scheda" },
   { nome: "controllo-pasta", indirizzo: "#/video/pasta-fresca/controllo" },
   { nome: "controllo-pane", indirizzo: "#/video/pane-veloce/controllo" },
@@ -59,27 +62,50 @@ const VISTE = [
   { nome: "montaggio-non-aggiornato", indirizzo: "#/video/ricetta-in-diretta/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: risoltoIndietro, poi: schedaCorretta },
   { nome: "girato-scheda-rifiutata", indirizzo: `#/girato?file=${encodeURIComponent("2026-10-09/messo-a-mano.mp4")}`, dopo: schedaGirataRifiutata, poi: schedaCorretta },
   { nome: "girato", indirizzo: "#/girato" },
-  { nome: "girato-studio-acceso", indirizzo: "#/girato", dopo: (p) => studioDalTelefono(p, true, "pronto"), poi: (p) => studioDalTelefono(p, false, "pronto") },
-  { nome: "girato-studio-tailscale-bloccato", indirizzo: "#/girato", dopo: (p) => studioDalTelefono(p, true, "bloccato"), poi: (p) => studioDalTelefono(p, false, "pronto") },
-  { nome: "girato-studio-senza-tailscale", indirizzo: "#/girato", dopo: (p) => studioDalTelefono(p, true, "assente"), poi: (p) => studioDalTelefono(p, false, "pronto") },
+  // Collegare il telefono sta nelle impostazioni; nel Girato resta cosa arriva.
+  { nome: "impostazioni-telefono", indirizzo: "#/impostazioni/telefono", dopo: (p) => studioDalTelefono(p, false, "pronto") },
+  { nome: "impostazioni-telefono-studio-acceso", indirizzo: "#/impostazioni/telefono", dopo: (p) => studioDalTelefono(p, true, "pronto"), poi: (p) => studioDalTelefono(p, false, "pronto") },
+  { nome: "impostazioni-telefono-tailscale-bloccato", indirizzo: "#/impostazioni/telefono", dopo: (p) => studioDalTelefono(p, true, "bloccato"), poi: (p) => studioDalTelefono(p, false, "pronto") },
+  { nome: "impostazioni-telefono-senza-tailscale", indirizzo: "#/impostazioni/telefono", dopo: (p) => studioDalTelefono(p, true, "assente"), poi: (p) => studioDalTelefono(p, false, "pronto") },
+  // «Aggiungi video»: due file partono uno dopo l'altro (il primo ci mette qualche secondo), poi due che non entrano, poi la zona di rilascio mentre dei file passano sopra la pagina.
+  { nome: "girato-aggiungi-avanza", indirizzo: "#/girato", dopo: aggiungiFile, poi: chiudiElencoAggiunte },
+  { nome: "girato-aggiungi-errori", indirizzo: "#/girato", dopo: aggiungiFileCheNonEntrano, poi: chiudiElencoAggiunte },
+  { nome: "girato-aggiungi-rilascio", indirizzo: "#/girato", dopo: (p) => trascinaFile(p, true), poi: (p) => trascinaFile(p, false) },
+  // Il girato vuoto: serve un finto server su un archivio senza girato (`FINTO_ARCHIVIO=<cartella con solo stile.json>`).
+  { nome: "girato-vuoto", indirizzo: "#/girato", soloSeChiesta: true },
+  // «Cerca nel parlato»: i risultati prendono il posto dell'elenco dei giorni; senza risultati dice cosa provare.
+  { nome: "girato-cerca", indirizzo: "#/girato", dopo: (p) => cercaNelParlato(p, "impasto", /2 risultati|2 results/) },
+  { nome: "girato-cerca-niente", indirizzo: "#/girato", dopo: (p) => cercaNelParlato(p, "tiramisù", /Nessun file dice|No file says/) },
   { nome: "girato-file", indirizzo: `#/girato?file=${encodeURIComponent(FILE_DIRETTA)}` },
   { nome: "girato-foto", indirizzo: `#/girato?file=${encodeURIComponent("2026-10-09/IMG_0042.HEIC")}` },
   { nome: "girato-foto-originale", indirizzo: `#/girato?file=${encodeURIComponent("2026-10-09/IMG_0043.JPG")}` },
   { nome: "profilo-non-valido", indirizzo: "#/video", dopo: profiloNonValido, poi: profiloCorretto },
   { nome: "girato-senza-scheda", indirizzo: `#/girato?file=${encodeURIComponent("2026-10-09/messo-a-mano.mp4")}` },
   { nome: "produzione", indirizzo: "#/produzione" },
-  { nome: "pubblico", indirizzo: "#/pubblico" },
-  { nome: "pubblico-senza-commenti", indirizzo: "#/pubblico?video=ricetta-in-diretta" },
-  { nome: "classifica-vuota", indirizzo: "#/classifica" },
-  { nome: "crescita-vuota", indirizzo: "#/crescita" },
-  { nome: "stile", indirizzo: "#/stile" },
-  { nome: "motori", indirizzo: "#/motori", pronta: "ul[aria-label]" },
+  // «Canale»: tre schede di una voce, che c'è solo con un canale letto. I vecchi indirizzi (`#/pubblico`, `#/classifica`, `#/crescita`) portano alla scheda.
+  { nome: "canale-pubblico", indirizzo: "#/pubblico" },
+  { nome: "canale-pubblico-senza-commenti", indirizzo: "#/pubblico?video=ricetta-in-diretta" },
+  { nome: "canale-classifica-vuota", indirizzo: "#/classifica" },
+  { nome: "canale-crescita-vuota", indirizzo: "#/crescita" },
+  { nome: "canale-senza-lettura", indirizzo: "#/canale", dopo: (p) => canaleLetto(p, false), poi: (p) => canaleLetto(p, true) },
+  { nome: "barra-senza-canale", indirizzo: "#/video", dopo: (p) => canaleLetto(p, false), poi: (p) => canaleLetto(p, true) },
+  // Le impostazioni: ogni sezione. `#/stile` e `#/motori` sono gli indirizzi di prima di due di esse.
+  { nome: "impostazioni-profilo", indirizzo: "#/impostazioni/profilo" },
+  { nome: "impostazioni-profilo-errore", indirizzo: "#/impostazioni/profilo", dopo: profiloSenzaNome, poi: (p) => p.reload() },
+  { nome: "impostazioni-profilo-vuoto", indirizzo: "#/impostazioni/profilo", dopo: (p) => profiloDelCreator(p, true), poi: (p) => profiloDelCreator(p, false) },
+  { nome: "impostazioni-stile", indirizzo: "#/stile" },
+  // Gli stili di partenza: «Usa questo» mette lo stile nella bozza; «Aggiungi un carattere» porta un file nella cartella del creator (o lo rifiuta con una frase).
+  { nome: "stile-usa-questo", indirizzo: "#/impostazioni/stile", dopo: usaLoStileCaldo, poi: scartaLeModifiche },
+  { nome: "stile-carattere-aggiunto", indirizzo: "#/impostazioni/stile", dopo: aggiungiUnCarattere, mostra: (p) => p.getByRole("heading", { name: T("Carattere", "Font"), level: 3 }), poi: (p) => p.reload() },
+  { nome: "stile-carattere-rifiutato", indirizzo: "#/impostazioni/stile", dopo: aggiungiUnFileSbagliato, mostra: (p) => p.getByRole("heading", { name: T("Carattere", "Font"), level: 3 }), poi: (p) => p.reload() },
+  { nome: "impostazioni-computer", indirizzo: "#/motori", pronta: "ul[aria-label]" },
+  { nome: "impostazioni-generali", indirizzo: "#/impostazioni/generali" },
   // L'app mette nella pagina il ponte del computer (`window.__MANGO_ANIMATION__.computer`): qui lo mette lo scenario scelto, che l'init script legge da localStorage.
-  { nome: "motori-app-con-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "scheda"), pronta: "section[aria-label] dl", poi: (p) => scenarioComputer(p, null) },
+  { nome: "impostazioni-computer-app-con-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "scheda"), pronta: "section[aria-label] dl", poi: (p) => scenarioComputer(p, null) },
   // «Segnala un problema» c'è solo nell'app, che mette nella pagina il ponte `segnalazione`: qui lo mette lo scenario scelto.
   { nome: "segnalazione-bottone", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), poi: (p) => scenarioSegnalazione(p, false) },
   { nome: "segnalazione-dialogo", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), dopo: apriLaSegnalazione, poi: (p) => scenarioSegnalazione(p, false) },
-  { nome: "motori-app-senza-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "senza"), pronta: "section[aria-label] dl", poi: (p) => scenarioComputer(p, null) },
+  { nome: "impostazioni-computer-app-senza-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "senza"), pronta: "section[aria-label] dl", poi: (p) => scenarioComputer(p, null) },
   // La chat: le scene si fotografano con la chat aperta e poi la chiudono (a meno che non sia accesa con --chat).
   { nome: "chat-conversazione", indirizzo: "#/video/carosello-dispensa/slide", pronta: "img[alt^='Slide 1 ']", dopo: (p) => chatEsempio(p, "alto"), poi: chiudiChat },
   { nome: "chat-permesso", indirizzo: "#/video/carosello-dispensa/slide", pronta: "img[alt^='Slide 1 ']", dopo: (p) => chatEsempio(p, "basso"), poi: chiudiChat },
@@ -104,6 +130,8 @@ const VISTE = [
   { nome: "chat-background", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: chatBackground, poi: chiudiChatTempi },
   // Serve il finto server con un montaggio lungo: `MONTA_FINTO_MS=8000 bun run verifica/finto-server.ts`.
   { nome: "lavori-piano-cambiato", indirizzo: "#/video", dopo: pianoCambiatoDuranteIlMontaggio, poi: fermaTuttiILavori },
+  { nome: "stile-cambiato", indirizzo: "#/stile", dopo: stileCambiatoNelFrattempo },
+  { nome: "lavori-scene-foto", indirizzo: "#/video", dopo: fotoDiUnaScenaInCoda, poi: fermaTuttiILavori },
 ]
 
 const COMPUTER_DI_PROVA = {
@@ -163,6 +191,48 @@ async function schedaGirataRifiutata(pagina) {
   await pagina.getByText(/La scheda di questo file ha un errore/).waitFor({ timeout: 5000 }).catch(() => problemi.push("girato-scheda-rifiutata: l'avviso non compare"))
 }
 
+async function aggiungiFile(pagina) {
+  await pagina.locator('input[type="file"][accept*="video"]').setInputFiles([
+    { name: "giro-lento.mp4", mimeType: "video/mp4", buffer: Buffer.alloc(3_000_000, 1) },
+    { name: "cucina-sera.mov", mimeType: "video/quicktime", buffer: Buffer.alloc(200_000, 1) },
+  ])
+  await pagina.getByText(T("Inviato: il computer lo sta salvando…", "Sent: the computer is saving it…")).waitFor({ timeout: 5000 }).catch(() => problemi.push("girato-aggiungi-avanza: «il computer lo sta salvando» non compare"))
+}
+
+async function aggiungiFileCheNonEntrano(pagina) {
+  await pagina.locator('input[type="file"][accept*="video"]').setInputFiles([
+    { name: "contratto.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(50_000, 1) },
+    { name: "doppione-cucina.mp4", mimeType: "video/mp4", buffer: Buffer.alloc(50_000, 1) },
+  ])
+  await pagina.getByText(/is already in the footage|è già nel girato/).waitFor({ timeout: 5000 }).catch(() => problemi.push("girato-aggiungi-errori: il perché del doppione non compare"))
+}
+
+async function chiudiElencoAggiunte(pagina) {
+  await pagina.getByRole("button", { name: T("Chiudi l'elenco", "Close the list") }).click({ timeout: 8000 }).catch(() => problemi.push("girato-aggiungi: l'elenco non si chiude"))
+}
+
+// Dei file passano sopra la pagina (o se ne vanno): la zona di rilascio compare e sparisce.
+async function trascinaFile(pagina, sopra) {
+  await pagina.evaluate((entra) => {
+    const dt = new DataTransfer()
+    dt.items.add(new File(["x"], "giro.mp4", { type: "video/mp4" }))
+    document.querySelector("main").dispatchEvent(new DragEvent(entra ? "dragenter" : "dragleave", { dataTransfer: dt, bubbles: true, cancelable: true }))
+  }, sopra)
+  const zona = pagina.getByText(T("Rilascia qui i video per aggiungerli al girato", "Drop the videos here to add them to the footage"))
+  if (sopra) await zona.waitFor({ timeout: 3000 }).catch(() => problemi.push("girato-aggiungi-rilascio: la zona di rilascio non compare"))
+  else if (await zona.isVisible()) problemi.push("girato-aggiungi-rilascio: la zona di rilascio non sparisce")
+}
+
+async function cercaNelParlato(pagina, testo, atteso) {
+  await pagina.getByRole("searchbox").fill(testo)
+  await pagina.getByText(atteso).first().waitFor({ timeout: 5000 }).catch(() => problemi.push(`girato-cerca: cercando «${testo}» non compare ${atteso}`))
+}
+
+async function apriLeVersioni(pagina) {
+  await pagina.getByRole("button", { name: T("Versioni", "Versions") }).click({ timeout: 5000 }).catch(() => problemi.push("montaggio-versioni: il pulsante delle versioni non c'è"))
+  await pagina.getByRole("button", { name: T("Guarda", "Look") }).nth(1).click({ timeout: 5000 }).catch(() => problemi.push("montaggio-versioni: «Guarda» non c'è"))
+}
+
 // Lo studio dal telefono acceso o spento sul finto server, con Tailscale pronto, bloccato da Windows o assente: la pagina lo mostra da sola.
 async function studioDalTelefono(pagina, acceso, tailscale) {
   await pagina.evaluate(async ([a, t]) => {
@@ -172,6 +242,54 @@ async function studioDalTelefono(pagina, acceso, tailscale) {
   }, [acceso, tailscale])
   const atteso = acceso ? pagina.getByRole("button", { name: T("Spegni", "Turn off") }) : pagina.getByRole("button", { name: T("Accendi", "Turn on") })
   await atteso.waitFor({ timeout: 5000 }).catch(() => problemi.push(`lo studio dal telefono ${acceso ? "non si accende" : "non si spegne"} nella pagina`))
+}
+
+// Il canale ha o non ha una lettura: la voce «Canale» compare o sparisce dalla barra da sola.
+async function canaleLetto(pagina, letto) {
+  await pagina.evaluate((l) => fetch("/finto/canale", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ letto: l }) }), letto)
+  await pagina.waitForTimeout(500)
+}
+
+// Il creator che non ha fatto il primo giro, o quello di prova di nuovo.
+function usaLoStileCaldo(pagina) {
+  return pagina.getByRole("button", { name: T("Usa lo stile Caldo", "Use the Warm style") }).click()
+}
+
+function scartaLeModifiche(pagina) {
+  return pagina.getByRole("button", { name: T("Annulla le modifiche", "Discard changes") }).click()
+}
+
+// Un carattere vero (Chivo Mono, in `src/assets/fonts/`) scelto dal computer: compare fra le scelte col nome letto dal file, e si usa per i sottotitoli e il titolo.
+async function aggiungiUnCarattere(pagina) {
+  await pagina.locator("input[type=file][accept='.ttf,.otf,.woff2']").setInputFiles(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "assets", "fonts", "ChivoMono-400.woff2"))
+  await pagina.getByRole("status").filter({ hasText: /Chivo Mono/ }).waitFor({ timeout: 5000 }).catch(() => problemi.push("stile-carattere-aggiunto: la conferma non compare"))
+  for (const etichetta of [T("Dei sottotitoli e delle animazioni", "Of the subtitles and animations"), T("Del titolo", "Of the title")]) await pagina.getByLabel(etichetta).selectOption({ label: "Chivo Mono Medium" })
+}
+
+async function aggiungiUnFileSbagliato(pagina) {
+  await pagina.locator("input[type=file][accept='.ttf,.otf,.woff2']").setInputFiles({ name: "falso.ttf", mimeType: "font/ttf", buffer: Buffer.from("non sono un carattere") })
+  await pagina.getByRole("alert").filter({ hasText: /carattere|font/ }).waitFor({ timeout: 5000 }).catch(() => problemi.push("stile-carattere-rifiutato: la frase non compare"))
+}
+
+async function profiloDelCreator(pagina, vuoto) {
+  const manda = () => pagina.evaluate((v) => fetch("/finto/profilo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vuoto: v }) }), vuoto)
+  if (vuoto) {
+    await pagina.evaluate(() => localStorage.setItem("mango-animation.primo-giro", "saltato"))
+    await pagina.reload()
+    await manda()
+  } else {
+    await manda()
+    await pagina.evaluate(() => localStorage.removeItem("mango-animation.primo-giro"))
+    await pagina.reload()
+  }
+  await pagina.waitForTimeout(800)
+}
+
+// Il nome si cancella e si salva: il server dice cosa non va, e la frase resta sotto i pulsanti.
+async function profiloSenzaNome(pagina) {
+  await pagina.getByLabel(T("Il tuo nome", "Your name")).fill("")
+  await pagina.getByRole("button", { name: T("Salva", "Save") }).click()
+  await pagina.getByRole("alert").waitFor({ timeout: 5000 }).catch(() => problemi.push("impostazioni-profilo-errore: la frase del server non compare"))
 }
 
 // Come il server vero quando `profilo.json` non passa lo schema: l'avviso compare da solo, e sparisce quando il profilo torna buono.
@@ -212,6 +330,31 @@ async function pianoCambiatoDuranteIlMontaggio(pagina) {
   const bottone = pagina.locator("header button[aria-expanded]").nth(1)
   await bottone.locator("[aria-hidden]", { hasText: "!" }).waitFor({ timeout: 3000 }).catch(() => problemi.push("lavori-piano-cambiato: «Piano cambiato» non compare nella barra (il finto server va avviato con MONTA_FINTO_MS=8000)"))
   await bottone.click().catch(() => {})
+}
+
+// Si cambia un numero dello stile (la bozza), poi lo stile nel file cambia da un'altra parte: la pagina avvisa e chiede quale tenere.
+async function stileCambiatoNelFrattempo(pagina) {
+  const campo = pagina.getByRole("textbox", { name: T("Corpo", "Size"), exact: true }).first()
+  await campo.fill("62")
+  await campo.blur()
+  await pagina.evaluate(async () => {
+    const stile = await (await fetch("/api/stile")).json()
+    stile.sottotitoli.stacco = Math.round((0.3 + Math.random() * 0.5) * 100) / 100
+    await fetch("/api/stile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(stile) })
+  })
+  await pagina.getByRole("button", { name: T("Tieni le mie", "Keep mine") }).waitFor({ timeout: 3000 }).catch(() => problemi.push("stile-cambiato: l'avviso non compare"))
+}
+
+// Un montaggio gira e le foto di una scena aspettano il loro turno nella coda: si apre la barra dei lavori.
+async function fotoDiUnaScenaInCoda(pagina) {
+  await fermaTuttiILavori(pagina)
+  await pagina.evaluate(async () => {
+    await fetch("/api/video/ricetta-in-diretta/lavori", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comando: "monta" }) })
+    while ((await (await fetch("/api/lavori")).json()).in_corso?.comando !== "monta") await new Promise((ok) => setTimeout(ok, 50))
+    await fetch("/api/animazioni/foto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sigla: "l1" }) })
+  })
+  await pagina.locator("header button[aria-expanded]").nth(1).click()
+  await pagina.getByRole("dialog", { name: T("Lavori", "Jobs") }).getByText(T("Foto di una scena", "Frames of a scene")).waitFor({ timeout: 3000 }).catch(() => problemi.push("lavori-scene-foto: le foto di una scena non compaiono in coda (il finto server va avviato con MONTA_FINTO_MS=8000)"))
 }
 
 // --- La chat -----------------------------------------------------------------------------------------------------------
@@ -458,6 +601,7 @@ for (const tema of temi) {
     await pagina.goto(`${origine}/`)
     for (const [n, vista] of VISTE.entries()) {
       if (soloVista && !vista.nome.includes(soloVista)) continue
+      if (vista.soloSeChiesta && soloVista !== vista.nome) continue
       if (inglese && SOLO_ITALIANO.some((nome) => vista.nome.startsWith(nome))) continue
       const etichetta = `${vista.nome} @ ${larghezza}px, tema ${tema}`
       errori.length = 0
@@ -473,6 +617,7 @@ for (const tema of temi) {
         await pagina.waitForTimeout(600)
       }
       await pagina.evaluate(() => document.querySelector("main")?.scrollTo(0, 0))
+      if (vista.mostra) await vista.mostra(pagina).scrollIntoViewIfNeeded()
       const m = await pagina.evaluate(misura)
       const base = `${String(n + 1).padStart(2, "0")}-${vista.nome}-${larghezza}-${tema}${inglese ? "-en" : ""}`
       await pagina.screenshot({ path: join(cartella, `${base}.png`) })
@@ -492,7 +637,8 @@ for (const tema of temi) {
       if (m.alti.length > 0) problemi.push(`${etichetta}: scorrono da soli ma sono più alti dello schermo: ${m.alti.slice(0, 3).join(", ")}`)
       if (m.fuoriRiga.length > 0) problemi.push(`${etichetta}: i pannelli accanto all'anteprima non sono alti quanto la riga`)
       if (m.caricamenti > 0) problemi.push(`${etichetta}: resta un «carico…»`)
-      for (const e of errori) problemi.push(`${etichetta}: errore in console: ${e}`)
+      // Un file che il server rifiuta (415, 409), o un profilo senza nome (400), è proprio ciò che la scena mostra: il browser lo scrive in console, non è un difetto.
+      for (const e of errori) if (!((vista.nome === "girato-aggiungi-errori" && /status of (415|409)/.test(e)) || ((vista.nome === "impostazioni-profilo-errore" || vista.nome === "stile-carattere-rifiutato") && /status of 400/.test(e)))) problemi.push(`${etichetta}: errore in console: ${e}`)
       if (vista.poi) await vista.poi(pagina)
     }
     await contesto.close()

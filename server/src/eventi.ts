@@ -16,6 +16,8 @@ export type Messaggio =
   | { tipo: "modelli" }
   | { tipo: "comandi" }
   | { tipo: "profilo" }
+  /** Porta la finestra dell'app sulla pagina di un video (`video`, con `scheda`) o sul file di un percorso dell'archivio (`video/…` o `grezzo/…`). */
+  | { tipo: "vai"; video?: string; scheda?: string; percorso?: string }
   | EventoChat
 
 type Controllore = ReadableStreamDefaultController<Uint8Array>
@@ -31,6 +33,11 @@ export class Eventi {
 
   emetti(messaggio: Messaggio): void {
     this.scrivi(`data: ${JSON.stringify(messaggio)}\n\n`)
+  }
+
+  /** Quante pagine dello studio sono collegate. */
+  collegati(): number {
+    return this.flussi.size
   }
 
   apri(): Response {

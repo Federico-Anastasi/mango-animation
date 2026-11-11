@@ -1,8 +1,8 @@
 import shutil
+import wave
 
 import numpy as np
 import pytest
-import soundfile
 
 from motore import pulizia
 from motore.errori import Errore
@@ -28,10 +28,16 @@ def filtro(monkeypatch):
 
     def finto(grezza, pulita, stile):
         chiamate.append(grezza)
-        x, sr = soundfile.read(grezza)
-        x = x[: len(x) - round(0.03 * sr)] * 0.5
+        with wave.open(str(grezza)) as w:
+            sr, canali = w.getframerate(), w.getnchannels()
+            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).reshape(-1, canali)
+        x = (x[: len(x) - round(0.03 * sr)] * 0.5).astype(np.int16)
         x[:sr] = 0
-        soundfile.write(pulita, x, sr)
+        with wave.open(str(pulita), "wb") as w:
+            w.setnchannels(canali)
+            w.setsampwidth(2)
+            w.setframerate(sr)
+            w.writeframes(x.tobytes())
 
     monkeypatch.setattr(pulizia, "filtra", finto)
     return chiamate
@@ -66,5 +72,5 @@ def test_la_voce_pulita_non_si_rifa_se_i_tratti_sono_gli_stessi(archivio, scrivi
 
 def test_senza_il_programma_lo_dice(archivio, monkeypatch, tmp_path):
     monkeypatch.setattr(pulizia, "PROGRAMMA", tmp_path / "non-c-e.exe")
-    with pytest.raises(Errore, match="DeepFilterNet"):
+    with pytest.raises(Errore, match="DeepFilterNet.*«Voce pulita».*voce.pulizia.attiva"):
         FILTRA_VERO(tmp_path / "a.wav", tmp_path / "b.wav", archivio.stile)

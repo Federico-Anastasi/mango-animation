@@ -34,21 +34,18 @@ che server e motore trattano come il file. Un rimontaggio scrive il file nuovo a
               finale.mp4, finale.srt              il montato
               capitoli.txt                        i capitoli per la descrizione di YouTube, se il piano ne ha
               leggero.mp4                         720×1280 (1280×720 in orizzontale): c'è solo se il creator l'ha chiesta
-              veloce.mp4                          il montato accelerato: c'è solo se il creator l'ha chiesto, è una copia a parte
               copertina.png, con-copertina.mp4
               anteprima.mp4, anteprima.json       un pezzo del montato per guardare una correzione; il .json dice quale tratto copre (da, a)
-              prova.mp4                           il video per registrare, prima del girato: le scene animate e sotto la battuta da dire
+              prova.mp4, copione.html             il video per registrare, prima del girato: le scene animate e sotto la battuta da dire; il copione è la stessa battuta come pagina da leggere sul telefono
               prova.jpg                           un fotogramma della prova, per l'immagine nell'elenco (lo fa il server)
               slide-<n>.png                       le immagini di un carosello, dalla 1, in ordine di numero
               pubblicato.mp4                      il file com'è uscito, se non è più rimontabile uguale
-              miniatura.jpg, misure.json          immagine e durata del file uscito, per i video senza piano (`python -m strumenti.miniature`)
       sticker/<nome>.png, <nome>.json             il creator ritagliato col bordo bianco, da riusare (caroselli, copertine); il json dice da quale ripresa e a che secondo
-      arrivi/chiave.json, registro.jsonl, .in-corso/   la chiave, le richieste, i file in arrivo o in attesa di misura
+      arrivi/chiave.json, chiave-api.json, chiave-app.json, studio-remoto.json, ricezione.json, registro.jsonl, .in-corso/   le chiavi degli arrivi, delle API e dell'app, lo stato dello studio dalla rete e della ricezione, le richieste, i file in arrivo o in attesa di misura
+      .chat/                                       gli allegati e le conversazioni di Mango Code (`docs/CHAT.md`); fuori da git
       arrivi/.scarichi/                            dove yt-dlp lavora mentre scarica dal web: si svuota da sola
       lavori.jsonl                                 gli ultimi lavori del motore finiti, con l'esito (lo tiene il server)
-      spostamenti.jsonl                            da dove viene ogni file portato in archivio: serve a rimetterlo dov'era
-      eliminati.jsonl                              ciò che è stato cancellato su richiesta del creator: percorso, peso, motivo
-      ingressi.json                                per ogni file entrato col popolamento, il suo percorso d'origine
+      eliminati.jsonl                              ciò che è stato cancellato su richiesta del creator: percorso, peso, motivo (lo scrive Claude, skill `controlla`)
       canali/<canale>/letture/<AAAA-MM-GG-HHMM>/  una lettura del canale, con giorno e ora (sotto)
       canali/<canale>/ultima.json                 l'ultima lettura riuscita: { "lettura", "quando" }
       canali/tiktok/preferiti.json                i video che il creator ha salvato (sotto)
@@ -57,8 +54,8 @@ che server e motore trattano come il file. Un rimontaggio scrive il file nuovo a
       canali/<canale>/crescita.json               dove portare il canale e come (sotto)
 
 Il giorno di un file grezzo: per un arrivo dal telefono quello di arrivo, lo stesso scritto in testa al suo
-nome; per una registrazione quello in cui è fatta; per un file portato dentro dal computer (skill `archivia`)
-quello in cui è stato girato.
+nome; per una registrazione quello in cui è fatta; per un file aggiunto dal computer da Girato («Aggiungi video»)
+quello in cui lo si aggiunge, scritto in testa al nome come per il telefono; per un file portato dentro dalla skill `archivia` quello in cui è stato girato.
 Lo `slug` di un video è minuscolo, con trattini, senza accenti: `pasta-fresca`, `cinque-errori-di-montaggio`.
 
 ## La scheda di un file grezzo
@@ -132,7 +129,7 @@ non l'ha deciso. Un video intero per YouTube e le sue parti per TikTok hanno ogn
 `proposta` è il copione di un video da registrare: `aggancio` la prima frase, `centro` una frase per riga, `chiusa`.
 `quadro` e `scene` servono a `python -m motore prova` (`docs/MOTORE.md`): ogni scena comincia alla frase del copione che
 inizia con le parole `dalla` e dura fino alla scena dopo; `animazione` è la sigla della scena animata, `null` per il creator a
-tutto fotogramma; `parole` (facoltativo, `{ nome: parole del copione }`) lega una scena alle parole: la scena riceve, come `tempi` nel montaggio, il secondo stimato (dall'inizio della scena) in cui il copione dice quelle parole. `spezzoni` sono i pezzi di un girato d'altri che il creator commenta (un talk, un keynote): `file` nel grezzo; le parole che
+tutto fotogramma; `parole` (facoltativo, `{ nome: parole del copione }`) lega una scena alle parole: la scena riceve, come `tempi` nel montaggio, il secondo stimato (dall'inizio della scena) in cui il copione dice quelle parole. Una scena senza animazione può avere `girato` (`{ file, da }`: un file del grezzo e il secondo da cui parte): sotto le sue frasi quel girato scorre muto, nel posto del girato del suo `quadro` (facoltativo, altrimenti quello della proposta), per un girato d'altri che il creator racconta con la sua voce. `spezzoni` sono i pezzi di un girato d'altri che il creator commenta (un talk, un keynote): `file` nel grezzo; le parole che
 dice, come un pezzo del piano (`minuto` e `dice`: i bordi sulla voce, le pause in mezzo tolte, il file preparato), oppure `da` e `a`
 in secondi del file; `testo` la traduzione da leggere sotto, `prima` le prime parole della frase del creator che viene
 subito dopo; se il copione apre con uno spezzone, l'aggancio è lui e `aggancio` può mancare. Dopo la registrazione la proposta

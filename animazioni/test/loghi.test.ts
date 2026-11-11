@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CHATGPT, CLAUDE, Logo } from "../src/standard/loghi";
+import { CHATGPT, CLAUDE, Logo, META } from "../src/standard/loghi";
 
 describe("i loghi standard", () => {
   test("ogni logo ha il suo riquadro, il suo tracciato e il suo colore", () => {
-    for (const logo of [CLAUDE, CHATGPT]) {
+    for (const logo of [CLAUDE, CHATGPT, META]) {
       expect(logo.vista).toHaveLength(4);
       expect(logo.tracciato.length).toBeGreaterThan(20);
       expect(logo.colore).not.toBe("");
@@ -25,14 +25,14 @@ describe("i loghi standard", () => {
   });
 
   test("i file dei loghi sono SVG puliti: niente classi né colori in hsl copiati da una pagina web", async () => {
-    for (const nome of ["claude", "openai"]) {
+    for (const nome of ["claude", "openai", "meta"]) {
       const svg = await Bun.file(new URL(`../src/standard/loghi/${nome}.svg`, import.meta.url)).text();
       expect(svg).not.toMatch(/class=|hsl\(|style=/);
     }
   });
 
   test("ogni file ha accanto la sua fonte e la sua licenza", async () => {
-    for (const nome of ["claude", "openai"]) {
+    for (const nome of ["claude", "openai", "meta"]) {
       const testo = await Bun.file(new URL(`../src/standard/loghi/${nome}.txt`, import.meta.url)).text();
       expect(testo).toContain("https://");
       expect(testo).toMatch(/CC0|pubblico dominio|licenza/i);

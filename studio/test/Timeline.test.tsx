@@ -19,7 +19,7 @@ function proprieta(extra: Partial<PropsTimeline> = {}): PropsTimeline {
         file: [{ file: "2026-10-06/a.mp4", nome: "a.mp4", byte: 1, scheda: { tipo: "ripresa", origine: "telefono", durata: 12 }, scheda_problemi: [], preparato: { parole: "preparati/x/parole.json", sagoma: "preparati/x/sagoma.webm", leggero: "preparati/x/leggero.mp4", miniatura: "preparati/x/miniatura.jpg", onda: "preparati/x/onda.bin", trascrizione: null }, usato_in: [] }],
       },
     ]),
-    trasporto: creaTrasporto(risolto.durata),
+    trasporto: creaTrasporto(risolto.durata, 30),
     selezione: null,
     onSeleziona: vi.fn(),
     bloccata: false,
@@ -38,7 +38,7 @@ function proprieta(extra: Partial<PropsTimeline> = {}): PropsTimeline {
   }
 }
 
-const maniglia = (lato: "inizio" | "fine", n: number) => screen.getAllByLabelText(lato === "inizio" ? "Accorcia o allunga l'inizio del tratto" : "Accorcia o allunga la fine del tratto")[n]!
+const maniglia = (lato: "inizio" | "fine", n: number) => screen.getAllByLabelText(lato === "inizio" ? "Accorcia o allunga l'inizio del pezzo" : "Accorcia o allunga la fine del pezzo")[n]!
 
 function trascina(el: Element, da: number, a: number) {
   fireEvent.pointerDown(el, { clientX: da, button: 0, pointerId: 1 })
@@ -68,6 +68,33 @@ describe("la timeline", () => {
     expect(miniatura(0)).not.toBe(miniatura(2))
   })
 
+  it("se il tocco viene annullato a metà, il gesto finisce senza cambiare niente e il successivo parte pulito", () => {
+    const p = proprieta({ paroleSorgente: () => null })
+    const { container } = render(<Timeline {...p} />)
+    const bordo = maniglia("inizio", 0)
+    fireEvent.pointerDown(bordo, { clientX: 100, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(bordo, { clientX: 140, pointerId: 1 })
+    expect(container.querySelector("[class*=guida]")).not.toBeNull()
+    fireEvent.pointerCancel(bordo, { pointerId: 1 })
+    expect(container.querySelector("[class*=guida]")).toBeNull()
+    fireEvent.pointerUp(bordo, { clientX: 140, pointerId: 1 })
+    expect(p.onBordo).not.toHaveBeenCalled()
+    trascina(maniglia("inizio", 0), 100, 120)
+    expect(p.onBordo).toHaveBeenCalledWith(0, "inizio", 2)
+  })
+
+  it("se il tocco sul righello viene annullato, la testina smette di seguire il puntatore", () => {
+    const p = proprieta()
+    render(<Timeline {...p} />)
+    const righello = screen.getByRole("slider", { name: "Scorri il video" })
+    fireEvent.pointerDown(righello, { clientX: 100, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(righello, { clientX: 200, pointerId: 1 })
+    const dove = p.trasporto.t()
+    fireEvent.pointerCancel(righello, { pointerId: 1 })
+    fireEvent.pointerMove(righello, { clientX: 400, pointerId: 1 })
+    expect(p.trasporto.t()).toBe(dove)
+  })
+
   it("trascinare il bordo d'inizio chiama onBordo col secondo della sorgente, al centesimo", () => {
     const p = proprieta({ paroleSorgente: () => null })
     render(<Timeline {...p} />)
@@ -87,6 +114,15 @@ describe("la timeline", () => {
     render(<Timeline {...p} />)
     trascina(maniglia("inizio", 0), 100, 120)
     expect(p.onBordo).toHaveBeenCalledWith(0, "inizio", 2.04)
+  })
+
+  it("il bordo si aggancia alle parole come le conta il motore: con lo sfasamento del piano, non ai tempi grezzi", () => {
+    const base = proprieta()
+    const sorgenti = { ...base.sorgenti, a: { ...base.sorgenti["a"]!, sfasamento: -0.05 } }
+    const p = proprieta({ sorgenti })
+    render(<Timeline {...p} />)
+    trascina(maniglia("inizio", 0), 100, 120)
+    expect(p.onBordo).toHaveBeenCalledWith(0, "inizio", 1.99)
   })
 
   it("non lascia un tratto più corto del minimo né più lungo del file", () => {
@@ -170,7 +206,7 @@ describe("la timeline", () => {
     p.risolto.tratti[1]!.legato = [-31, null]
     p.proprio = { base: "madre", scene: [p.piano.scene[1]!] }
     const { container } = render(<Timeline {...p} />)
-    expect(screen.getByTitle(/taglio d'inizio cade nel parlato \(-31 dB\)/)).toBeInTheDocument()
+    expect(screen.getByTitle(/taglio d'inizio cade dentro una parola/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "c1" })).toHaveAttribute("title", "c1: viene dal video di base")
     expect(container.querySelector('[data-tratto="0"]')!.className).toMatch(/ereditata/)
     expect(container.querySelector('[data-tratto="2"]')!.className).not.toMatch(/ereditata/)
@@ -197,7 +233,7 @@ describe("la timeline", () => {
 describe("un pezzo senza voce sulla timeline", () => {
   const senzaVoce = () => {
     const piano = pianoSenzaVoce()
-    return proprieta({ risolto: risoltoSenzaVoce(), piano, proprio: structuredClone(piano) as Piano, trasporto: creaTrasporto(11) })
+    return proprieta({ risolto: risoltoSenzaVoce(), piano, proprio: structuredClone(piano) as Piano, trasporto: creaTrasporto(11, 30) })
   }
 
   it("sta fra gli altri tratti col suo nome e la sua durata, senza onda né bordi da trascinare", () => {

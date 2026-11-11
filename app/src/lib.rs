@@ -14,9 +14,10 @@ mod dati;
 mod istanza;
 mod lavoro;
 mod lingua;
-mod mangocode;
+mod percorsi;
 mod preparazione;
 mod radice;
+mod rete;
 mod segnalazione;
 mod server;
 mod sposta;
@@ -31,9 +32,9 @@ use lingua::t;
 use lavoro::{cartella_predefinita, salva_scelta, scegli_cartella, trova_lavoro, Esito};
 use radice::trova_radice;
 use serde::Serialize;
-use server::{aspetta_pronto, comando_server, decidi, indirizzo_dello_studio, porta_da, sorveglia, Decisione, Evento};
+use server::{aspetta_pronto, comando_server, decidi, indirizzo_dello_studio, porta_da, porta_per_il_server, sorveglia, Decisione, Evento};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use supervisor::{Giobbe, Supervisore};
@@ -98,6 +99,8 @@ struct Interno {
     /// Le risposte del creator ai passi dell'avvio che lo aspettano.
     risposte: preparazione::Risposte,
     in_avvio: AtomicBool,
+    /// La porta in cui lo studio risponde, 0 finché l'app non la sa: solo lì la finestra può navigare e la pagina ha i permessi dell'app.
+    porta: AtomicU16,
     main: OnceLock<WebviewWindow>,
     /// La pagina dell'app (attesa ed errori), dove la finestra torna quando lo studio non c'è.
     pagina: OnceLock<Url>,
@@ -128,10 +131,12 @@ fn avvia_studio(app: AppHandle) {
             }
             Esito::Errore(messaggio) => bail!(messaggio),
         };
-        let porta = porta_da(std::env::var("MANGO_ANIMATION_PORTA").ok().as_deref())?;
+        let indicata = std::env::var("MANGO_ANIMATION_PORTA").ok();
+        let mut porta = porta_da(indicata.as_deref())?;
         if let Some(lavoro) = &ricordata {
             imposta_stato(&app, attesa(0, t("Controllo se il server è già acceso", "Checking whether the server is already running")));
             if decidi(porta, lavoro) == Decisione::GiaAcceso {
+                usa_porta(&app, porta)?;
                 return Ok(Some(indirizzo_dello_studio(porta, lavoro)));
             }
         }
@@ -169,10 +174,12 @@ fn avvia_studio(app: AppHandle) {
                     "I can't find Bun on this computer, and the server can't start without it. Install it from bun.sh, then reopen the app."
                 ))
             })?;
-        let comando = comando_server(bun, &radice, &lavoro, std::process::id(), ambiente);
+        porta = porta_per_il_server(porta, indicata.is_some_and(|v| !v.is_empty()));
+        let comando = comando_server(bun, &radice, &lavoro, std::process::id(), porta, ambiente);
         stato.sup.avvia(&comando)?;
         imposta_stato(&app, attesa(0, t("Accendo il server", "Starting the server")));
         aspetta_pronto(&stato.sup, "server", porta, &lavoro, ATTESA_SERVER, |secondi| imposta_stato(&app, attesa(secondi, t("Accendo il server", "Starting the server"))))?;
+        usa_porta(&app, porta)?;
         sorveglia_il_server(app.clone(), comando, porta, lavoro.clone());
         Ok(Some(indirizzo_dello_studio(porta, &lavoro)))
     })();
@@ -190,7 +197,8 @@ fn avvia_studio(app: AppHandle) {
         }
         Err(e) => imposta_stato(
             &app,
-            Stato { fase: "errore".into(), messaggio: format!("{e:#}"), log: Some(stato.sup.log("server").display().to_string()), ..Default::default() },
+            // Il registro del server c'è solo se il server è partito: un errore dei passi prima (profilo, Bun, porta) non ha niente da cercarci.
+            Stato { fase: "errore".into(), messaggio: format!("{e:#}"), log: stato.sup.pid("server").map(|_| stato.sup.log("server").display().to_string()), ..Default::default() },
         ),
     }
     stato.in_avvio.store(false, Ordering::SeqCst);
@@ -305,10 +313,12 @@ fn riprova(app: AppHandle, stato: State<'_, Interno>) {
     avvia_thread_studio(&app);
 }
 
-/// Una pagina interna dell'app: la pagina d'attesa (locale) o lo studio (il server, su 127.0.0.1).
-fn e_interna(url: &Url) -> bool {
-    match url.scheme() {
-        "http" | "https" => matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "tauri.localhost")),
+/// Una pagina dell'app: la pagina locale (`tauri.localhost`) o lo studio, sulla sua porta e solo alla radice (o a `/entra`, che mette il cookie). Su ogni altro indirizzo
+/// la finestra non naviga: sostituirebbe l'interfaccia con una pagina che non ha modo di tornare indietro.
+fn e_pagina_dell_app(url: &Url, porta_studio: Option<u16>) -> bool {
+    match (url.scheme(), url.host_str()) {
+        ("http" | "https", Some("tauri.localhost")) => true,
+        ("http", Some("127.0.0.1")) => porta_studio.is_some() && url.port() == porta_studio && matches!(url.path(), "/" | "/entra"),
         _ => false,
     }
 }
@@ -322,38 +332,102 @@ fn ricorda_pagina(app: &AppHandle, url: &Url) {
     }
 }
 
-fn apri_nel_browser(url: &str) {
-    if let Ok(parsed) = Url::parse(url) {
-        if matches!(parsed.scheme(), "http" | "https" | "mailto") {
-            if let Err(e) = supervisor::apri_fuori_dal_giobbe(parsed.as_str()) {
-                eprintln!("link non aperto ({url}): {e}");
-            }
-            return;
-        }
+/// Il percorso del computer che un indirizzo indica: `file:///C:/…`, o lo studio con un percorso in fondo (`http://127.0.0.1:<porta>/C:/…`, il link di una chat a una cartella).
+fn percorso_locale(url: &Url) -> Option<PathBuf> {
+    match url.scheme() {
+        "file" => url.to_file_path().ok(),
+        _ => Url::parse(&format!("file://{}", url.path())).ok()?.to_file_path().ok(),
     }
-    eprintln!("link non aperto (schema non ammesso): {url}");
+}
+
+/// Ciò che la finestra non mostra si apre fuori: il web nel browser di sistema, una cartella in Esplora file. Un file non si apre mai (potrebbe essere un programma).
+/// Ciò che non si può aprire lo dice a chi ha premuto, e va in `ui.log`.
+fn apri_fuori(app: &AppHandle, url: &Url, porta_studio: Option<u16>) {
+    let dello_studio = url.host_str() == Some("127.0.0.1") && porta_studio.is_some() && url.port() == porta_studio;
+    let esito = if url.scheme() == "file" || dello_studio {
+        match percorso_locale(url).filter(|p| p.is_dir()) {
+            Some(cartella) => supervisor::apri_cartella(&cartella).map_err(|e| e.to_string()),
+            None => Err(t("l'app apre solo le cartelle del computer, non i file", "the app only opens folders on the computer, not files")),
+        }
+    } else if matches!(url.scheme(), "http" | "https" | "mailto") {
+        supervisor::apri_fuori_dal_giobbe(url.as_str()).map_err(|e| e.to_string())
+    } else {
+        Err(t("l'app non apre questo tipo di collegamento", "the app does not open this kind of link"))
+    };
+    if let Err(motivo) = esito {
+        segnalazione::link_non_aperto(app, url.as_str(), &motivo);
+    }
+}
+
+/// Da qui lo studio risponde in `porta`: la finestra può navigarci e la sua pagina, che è remota, ha i permessi della pagina dell'app (`capabilities/default.json`) ma solo su quell'origine,
+/// non su ogni porta di 127.0.0.1.
+fn usa_porta(app: &AppHandle, porta: u16) -> Result<()> {
+    if app.state::<Interno>().porta.swap(porta, Ordering::SeqCst) == porta {
+        return Ok(());
+    }
+    let mut capability: serde_json::Value = serde_json::from_str(include_str!("../capabilities/default.json"))?;
+    capability["identifier"] = format!("studio-{porta}").into();
+    capability["local"] = false.into();
+    capability["remote"] = serde_json::json!({ "urls": [format!("http://127.0.0.1:{porta}")] });
+    app.add_capability(capability.to_string())?;
+    if let Err(e) = app.path().app_local_data_dir().map_err(anyhow::Error::from).and_then(|dati| istanza::registra_porta(&dati, porta)) {
+        segnalazione::nel_registro(app, &t(format!("Non riesco a scrivere la porta dello studio per il comando riavvia-app: {e:#}"), format!("I can't write the studio port for the riavvia-app command: {e:#}")));
+    }
+    Ok(())
+}
+
+fn porta_in_uso(app: &AppHandle) -> Option<u16> {
+    Some(app.state::<Interno>().porta.load(Ordering::SeqCst)).filter(|p| *p != 0)
+}
+
+/// Dice al server quali file ha scelto il creator (lasciati sulla finestra, copiati in Esplora risorse): senza, il server non ne prende il percorso.
+pub(crate) fn registra_percorsi(app: &AppHandle, percorsi: &[String]) -> std::result::Result<(), String> {
+    if percorsi.is_empty() {
+        return Ok(());
+    }
+    let (Some(porta), Esito::Pronta(lavoro)) = (porta_in_uso(app), app.state::<Interno>().lavoro.lock().unwrap().clone()) else {
+        return Err(t("Lo studio non è ancora pronto: riprova fra un momento.", "The studio isn't ready yet: try again in a moment."));
+    };
+    percorsi::registra(porta, &lavoro, percorsi)
 }
 
 fn prepara(app: &tauri::App) -> Result<()> {
     let impostazioni = app.path().app_config_dir()?;
     lingua::all_avvio(&impostazioni);
-    let giobbe = Giobbe::nuovo()?;
-    giobbe.assegna_questo_processo()?;
-    let _ = GIOBBE.set(giobbe);
-    titolo::installa(app)?;
-    dati::installa(app)?;
-    appunti::installa(app)?;
-    computer::ponte::installa(app)?;
-    lingua::installa(app)?;
-    segnalazione::installa(app)?;
-    zoom::installa(app)?;
+    // Senza giobbe l'app funziona lo stesso: solo che i processi che avvia non muoiono con lei.
+    match Giobbe::nuovo().and_then(|giobbe| giobbe.assegna_questo_processo().map(|()| giobbe)) {
+        Ok(giobbe) => {
+            let _ = GIOBBE.set(giobbe);
+        }
+        Err(e) => segnalazione::nel_registro(app.handle(), &t(format!("I processi avviati dall'app non si chiuderanno con lei: {e:#}"), format!("The processes the app starts will not close with it: {e:#}"))),
+    }
+    // Lo studio è una pagina remota (127.0.0.1): i suoi comandi vogliono un plugin con permessi suoi (`build.rs`, `capabilities/default.json`), non bastano quelli dell'app.
+    app.handle().plugin(
+        tauri::plugin::Builder::<tauri::Wry>::new("mango-animation")
+            .invoke_handler(tauri::generate_handler![
+                titolo::colore_barra_titolo,
+                voce::voce_stato,
+                voce::voce_avvia,
+                voce::voce_ferma,
+                dati::cartella_dati,
+                dati::sposta_cartella_dati,
+                appunti::appunti_percorsi,
+                computer::ponte::computer_leggi,
+                lingua::lingua_dello_studio,
+                segnalazione::segnala_problema,
+                segnalazione::scrivi_ui_log,
+                segnalazione::segnalazione_invio_attivo,
+                zoom::ricorda_zoom,
+            ])
+            .build(),
+    )?;
 
     let log = app.path().app_log_dir()?;
     let partenza = std::env::current_exe()?.parent().map(|p| p.to_path_buf()).unwrap_or_default();
     let radice = trova_radice(&partenza, std::env::var("MANGO_ANIMATION_RADICE").ok().as_deref()).map_err(|e| format!("{e:#}"));
     let documenti = app.path().document_dir().ok();
     let lavoro = trova_lavoro(std::env::var(lavoro::VARIABILE).ok().as_deref(), &impostazioni, documenti.as_deref());
-    voce::installa(app, if let Esito::Pronta(cartella) = &lavoro { Some(cartella.as_path()) } else { None })?;
+    voce::installa(app, radice.as_deref().ok(), if let Esito::Pronta(cartella) = &lavoro { Some(cartella.as_path()) } else { None })?;
     let radice_ok = radice.is_ok();
     app.manage(Interno {
         radice,
@@ -365,12 +439,16 @@ fn prepara(app: &tauri::App) -> Result<()> {
         stato: Mutex::new(attesa(0, t("Preparazione", "Getting ready"))),
         risposte: preparazione::Risposte::default(),
         in_avvio: AtomicBool::new(false),
+        porta: AtomicU16::new(0),
         main: OnceLock::new(),
         pagina: OnceLock::new(),
     });
-    istanza::registra(&app.path().app_local_data_dir()?, &istanza::Istanza::questa()?)?;
+    // Serve solo al comando di sviluppo `riavvia-app`: se non si scrive, l'app parte lo stesso.
+    if let Err(e) = app.path().app_local_data_dir().map_err(anyhow::Error::from).and_then(|dati| istanza::registra(&dati, &istanza::Istanza::questa()?)) {
+        segnalazione::nel_registro(app.handle(), &t(format!("Non riesco a registrare l'app per il comando riavvia-app: {e:#}"), format!("I can't register the app for the riavvia-app command: {e:#}")));
+    }
 
-    let per_i_link_nav = app.handle().clone();
+    let (per_le_finestre, per_i_link_nav) = (app.handle().clone(), app.handle().clone());
     let finestra = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Mango Animation")
         .inner_size(1500.0, 950.0)
@@ -389,17 +467,18 @@ fn prepara(app: &tauri::App) -> Result<()> {
         // Ultimo: misura le chiamate dei ponti definiti prima.
         .initialization_script(segnalazione::PONTE)
         // target=_blank e window.open: mai una seconda finestra dell'app, sempre il browser di sistema.
-        .on_new_window(|url, _| {
-            apri_nel_browser(url.as_str());
+        .on_new_window(move |url, _| {
+            apri_fuori(&per_le_finestre, &url, porta_in_uso(&per_le_finestre));
             NewWindowResponse::Deny
         })
-        // un link che porterebbe la finestra fuori dall'app (pagina d'attesa o studio) va al browser.
+        // La finestra naviga solo sulle pagine dell'app: ogni altro indirizzo si apre fuori.
         .on_navigation(move |url| {
             ricorda_pagina(&per_i_link_nav, url);
-            if e_interna(url) {
+            let porta = porta_in_uso(&per_i_link_nav);
+            if e_pagina_dell_app(url, porta) {
                 return true;
             }
-            apri_nel_browser(url.as_str());
+            apri_fuori(&per_i_link_nav, url, porta);
             false
         })
         .build()?;
@@ -421,6 +500,15 @@ fn prepara(app: &tauri::App) -> Result<()> {
     Ok(())
 }
 
+/// L'app non riesce a partire: senza console e senza finestra il creator non vedrebbe niente, quindi lo dice una finestra di Windows.
+fn non_parte(errore: &dyn std::fmt::Display) -> ! {
+    use windows::core::HSTRING;
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+    let testo = t(format!("Mango Animation non riesce ad avviarsi.\n\n{errore}"), format!("Mango Animation can't start.\n\n{errore}"));
+    unsafe { MessageBoxW(None, &HSTRING::from(testo), &HSTRING::from("Mango Animation"), MB_OK | MB_ICONERROR) };
+    std::process::exit(1)
+}
+
 pub fn avvia() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -436,7 +524,7 @@ pub fn avvia() {
         .invoke_handler(tauri::generate_handler![stato_app, azione, riprova, scegli_lavoro, ricrea_lavoro])
         .setup(|app| prepara(app).map_err(Into::into))
         .build(tauri::generate_context!())
-        .expect("l'app non riesce ad avviarsi");
+        .unwrap_or_else(|e| non_parte(&e));
     app.run(|app, evento| {
         if let RunEvent::Exit = evento {
             if let Some(stato) = app.try_state::<Interno>() {
@@ -454,10 +542,65 @@ mod prove {
     use super::*;
 
     #[test]
+    fn ogni_comando_del_ponte_ha_il_permesso_il_gestore_e_la_pagina_che_lo_chiama() {
+        let (build, capability, sorgente) = (include_str!("../build.rs"), include_str!("../capabilities/default.json"), include_str!("lib.rs"));
+        let pagine = [include_str!("titolo.rs"), include_str!("zoom.rs"), include_str!("dati.rs"), include_str!("appunti.rs"), include_str!("lingua.rs"), include_str!("computer/ponte.rs"), include_str!("segnalazione/ponte.js"), include_str!("voce/ponte.js")].concat();
+        let elenco = build.split(".commands(&[").nth(1).unwrap().split("])").next().unwrap();
+        let comandi: Vec<&str> = elenco.split('"').skip(1).step_by(2).collect();
+        assert!(comandi.len() > 10, "{comandi:?}");
+        for comando in comandi {
+            assert!(sorgente.contains(&format!("::{comando},")), "{comando} non è nel gestore di `prepara`");
+            assert!(pagine.contains(&format!("|{comando}\"")) || pagine.contains(&format!("(\"{comando}\"")), "nessuna pagina chiama {comando}");
+        }
+        assert!(capability.contains("\"mango-animation:default\"") && !pagine.contains("plugin:mango-animation-"));
+    }
+
+    #[test]
     fn ogni_stato_dice_alla_pagina_in_che_lingua_sono_le_sue_frasi() {
         let json = |s: Stato| serde_json::to_value(nella_lingua_in_uso(s)).unwrap();
         assert_eq!(json(attesa(0, "x"))["lingua"], "it");
         lingua::con(lingua::Lingua::En, || assert_eq!(json(attesa(0, "x"))["lingua"], "en"));
+    }
+
+    fn url(s: &str) -> Url {
+        Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn la_finestra_naviga_solo_sulla_pagina_dell_app_e_sulla_radice_dello_studio_nella_sua_porta() {
+        let porta = Some(47431);
+        for si in ["http://tauri.localhost/", "http://tauri.localhost/index.html", "http://127.0.0.1:47431/", "http://127.0.0.1:47431/entra?chiave=abc", "http://127.0.0.1:47431/#/video/100"] {
+            assert!(e_pagina_dell_app(&url(si), porta), "{si}");
+        }
+        for no in [
+            "http://127.0.0.1:47431/C:/Users/Alice/Documents",
+            "http://127.0.0.1:47431/c/Users/Alice/a.mp4",
+            "http://127.0.0.1:47431/api/lavori",
+            "http://127.0.0.1:8080/",
+            "http://127.0.0.1/",
+            "http://localhost:47431/",
+            "https://127.0.0.1:47431/",
+            "https://esempio.it/",
+            "file:///C:/Users/Alice/",
+            "about:blank",
+        ] {
+            assert!(!e_pagina_dell_app(&url(no), porta), "{no}");
+        }
+        assert!(!e_pagina_dell_app(&url("http://127.0.0.1/"), None) && e_pagina_dell_app(&url("http://tauri.localhost/"), None));
+    }
+
+    #[test]
+    fn un_link_a_una_cartella_del_computer_diventa_il_suo_percorso_e_un_file_o_il_web_no() {
+        let t = tempfile::tempdir().unwrap();
+        let cartella = t.path().join("Mia cartella");
+        std::fs::create_dir(&cartella).unwrap();
+        let da_file = Url::from_file_path(&cartella).unwrap();
+        assert_eq!(percorso_locale(&da_file), Some(cartella.clone()));
+        // Il link di una chat, relativo allo studio: `/C:/…` con i caratteri speciali codificati.
+        let dello_studio = url(&format!("http://127.0.0.1:47431/{}", da_file.path().trim_start_matches('/')));
+        assert_eq!(percorso_locale(&dello_studio), Some(cartella));
+        assert_eq!(percorso_locale(&url("http://127.0.0.1:47431/c/Users/Alice")), None);
+        assert_eq!(percorso_locale(&url("http://127.0.0.1:47431/")), None);
     }
 
     #[test]

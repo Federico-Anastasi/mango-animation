@@ -17,7 +17,9 @@ const voce = (slug: string, stato: VoceElenco["scheda"]["stato"], extra: Partial
   miniatura: null,
   anteprima: null,
   ha_piano: false,
+  quadri: [],
   ha_finale: false,
+  fase: null,
   ultimo_cambio: "2026-10-09T10:00:00",
   ...extra,
 })
@@ -34,7 +36,6 @@ const file = (nome: string, extra: Partial<FileGrezzo> = {}): FileGrezzo => ({
 })
 
 const rotteBase = {
-  "GET /api/consumi": { pronto: true, video: {}, senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } } },
   "GET /api/registrazione": { disponibile: true, motivo: null, dispositivi: { microfoni: [], camere: [] }, in_corso: null, ultima: null },
   "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], pronto: false, motivo: null },
   "GET /api/accesso-studio": { acceso: false, in_ascolto: true, casa: null, fuori: null, pronto: true, motivo: null },
@@ -48,35 +49,36 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("video, footage and frame in English", () => {
-  it("the frame shows the sections, the phone state and the jobs panel in English", async () => {
+  it("the frame shows the sections and the jobs panel in English, and no phone sign while the phone is not ready", async () => {
     installaRete({
       ...rotteBase,
-      "GET /api/lavori": { in_corso: { id: "l1", slug: "uno", comando: "monta", iniziato: "2026-10-09T10:00:00", righe: [] }, in_coda: [], finiti: [{ id: "l0", slug: "uno", comando: "risolvi", esito: "fallito" }] },
+      "GET /api/lavori": { in_corso: { id: "l1", slug: "uno", comando: "monta", iniziato: "2026-10-09T10:00:00", righe: [] }, in_coda: [{ id: "l2", slug: null, comando: "scene-foto", file: null }], finiti: [{ id: "l0", slug: "uno", comando: "risolvi", esito: "fallito" }] },
       "GET /api/video": [voce("uno", "in lavorazione")],
     })
     render(<Cornice vista="video" />)
     const menu = screen.getByRole("navigation", { name: "Sections" })
-    for (const nome of ["Videos", "Footage", "Audience", "Ranking", "Growth", "Production", "Style"]) expect(within(menu).getByText(nome)).toBeInTheDocument()
+    for (const nome of ["Videos", "Footage", "Production", "Settings"]) expect(within(menu).getByText(nome)).toBeInTheDocument()
+    expect(within(menu).queryByText("Channel")).toBeNull()
     expect(screen.queryByText("Girato")).toBeNull()
-    expect(await screen.findByText("Phone not ready")).toBeInTheDocument()
+    expect(screen.queryByText("Phone not ready")).toBeNull()
     fireEvent.click(await screen.findByRole("button", { name: /Job in progress/ }))
     const pannello = await screen.findByRole("dialog", { name: "Jobs" })
     expect(within(pannello).getByText("Edit · Video uno")).toBeInTheDocument()
     expect(within(pannello).getByRole("button", { name: "Stop" })).toBeInTheDocument()
     expect(within(pannello).getByText("Recalculating the edit · Video uno")).toBeInTheDocument()
     expect(within(pannello).getByText("failed")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Theme: system/ })).toBeInTheDocument()
+    expect(within(pannello).getByText("Frames of a scene")).toBeInTheDocument()
   })
 
   it("the list of videos groups by status and counts with English plurals", async () => {
-    installaRete({ ...rotteBase, "GET /api/video": [voce("uno", "in lavorazione"), voce("due", "proposta"), voce("tre", "proposta")] })
+    installaRete({ ...rotteBase, "GET /api/video": [voce("uno", "in lavorazione"), voce("due", "proposta"), voce("tre", "proposta")].map((v) => ({ ...v, fase: { passo: 1, azione: "idea" as const } })) })
     render(<ElencoVideo />)
     expect(await screen.findByRole("heading", { name: "In progress" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Proposals" })).toBeInTheDocument()
     expect(screen.getByText("1 video")).toBeInTheDocument()
     expect(screen.getByText("2 videos")).toBeInTheDocument()
     expect(screen.getByPlaceholderText("Search by title")).toBeInTheDocument()
-    expect(screen.getAllByText("not edited yet")).toHaveLength(3)
+    expect(screen.getAllByText("Step 1 of 8 · Idea")).toHaveLength(3)
     expect(screen.queryByText("In lavorazione")).toBeNull()
   })
 
@@ -99,10 +101,10 @@ describe("video, footage and frame in English", () => {
     installaRete({ ...rotteBase })
     const video = dettaglioDiProva()
     const { unmount } = render(<SchedaDelVideo video={video} salvaScheda={vi.fn()} />)
-    expect(screen.getByRole("heading", { name: "The proposal" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "The script" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Caption and hashtags" })).toBeInTheDocument()
     expect(screen.getByText("No hashtags for this video.")).toBeInTheDocument()
-    expect(screen.queryByText("La proposta")).toBeNull()
+    expect(screen.queryByText("Il copione")).toBeNull()
     unmount()
     render(<FileVideo video={video} salvaScheda={vi.fn()} />)
     expect(screen.getByRole("heading", { name: "The output files" })).toBeInTheDocument()

@@ -1,5 +1,5 @@
-//! La cartella dei dati vista dallo studio: dove sta e il gesto «Sposta la cartella dei dati». Come la dettatura, passa da un
-//! plugin con permessi suoi (`build.rs`, `capabilities/default.json`) perché lo studio è una pagina remota (127.0.0.1).
+//! La cartella dei dati vista dallo studio: dove sta e il gesto «Sposta la cartella dei dati». I suoi comandi stanno fra quelli
+//! del ponte (`build.rs`, `capabilities/default.json`) perché lo studio è una pagina remota (127.0.0.1).
 
 use crate::lingua::t;
 use crate::cartella::stesso_posto;
@@ -13,7 +13,7 @@ use tauri::State;
 pub const PONTE: &str = r#"
 (() => {
   if (window.top !== window) return;
-  const chiama = (comando) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation-dati|" + comando);
+  const chiama = (comando) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|" + comando);
   // cartellaDati.leggi(): { attuale, prossima, forzata } (prossima: dove si sposta la cartella al prossimo avvio)
   // cartellaDati.sposta(): apre la scelta della cartella; senza scelta dà null, altrimenti come leggi(). I file li sposta l'app al prossimo avvio, prima di accendere il server;
   // scegliere la cartella in uso annulla uno spostamento chiesto. Rifiuta con la frase se la cartella scelta non è vuota o sta dentro l'attuale.
@@ -33,12 +33,12 @@ fn leggi(stato: &Interno) -> Result<Dati, String> {
 }
 
 #[tauri::command]
-async fn cartella_dati(stato: State<'_, Interno>) -> Result<Dati, String> {
+pub(crate) async fn cartella_dati(stato: State<'_, Interno>) -> Result<Dati, String> {
     leggi(&stato)
 }
 
 #[tauri::command]
-async fn sposta_cartella_dati(stato: State<'_, Interno>) -> Result<Option<Dati>, String> {
+pub(crate) async fn sposta_cartella_dati(stato: State<'_, Interno>) -> Result<Option<Dati>, String> {
     if std::env::var(VARIABILE).is_ok_and(|v| !v.is_empty()) {
         return Err(t(
             format!("La cartella dei dati la indica {VARIABILE}: per cambiarla si cambia la variabile."),
@@ -59,12 +59,4 @@ async fn sposta_cartella_dati(stato: State<'_, Interno>) -> Result<Option<Dati>,
         programma_spostamento(&stato.impostazioni, &cartella).map_err(|e| format!("{e:#}"))?;
     }
     leggi(&stato).map(Some)
-}
-
-pub fn installa(app: &tauri::App) -> tauri::Result<()> {
-    app.handle().plugin(
-        tauri::plugin::Builder::<tauri::Wry>::new("mango-animation-dati")
-            .invoke_handler(tauri::generate_handler![cartella_dati, sposta_cartella_dati])
-            .build(),
-    )
 }

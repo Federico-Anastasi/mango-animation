@@ -1,11 +1,13 @@
-// La geometria della timeline: scala, righello, aggancio dei bordi alle parole, destinazione di un pezzo
+// La geometria della timeline: scala, righello, aggancio dei bordi alle parole del motore, destinazione di un pezzo
 // trascinato. Funzioni pure.
 import type { ParolaGrezzo, Risolto } from "../tipi"
 
 export const MIN_PX_AL_SECONDO = 4
 export const MAX_PX_AL_SECONDO = 600
 /** Un bordo trascinato si aggancia a una parola se ci arriva più vicino di così. */
-export const AGGANCIO_S = 0.15
+const AGGANCIO_S = 0.15
+/** Una parola del risolto e la sua grezza sono la stessa se cominciano a meno di così (l'allineamento sposta i confini di qualche decimo). */
+const DISTANZA_MASSIMA_S = 1
 const PASSI_RIGHELLO = [0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300]
 
 /** Il passo delle tacche del righello: la più rada che resta a una distanza leggibile. */
@@ -34,6 +36,22 @@ export function aggancia(secondo: number, parole: readonly ParolaGrezzo[] | null
     }
   }
   return migliore
+}
+
+/** Le parole di una sorgente come le conta il motore, in secondi della sorgente: quelle grezze di `parole.json` più lo sfasamento del piano, e dove il risolto ha la stessa
+ * parola (per un pezzo a parole, con i confini allineati sull'audio) i suoi tempi. Il bordo di un pezzo a tempo si aggancia a queste, non ai tempi grezzi della trascrizione,
+ * che possono stare mezzo secondo fuori. */
+export function paroleDelMotore(grezze: readonly ParolaGrezzo[] | null, sfasamento: number, risolto: Risolto, sorgente: string): ParolaGrezzo[] | null {
+  if (!grezze) return null
+  const parole = grezze.map((w) => ({ p: w.p, da: w.da + sfasamento, a: w.a + sfasamento }))
+  const perTesto = new Map<string, ParolaGrezzo[]>()
+  for (const w of parole) perTesto.set(w.p, [...(perTesto.get(w.p) ?? []), w])
+  for (const w of risolto.parole) {
+    if (risolto.tratti[w.tratto]?.sorgente !== sorgente) continue
+    const vicina = (perTesto.get(w.p) ?? []).reduce<ParolaGrezzo | undefined>((meglio, c) => (!meglio || Math.abs(c.da - w.nella_sorgente) < Math.abs(meglio.da - w.nella_sorgente) ? c : meglio), undefined)
+    if (vicina && Math.abs(vicina.da - w.nella_sorgente) < DISTANZA_MASSIMA_S) Object.assign(vicina, { da: w.nella_sorgente, a: w.nella_sorgente + (w.a - w.da) })
+  }
+  return parole
 }
 
 export interface GruppoPezzo {

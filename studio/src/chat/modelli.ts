@@ -1,7 +1,7 @@
 // Modello ed effort della chat: l'elenco di Claude Code, i nomi per il creator e la scelta che vale per le conversazioni nuove.
 import { creaCopia } from "../dati"
 import { apiChat } from "./api"
-import { motoreDellaChat, motoreDi } from "./motore"
+import { motoreDellaChat, motoreDi, MOTORE_CHAT } from "./motore"
 import type { StatoNegozio } from "./negozio"
 import type { ComandoChat, ImpostazioniChat, LivelloEffort, ModelloChat } from "./tipi"
 import { t } from "../lingua"
@@ -52,6 +52,49 @@ export const comandiChat = creaCopia<ComandoChat[]>(apiChat.comandi, (e) => e.ti
 export function modelliOfferti(modelli: ModelloChat[], chat: Pick<StatoNegozio, "id" | "caricato" | "errore" | "modello">): ModelloChat[] {
   const motore = motoreDellaChat(chat)
   return modelli.filter((m) => chat.id === null || motoreDi(m.id).id === motore?.id)
+}
+
+/** La versione di un modello come [maggiore, minore], dal nome («Opus 5.5») o dal nome vero («claude-opus-5-5»); [0, 0] se non c'è. */
+function versioneDi(m: ModelloChat): [number, number] {
+  const dalNome = /(\d+)\.(\d+)/.exec(m.nome)
+  if (dalNome) return [Number(dalNome[1]), Number(dalNome[2])]
+  const vero = /(\d+)-(\d{1,2})(?!\d)/.exec(m.reale.replace(/-\d{8}$/, ""))
+  return vero ? [Number(vero[1]), Number(vero[2])] : [0, 0]
+}
+
+/** Dal più nuovo al più vecchio; a pari versione resta l'ordine dell'elenco. */
+const dalPiuRecente = (modelli: ModelloChat[]): ModelloChat[] =>
+  [...modelli].sort((a, b) => {
+    const [ma, na] = versioneDi(a)
+    const [mb, nb] = versioneDi(b)
+    return mb - ma || nb - na
+  })
+
+const diClaude = (m: ModelloChat) => m.id !== MODELLO_PREDEFINITO && motoreDi(m.id).id === MOTORE_CHAT.id
+
+/** Il menu corto: «Predefinito», i tre modelli di Claude più recenti (non quello che è già il predefinito) e quelli di Mango Code; gli altri vanno sotto «Altri». */
+export function dividiModelli(offerti: ModelloChat[]): { principali: ModelloChat[]; altri: ModelloChat[] } {
+  const reale = offerti.find((m) => m.id === MODELLO_PREDEFINITO)?.reale
+  const recenti = new Set(dalPiuRecente(offerti.filter((m) => diClaude(m) && m.reale !== reale)).slice(0, 3))
+  return { principali: offerti.filter((m) => !diClaude(m) || recenti.has(m)), altri: offerti.filter((m) => diClaude(m) && !recenti.has(m)) }
+}
+
+/** L'Opus più recente che Claude offre (non la variante a contesto lungo, se c'è l'altra); `undefined` se l'elenco non ne ha. */
+export function opusPiuRecente(modelli: ModelloChat[]): ModelloChat | undefined {
+  const opus = dalPiuRecente(modelli.filter((m) => diClaude(m) && /opus/i.test(m.id + m.reale)))
+  return opus.find((m) => !m.id.includes("[")) ?? opus[0]
+}
+
+/** I modelli, aspettando che la prima lettura sia finita; `null` se non si sono potuti leggere. */
+export function modelliLetti(): Promise<ModelloChat[] | null> {
+  if (modelliChat.stato().caricato) return Promise.resolve(modelliChat.stato().dato)
+  return new Promise((risolvi) => {
+    const smetti = modelliChat.iscriviti(() => {
+      if (!modelliChat.stato().caricato) return
+      smetti()
+      risolvi(modelliChat.stato().dato)
+    })
+  })
 }
 
 /** La riga dell'elenco per un modello: per nome, per modello vero (ciò che Claude Code dice di aver acceso), o il predefinito se non c'è scelta. */

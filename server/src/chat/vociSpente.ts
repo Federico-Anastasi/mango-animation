@@ -2,15 +2,19 @@
 // rotta, quindi i server MCP che il metodo non usa si spengono nel file `.mango/settings.json` della cartella (https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md,
 // «What goes into the prompt»).
 import { join } from "node:path"
-import { jsonDaTesto, leggiTesto, scrivi, testoJson } from "../disco"
+import { eOggetto, jsonDaTesto, leggiTesto, scrivi, testoJson } from "../disco"
+import { frase } from "../lingua"
 import { cartellaDellaChat } from "./allegati"
 import { ErroreChat } from "./tipi"
-import { eOggetto, type Oggetto } from "./traduzione"
+import { type Oggetto } from "./traduzione"
 
 /** I server MCP di Mango Code che il metodo non usa e che pesano nel prompt a ogni richiesta (`web-search` resta acceso). */
 export const SERVER_SPENTI: readonly string[] = ["chrome-devtools", "documenti"]
 
-const FRASE_NON_SI_LEGGE = "Il file .mango/settings.json della cartella di lavoro non si legge: correggilo o toglilo, poi riscrivi il messaggio."
+const FRASE_NON_SI_LEGGE = frase(
+  "Il file .mango/settings.json della cartella di lavoro non si legge: correggilo o toglilo, poi riscrivi il messaggio.",
+  "The file .mango/settings.json in the working folder cannot be read: fix it or remove it, then write the message again.",
+)
 
 /** La sezione `nome` di un oggetto del file; assente è vuota, di un'altra forma è un file che Mango Code stesso rifiuterebbe. */
 function sezione(padre: Oggetto, nome: string): Oggetto {

@@ -2,7 +2,7 @@
 // Si disegna alla larghezza vera del contenitore, così le scritte restano leggibili anche sul telefono.
 import { useEffect, useId, useRef, useState, type MouseEvent, type RefObject } from "react"
 import { localeInUso, t } from "../lingua"
-import { data, dataOra, numero } from "../testo"
+import { data, dataOra, GIORNO, numero } from "../testo"
 import { inSecondi, interpola, type Punto } from "./calcoli"
 import styles from "./Crescita.module.css"
 
@@ -35,7 +35,7 @@ interface Props {
 
 const ALTO = 260
 const MARGINE = { sopra: 16, destra: 16, sotto: 28, sinistra: 52 }
-const MESE = 30 * 86_400_000
+const MESE = 30 * GIORNO
 /** Quanti pixel può essere lontano il mouse da una lettura per prenderla. */
 const PRESA = 24
 const GUIDE = 4
@@ -176,9 +176,7 @@ export function Grafico({ descrizione, da, a, linee, fascia, etichette = [], not
             <g key={l.nome} className={l.tipo === "vera" ? styles.vera : styles.obiettivo} clipPath={`url(#${ritaglio})`}>
               <polyline points={tracciato(l.punti)} fill="none" />
               {l.punti.map((p) => (
-                <g key={p.t}>
-                  <circle cx={x(p.t)} cy={y(p.follower)} r={l.tipo === "vera" ? 4 : 3} />
-                </g>
+                <circle key={p.t} cx={x(p.t)} cy={y(p.follower)} r={l.tipo === "vera" ? 4 : 3} />
               ))}
             </g>
           ))}

@@ -1,11 +1,11 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { scegliLingua } from "../src/lingua"
 import { Montaggio } from "../src/montaggio/Montaggio"
 import { togliParole, zoomPezzo, type Contesto } from "../src/montaggio/ritocchi"
 import { PaginaStile } from "../src/stile/PaginaStile"
 import { controllaStile } from "../src/stile/validazione"
-import { conUscite, dettaglioDiProva, pianoDiProva, stileDiProva } from "./fixture"
+import { caratteriDiProva, conUscite, dettaglioDiProva, partenzeDiProva, pianoDiProva, stileDiProva } from "./fixture"
 import { installaEventi, installaRete } from "./rete"
 
 const giorni = [
@@ -19,10 +19,14 @@ const giorni = [
   },
 ]
 
+let eventi: ReturnType<typeof installaEventi>
+
 beforeEach(() => {
-  installaEventi()
+  eventi = installaEventi()
   installaRete({
     "GET /api/stile": stileDiProva(),
+    "GET /api/stile/partenza": partenzeDiProva(),
+    "GET /api/caratteri": caratteriDiProva(),
     "GET /api/grezzo": giorni,
     "GET /api/animazioni": { prova: ["c1", "c2"] },
     "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
@@ -44,9 +48,9 @@ describe("il montaggio in inglese", () => {
     expect(screen.getByRole("button", { name: "Edited" })).toBeInTheDocument()
     expect(screen.getByLabelText("Video layout")).toBeInTheDocument()
     expect(screen.getByRole("option", { name: "Word by word" })).toBeInTheDocument()
-    expect(screen.getByText("Segments")).toBeInTheDocument()
+    expect(screen.getByText("Clips")).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Il video" })).toBeNull()
-    expect(screen.queryByText("Tratti")).toBeNull()
+    expect(screen.queryByText("Pezzi")).toBeNull()
   })
 
   it("il pannello del tratto scelto è in inglese", async () => {
@@ -55,7 +59,7 @@ describe("il montaggio in inglese", () => {
     const tratto = container.querySelector('[data-tratto="0"]')!
     fireEvent.pointerDown(tratto, { clientX: 10, button: 0, pointerId: 1 })
     fireEvent.pointerUp(tratto, { clientX: 10, pointerId: 1 })
-    const pannello = (await screen.findByRole("heading", { name: "Selected segment" })).parentElement!
+    const pannello = (await screen.findByRole("heading", { name: "Selected clip" })).parentElement!
     expect(within(pannello).getByRole("button", { name: /Split here/ })).toBeInTheDocument()
     expect(within(pannello).getByRole("button", { name: /Remove/ })).toBeInTheDocument()
     expect(within(pannello).queryByRole("button", { name: /Dividi/ })).toBeNull()
@@ -114,7 +118,7 @@ describe("gli avvisi del montaggio in inglese", () => {
     const tratto = container.querySelector('[data-tratto="0"]')!
     fireEvent.pointerDown(tratto, { clientX: 10, button: 0, pointerId: 1 })
     fireEvent.pointerUp(tratto, { clientX: 10, pointerId: 1 })
-    const pannello = (await screen.findByRole("heading", { name: "Selected segment" })).parentElement!
+    const pannello = (await screen.findByRole("heading", { name: "Selected clip" })).parentElement!
     expect(within(pannello).getByText("the start cut falls inside the voice (-20 dB)")).toBeInTheDocument()
   })
 })
@@ -139,20 +143,37 @@ describe("i ritocchi in inglese", () => {
 })
 
 describe("lo stile in inglese", () => {
+  it("se il file cambia sotto una bozza lo dice in inglese, con le due scelte", async () => {
+    render(<PaginaStile />)
+    const corpo = (await screen.findAllByRole("textbox", { name: /^Size$/ }))[0]!
+    fireEvent.change(corpo, { target: { value: "62" } })
+    fireEvent.blur(corpo)
+    const nuovo = stileDiProva()
+    nuovo.sottotitoli.stacco = 0.9
+    installaRete({ "GET /api/stile": nuovo, "GET /api/stile/partenza": partenzeDiProva(), "GET /api/caratteri": caratteriDiProva() })
+    act(() => eventi.istanze[0]!.manda({ tipo: "stile" }))
+    expect(await screen.findByText(/The style changed in the meantime/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Keep mine" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Take the new ones" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled()
+  })
+
   it("la pagina e i controlli sono in inglese", async () => {
     render(<PaginaStile />)
     expect(await screen.findByRole("heading", { name: "Style" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Subtitles and title" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "Discard changes" })).toBeInTheDocument()
+    expect(screen.getByText("All layouts")).toBeInTheDocument()
+    expect(screen.getByText(/No video uses a layout yet./)).toBeInTheDocument()
     expect(screen.getAllByRole("textbox", { name: /Voice volume/ })[0]).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Salva" })).toBeNull()
   })
 
   it("i nomi dei colori, dei formati e il «nessuno» dello stile di serie sono in inglese", async () => {
     render(<PaginaStile />)
-    expect(await screen.findByLabelText("Color paper")).toBeInTheDocument()
-    expect(screen.getByLabelText("Color ink")).toBeInTheDocument()
+    expect(await screen.findByLabelText("Color Background")).toBeInTheDocument()
+    expect(screen.getByLabelText("Color Text")).toBeInTheDocument()
     expect(screen.getAllByRole("textbox", { name: /Format \(vertical\), width/ })[0]).toBeInTheDocument()
     expect(screen.getAllByRole("textbox", { name: /Format \(horizontal\), height/ })[0]).toBeInTheDocument()
     expect(screen.getAllByRole("option", { name: "none" }).length).toBeGreaterThan(0)
@@ -170,7 +191,7 @@ describe("lo stile in inglese", () => {
 
   it("la validazione traduce le frasi composte", () => {
     const s = stileDiProva()
-    s.formato.largo = 0
-    expect(controllaStile(s)).toContain("The frame width must be greater than zero.")
+    s.formati.verticale!.largo = 0
+    expect(controllaStile(s)).toContain("The width of format verticale must be greater than zero.")
   })
 })

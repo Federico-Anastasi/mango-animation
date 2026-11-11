@@ -24,3 +24,7 @@ app/gen/
 Thumbs.db
 .DS_Store
 .venv/
+
+# chiavi e password: mai nel repo
+*.key
+*.password

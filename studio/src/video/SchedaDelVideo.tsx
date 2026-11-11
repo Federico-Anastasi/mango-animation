@@ -7,7 +7,6 @@ import type { PropsScheda } from "./PaginaVideo"
 import { Andamento } from "./Andamento"
 import { CanaliScheda } from "./CanaliScheda"
 import { HashtagScheda } from "./HashtagScheda"
-import { LavoroDiClaude } from "./LavoroDiClaude"
 import { PubblicazioniScheda } from "./PubblicazioniScheda"
 import { ScalettaScheda } from "./ScalettaScheda"
 import styles from "./SchedaDelVideo.module.css"
@@ -18,7 +17,7 @@ const colonneNumeri = () =>
     { chiave: "mi_piace", nome: t("Mi piace", "Likes") },
     { chiave: "commenti", nome: t("Commenti", "Comments") },
     { chiave: "condivisioni", nome: t("Condivisioni", "Shares") },
-    { chiave: "salvati", nome: t("Salvati", "Saved") },
+    { chiave: "salvati", nome: t("Salvati", "Saves") },
   ] as const
 
 export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
@@ -33,7 +32,8 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
   return (
     <div className={styles.pagina}>
       <section className={styles.blocco}>
-        <h2>{t("La proposta", "The proposal")}</h2>
+        <h2>{t("Il copione", "The script")}</h2>
+        <p className={styles.nota}>{t("Correggilo qui, anche a mano: la chat lo rilegge.", "Fix it here, even by hand: the chat reads it again.")}</p>
         <div className={styles.proposta}>
           {campoProposta("aggancio", t("Aggancio", "Hook"), 3)}
           {campoProposta("centro", t("Centro", "Center"), 3)}
@@ -66,7 +66,7 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
           <Vuoto>{t("Nessun numero registrato: compaiono quando si legge il canale dopo l'uscita.", "No numbers recorded: they appear when the channel is read after release.")}</Vuoto>
         ) : (
           <>
-            <div className={styles.scorri}>
+            <div className="scorri-con-segno">
               <table className={styles.tabella}>
                 <thead>
                   <tr>
@@ -86,7 +86,7 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
                       <td>{n.canale}</td>
                       {colonne.map((c) => (
                         <td key={c.chiave} className={styles.num}>
-                          {n[c.chiave] === undefined ? "–" : numero(n[c.chiave] ?? 0)}
+                          {n[c.chiave] === undefined ? "–" : numero(n[c.chiave]!)}
                         </td>
                       ))}
                     </tr>
@@ -98,8 +98,6 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
           </>
         )}
       </section>
-
-      <LavoroDiClaude slug={video.slug} />
 
       <section className={styles.blocco}>
         <h2>{t("Note", "Notes")}</h2>

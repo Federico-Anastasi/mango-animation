@@ -53,7 +53,7 @@ impl Giobbe {
         unsafe { AssignProcessToJobObject(self.0, GetCurrentProcess()) }.context("AssignProcessToJobObject (app)")
     }
 
-    #[cfg(test)]
+    /// Mette nel giobbe un processo già avviato.
     pub fn assegna(&self, processo: &Child) -> Result<()> {
         use std::os::windows::io::AsRawHandle;
         unsafe { AssignProcessToJobObject(self.0, HANDLE(processo.as_raw_handle())) }.context("AssignProcessToJobObject")
@@ -81,6 +81,9 @@ pub struct Comando {
 struct Figlio {
     nome: String,
     processo: Child,
+    /// Un giobbe solo suo, dentro quello dell'app: chiuderlo (quando il figlio è sostituito o fermato) ferma anche i discendenti rimasti vivi dopo che il figlio è caduto da solo,
+    /// che `taskkill /T` su un pid ormai morto non trova più. Senza (Windows non lo permette) resta `taskkill`.
+    _giobbe: Option<Giobbe>,
 }
 
 /// Avvia processi nascosti con l'uscita su `<cartella>/<nome>.log`.
@@ -124,11 +127,12 @@ impl Supervisore {
             .spawn()
             .with_context(|| t(format!("non riesco ad avviare il programma {}", c.exe.display()), format!("I can't start the program {}", c.exe.display())))?;
         let pid = processo.id();
+        let giobbe = Giobbe::nuovo().and_then(|g| g.assegna(&processo).map(|()| g)).ok();
         let mut figli = self.figli.lock().unwrap();
         if in_coda {
             figli.retain(|f| f.nome != c.nome);
         }
-        figli.push(Figlio { nome: c.nome.clone(), processo });
+        figli.push(Figlio { nome: c.nome.clone(), processo, _giobbe: giobbe });
         Ok((log, pid))
     }
 
@@ -166,10 +170,9 @@ impl Supervisore {
     }
 }
 
-/// Apre un file, una cartella o un indirizzo col suo programma di Windows, fuori dal giobbe dell'app: il browser o il foglio di calcolo
-/// che l'app apre per il creator devono restare aperti quando l'app si chiude. Il plugin `opener` li avviava dentro il giobbe e Windows
-/// li chiudeva insieme all'app (un browser che non era già aperto). Lo stesso comando del plugin: `Invoke-Item` per i percorsi,
-/// `Start-Process` per gli indirizzi; la destinazione passa da una variabile d'ambiente, non dal testo del comando.
+/// Apre un indirizzo web col browser di Windows, fuori dal giobbe dell'app: il browser che l'app apre per il creator deve restare aperto quando l'app
+/// si chiude. Il plugin `opener` lo avviava dentro il giobbe e Windows lo chiudeva insieme all'app (un browser che non era già aperto).
+/// La destinazione passa da una variabile d'ambiente, non dal testo del comando; chi chiama passa solo indirizzi, mai percorsi di file (`Start-Process` li eseguirebbe).
 pub fn apri_fuori_dal_giobbe(destinazione: &str) -> std::io::Result<()> {
     Command::new("powershell.exe")
         .args(["-NoProfile", "-NonInteractive", "-Command", COMANDO_APRI])
@@ -182,7 +185,12 @@ pub fn apri_fuori_dal_giobbe(destinazione: &str) -> std::io::Result<()> {
         .map(|_| ())
 }
 
-const COMANDO_APRI: &str = "$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath $env:MANGO_APRI_DESTINAZIONE) { Invoke-Item -LiteralPath $env:MANGO_APRI_DESTINAZIONE } else { Start-Process -FilePath $env:MANGO_APRI_DESTINAZIONE }";
+const COMANDO_APRI: &str = "$ErrorActionPreference = 'Stop'; Start-Process -FilePath $env:MANGO_APRI_DESTINAZIONE";
+
+/// Apre una cartella in Esplora file, fuori dal giobbe come `apri_fuori_dal_giobbe`.
+pub fn apri_cartella(cartella: &Path) -> std::io::Result<()> {
+    Command::new("explorer.exe").arg(cartella).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).creation_flags(CREATE_BREAKAWAY_FROM_JOB).spawn().map(|_| ())
+}
 
 /// Il processo `pid` e i suoi discendenti. Solo di processi avviati dall'app: mai per nome.
 pub fn uccidi_albero(pid: u32) {
@@ -331,6 +339,26 @@ mod prove {
         let comando = format!("(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}' | Select-Object -First 1).ProcessId");
         let fuori = Command::new("powershell").args(["-NoProfile", "-Command", &comando]).output().unwrap();
         String::from_utf8_lossy(&fuori.stdout).trim().parse().ok()
+    }
+
+    #[test]
+    fn un_processo_caduto_da_solo_non_lascia_in_vita_i_suoi_discendenti_quando_lo_si_riaccende() {
+        let t = tempfile::tempdir().unwrap();
+        let sup = Supervisore::nuovo(t.path());
+        let comando = |riga: &str| Comando { nome: "server".into(), exe: "cmd".into(), args: vec!["/c".into(), riga.into()], cwd: t.path().to_path_buf(), env: vec![] };
+        // Il padre lancia un nipote e muore subito: `taskkill /T` sul suo pid non troverebbe più niente da fermare.
+        sup.avvia(&comando("start /b ping -n 60 127.0.0.1 >nul")).unwrap();
+        let padre = sup.pid("server").unwrap();
+        let t0 = Instant::now();
+        while sup.uscito("server").is_none() && t0.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(sup.uscito("server").is_some(), "il padre doveva essere uscito");
+        let nipote = figlio_di(padre).expect("il nipote doveva esserci");
+        assert!(vivo(nipote), "il nipote doveva essere vivo dopo la fine del padre");
+        sup.riaccendi(&comando("exit 0")).unwrap();
+        std::thread::sleep(Duration::from_millis(500));
+        assert!(!vivo(nipote), "il nipote doveva essere fermato con il padre sostituito");
     }
 
     #[test]

@@ -15,11 +15,14 @@ pub const VARIABILE_PID: &str = "MANGO_ANIMATION_APP_PID";
 pub struct Istanza {
     pub pid: u32,
     pub exe: PathBuf,
+    /// La porta in cui lo studio risponde, quando l'app la sa: il ripiego di porta può lasciare il server lontano dalla 47431.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub porta: Option<u16>,
 }
 
 impl Istanza {
     pub fn questa() -> Result<Self> {
-        Ok(Self { pid: std::process::id(), exe: std::env::current_exe().with_context(|| t("non trovo il percorso dell'eseguibile", "I can't find the path of the executable"))? })
+        Ok(Self { pid: std::process::id(), exe: std::env::current_exe().with_context(|| t("non trovo il percorso dell'eseguibile", "I can't find the path of the executable"))?, porta: None })
     }
 }
 
@@ -33,6 +36,11 @@ pub fn registra(cartella: &Path, istanza: &Istanza) -> Result<()> {
 
 pub fn leggi(cartella: &Path) -> Option<Istanza> {
     serde_json::from_str(&std::fs::read_to_string(cartella.join(FILE)).ok()?).ok()
+}
+
+/// Aggiunge a `app.json` la porta dello studio.
+pub fn registra_porta(cartella: &Path, porta: u16) -> Result<()> {
+    registra(cartella, &Istanza { porta: Some(porta), ..Istanza::questa()? })
 }
 
 /// Toglie `app.json` solo se è di questo pid: dopo un crash e un nuovo avvio il file è di un'altra app.
@@ -50,7 +58,7 @@ mod prove {
     fn l_app_si_scrive_e_si_rilegge() {
         let t = tempfile::tempdir().unwrap();
         let dati = t.path().join("dati");
-        let io = Istanza { pid: 4242, exe: PathBuf::from(r"C:\Esempio\app.exe") };
+        let io = Istanza { pid: 4242, exe: PathBuf::from(r"C:\Esempio\app.exe"), porta: None };
         registra(&dati, &io).unwrap();
         assert_eq!(leggi(&dati), Some(io));
         assert!(!dati.join("app.json.tmp").exists());
@@ -59,23 +67,34 @@ mod prove {
     #[test]
     fn il_file_ha_le_chiavi_che_legge_il_comando() {
         let t = tempfile::tempdir().unwrap();
-        registra(t.path(), &Istanza { pid: 7, exe: PathBuf::from(r"C:\x\app.exe") }).unwrap();
+        registra(t.path(), &Istanza { pid: 7, exe: PathBuf::from(r"C:\x\app.exe"), porta: None }).unwrap();
         let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(t.path().join("app.json")).unwrap()).unwrap();
         assert_eq!(json, serde_json::json!({ "pid": 7, "exe": r"C:\x\app.exe" }));
     }
 
     #[test]
+    fn la_porta_in_uso_si_aggiunge_al_file_con_la_chiave_che_legge_il_comando() {
+        let t = tempfile::tempdir().unwrap();
+        registra(t.path(), &Istanza::questa().unwrap()).unwrap();
+        registra_porta(t.path(), 56867).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(t.path().join("app.json")).unwrap()).unwrap();
+        assert_eq!(json["porta"], 56867);
+        assert_eq!(json["pid"], std::process::id());
+        assert_eq!(leggi(t.path()).unwrap().porta, Some(56867));
+    }
+
+    #[test]
     fn un_nuovo_avvio_prende_il_posto_del_vecchio() {
         let t = tempfile::tempdir().unwrap();
-        registra(t.path(), &Istanza { pid: 1, exe: "a.exe".into() }).unwrap();
-        registra(t.path(), &Istanza { pid: 2, exe: "a.exe".into() }).unwrap();
+        registra(t.path(), &Istanza { pid: 1, exe: "a.exe".into(), porta: None }).unwrap();
+        registra(t.path(), &Istanza { pid: 2, exe: "a.exe".into(), porta: None }).unwrap();
         assert_eq!(leggi(t.path()).unwrap().pid, 2);
     }
 
     #[test]
     fn alla_chiusura_toglie_il_proprio_file() {
         let t = tempfile::tempdir().unwrap();
-        registra(t.path(), &Istanza { pid: 10, exe: "a.exe".into() }).unwrap();
+        registra(t.path(), &Istanza { pid: 10, exe: "a.exe".into(), porta: None }).unwrap();
         togli(t.path(), 10);
         assert_eq!(leggi(t.path()), None);
     }
@@ -83,7 +102,7 @@ mod prove {
     #[test]
     fn non_toglie_il_file_di_un_altro_pid() {
         let t = tempfile::tempdir().unwrap();
-        registra(t.path(), &Istanza { pid: 20, exe: "a.exe".into() }).unwrap();
+        registra(t.path(), &Istanza { pid: 20, exe: "a.exe".into(), porta: None }).unwrap();
         togli(t.path(), 10);
         assert_eq!(leggi(t.path()).unwrap().pid, 20);
     }

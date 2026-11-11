@@ -6,13 +6,13 @@ stderr se no (cosa manca e come si rimedia). Ciò che è già fatto con gli stes
 girano sulla scheda di `macchina.scheda_video` del profilo del creator (l'indice di `nvidia-smi`; `docs/ARCHITETTURA.md`, «Il profilo»);
 senza profilo, sulla scheda NVIDIA che c'è; senza scheda, o con `scheda_video: null`, sul processore, più lenti, e il motore lo dice su stderr.
 Una scheda indicata che non c'è è un errore, non un ripiego. Ogni funzione può avere il suo posto e il suo interruttore in `motori` del profilo
-(trascrizione, allineamento, sagoma, segui, voce pulita, dettatura: `docs/MOTORI.md`, §4): `dove` sceglie scheda o processore per quella funzione, `attiva: false` la spegne. Il motore rende visibile al processo solo quella scheda
-(`CUDA_DEVICE_ORDER=PCI_BUS_ID`, `CUDA_VISIBLE_DEVICES`, se chi lancia non le ha già impostate), che per i modelli è la 0. Una scheda senza il
+(trascrizione, allineamento, sagoma, segui, voce pulita, dettatura: `docs/MOTORI.md`, §4): `dove` sceglie scheda o processore per quella funzione, `attiva: false` la spegne. Il motore numera le schede come `nvidia-smi` (`CUDA_DEVICE_ORDER=PCI_BUS_ID`, lo stesso ordine di `animazioni/`) e rende visibile al processo solo quella del profilo
+(`CUDA_VISIBLE_DEVICES`), che per i modelli è la 0; un `CUDA_VISIBLE_DEVICES` già presente nell'ambiente di chi lancia il motore non conta: la scheda la decide il profilo. Senza `scheda_video` nel profilo quell'elenco resta com'è. Una scheda senza il
 calcolo `float16` non regge la trascrizione: non va indicata.
 
 | comando | cosa fa | scrive |
 |---|---|---|
-| `python -m motore prova <slug>` | prima di registrare: le scene della proposta (`proposta.scene` della scheda, `docs/ARCHIVIO.md`) rese coi tempi stimati del copione (`prova` dello stile; una scena con `parole` riceve il secondo stimato di ognuna), nel quadro della proposta, e sotto ogni frase intera con la parola in corso in rosso. Gli spezzoni della proposta (`proposta.spezzoni`: un talk, un keynote che il creator commenta) passano fra le frasi alla loro durata vera (scelti a parole come un pezzo del piano, con le pause in mezzo tolte, o a secondi), nel posto del girato del quadro, con la loro voce e la loro traduzione intera dove stanno le frasi; mentre il creator parla il girato resta fermo. L'unico audio è quello degli spezzoni. Le scene si rendono in `lavoro/prova/`, non in `lavoro/scene/`. Scrive anche `uscite/copione.html`, la pagina che `/guarda` offre al telefono per leggere le frasi mentre si registra (una per riga, grandi, uno spezzone è la sua traduzione in grigio; titolo, colori e misure da `prova` dello stile, `lang` dal profilo; una pagina sola, senza niente di esterno) | `uscite/prova.mp4`, `uscite/copione.html` |
+| `python -m motore prova <slug>` | prima di registrare: le scene della proposta (`proposta.scene` della scheda, `docs/ARCHIVIO.md`) rese coi tempi stimati del copione (`prova` dello stile; una scena con `parole` riceve il secondo stimato di ognuna), nel quadro della proposta, e sotto ogni frase intera con la parola in corso in rosso. Gli spezzoni della proposta (`proposta.spezzoni`: un talk, un keynote che il creator commenta) passano fra le frasi alla loro durata vera (scelti a parole come un pezzo del piano, con le pause in mezzo tolte, o a secondi), nel posto del girato del quadro, con la loro voce e la loro traduzione intera dove stanno le frasi; mentre il creator parla il girato resta fermo. Una scena senza animazione con un `girato` (un podcast, un keynote in un'altra lingua che il creator racconta con la sua voce) lo fa scorrere muto sotto le sue frasi, dal secondo `da`, nel posto del girato del `quadro` della scena. L'unico audio è quello degli spezzoni. Le scene si rendono in `lavoro/prova/`, non in `lavoro/scene/`. Scrive anche `uscite/copione.html`, la pagina che `/guarda` offre al telefono per leggere le frasi mentre si registra (una per riga, grandi, uno spezzone è la sua traduzione in grigio; titolo, colori e misure da `prova` dello stile, `lang` dal profilo; una pagina sola, senza niente di esterno) | `uscite/prova.mp4`, `uscite/copione.html` |
 | `python -m motore valida <slug>` | schema e riferimenti del piano (sorgenti, quadri, formati, viste, viso, animazioni — le sigle si chiedono a `bun run elenco` e, se una non c'è, la frase dice quali ci sono —, parole di `dice`) | niente |
 | `python -m motore prepara <slug>` | per ogni sorgente del piano: parole, copia leggera, onda, miniatura. La sagoma e dove sta la persona no: le fa `monta`, dei soli tratti. La trascrizione va a tratti di voce (`preparati.tratti_di_voce`), ognuno da solo e senza il testo degli altri tratti, con i `sottotitoli.nomi` del piano come suggerimento; una parola più lunga di `preparati.parola_lunga` secondi (una falsa partenza fusa con la frase ridetta) si ritrascrive da sola, e se ne escono più parole prendono il suo posto; le parole senza voce sotto (sotto `voce.silenzio_db` fino a `dopo_parola` dopo la loro fine) non entrano | `archivio/preparati/…` |
 | `python -m motore prepara-file <file> [--ritrascrivi]` | lo stesso per un file grezzo solo (con `--ritrascrivi` rifà le parole anche se ci sono: dopo aver cambiato la `lingua` nella scheda del file) (un file solo audio non ha copia leggera né miniatura) (un video senza traccia audio non ha onda né parole: non c'è niente da trascrivere); per i file oltre 10 minuti anche `trascrizione.txt`. Una foto (HEIC/HEIF, JPEG, PNG, WebP, TIFF, BMP, GIF, DNG) non passa da ffmpeg né dalla trascrizione: `foto.jpg`, intera e raddrizzata secondo l'EXIF, col lato lungo al più `preparati.lato_foto` e qualità `preparati.qualita_foto`, e `miniatura.jpg` (`lato_miniatura`, `qualita_miniatura`). Una HEIC dell'iPhone è una griglia di riquadri che ffmpeg legge a uno solo: si apre con `pillow-heif` | `archivio/preparati/…` |
@@ -69,12 +69,12 @@ calcolo `float16` non regge la trascrizione: non va indicata.
 
 ## Cosa legge dallo stile
 
-Nessuna misura, colore o soglia sta nel codice: tutto viene da `stile.json`: quello di serie del prodotto con sopra quello del creator, se la cartella di lavoro ne ha uno (`docs/ARCHITETTURA.md`, «Lo stile»; `leggi_stile`). `formato` (il verticale, predefinito) e `formati` (`verticale`, `orizzontale`: largo, alto, fps; un quadro dichiara il suo con `formato`), `telefono` (`margine_lati`: i pixel ai lati che TikTok taglia sui telefoni più allungati, `docs/PIANO.md`), `colori`, `caratteri`;
+Nessuna misura, colore o soglia sta nel codice: tutto viene da `stile.json`: quello di serie del prodotto con sopra quello del creator, se la cartella di lavoro ne ha uno (`docs/ARCHITETTURA.md`, «Lo stile»; `leggi_stile`). `formati` (`verticale`, il predefinito, e `orizzontale`: largo, alto, fps; un quadro dichiara il suo con `formato`; la sagoma si scontorna sempre nel `verticale`, e una ripresa che non ne ha la proporzione è un errore), `telefono` (`margine_lati`: i pixel ai lati che TikTok taglia sui telefoni più allungati, `docs/PIANO.md`), `colori`, `caratteri` (un percorso `font/<file>`, cercato prima in `font/` della cartella di lavoro e poi in quella del prodotto);
 `voce` (livello, soglia di silenzio, margini, filtri della voce; `pulizia`: se la voce si pulisce e di quanti dB al
 massimo si abbassa il rumore); `taglio.a_tempo` e `taglio.a_parole` (le
 misure dei due modi di tagliare); `sottotitoli`, `titolo` (l'aspetto dei cartelli: il carattere è Metropolis Medium e gli angoli sono tondi di `raggio` pixel, titolo e parte; `sottotitoli.rilievo`: corpo, colore e salto delle parole in rilievo; `durata`: quanto sta a schermo il titolo se il piano non dice `a`); `suoni`; `anteprima` (la carta di una proposta: misure, margine, la barra, i corpi e i colori del titolo e della riga); `copertina`; `ascolta` (le misure dello spettrogramma);
 `prova` (il video per registrare: quadro di partenza, caratteri al secondo e pausa fra le frasi per stimare i tempi, colori della parola detta, in corso e da dire e della traduzione di uno spezzone, il cartello delle frasi senza scena, `copione`: le misure della pagina da leggere sul telefono, la codifica); `uscita` (codifica; `anteprima`: la codifica veloce dell'anteprima; `leggero` e `leggero_orizzontale`; `tratti_massimo_mb` e `campione`: quanto spazio concedere ai tratti prima di montare in un passaggio solo); `sagoma` (come si misura la testa; `margine`: quanto prima e dopo ogni tratto parte lo scontorno; `scontorno`: le misure dello scontorno, sotto «La sagoma»; `codifica`: come si scrive il VP9 con alfa dei pezzi, `deadline`, `cpu_used`, `crf`, e `in_coda`, quanti fotogrammi scontornati aspettano l'encoder); `segui` (come si misura e si segue la persona in una vista); `zoom`; `evidenzia` (colore e spessore del riquadro attorno a una zona); `immagine` (per le sorgenti a immagine continua: oltre quale `salto` l'immagine stacca, il `minimo` che resta a schermo e il `passo_massimo`, il tetto alla velocità a cui corre fino al tratto dopo); `preparati` (copie leggere, trascrizione, i suoi `tratti_di_voce` e `parola_lunga`);
-`controllo` (soglie di `controlla`); `quadri` (gli strati, `docs/PIANO.md`); `pagina` (le pagine vere: `larghezza` e `densita` del telefono, `finestra`, l'altezza minima in px CSS, `sotto_le_frasi`, i px della cattura che restano sotto ogni frase, `qualita` dei ritagli); `carosello` (`largo` e `alto` di una slide, `destra`, i px a destra dove stanno i bottoni di TikTok, `didascalia`, i px in basso dove sta la didascalia); `dettatura` (sotto «La dettatura»). Un valore che serve e non c'è
+`controllo` (soglie di `controlla`); `quadri` (gli strati, `docs/PIANO.md`); `pagina` (le pagine vere: `larghezza` e `densita` del telefono, `finestra`, l'altezza minima in px CSS, `sotto_le_frasi`, i px della cattura che restano sotto ogni frase, `qualita` dei ritagli); `carosello` (`largo` e `alto` di una slide, `destra`, i px a destra dove stanno i bottoni di TikTok, `didascalia`, i px in basso dove sta la didascalia); `dettatura` (sotto «La dettatura»); `parallelismo` (`processori_per_lavoro`: quanti processori ha ogni lavoro tenuto in parallelo, 4 di serie, per il motore e per `animazioni/`); `sticker` (le misure dello sticker del creator: `bordo` in pixel, `altezza_busto` e `lati` in frazioni della larghezza, `per_ripresa` provini). Un valore che serve e non c'è
 si aggiunge lì, con un nome che dice cosa è.
 
 ## Cosa si tiene
@@ -111,7 +111,7 @@ finale è `finale.mp4: <secondi> s, lavoro/ <n> MB`.
 ## La sagoma
 
 Lo scontorno (`scontorno.py`) segue la persona con SAM2.1 base+ (Apache-2.0) e ne rifà il bordo con ViTMatte-small (`vitmatte-small-composition-1k`, Apache-2.0 sulla sua scheda). Per ogni intervallo: RT-DETR (`persona.py`, Apache-2.0, 20 M di parametri) trova nel primo fotogramma la persona più grande, e il suo riquadro è
-la prima indicazione a SAM2; SAM2 guarda un fotogramma ogni `passo_maschera` e in mezzo la sua maschera si sposta col flusso ottico (DIS,
+la prima indicazione a SAM2 (sopra il viso, trovato da YuNet, il riquadro non sale oltre `sopra_il_viso` altezze del viso: una lampada dietro la testa non diventa un cappello); SAM2 guarda un fotogramma ogni `passo_maschera` e in mezzo la sua maschera si sposta col flusso ottico (DIS,
 OpenCV); dalla maschera si ricava la fascia incerta (`raggio_trimap`), e ViTMatte rifà l'alfa a scala ridotta (`scala_matting`) solo
 sulle righe vicine a quella fascia; l'alfa si leviga coi fotogrammi vicini portati sul corrente dal flusso
 (`peso_vicini`) e si riporta a piena misura; il colore è quello del girato. Lettura, flusso e SAM2 vanno in fili a parte; i fotogrammi già
@@ -130,7 +130,10 @@ levigatura ai bordi non senta il vuoto accanto. YuNet (`persona.py`, MIT, 0,2 MB
 `sagoma_dei_tratti` in `prepara.py` lavora per sorgente, sui soli tratti in sagoma. Ogni tratto vuole un *pezzo* che
 parta almeno `sagoma.margine` secondi prima di lui (o dall'inizio della ripresa) e ne contenga la fine: così il modello arriva al
 primo fotogramma col bordo già stabile. I tratti non ancora portati da un pezzo, allargati del margine e fusi dove si toccano, si
-scontornano in un passaggio solo, coi modelli caricati una volta; ogni intervallo è un
+scontornano in un passaggio solo, coi modelli caricati una volta. Se al primo fotogramma di un intervallo il rilevatore non vede nessuno
+(chi parla si sta ancora sedendo davanti al telefono), lo scontorno parte dal primo fotogramma del margine in cui la persona c'è, provato
+ogni tre fotogrammi: il pezzo copre comunque il tratto, e il suo `inizio` dice dove comincia il file. Se nel margine non c'è mai nessuno,
+l'errore resta. Ogni intervallo è un
 file `sagoma/<primo>-<ultimo>.webm` (numeri di fotogramma) che comincia al suo primo fotogramma. Un pezzo già scritto non si tocca,
 e con lui non cambiano i tratti che lo leggono: allargare un taglio scontorna solo ciò che manca, anche se si sovrappone a un pezzo
 vecchio. Lo scontorno e la codifica VP9 vanno in due fili (`sagoma.codifica.in_coda`), così la velocità è quella del più lento dei due.
@@ -160,7 +163,7 @@ metà, schema rotto) conta come cambiato: se resta rotto lo dice `risolvi` alla 
 
 Il piano la dichiara (`copertina`: `disegno` e, se serve, `istante`, `docs/PIANO.md`) e `monta` la compone dopo la sagoma e prima della codifica: il disegno a tutto fotogramma, la sagoma del primo
 fotogramma (o di `istante`) dove sta nel video, il titolo. L'immagine (`uscite/copertina.png`) è il primo fotogramma della stessa codifica che scrive i tratti, con un fotogramma di silenzio davanti al suono:
-niente seconda codifica e niente seconda compressione. `con-copertina.mp4` è un secondo nome dello stesso file (un collegamento), non un'altra uscita. Con la copertina in testa i secondi del
+niente seconda codifica e niente seconda compressione. `con-copertina.mp4` è un secondo nome dello stesso file (un collegamento; una copia, su un disco senza collegamenti fisici), non un'altra codifica. Con la copertina in testa i secondi del
 montato sono quelli del piano più un fotogramma: `foto` e `ascolta --video` lo tolgono da soli, e `controlla` salta il primo fotogramma e il suo silenzio (`risolto.copertina` dice che c'è). In un video orizzontale (`copertina.orizzontale` dello stile: misure della sagoma e del titolo, 1920×1080) la sagoma non è quella del primo fotogramma ma quella di un altro girato (`copertina.sagoma` del piano), ritagliata da `aria` pixel sopra la testa, col bordo bianco; il titolo, col carattere, i colori e gli angoli del titolo dello stile, sta a destra, un cartello per riga (`copertina.righe`), attaccato al margine destro. Un piano senza `copertina` non ne ha:
 `controlla` lo dice (`copertina: manca`). `python -m motore copertina` rifà solo l'immagine, in un attimo, per guardarla prima di montare.
 
@@ -168,7 +171,7 @@ montato sono quelli del piano più un fotogramma: `foto` e `ascolta --video` lo 
 
 Un video ha un formato solo, quello dei quadri delle sue scene (`verticale` 1080×1920, `orizzontale` 1920×1080); `valida` e `risolvi` rifiutano scene di formati diversi. Il risolto lo porta in `formato` (`largo`, `alto`, `fps`, `nome`). La copia leggera è 720×1280 in verticale, 1280×720 in orizzontale.
 
-`monta` compone ogni tratto in un file (`lavoro/tratti/<impronta>.mkv`), più tratti insieme (uno ogni quattro processori), e li legge uno dopo l'altro: niente copia unita. Un tratto si scrive a parte e prende il suo nome solo a lavoro finito: un montaggio interrotto non lascia tratti a metà che sembrano buoni. Prima codifica i primi secondi di tre tratti sparsi nel video e ne ricava lo spazio che tutti i tratti prenderebbero; se supera `uscita.tratti_massimo_mb` (3 GB) non li scrive: prepara solo il suono di ogni tratto (`.wav`, 0,19 MB al secondo) e compone i fotogrammi mentre li codifica, con lo stesso risultato. Così una diretta di 72 minuti non riempie il disco.
+`monta` compone ogni tratto in un file (`lavoro/tratti/<impronta>.mkv`), più tratti insieme (uno ogni `parallelismo.processori_per_lavoro` processori), e li legge uno dopo l'altro: niente copia unita. Un tratto si scrive a parte e prende il suo nome solo a lavoro finito: un montaggio interrotto non lascia tratti a metà che sembrano buoni. Prima codifica i primi secondi di tre tratti sparsi nel video e ne ricava lo spazio che tutti i tratti prenderebbero; se supera `uscita.tratti_massimo_mb` (3 GB) non li scrive: prepara solo il suono di ogni tratto (`.wav`, 0,19 MB al secondo) e compone i fotogrammi mentre li codifica, con lo stesso risultato. Così una diretta di 72 minuti non riempie il disco.
 
 `finale.mp4`, `finale.srt`, `capitoli.txt`, `leggero.mp4` e `copertina.png`/`con-copertina.mp4` si scrivono in un file nascosto accanto e si rinominano alla fine. Così ogni JSON che il motore scrive (`risolto.json`, `livelli.json`, `parole.json`, …): chi lo legge non lo trova mai a metà.
 
@@ -272,7 +275,7 @@ motore lo trasforma prima in una copia, così rifare la scena in un video non la
 ## Le pagine vere
 
 Nei video di notizia le pagine vere (un comunicato, un articolo) vanno a schermo sopra la testa del creator e la telecamera ci cerchia le
-frasi (`.claude/rules/montaggio.md`). `pagina` le prende col Chrome installato sul computer (Playwright, `strumenti/pagina.mjs`), in formato
+frasi (`.claude/metodo/montaggio.md`). `pagina` le prende col Chrome installato sul computer (Playwright, `strumenti/pagina.mjs`), in formato
 telefono: `pagina.larghezza` px CSS a densità `pagina.densita` (432 × 2,5 = 1080 px). Le scrive in `materiali/` e non in `lavoro/`
 perché una pagina cambia o sparisce: una cattura non si rifà uguale. L'elenco sta in `materiali/pagine.json`
 (`motore/schemi/pagine.schema.json`), una voce per pagina:
@@ -288,7 +291,7 @@ perché una pagina cambia o sparisce: una cattura non si rifà uguale. L'elenco 
   vede (un titolo torna anche nell'indice in cima). Il testo nascosto non conta: su Wikipedia da telefono l'indice e le sezioni chiuse.
 - `ritagli`: `[x, y, largo, alto]` in px della cattura, oppure `"tutta"`; diventano `ritagli/<pagina>-<nome>.jpg`.
 - `filmato`: `[da, a]`, secondi del tempo della pagina, per una pagina che si muove (un sito animato, una demo). La pagina si apre grande
-  quanto lo schermo del telefono (`pagina.larghezza` per l'altezza che dà le proporzioni del `formato`, a densità `pagina.densita`) con
+  quanto lo schermo del telefono (`pagina.larghezza` per l'altezza che dà le proporzioni del formato `verticale`, a densità `pagina.densita`) con
   un orologio finto (`strumenti/orologio.mjs`): `Date`, `performance.now`, `requestAnimationFrame`, i timer e le animazioni CSS vanno
   avanti solo un trentesimo alla volta, quindi il filmato scorre liscio anche se un fotogramma costa più di un trentesimo a disegnarlo.
   A `da` si prende `screen-<nome>.png` (con le frasi), poi un fotogramma ogni `1/fps` fino ad `a` in `filmato-<nome>.webm` (VP9, senza
@@ -305,8 +308,7 @@ ferma il comando.
 Un controllo anti-bot («Checking your browser…») si aspetta fino a 40 s; se non si scioglie la pagina non è presa e i suoi file
 precedenti restano com'erano. Il comando esce con 1 se una pagina non è stata presa, dopo aver rifatto i ritagli di quelle che ci sono. Un
 sito che blocca il browser senza finestra si prende con `--visibile`; alcuni non si lasciano prendere nemmeno
-così. Le pagine di un PDF e le foto le porta alla misura
-`strumenti/immagini.py`.
+così. Una foto del computer si prende allo stesso modo, con `file:///…` in `url`.
 
 ## Il carosello
 

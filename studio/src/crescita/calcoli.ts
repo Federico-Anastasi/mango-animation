@@ -1,10 +1,8 @@
 // I conti della pagina della crescita: dove sono i follower, dove dovrebbero essere secondo lo scenario scelto,
 // e quanto rende ogni tipo di video. Le date sono istanti in millisecondi.
-import { t } from "../lingua"
-import { istante } from "../testo"
+import { lingua } from "../lingua"
+import { GIORNO, istante } from "../testo"
 import type { Crescita, PuntoAndamento, VideoDelCanale } from "../tipi"
-
-export const GIORNO = 86_400_000
 
 /** Le date di `testo.ts` leggono un numero come secondi; qui gli istanti sono in millisecondi. */
 export const inSecondi = (ms: number): number => ms / 1000
@@ -15,27 +13,12 @@ export interface Punto {
 }
 
 const GIORNI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 /** Il nome di un giorno della settimana nella lingua in uso; un nome che non è fra i sette resta com'è. */
 export function nomeGiorno(giorno: string): string {
-  switch (giorno) {
-    case "lunedì":
-      return t("lunedì", "Monday")
-    case "martedì":
-      return t("martedì", "Tuesday")
-    case "mercoledì":
-      return t("mercoledì", "Wednesday")
-    case "giovedì":
-      return t("giovedì", "Thursday")
-    case "venerdì":
-      return t("venerdì", "Friday")
-    case "sabato":
-      return t("sabato", "Saturday")
-    case "domenica":
-      return t("domenica", "Sunday")
-    default:
-      return giorno
-  }
+  const i = GIORNI.indexOf(giorno)
+  return i < 0 || lingua() === "it" ? giorno : DAYS[i]!
 }
 
 /** Il valore sulla spezzata all'istante `t`; `null` fuori dalla serie. */

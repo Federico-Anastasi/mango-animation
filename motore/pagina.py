@@ -12,12 +12,21 @@ from .errori import Errore, dice
 ESEMPIO = '{ "articolo": { "url": "https://esempio.it/articolo", "intera": true, "frasi": { "titolo": "Il titolo dell articolo" } } }'
 
 
-def _cattura(archivio, elenco, nomi, visibile):
-    """Prende le pagine col browser; False se qualcuna non è stata presa (il perché lo scrive lo script)."""
+def node_con_pacchetti(archivio):
+    """Il comando `node` per `strumenti/pagina.mjs` e `carosello.mjs`, che prendono Playwright da `studio/node_modules`; se manca l'uno o l'altro lo dice."""
     node = shutil.which("node")
     if node is None:
-        raise Errore("per prendere le pagine serve Node (il comando `node`): installalo da nodejs.org",
-                     "capturing the pages needs Node (the `node` command): install it from nodejs.org")
+        raise Errore("per questo strumento serve Node (il comando `node`): installalo da nodejs.org",
+                     "this tool needs Node (the `node` command): install it from nodejs.org")
+    if not (archivio.repo / "studio" / "node_modules" / "@playwright" / "test").is_dir():
+        raise Errore("mancano i pacchetti di `studio/`, da cui questo strumento prende Playwright: lancia `bun install` nella cartella `studio/`",
+                     "the packages of `studio/` are missing, where this tool gets Playwright: run `bun install` in the `studio/` folder")
+    return node
+
+
+def _cattura(archivio, elenco, nomi, visibile):
+    """Prende le pagine col browser; False se qualcuna non è stata presa (il perché lo scrive lo script)."""
+    node = node_con_pacchetti(archivio)
     ambiente = {**os.environ, "PAGINA_VISIBILE": "1"} if visibile else None
     sys.stdout.flush()
     esito = subprocess.run([node, archivio.repo / "strumenti" / "pagina.mjs", elenco, *nomi], cwd=archivio.repo, env=ambiente)

@@ -12,10 +12,10 @@ from .allinea import suoni
 from .profilo import attiva
 from .archivio import leggi_json, scrivi_json
 from .errori import Errore, dice
-from .media import info, pcm_16k
+from .media import FREQUENZA, info, pcm_16k
 from .monta import Fasi
 from .sottotitoli import chiave
-from .voce import CAMPIONI, PASSO, livello, serie
+from .voce import PASSO, livello, serie
 
 
 def sente(x, stile, lingua):
@@ -140,7 +140,7 @@ def colpi(x, risolto, stile):
     """I colpi di tasto dopo l'ultima parola di ogni tratto: un attacco secco, sopra il silenzio di prima di `salto_db`, che dopo `durata` è già
     tornato sotto di altrettanto. Lo scoppio di una consonante (la «t» di «otto») è seguito dalla voce, e non conta."""
     c = stile["controllo"]["colpi"]
-    campioni = round(c["passo"] * CAMPIONI / PASSO)
+    campioni = round(c["passo"] * FREQUENZA)
     n = len(x) // campioni
     db = 10 * np.log10((x[:n * campioni].reshape(n, campioni) ** 2).mean(axis=1) + 1e-10)
     minimo = np.percentile(db, stile["controllo"]["percentile"]) - c["sotto_voce_db"]
@@ -312,7 +312,7 @@ def controlla(archivio, slug, avanza=print, allineatore=None, trascrittore=None)
     if misurate and cerca:
         avanza(dice("cerco le parole", "looking for the words"))
         # A pezzi: l'allineamento di un montato intero di qualche minuto non sta nella scheda video.
-        trovate, primo, al_secondo = [], 0, round(CAMPIONI / PASSO)
+        trovate, primo, al_secondo = [], 0, FREQUENZA
         while primo < len(misurate):
             ultimo = primo
             while ultimo + 1 < len(misurate) and misurate[ultimo + 1]["a"] - misurate[primo]["da"] <= c["finestra"]:
@@ -336,7 +336,7 @@ def controlla(archivio, slug, avanza=print, allineatore=None, trascrittore=None)
     inizio = time.perf_counter()
     # Ogni tratto si riascolta nella lingua del suo girato: un keynote in inglese ascoltato in italiano sembrerebbe tutto perso.
     ascolta = trascrittore or (lambda audio, lingua: sente(audio, stile, lingua))
-    al_secondo, sentiti, differenze, doppi, lingua_del_tratto = round(CAMPIONI / PASSO), [], [], [], {}
+    al_secondo, sentiti, differenze, doppi, lingua_del_tratto = FREQUENZA, [], [], [], {}
     for lingua, da, a, suoi in per_lingua(archivio, slug, risolto) if riascolta else []:
         lingua_del_tratto |= dict.fromkeys(suoi, lingua)
         testo = ascolta(x[round(da * al_secondo):round(a * al_secondo)], lingua)

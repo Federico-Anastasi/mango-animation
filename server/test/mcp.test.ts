@@ -10,7 +10,7 @@ import { opzioniMcp } from "../src/mcp/opzioni"
 import { creaServerMcp } from "../src/mcp/strumenti"
 import type { OpzioniMcp } from "../src/mcp/opzioni"
 import { lancia } from "../src/mcp/processi"
-import { aspetta, avviaAmbiente, avviaConScarico, chiamateDelFintoYtdlp, fermaTutti, piano, righeDelFinto, scriviFintoYtdlp, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
+import { aspetta, avviaAmbiente, avviaConScarico, chiama, chiamateDelFintoYtdlp, fermaTutti, piano, righeDelFinto, scriviFintoYtdlp, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
 
 // Il server MCP parla con un server vero (su una porta libera, col finto motore della coda) e lancia un secondo finto motore
 // per i comandi leggeri: `valida`, `parole`, `foto`. Le scene animate le rende uno script finto.
@@ -107,6 +107,7 @@ beforeAll(async () => {
     const fatto = Bun.spawn(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=1080x1920", "-frames:v", "1", "-y", file], { stdin: "ignore", stdout: "ignore", stderr: "inherit" })
     expect(await fatto.exited).toBe(0)
   }
+  await writeFile(join(immagini, "scene.ts"), FINTE_SCENE)
 })
 
 afterAll(() => rm(immagini, { recursive: true, force: true }))
@@ -120,7 +121,7 @@ afterEach(async () => {
 const sblocca = (a: Ambiente, slug: string): Promise<void> => writeFile(join(a.radice, `via-${slug}`), "")
 
 async function conVideo(lavori: object[] = []): Promise<Ambiente> {
-  return avviaAmbiente({}, async (c) => {
+  return avviaAmbiente({ comandoSceneFoto: [process.execPath, join(immagini, "scene.ts")] }, async (c) => {
     await scriviGrezzo(c, "2026-10-06/a.mp4")
     if (lavori.length > 0) await writeFile(join(c.archivio, "lavori.jsonl"), lavori.map((l) => JSON.stringify(l)).join("\n") + "\n")
     await scriviVideo(c, "v", { titolo: "Il video", stato: "in lavorazione", creato: "2026-10-06" }, piano())
@@ -157,13 +158,10 @@ async function collega(a: Ambiente, extra: Partial<OpzioniMcp> = {}): Promise<Co
   const cartella = join(a.radice, "finto-mcp")
   await mkdir(join(cartella, "finto_mcp"), { recursive: true })
   await writeFile(join(cartella, "finto_mcp", "__main__.py"), FINTO_MOTORE_LEGGERO)
-  await writeFile(join(cartella, "scene.ts"), FINTE_SCENE)
-  await copyFile(png, join(cartella, "originale.png"))
   const opzioni: OpzioniMcp = {
     api: { indirizzo: a.url, intestazioni: async () => a.accesso },
     codice: a.codice,
     motore: { eseguibile: "python", modulo: "finto_mcp", ambiente: { PYTHONPATH: cartella, FINTO_JPG: jpg, FINTO_ARCHIVIO: a.archivio } },
-    comandoSceneFoto: [process.execPath, join(cartella, "scene.ts")],
     ffmpeg: Bun.which("ffmpeg"),
     ytdlp: null,
     ...extra,
@@ -327,6 +325,12 @@ describe("video_elenco e video_leggi", () => {
     expect(Object.keys((r.dati() as { risolto: object }).risolto)).toEqual(["durata", "scene", "avvisi"])
     expect(r.testo).not.toContain("parola499")
     expect(r.testo.length).toBeLessThan(2000)
+  })
+
+  test("leggi dà la fase: il passo del metodo a cui è il video, o null se gli otto passi non lo riguardano", async () => {
+    const mcp = await collega(await conVideo())
+    expect(((await mcp.chiama("video_leggi", { slug: "v" })).dati() as { fase: unknown }).fase).toEqual({ passo: 4, azione: "testo" })
+    expect(((await mcp.chiama("video_leggi", { slug: "w" })).dati() as { fase: unknown }).fase).toEqual({ passo: 1, azione: "idea" })
   })
 
   test("leggi dice se il montato c'è, quando è stato fatto, se segue il piano di adesso e se ha la copertina", async () => {
@@ -726,6 +730,16 @@ describe("scene_foto", () => {
       segnalazioni: ["difetto a 2,5 s: testo sotto i 40 px (30 px): «ciao»", "difetto da 0 s a 3 s: lo sfondo resta fermo"],
     })
     expect(r.contenuto.filter((c) => c.type === "image")).toHaveLength(2)
+  })
+
+  test("con il lavoro di una chiamata scaduta dà il risultato senza rifare la resa", async () => {
+    const a = await conVideo()
+    const { id } = (await chiama<{ id: string }>(a, "POST", "/api/animazioni/foto", { sigla: "ok" })).corpo
+    const r = await (await collega(a)).chiama("scene_foto", { sigla: "ok", lavoro: id })
+    expect(r.errore).toBe(false)
+    expect(r.dati()).toEqual({ sigla: "ok", controlli: "superati", segnalazioni: [] })
+    expect(r.contenuto.filter((c) => c.type === "image")).toHaveLength(2)
+    expect((await chiama<{ finiti: unknown[] }>(a, "GET", "/api/lavori")).corpo.finiti).toHaveLength(1)
   })
 
   test("una sigla che non c'è è un errore con la frase dello script", async () => {

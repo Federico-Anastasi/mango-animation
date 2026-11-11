@@ -206,6 +206,7 @@ export async function avviaAmbiente(extra: Partial<Opzioni> = {}, semina?: (cart
     porta: 0,
     motore: { eseguibile: "python", modulo: "finto_motore", ambiente: { PYTHONPATH: join(radice, "finto") } },
     animazioni: { cartella: join(radice, "animazioni"), comando: [process.execPath, "-e", "console.log(JSON.stringify({ prova: [{ sigla: 'a', titolo: 'A', durata: 3 }] }))"] },
+    comandoSceneFoto: [process.execPath, "-e", "console.error('nessuna scena finta in questa prova'); process.exit(1)"],
     arrivi: { porta: 0, limiteByte: 20 * 1024 ** 3, indirizzo: "192.168.1.20" },
     ffmpeg: null,
     ytdlp: null,
@@ -220,6 +221,7 @@ export async function avviaAmbiente(extra: Partial<Opzioni> = {}, semina?: (cart
     leggiFirewall: async () => ({ regole: [{ azione: "Allow", profili: "Any" }], reti: ["Private"] }),
     mostraInEsplora: (percorso, eCartella) => void apertiInEsplora.push({ percorso, eCartella }),
     apriNelBrowser: (indirizzo) => void apertiNelBrowser.push(indirizzo),
+    nellApp: false,
     ...extra,
   })
   const ambiente: Ambiente = {
@@ -268,6 +270,13 @@ export async function chiama<T = Record<string, unknown>>(a: Ambiente, metodo: s
   })
   const testo = await risposta.text()
   return { stato: risposta.status, corpo: (testo ? JSON.parse(testo) : null) as T, intestazioni: risposta.headers }
+}
+
+/** Come fa l'app: dice al server quali file ha scelto il creator, con la chiave dell'app. */
+export async function sceltiDallApp(a: Ambiente, percorsi: string[]): Promise<void> {
+  const chiave = (JSON.parse(await readFile(join(a.archivio, "arrivi", "chiave-app.json"), "utf-8")) as { chiave: string }).chiave
+  const r = await fetch(`${a.url}/api/app/percorsi`, { method: "POST", headers: { ...a.accesso, "Content-Type": "application/json", "X-Chiave-App": chiave }, body: JSON.stringify({ percorsi }) })
+  if (!r.ok) throw new Error(`l'app non è riuscita a dire i percorsi: ${r.status}`)
 }
 
 export async function aspetta<T>(prova: () => T | Promise<T>, ms = 8000): Promise<NonNullable<T>> {

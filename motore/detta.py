@@ -8,11 +8,11 @@ import threading
 import numpy as np
 
 from .archivio import REPO, VARIABILE_LAVORO, leggi_stile
-from .dispositivo import dispositivo_voce, errore_di_libreria_cuda, librerie_cuda, prova_della_scheda
+from .dispositivo import dispositivo_voce, errore_di_libreria_cuda, errore_di_memoria, librerie_cuda, prova_della_scheda
 from .errori import Errore, dice
+from .media import FREQUENZA
 from .profilo import richiedi
 
-CAMPIONI = 16000
 
 
 class Frasi:
@@ -40,7 +40,7 @@ class Frasi:
         self.emetti({"id": self.id, **evento})
 
     def _campioni(self, secondi):
-        return int(secondi * CAMPIONI)
+        return int(secondi * FREQUENZA)
 
     def arriva(self, pezzo):
         self.audio = np.concatenate([self.audio, pezzo])
@@ -61,7 +61,7 @@ class Frasi:
     def _segui(self):
         cfg = self.cfg
         fine_voce = self._coda()
-        silenzio = (len(self.audio) - fine_voce) / CAMPIONI if fine_voce is not None else None
+        silenzio = (len(self.audio) - fine_voce) / FREQUENZA if fine_voce is not None else None
         if silenzio is None or silenzio >= cfg["silenzio_fine"]:
             self._chiudi(len(self.audio))
         elif len(self.audio) >= self._campioni(cfg["massimo_frase"]):
@@ -176,10 +176,7 @@ def carica(cfg):
         if dove == "cuda":
             prova_della_scheda(modello, cfg["lingua"])
     except RuntimeError as e:
-        if "out of memory" in str(e).lower():
-            raise Errore(f"la scheda video non ha memoria libera per il modello {d['modello']}: chiudi il lavoro che la usa, oppure metti null in macchina.scheda_video del profilo per dettare col processore",
-                         f"the video card has no free memory for the model {d['modello']}: close the job that uses it, or set null in macchina.scheda_video of the profile to dictate with the processor")
-        if errore := errore_di_libreria_cuda(e):
+        if errore := errore_di_memoria(e, f"il modello {d['modello']}", f"the model {d['modello']}") or errore_di_libreria_cuda(e):
             raise errore from e
         raise
     except OSError as e:

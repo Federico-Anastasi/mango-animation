@@ -2,7 +2,7 @@
 import { useState } from "react"
 import { api } from "../api"
 import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
-import { Caricamento, Errore } from "../comuni/Stati"
+import { Caricamento, DatiVecchi, Errore } from "../comuni/Stati"
 import { creaCopia, useCopia } from "../dati"
 import { t } from "../lingua"
 import { data, dataOra, numero } from "../testo"
@@ -50,15 +50,15 @@ export function Classifica() {
   const [ordine, setOrdine] = useState<{ misura: Misura; rovescio: boolean }>({ misura: "punteggio", rovescio: false })
   if (errore && !dato) return <Errore messaggio={errore} onRiprova={() => void stato.rileggi()} />
   if (!caricato || !dato) return <Caricamento />
-  if (dato.quando === null || dato.righe.length === 0) return <PaginaDiCanaleVuota pagina="classifica" titolo={t("Classifica", "Ranking")} />
+  if (dato.quando === null || dato.righe.length === 0) return <PaginaDiCanaleVuota pagina="classifica" />
 
   const io = dato.righe.find((r) => r.nome === dato.io) ?? null
   const verso = ordine.rovescio ? -1 : 1
   const ordinate = [...dato.righe].sort((a, b) => verso * meglio(ordine.misura, a, b))
   return (
     <div className={styles.pagina}>
+      <DatiVecchi errore={errore} dal={quandoLetto(dato.quando)} onRiprova={() => void stato.rileggi()} />
       <header>
-        <h1>{t("Classifica", "Ranking")}</h1>
         <p className={styles.sotto}>
           {t("I profili TikTok con cui ti confronti. Il punteggio è la somma delle tre posizioni (per follower, per mi piace, per visualizzazioni mediane degli ultimi video): più è basso, più il profilo è in alto. Numeri letti il {quando}", "The TikTok profiles you compare yourself with. The score is the sum of the three positions (by followers, by likes, by median views of recent videos): the lower it is, the higher the profile ranks. Numbers read on {quando}", { quando: quandoLetto(dato.quando) })}
           {io && dato.quando_io && dato.quando_io !== dato.quando

@@ -47,10 +47,6 @@
   text-transform: uppercase;
 }
 
-.scorri {
-  overflow-x: auto;
-}
-
 .tabella {
   border-collapse: collapse;
   width: 100%;
@@ -89,20 +85,6 @@
 .tabella small {
   color: var(--grigio);
   font-size: 0.75rem;
-}
-
-.ordinaColonna {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.ordinaColonna:hover {
-  color: var(--inchiostro);
-  text-decoration: underline;
 }
 
 .misura {

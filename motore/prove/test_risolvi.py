@@ -5,7 +5,7 @@ import pytest
 
 from motore.errori import Errore
 from motore.archivio import Archivio
-from motore.risolvi import SEZIONI_FUORI_DAL_MONTATO, impronta_su_disco, nel_video, risolvi
+from motore.risolvi import SEZIONI_FUORI_DAL_MONTATO, file_del_suono, impronta_su_disco, nel_video, risolvi
 
 from .conftest import PAROLE_PAROLE, PAROLE_TEMPO
 
@@ -42,6 +42,13 @@ def test_i_tratti_si_susseguono_senza_buchi_a_fotogrammi_interi(archivio, video)
     assert [s["inizio"] for s in r["scene"]] == [pytest.approx(0.0), pytest.approx(sum(t["durata"] for t in r["tratti"][:3]), abs=1e-4)]
     assert r["scene"][1]["durata"] == pytest.approx(sum(t["durata"] for t in r["tratti"][3:]), abs=1e-4)
     assert all(s["quadro"] == "girato-pieno" for s in r["scene"])
+
+
+def test_i_tratti_di_un_video_seguono_gli_fps_del_suo_formato(archivio, video):
+    archivio.stile["formati"]["verticale"]["fps"] = 25
+    r = risolvi(archivio, video[0])
+    assert r["formato"]["fps"] == 25
+    assert all(t["durata"] * 25 == pytest.approx(round(t["durata"] * 25), abs=1e-6) for t in r["tratti"])
 
 
 def test_ogni_parola_cade_nel_suo_tratto(archivio, video):
@@ -175,6 +182,17 @@ def test_un_suono_parte_sulla_sorgente_al_suo_secondo(archivio, video, scrivi_pi
     assert -30 < s["guadagno"] < 30 and s["guadagno"] != 0
 
 
+def test_un_suono_si_cerca_solo_nei_materiali_dei_video_non_nel_repo(scrivi_piano, tmp_path):
+    (tmp_path / "repo" / "suoni").mkdir(parents=True)
+    (tmp_path / "repo" / "suoni" / "bip.wav").write_bytes(b"RIFF")
+    (tmp_path / "repo" / "bip.wav").write_bytes(b"RIFF")
+    scrivi_piano("v", {"quadro": "girato-pieno", "sorgenti": {}, "scene": []})
+    archivio = Archivio(radice=tmp_path / "archivio", repo=tmp_path / "repo")
+    with pytest.raises(Errore) as errore:
+        file_del_suono(archivio, "v", "bip.wav")
+    assert "suoni/" not in errore.value.it and "suoni/" not in errore.value.en
+
+
 def test_il_titolo_dura_quanto_dice_lo_stile_se_il_piano_non_dice_altro(archivio, video, scrivi_piano):
     durata = archivio.stile["titolo"]["durata"]
     scrivi_piano("v", {**video[1], "titolo": {"testo": "Un titolo"}})
@@ -197,6 +215,12 @@ def test_una_sorgente_non_preparata_dice_di_lanciare_prepara(archivio, video):
 def test_una_sorgente_non_dichiarata_si_dice(archivio, video, scrivi_piano):
     scrivi_piano("v", {**video[1], "scene": [{"nome": "uno", "pezzi": [{"sorgente": "z"}]}]})
     with pytest.raises(Errore, match="«z»"):
+        risolvi(archivio, "v")
+
+
+def test_una_lingua_che_il_motore_non_sa_tradurre_si_dice(archivio, video, scrivi_piano):
+    scrivi_piano("v", {**video[1], "lingua": "es"})
+    with pytest.raises(Errore, match="«it» o «en».*lingua «es»"):
         risolvi(archivio, "v")
 
 
@@ -223,6 +247,32 @@ def test_l_allineamento_si_fa_una_volta_e_si_tiene(archivio, video, monkeypatch)
     risolvi(archivio, "v")
     assert len(chiamate) == 2
     assert (archivio.preparati(video[1]["sorgenti"]["p"]["file"]) / "allineate.json").exists()
+
+
+def test_un_file_sostituito_con_uno_della_stessa_dimensione_rifa_l_allineamento(archivio, video, monkeypatch):
+    import os
+
+    from motore import allinea
+
+    chiamate = []
+    vero = allinea.apri
+
+    class Contatore:
+        def allinea(self, x, parole):
+            chiamate.append(list(parole))
+            return vero().allinea(x, parole)
+
+    monkeypatch.setattr(allinea, "apri", lambda: Contatore())
+    risolvi(archivio, "v")
+    prime = len(chiamate)
+    sorgente = archivio.grezzo(video[1]["sorgenti"]["p"]["file"])
+    # Il file di prova è un collegamento al girato sintetico di tutte le prove: si cambia una copia, non lui.
+    shutil.copy(sorgente, sorgente.with_name("copia.tmp"))
+    os.replace(sorgente.with_name("copia.tmp"), sorgente)
+    stato = sorgente.stat()
+    os.utime(sorgente, ns=(stato.st_atime_ns, stato.st_mtime_ns + 5_000_000_000))
+    risolvi(archivio, "v")
+    assert len(chiamate) == 2 * prime
 
 
 def test_l_immagine_continua_corre_fino_al_tratto_dopo_invece_di_saltare(archivio, video, scrivi_piano):
@@ -276,7 +326,7 @@ def test_l_impronta_su_disco_e_quella_del_risolto_e_cambia_con_il_piano_e_con_lo
     assert impronta_su_disco(archivio, slug) != prima
 
 
-SEZIONI_DEL_MONTATO = {"formato", "formati", "telefono", "colori", "caratteri", "voce", "taglio", "sottotitoli", "titolo", "suoni", "copertina",
+SEZIONI_DEL_MONTATO = {"formati", "telefono", "colori", "caratteri", "voce", "taglio", "sottotitoli", "titolo", "suoni", "copertina",
                        "uscita", "quadri", "zoom", "evidenzia", "immagine", "sagoma", "segui"}
 
 
@@ -357,6 +407,8 @@ def test_le_parole_poco_sicure_si_leggono_coi_loro_nomi_e_la_sicurezza_in_percen
     avvisi = risolvi(archivio, "w")["avvisi"]
     assert [a["cosa"] for a in avvisi] == ["parole poco sicure, da riascoltare: «a» (7%)"]
     assert [a["cosa_en"] for a in avvisi] == ["uncertain words, listen again: «a» (7%)"]
+    archivio.stile["taglio"]["a_parole"]["voto_bordo"] = 0.05
+    assert not [a for a in risolvi(archivio, "w")["avvisi"] if "poco sicure" in a["cosa"]]
 
 
 def test_un_taglio_nel_parlato_dice_quale_bordo_e_a_che_livello(archivio, prepara_sintetico, scrivi_piano, finto):

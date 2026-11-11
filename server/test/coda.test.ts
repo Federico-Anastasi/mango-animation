@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { ascolta, aspetta, avviaAmbiente, chiama, fermaTutti, piano, righeDelFinto, scriviGrezzo, scriviVideo, type Ambiente } from "./aiuti"
+import { frase } from "../src/lingua"
 
 afterEach(fermaTutti)
 
@@ -110,7 +111,7 @@ describe("la coda dei lavori", () => {
           prendi: async (scheda: number | null | undefined) => {
             chiamate.push(`prendi ${scheda}`)
             if (rifiuta) throw new Error("Il modello di Mango Code tiene la scheda video e non la lascia.")
-            return "Ho liberato la scheda 1."
+            return frase("Ho liberato la scheda 1.", "Freed video card 1.")
           },
           rendi: async () => {
             chiamate.push("rendi")
@@ -315,6 +316,21 @@ describe("la coda dei lavori", () => {
       expect((await lavori(b)).finiti[0]).toMatchObject({ esito: "interrotto", errore: "The server stopped while the job was running: the job did not finish. Start it again." })
     })
 
+    test("con il file quasi al limite, segnare l'interrotto non svuota il registro", async () => {
+      const finito = (i: number): string => JSON.stringify({ id: `f${i}`, slug: "v", comando: "controlla", file: null, iniziato: "2026-10-01T10:00:00.000Z", finito: `2026-10-01T10:00:${String(i % 60).padStart(2, "0")}.000Z`, esito: "riuscito", errore: null, righe: [] })
+      const partito = JSON.stringify({ id: "perso", slug: "v", comando: "monta", file: null, iniziato: "2026-10-01T11:00:00.000Z", lingua: "it", esito: "in corso" })
+      const a = await avviaAmbiente({}, async (c) => {
+        await mkdir(c.archivio, { recursive: true })
+        await writeFile(join(c.archivio, "lavori.jsonl"), [...Array.from({ length: 99 }, (_, i) => finito(i)), partito].join("\n") + "\n")
+      })
+      const dopo = await lavori(a)
+      expect(dopo.finiti).toHaveLength(20)
+      expect(dopo.finiti[0]).toMatchObject({ id: "perso", esito: "interrotto" })
+      const nelFile = (await readFile(join(a.archivio, "lavori.jsonl"), "utf-8")).trim().split("\n")
+      expect(nelFile.length).toBeGreaterThanOrEqual(20)
+      expect(nelFile.some((r) => r.includes('"id":"perso"') && r.includes('"interrotto"'))).toBe(true)
+    })
+
     test("un lavoro già finito non diventa interrotto al riavvio", async () => {
       const a = await conDueVideo()
       const id = await metti(a, "v", "monta")
@@ -409,6 +425,21 @@ describe("la coda dei lavori", () => {
         ["prepara", 2, null],
         ["prepara-file", 2, null],
         ["prepara-file", 0, null],
+      ])
+      await sblocca(a, "w")
+    })
+
+    test("un file già preparato non ha una stima di zero secondi; ritrascritto, conta la sua durata", async () => {
+      const a = await conStoria([riga("prepara-file", 20, 10), riga("prepara-file", 40, 10), riga("prepara-file", 30, 10)])
+      await mkdir(join(a.archivio, "preparati", "2026-10-06", "a.mp4"), { recursive: true })
+      await writeFile(join(a.archivio, "preparati", "2026-10-06", "a.mp4", "parole.json"), "[]")
+      await aspetta(async () => (await chiama<{ file: { file: string; preparato: { parole: string | null } }[] }[]>(a, "GET", "/api/grezzo")).corpo[0]?.file[0]?.preparato.parole)
+      await inCorsoDa(a, "w")
+      await chiama(a, "POST", "/api/grezzo/prepara", { file: "2026-10-06/a.mp4" })
+      await chiama(a, "POST", "/api/grezzo/prepara", { file: "2026-10-06/a.mp4", ritrascrivi: true })
+      expect((await lavori(a)).in_coda.map((l) => [l.comando, l.secondi_video, l.stima])).toEqual([
+        ["prepara-file", 0, null],
+        ["prepara-file", 2, 6],
       ])
       await sblocca(a, "w")
     })
@@ -734,6 +765,22 @@ describe("la coda dei lavori", () => {
         await inCorsoDa(a, "v")
         expect(await superato(a, "v")).toBe(false)
         await sblocca(a, "v")
+      })
+
+      test("lo stile cambiato non accoda risolvi per un video il cui piano non è valido", async () => {
+        const a = await avviaAmbiente({}, async (c) => {
+          await scriviGrezzo(c, "2026-10-06/a.mp4")
+          await scriviVideo(c, "v", undefined, piano())
+          await scriviVideo(c, "w", undefined, piano("2026-10-06/manca.mp4"))
+        })
+        const risolti = async (slug: string): Promise<number> => (await righeDelFinto(a)).filter((r) => r === `inizio risolvi ${slug}`).length
+        const prima = await risolti("v")
+        const stile = JSON.parse(await readFile(a.stile, "utf-8")) as { uscita: { crf: number } }
+        stile.uscita.crf += 1
+        expect((await chiama(a, "PUT", "/api/stile", stile)).stato).toBe(200)
+        await aspetta(async () => (await risolti("v")) > prima)
+        await Bun.sleep(150)
+        expect(await risolti("w")).toBe(0)
       })
 
       test("lo stile cambiato dopo l'inizio lo rende superato", async () => {

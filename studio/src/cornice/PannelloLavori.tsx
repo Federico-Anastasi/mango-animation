@@ -39,7 +39,10 @@ export const NOME_COMANDO: Record<string, string> = {
     return t("Copertina", "Cover")
   },
   get prova() {
-    return t("Prova per registrare", "Rehearsal for recording")
+    return t("Prova", "Rehearsal")
+  },
+  get "scene-foto"() {
+    return t("Foto di una scena", "Frames of a scene")
   },
 }
 
@@ -59,7 +62,8 @@ export function PannelloLavori({ onChiudi }: { onChiudi: () => void }) {
   useChiudiFuori(riquadro, onChiudi)
 
   const titolo = (l: Lavoro) => (l.slug === null ? (l.file?.split("/").pop() ?? t("girato", "footage")) : (titoli?.find((v) => v.slug === l.slug)?.scheda.titolo ?? t("video", "video")))
-  const nome = (l: Lavoro) => `${NOME_COMANDO[l.comando] ?? l.comando} · ${titolo(l)}`
+  // Le foto di una scena non sono di un video né di un file: il nome del lavoro basta.
+  const nome = (l: Lavoro) => (l.comando === "scene-foto" ? NOME_COMANDO[l.comando] : `${NOME_COMANDO[l.comando] ?? l.comando} · ${titolo(l)}`)
   const ferma = (id: string | number) => {
     setErrore(null)
     api.fermaLavoro(id).catch((e: Error) => setErrore(e.message))

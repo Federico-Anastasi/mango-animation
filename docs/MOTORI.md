@@ -1,7 +1,7 @@
 # I motori
 
 Le funzioni pesanti del prodotto (trascrizione, allineamento, sagoma, ...) usano modelli grandi che girano sulla scheda video o sul processore. Ognuna ha un interruttore e un «dove» nella sezione `motori` del profilo
-(`profilo.json`, `docs/PROFILO.md`); la pagina «Motori» dello studio li cambia (`docs/INTERFACCIA.md`, `docs/API.md`), e l'app scarica solo ciò che le funzioni accese richiedono (`docs/APP.md`, «Il computer pronto»).
+(`profilo.json`, `docs/PROFILO.md`); la sezione Computer delle impostazioni dello studio li cambia (`docs/INTERFACCIA.md`, `docs/API.md`), e l'app scarica solo ciò che le funzioni accese richiedono (`docs/APP.md`, «Il computer pronto»).
 
 ## 1. Le funzioni
 
@@ -34,7 +34,7 @@ I modelli non si distribuiscono con l'app: si scaricano dalla loro fonte, ognuno
 La scheda deve essere NVIDIA con capacità di calcolo 5.0 o più (i pacchetti di PyTorch non coprono le più vecchie). Un `calcolo` che la scheda non sa fare, o un modello che non si scarica, è un errore che nomina la funzione e la chiave del profilo da cambiare.
 Il motore legge `motori` una volta per processo (`motore/profilo.py`), e una funzione spenta non importa i suoi pacchetti.
 
-La pagina «Motori» dice, per ogni scelta, se questo computer la regge (`studio/src/motori/computer.ts`). Sulla scheda:
+La sezione Computer dice, per ogni scelta, se questo computer la regge (`studio/src/motori/computer.ts`). Sulla scheda:
 
 | controllo | esito |
 |---|---|
@@ -46,15 +46,7 @@ E sul processore: `sagoma` con meno di 8 thread è lenta (avviso), e con meno di
 
 ## 3. Come l'app sceglie e scarica
 
-All'avvio, se il server lo accende l'app (`docs/APP.md`, «Il computer pronto»):
-
-1. **Legge il computer** in Rust, senza accendere Python (`app/src/computer/hw.rs`): le schede NVIDIA (`nvidia-smi`: indice, nome, memoria totale e libera, capacità di calcolo), il processore e i suoi thread, la RAM, lo spazio libero sul disco dove scarica.
-2. **Legge le funzioni accese** da `motori.<funzione>.attiva` del profilo (`profilo.rs`); una funzione che il profilo non nomina è accesa. I modelli di Whisper li dice il profilo (`motori.trascrizione.modello`), poi lo stile del creator, poi quello di serie.
-3. **Calcola il piano** (`piano.rs`): per ogni funzione accesa, ciò che il computer non ha già (programmi, pacchetti Python, browser, modelli), con peso, licenza e fonte. Un modello già nella cache di Hugging Face non si riscarica.
-4. **Lo mostra** nella pagina d'avvio, con lo spazio che serve (i pacchetti Python contano due volte, per la cache di `uv`, più un gigabyte di margine) e quello libero. Se non basta, «Prepara» resta spento. Cambiare una funzione ricalcola il piano e riscrive `motori.<funzione>.attiva` nel profilo, lasciando il resto com'è.
-5. **Scarica** una voce alla volta, con avanzamento (`scarica.rs`, `installa.rs`): riprende da dove era arrivato se la rete cade, e un file arriva al suo posto solo con dimensione e impronta SHA-256 giuste (`manifesto.json`).
-
-Lo studio vede il computer attraverso il ponte `window.__MANGO_ANIMATION__.computer.leggi()` (`app/src/computer/ponte.rs`); nel browser senza l'app il ponte non c'è e la pagina non può dire se una scelta è possibile. Ciò che si accende nei Motori lo scarica l'app al prossimo avvio.
+All'avvio, se il server lo accende l'app, legge il computer, calcola il piano di ciò che le funzioni accese richiedono, lo mostra con lo spazio che serve e lo scarica (`docs/APP.md`, «Il computer pronto»). Cambiare una funzione nella pagina «Motori» riscrive `motori.<funzione>.attiva` nel profilo, lasciando il resto com'è, e ciò che si accende lo scarica l'app al prossimo avvio. Lo studio vede il computer attraverso il ponte `window.__MANGO_ANIMATION__.computer.leggi()` (`app/src/computer/ponte.rs`); nel browser senza l'app il ponte non c'è e la pagina non può dire se una scelta è possibile.
 
 ## 4. La sezione `motori` del profilo
 
@@ -72,10 +64,11 @@ Sta in `profilo.json`, nella cartella di lavoro, accanto a `macchina` (che dice 
 | funzione | chiavi |
 |---|---|
 | `trascrizione` | `attiva`, `dove`, `modello` (`large-v3`, `large-v3-turbo`, `small`), `calcolo` (`float16`, `int8_float16`, `int8`, `float32`): prendono il posto di `preparati.modello_trascrizione` e `preparati.calcolo_trascrizione` dello stile |
-| `allineamento`, `sagoma`, `segui`, `dettatura` | `attiva`, `dove` |
+| `allineamento`, `sagoma`, `dettatura` | `attiva`, `dove` |
+| `segui` | `attiva` (`dove` si può scrivere, ma il motore non lo legge: gira sempre sul processore) |
 | `pulizia_voce` | `attiva` |
 
-`attiva` senza indicazione è vero; `dove` senza indicazione segue la regola di §2. La pagina «Motori» scrive `attiva` e `dove`; `modello` e `calcolo` si scrivono a mano nel profilo. Il calcolo `float16` non lo sanno fare le schede NVIDIA più vecchie (famiglia Pascal, GTX 10xx): per quelle `calcolo` va messo a `int8`.
+`attiva` senza indicazione è vero; `dove` senza indicazione segue la regola di §2. La sezione Computer scrive `attiva` e `dove`; `modello` e `calcolo` si scrivono a mano nel profilo. Il calcolo `float16` non lo sanno fare le schede NVIDIA più vecchie (famiglia Pascal, GTX 10xx): per quelle `calcolo` va messo a `int8`.
 
 Il profilo dice **quale motore** e dove; **come lavora** (soglie, parametri dei modelli) resta in `stile.json` (`preparati`, `dettatura`, `sagoma.scontorno`).
 Il server legge e scrive la sezione per intero (`GET` e `PUT /api/motori`, `server/src/motori.ts`) dopo averla fatta passare dallo schema; il motore e gli strumenti rileggono il file a ogni comando.

@@ -21,7 +21,7 @@
       "sottotitoli": { "modo": "parola per parola", "nomi": ["Anna"], "correzioni": [], "ritocchi": [] },
       "titolo": { "testo": "Cinque errori di montaggio" },
       "copertina": { "disegno": "materiali/copertina.png" },
-      "suoni": [ { "file": "materiali/disco.wav", "sorgente": "ripresa", "t": 0.8, "picco": -16 } ],
+      "suoni": [ { "file": "disco.wav", "sorgente": "ripresa", "t": 0.8, "picco": -16 } ],
       "coda": 0.7
     }
 
@@ -78,7 +78,7 @@
 - **`parole`** (di una scena): `{ nome: [sorgente, secondo della sorgente] }`. Il motore scrive per
   l'animazione il secondo di scena in cui ogni nome viene detto: è il modo per le scene che scorrono al
   passo del video, senza ancore.
-- **`lingua`** (facoltativo: `"it"` se non c'è): la lingua del video. Con una lingua diversa
+- **`lingua`** (`"it"` o `"en"`; facoltativo, `"it"` se non c'è): la lingua del video. Con una lingua diversa
   dall'italiano i sottotitoli vogliono `sottotitoli.traduzione`, e le scene di `animazioni/` scrivono i loro
   testi tradotti (il `testi.ts` della scena): il motore passa la lingua a ogni scena, e la stessa scena in
   due lingue si rende due volte (la lingua entra nell'impronta della scena resa).
@@ -101,7 +101,7 @@
   `parte` («Parte 1»: un secondo cartello sotto il titolo, staccato, nel colore di `titolo.parte` dello stile). Se lo stile chiede il maiuscolo (`titolo.maiuscolo`), titolo e parte escono in maiuscolo comunque siano scritti qui.
   Aspetto e posto vengono da `stile.json`.
 - **`suoni`**: `file` (un percorso assoluto, oppure un nome in `materiali/` del video, in `materiali/` di un
-  video da cui questo parte con `base`, o in `suoni/` del repo), `sorgente` e `t` (parte quando quella sorgente è a quel secondo, nella prima scena che la usa),
+  video da cui questo parte con `base`), `sorgente` e `t` (parte quando quella sorgente è a quel secondo, nella prima scena che la usa),
   oppure `scena` e `t` (parte `t` secondi dopo l'inizio di quella scena: un video senza voce non ha sorgenti a cui legarsi), `picco` in dB.
 - **`copertina`** (`{ "disegno": "materiali/x.png", "istante": 0 }`): il primo fotogramma del video. `disegno` è un'immagine grande quanto il fotogramma (un percorso, o un file nella cartella del
   video); `monta` ci mette sopra la sagoma del primo fotogramma, o del secondo `istante` del video se nel primo il creator ha gli occhi chiusi, e il titolo, e la scrive davanti al video nella
@@ -119,7 +119,7 @@
 
 Un quadro è il modo in cui il fotogramma è composto: uno sfondo e degli strati, dal basso verso l'alto,
 più il posto dei sottotitoli e del titolo. Stanno in `stile.json`, `quadri`. Non sono un elenco chiuso:
-un quadro nuovo è una voce nuova fatta con gli stessi strati. Un quadro può dichiarare `"formato": "orizzontale"` (senza, è `verticale`): tutte le scene di un video vogliono quadri dello stesso formato. La sagoma è solo verticale. `corpo` e `corpo_minimo` di `sottotitoli` nel quadro cambiano il corpo dei cartelli; `fondo` (`null`: niente riquadro), `colore`, `bordo`, `contorno` e `colore_contorno` (il filo attorno alle lettere) ne cambiano l'aspetto. La `y` di `titolo` è il centro della prima riga: un titolo che va a capo cresce verso il basso, con la parte sotto.
+un quadro nuovo è una voce nuova fatta con gli stessi strati. Un quadro può dichiarare `"formato": "orizzontale"` (senza, è `verticale`): tutte le scene di un video vogliono quadri dello stesso formato. La sagoma è solo verticale. `corpo` e `corpo_minimo` di `sottotitoli` nel quadro cambiano il corpo dei cartelli; `fondo` (`null`: niente riquadro), `colore`, `bordo`, `contorno` e `colore_contorno` (il filo attorno alle lettere) ne cambiano l'aspetto. I quadri su fondo chiaro hanno il `contorno` a 3 invece di 6: più spesso, il nero riempirebbe le lettere bianche. La `y` di `titolo` è il centro della prima riga: un titolo che va a capo cresce verso il basso, con la parte sotto.
 
 | strato | cosa mette |
 |---|---|

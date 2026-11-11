@@ -4,9 +4,11 @@ import { useSyncExternalStore } from "react"
 import { ErroreApi } from "../api"
 import { ascoltaCanale } from "../canale"
 import { creaCopia } from "../dati"
+import { t } from "../lingua"
 import { istante } from "../testo"
 import { apiChat, type NuovoMessaggio } from "./api"
-import { correggi, leggiPredefinite, modelliChat, ricordaPredefinite } from "./modelli"
+import { correggi, leggiPredefinite, MODELLO_PREDEFINITO, modelliChat, modelliLetti, opusPiuRecente, ricordaPredefinite } from "./modelli"
+import { MOTORE_CHAT, motoreDi } from "./motore"
 import type { ContestoUsato, DettaglioConversazione, EventoChat, ImpostazioniChat, Messaggio, Richiesta, SceltaRisposta, StatoConversazione, TaskChat, TempoDiLavoro, VoceConversazione } from "./tipi"
 
 const lavoroDa = (l: TempoDiLavoro): StatoNegozio["lavoro"] => ({ ms: l.ms, da: l.da === null ? null : istante(l.da) })
@@ -18,6 +20,10 @@ export interface Inviato {
   /** Quanti messaggi del creator con lo stesso testo c'erano quando è partito: quando ce n'è uno in più, è tornato. */
   gia: number
   errore: string | null
+  /** Solo Claude Code: per ciò che chiede il browser del creator, che Mango Code non ha. */
+  soloClaudeCode?: boolean
+  /** Una conversazione nuova parte con l'Opus più recente (o «Predefinito» se non c'è), a meno che il creator abbia scelto Mango Code. */
+  modelloGrande?: boolean
 }
 
 export interface StatoNegozio extends ImpostazioniChat {
@@ -79,7 +85,7 @@ const vuoto = (id: string | null): StatoNegozio => ({
   ...(id === null ? leggiPredefinite() : { modello: null, effort: null }),
 })
 
-export const testoDelMessaggio = (m: Messaggio): string =>
+const testoDelMessaggio = (m: Messaggio): string =>
   m.parti
     .flatMap((p) => (p.tipo === "testo" ? [p.testo] : []))
     .join("\n")
@@ -152,7 +158,11 @@ class Negozio {
     } catch (e) {
       if (versione !== this.versione) return
       if (e instanceof ErroreApi && e.codice === 404) {
+        // I messaggi non ancora tornati non spariscono: dicono perché non sono partiti, e «Riprova» ne comincia una nuova.
+        const perso = t("Quella conversazione non c'è più sul computer. Riprova per cominciarne una nuova.", "That conversation is no longer on the computer. Try again to start a new one.")
+        const inviati = this.stato.inviati.map((i) => ({ ...i, errore: i.errore ?? perso }))
         this.apri(null)
+        this.imposta({ ...this.stato, inviati })
         return
       }
       this.imposta({ ...this.stato, caricato: true, errore: e instanceof Error ? e.message : String(e) })
@@ -238,8 +248,8 @@ class Negozio {
     }, 120)
   }
 
-  async invia(messaggio: NuovoMessaggio): Promise<void> {
-    const inviato: Inviato = { chiave: this.prossimaChiave++, messaggio, gia: quantiDelCreator(this.stato.messaggi, messaggio.testo ?? ""), errore: null }
+  async invia(messaggio: NuovoMessaggio, opzioni: { soloClaudeCode?: boolean } = {}): Promise<void> {
+    const inviato: Inviato = { chiave: this.prossimaChiave++, messaggio, gia: quantiDelCreator(this.stato.messaggi, messaggio.testo ?? ""), errore: null, ...opzioni }
     this.imposta({ ...this.stato, inviati: [...this.stato.inviati, inviato] })
     await this.spedisci(inviato)
   }
@@ -264,7 +274,15 @@ class Negozio {
     try {
       if (id === null) {
         const { modello, effort } = this.stato
-        const { id: nuovo } = await apiChat.nuova(inviato.messaggio, { ...(modello === null ? {} : { modello }), ...(effort === null ? {} : { effort }) })
+        // Una scelta per questa conversazione sola: quella ricordata per le prossime resta com'è.
+        const daClaude = motoreDi(modello).id === MOTORE_CHAT.id
+        const scelta =
+          inviato.modelloGrande && daClaude
+            ? { modello: opusPiuRecente((await modelliLetti()) ?? [])?.id ?? MODELLO_PREDEFINITO }
+            : inviato.soloClaudeCode && !daClaude
+              ? { modello: MODELLO_PREDEFINITO }
+              : { ...(modello === null ? {} : { modello }), ...(effort === null ? {} : { effort }) }
+        const { id: nuovo } = await apiChat.nuova(inviato.messaggio, scelta)
         ricordaCorrente(nuovo)
         this.versione += 1
         this.imposta({ ...this.stato, id: nuovo, attiva: true, stato: "lavora", lavoraDa: this.stato.lavoraDa ?? Date.now(), lavoro: { ms: this.stato.lavoro.ms, da: this.stato.lavoro.da ?? Date.now() } })

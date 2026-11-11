@@ -3,7 +3,7 @@
 import type { Evento, TipoEvento } from "./tipi"
 import { ascoltaSorgente } from "./sorgenteCondivisa"
 
-export const URL_EVENTI = "/api/eventi"
+const URL_EVENTI = "/api/eventi"
 
 export interface AscoltatoreCanale {
   evento?: (evento: Evento) => void

@@ -25,18 +25,6 @@ def lavoro(tmp_path):
     return cartella
 
 
-def test_l_analisi_legge_l_ultima_lettura_della_cartella_di_lavoro(lavoro):
-    canale = lavoro / "archivio" / "canali" / "tiktok"
-    lettura = canale / "letture" / "2026-10-15-1930"
-    lettura.mkdir(parents=True)
-    (lettura / "video.json").write_text(json.dumps({"quando": "2026-10-15T19:30", "video": [{"slug": "a", "visualizzazioni": 1000}]}), encoding="utf-8")
-    (lettura / "profilo.json").write_text(json.dumps({"follower": 100}), encoding="utf-8")
-    (canale / "ultima.json").write_text(json.dumps({"lettura": "2026-10-15-1930"}), encoding="utf-8")
-    esito = lancia(lavoro, "analisi_tiktok", "--json")
-    assert esito.returncode == 0, esito.stderr
-    assert json.loads(esito.stdout)["lettura"] == "2026-10-15-1930"
-
-
 def test_gli_sticker_scrivono_nella_cartella_di_lavoro(lavoro):
     esito = lancia(lavoro, "sticker", "--provini")
     assert str(lavoro / "archivio" / "preparati") in esito.stderr
@@ -49,12 +37,7 @@ def test_gli_oggetti_cercano_il_video_nella_cartella_di_lavoro(lavoro):
     assert "mancano i provini" in esito.stderr
 
 
-def test_le_miniature_girano_sui_video_della_cartella_di_lavoro(lavoro):
-    esito = lancia(lavoro, "miniature")
-    assert esito.returncode == 0, esito.stderr
-
-
-@pytest.mark.parametrize("strumento,argomenti", [("analisi_tiktok", ["--json"]), ("sticker", ["--provini"]), ("oggetti", ["prendi", "a", "b", "1"]), ("miniature", [])])
+@pytest.mark.parametrize("strumento,argomenti", [("sticker", ["--provini"]), ("oggetti", ["prendi", "a", "b", "1"])])
 def test_senza_cartella_di_lavoro_l_errore_lo_dice(strumento, argomenti):
     esito = lancia(None, strumento, *argomenti)
     assert esito.returncode != 0

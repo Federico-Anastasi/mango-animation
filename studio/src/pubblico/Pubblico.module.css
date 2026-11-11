@@ -6,7 +6,6 @@
   margin: 0 auto;
 }
 
-.pagina h1,
 .pagina h2 {
   margin: 0 0 0.5rem;
 }
@@ -64,10 +63,6 @@
   margin: 0.5rem 0 0;
   padding-left: 1.2rem;
   color: var(--grigio);
-}
-
-.scorri {
-  overflow-x: auto;
 }
 
 .tabella {
@@ -145,20 +140,6 @@
 
 .medie td:first-child {
   white-space: normal;
-}
-
-.ordinaColonna {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.ordinaColonna:hover {
-  color: var(--inchiostro);
-  text-decoration: underline;
 }
 
 .dueColonne {

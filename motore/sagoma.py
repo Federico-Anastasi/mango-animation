@@ -5,6 +5,11 @@ from .archivio import leggi_json
 TOLLERANZA = 1e-3
 
 
+def formato_della_sagoma(stile):
+    """Il fotogramma in cui si scontorna, qualunque sia il video: la ripresa del creator è sempre in verticale, anche sotto un quadro orizzontale."""
+    return stile["formati"]["verticale"]
+
+
 def pezzi_della_sagoma(cartella):
     """I pezzi di sagoma di una sorgente che ci sono sul disco: [{da, a, file, inizio}], dove `da`-`a` sono i secondi della sorgente che il pezzo copre,
     `file` il suo webm (relativo a `cartella`) e `inizio` il secondo della sorgente a cui il file comincia. Una sagoma in un file solo è un `sagoma.webm`,

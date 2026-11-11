@@ -8,6 +8,12 @@ export function ricordaAnteprima(percorso: string, url: string): void {
   anteprime.set(percorso, url)
 }
 
+/** L'anteprima di un allegato tolto prima di mandare non serve più: si rilascia la memoria dell'immagine. */
+export function rilasciaAnteprima(percorso: string | null, url: string): void {
+  URL.revokeObjectURL(url)
+  if (percorso !== null) anteprime.delete(percorso)
+}
+
 export function nomeDelFile(percorso: string): string {
   return percorso.replace(/\\/g, "/").split("/").pop() ?? percorso
 }

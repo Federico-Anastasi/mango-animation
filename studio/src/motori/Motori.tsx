@@ -169,7 +169,7 @@ export function Motori() {
   return (
     <div className={styles.pagina}>
       <header>
-        <h1>{t("Motori", "Engines")}</h1>
+        <h1>Computer</h1>
         <p className={styles.sotto}>
           {t(
             "Per ogni funzione pesante: se la vuoi e dove gira. Se la scelta non può partire (la scheda manca o è occupata), il lavoro si ferma e dice cosa correggere: non passa mai da solo al processore.",

@@ -1,6 +1,5 @@
 // Un «risolvi» semplice per il finto server: dal piano e dalle parole dei file, i tratti, le parole e le battute
 // con le forme di `docs/PIANO.md`, «Il risolto». Non è il motore: serve a provare l'interfaccia.
-import { formatoDelQuadro } from "../src/montaggio/composizione"
 import type { Battuta, ParolaGrezzo, ParolaRisolta, Piano, PianoCompleto, Pezzo, Risolto, Scena, ScenaRisolta, Stile, Tratto } from "../src/tipi"
 
 export interface Ingredienti {
@@ -166,7 +165,7 @@ export function risolvi(proprio: Piano, base: PianoCompleto | null, ing: Ingredi
 
   const risolto: Risolto = {
     impronta: Bun.hash(JSON.stringify([effettivo, ing.stile])).toString(16),
-    formato: formatoDelQuadro(ing.stile, ing.stile.quadri[effettivo.quadro]!),
+    formato: formatoDelQuadro(ing.stile, effettivo.quadro),
     durata,
     scene,
     tratti,
@@ -177,4 +176,12 @@ export function risolvi(proprio: Piano, base: PianoCompleto | null, ing: Ingredi
     avvisi,
   }
   return { effettivo, risolto }
+}
+
+// Il finto server gira con Bun, senza la pagina: non può importare i moduli dell'interfaccia che usano la lingua.
+function formatoDelQuadro(stile: Stile, nomeQuadro: string): Stile["formati"][string] {
+  const nome = stile.quadri[nomeQuadro]!.formato ?? "verticale"
+  const formato = stile.formati[nome]
+  if (!formato) throw new Error(`Il formato «${nome}» non è nello stile.`)
+  return formato
 }

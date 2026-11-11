@@ -2,7 +2,7 @@
 // passa di qui, mai da `toFixed`, `String(n)` o una data ISO.
 import { lingua, localeInUso, t } from "./lingua"
 
-/** `pluralizza(1, "file", "file")` → «1 file»; `pluralizza(3, "tratto", "tratti")` → «3 tratti». */
+/** `pluralizza(1, "file", "file")` → «1 file»; `pluralizza(3, "pezzo", "pezzi")` → «3 pezzi». */
 export function pluralizza(quantita: number, singolare: string, plurale: string): string {
   return `${quantita} ${quantita === 1 ? singolare : plurale}`
 }
@@ -12,6 +12,15 @@ export function numero(n: number, cifre?: number): string {
   if (cifre === undefined) return n.toLocaleString(localeInUso(), { maximumFractionDigits: 2, useGrouping: "always" })
   return n.toLocaleString(localeInUso(), { minimumFractionDigits: cifre, maximumFractionDigits: cifre, useGrouping: "always" })
 }
+
+/** L'ultimo pezzo di un percorso dell'archivio: «video/a/uscite/finale.mp4» → «finale.mp4». */
+export const nomeFile = (percorso: string): string => percorso.split("/").pop() ?? percorso
+
+/** Un numero che può mancare: «—» se manca. */
+export const cifra = (n: number | null | undefined, cifre?: number): string => (n == null ? "—" : numero(n, cifre))
+
+/** Un giorno in millisecondi: gli istanti dell'interfaccia sono in millisecondi. */
+export const GIORNO = 86_400_000
 
 /** Un conteggio grosso a parole: «820», «5.240», «234 mila», «1,2 milioni», «130 milioni», «1,3 miliardi» (in inglese «234 thousand», «1.2 million»). */
 export function quantitaGrossa(n: number): string {
@@ -159,12 +168,15 @@ const QUADRI_IN_INGLESE: Record<string, string> = {
   "girato-con-animazione": "footage with animation",
 }
 
+/** I quattro colori che nello stile di serie hanno un nome da funzione e non da tinta. */
+const COLORI_IN_ITALIANO: Record<string, string> = { carta: "sfondo", carta_scura: "sfondo scuro", filo: "linee", inchiostro: "testo" }
+
 const COLORI_IN_INGLESE: Record<string, string> = {
-  carta: "paper",
-  carta_scura: "dark paper",
+  carta: "background",
+  carta_scura: "dark background",
   grigio: "grey",
-  filo: "hairline",
-  inchiostro: "ink",
+  filo: "lines",
+  inchiostro: "text",
   rosso: "red",
   blu: "blue",
   nero: "black",
@@ -175,8 +187,11 @@ const COLORI_IN_INGLESE: Record<string, string> = {
 
 const FORMATI_IN_INGLESE: Record<string, string> = { verticale: "vertical", orizzontale: "horizontal" }
 
-/** Il nome di un colore dello stile di serie: in inglese quello inglese; un colore del creator resta col suo nome. */
-export const nomeColore = (nome: string): string => (lingua() === "en" ? COLORI_IN_INGLESE[nome] : undefined) ?? nome
+/** Il nome di un colore come lo dice una persona: «carta_scura» → «Sfondo scuro» (in inglese «Dark background»). Un colore del creator resta col suo nome, senza il trattino basso. */
+export function nomeColore(nome: string): string {
+  const parole = (lingua() === "en" ? COLORI_IN_INGLESE : COLORI_IN_ITALIANO)[nome] ?? nome.replace(/_/g, " ")
+  return parole.charAt(0).toUpperCase() + parole.slice(1)
+}
 
 /** Il nome di un formato dello stile di serie (verticale, orizzontale), come i colori. */
 export const nomeFormato = (nome: string): string => (lingua() === "en" ? FORMATI_IN_INGLESE[nome] : undefined) ?? nome

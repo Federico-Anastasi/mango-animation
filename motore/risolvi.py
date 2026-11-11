@@ -56,7 +56,7 @@ def picco_db(file):
 
 
 def file_del_suono(archivio, slug, nome):
-    """Il file di un suono: `materiali/` del video, poi quelli dei video da cui parte (`base`, così una versione tradotta non ricopia i suoni), poi `suoni/` del repo."""
+    """Il file di un suono: `materiali/` del video, poi quelli dei video da cui parte (`base`, così una versione tradotta non ricopia i suoni)."""
     assoluto = Path(nome)
     candidati = [assoluto] if assoluto.is_absolute() else []
     visto, qui = set(), slug
@@ -64,12 +64,11 @@ def file_del_suono(archivio, slug, nome):
         visto.add(qui)
         candidati.append(archivio.video(qui) / "materiali" / nome)
         qui = archivio.piano_scritto(qui).get("base")
-    candidati += [archivio.repo / "suoni" / nome, archivio.repo / nome]
     for candidato in candidati:
         if candidato.is_file():
             return candidato
-    raise Errore(f"il suono «{nome}» non c'è: mettilo in materiali/ del video, o in materiali/ del video da cui parte, o in suoni/ del repo",
-                 f"the sound «{nome}» does not exist: put it in materiali/ of the video, or in materiali/ of the video it starts from, or in suoni/ of the repo")
+    raise Errore(f"il suono «{nome}» non c'è: mettilo in materiali/ del video, o in materiali/ del video da cui parte",
+                 f"the sound «{nome}» does not exist: put it in materiali/ of the video, or in materiali/ of the video it starts from")
 
 
 def _immagini(tratti, sorgenti, misure):
@@ -132,7 +131,7 @@ def _girati(tratti, pezzi, sorgente, piano):
             t["girato"] = {"sorgente": nome, "da": round(voluto["da"] + (t["esce"] - suoi[0]["esce"]) * passo, 4), "passo": passo}
 
 
-SEZIONI_FUORI_DAL_MONTATO = frozenset({"anteprima", "ascolta", "carosello", "controllo", "dettatura", "oggetti", "pagina", "preparati", "prova", "scarico"})
+SEZIONI_FUORI_DAL_MONTATO = frozenset({"anteprima", "ascolta", "carosello", "controllo", "dettatura", "oggetti", "pagina", "parallelismo", "preparati", "prova", "scarico", "sticker"})
 
 
 def impronta_di(piano, stile):
@@ -172,6 +171,9 @@ def risolvi(archivio, slug, scrivi=True):
     fps = formato["fps"]
     sott = piano.get("sottotitoli", {})
     lingua = piano.get("lingua", "it")
+    if lingua not in ("it", "en"):
+        raise Errore(f"il motore sa fare i video in due lingue sole, «it» o «en»: la lingua «{lingua}» del piano non si può tradurre",
+                     f"the engine makes videos in two languages only, «it» or «en»: the plan's language «{lingua}» cannot be translated")
     scrittura = sott.get("scrittura", stile["sottotitoli"]["scrittura"])
     sorgenti = {}
 
@@ -218,7 +220,7 @@ def risolvi(archivio, slug, scrivi=True):
                 raise Errore(f"la scena «{scena['nome']}», pezzo {m + 1}: «{pezzo['sorgente']}» è solo audio, e il pezzo vuole `girato` (la foto o la ripresa da mostrare)",
                              f"scene «{scena['nome']}», piece {m + 1}: «{pezzo['sorgente']}» is audio only, and the piece wants `girato` (the photo or footage to show)")
             if (n, m) in scelte:
-                grezzi = a_parole(s, pezzo, scelte[(n, m)], veri[(n, m)], stile)
+                grezzi = a_parole(s, pezzo, scelte[(n, m)], veri[(n, m)], stile, fps)
             else:
                 grezzi = [{"da": round(da, 3), "durata": quadri(a - da, fps), "legato": [None, None], "avvisi": {}} for da, a in a_tempo(s, pezzo, stile)]
             primo, altrove = len(tratti), pezzo.get("sagoma")
@@ -288,7 +290,7 @@ def risolvi(archivio, slug, scrivi=True):
             for k in range(*scelte[(n, m)]):
                 da, fine, voto = veri[(n, m)][k]
                 di_questo.append((s.parole[k]["p"], da, fine, voto))
-            incerte = [f"«{p}» ({voto:.0%})" for p, _, _, voto in di_questo if voto < 0.5]
+            incerte = [f"«{p}» ({voto:.0%})" for p, _, _, voto in di_questo if voto < stile["taglio"]["a_parole"]["voto_bordo"]]
             if incerte:
                 avvisi.append(_avviso(a, Frase("parole poco sicure, da riascoltare: " + ", ".join(incerte),
                                                "uncertain words, listen again: " + ", ".join(incerte))))
