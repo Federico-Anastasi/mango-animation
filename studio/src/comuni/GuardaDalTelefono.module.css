@@ -13,9 +13,9 @@
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.9rem 1rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-ground);
 }
 
 .riquadro p {
@@ -23,15 +23,15 @@
 }
 
 .tenue {
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .qr {
   width: 10rem;
   height: 10rem;
   padding: 0.4rem;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 4px;
   /* Il codice si legge solo su fondo bianco, anche nel tema scuro. */
   background: #fff;

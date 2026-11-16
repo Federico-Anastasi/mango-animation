@@ -13,8 +13,8 @@
   padding: 0.2rem 0;
   border: 0;
   background: none;
-  color: var(--inchiostro);
-  font-size: 0.88rem;
+  color: var(--mango-text);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -25,8 +25,9 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
 }
 
 .riga {
@@ -38,11 +39,11 @@
 }
 
 .riga + .riga {
-  border-top: 1px solid var(--filo);
+  border-top: 1px solid var(--mango-line);
 }
 
 .riga[data-in-uso] {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .intesta {
@@ -53,13 +54,13 @@
 }
 
 .quando {
-  font-size: 0.88rem;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .tenue {
-  font-size: 0.82rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .gesti {
@@ -75,9 +76,9 @@
   align-items: center;
   gap: 0.5rem 0.75rem;
   padding: 0.6rem 0.8rem;
-  border: 1px solid var(--inchiostro);
-  border-radius: 6px;
-  font-size: 0.88rem;
+  border: 1px solid var(--mango-text);
+  border-radius: var(--mango-radius-card);
+  font-size: 13px;
 }
 
 .conferma span {
@@ -87,17 +88,17 @@
 .contorno {
   margin: 0;
   padding-left: 1.2rem;
-  font-size: 0.85rem;
+  font-size: 13px;
 }
 
 .contorno ul {
   margin: 0.15rem 0 0.4rem;
   padding-left: 1rem;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .errore {
   margin: 0;
-  color: var(--rosso);
-  font-size: 0.88rem;
+  color: var(--mango-error);
+  font-size: 13px;
 }

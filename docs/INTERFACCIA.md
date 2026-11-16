@@ -1,12 +1,12 @@
 # L'interfaccia
 
-Una pagina nel browser su `http://127.0.0.1:47431`, con la chat con Claude a destra. Ogni schermata risponde a una domanda sola; lo studio serve a guardare e a decidere, e i lavori si chiedono nella chat. Il documento è diviso per vista in `docs/studio/` (con la cornice e le regole comuni in `docs/studio/cornice.md`); ogni sezione qui sotto dice dove sta adesso. Le frasi esatte, i cronometri e le colonne delle pagine stanno nel codice (`studio/src/`), in testa a ogni file.
+Una pagina nel browser su `http://127.0.0.1:47431`, con la chat a destra. Ogni schermata risponde a una domanda sola; lo studio serve a guardare e a decidere, e i lavori si chiedono nella chat. Il documento è diviso per vista in `docs/studio/` (con la cornice e le regole comuni in `docs/studio/cornice.md`); ogni sezione qui sotto dice dove sta. Le frasi esatte, i cronometri e le colonne delle pagine stanno nel codice (`studio/src/`), in testa a ogni file.
 
 ## La cornice
 
-La barra in alto, lo stato dei lavori, la lingua, la segnalazione dei problemi, l'avviso del profilo. → `docs/studio/cornice.md`
+La barra in alto, lo stato dei lavori, la segnalazione dei problemi, l'avviso del profilo, i controlli comuni. → `docs/studio/cornice.md`
 
-## La chat — «parlo con Claude, accanto a ciò che sto guardando»
+## La chat — «parlo con la chat, accanto a ciò che sto guardando»
 
 Il pannello, la testata, il primo giro, la conversazione, i menu, le richieste, il campo di testo, il microfono, i collegamenti nelle risposte. → `docs/studio/chat.md`
 
@@ -54,13 +54,13 @@ I file per giorno, aggiungere video, cercare nel parlato. → `docs/studio/girat
 
 Le tre schede Pubblico, Classifica, Crescita e le pagine senza dati. → `docs/studio/canale.md`
 
-## Produzione — «quanti video faccio, quanto lavoro di Claude costano e cosa rendono?»
+## Produzione — «quanti video faccio, quanto lavoro in chat costano e cosa rendono?»
 
-I conti dei video fatti e del lavoro di Claude. → `docs/studio/canale.md`
+I conti dei video fatti e del lavoro in chat. → `docs/studio/canale.md`
 
 ## Impostazioni — «dove cambio le cose che valgono sempre?»
 
-Le sezioni Profilo, Stile, Computer, Telefono, Generali. → `docs/studio/stile-e-motori.md`
+Le sezioni Profilo, Stile, Computer, Telefono, Generale, Aiuto, con la ricerca. → `docs/studio/stile-e-motori.md`
 
 ### Stile (Impostazioni › Stile)
 

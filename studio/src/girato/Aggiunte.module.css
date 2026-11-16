@@ -5,17 +5,17 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  border: 2px dashed var(--inchiostro);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--carta) 88%, transparent);
+  border: 2px dashed var(--mango-text);
+  border-radius: var(--mango-radius-card);
+  background: color-mix(in srgb, var(--mango-ground) 88%, transparent);
   pointer-events: none;
 }
 
 .zona p {
   margin: 0;
   padding: 0 1.5rem;
-  font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-family: var(--mango-font-title);
+  font-size: 14px;
   text-align: center;
 }
 
@@ -26,8 +26,9 @@
   justify-content: space-between;
   gap: 0.6rem 1rem;
   padding: 0.7rem 1rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
 }
 
 .elenco ul {
@@ -46,7 +47,7 @@
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .elenco li b {
@@ -57,13 +58,13 @@
 .elenco progress {
   width: 100%;
   height: 0.5rem;
-  accent-color: var(--inchiostro);
+  accent-color: var(--mango-text);
 }
 
 .errore {
-  color: var(--rosso);
+  color: var(--mango-error);
 }
 
 .elenco li:not([data-stato="errore"]) span {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }

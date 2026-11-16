@@ -13,12 +13,17 @@ export interface OpzioniMcp {
   ffmpeg: string | null
   /** yt-dlp, se c'è: per i sottotitoli dei video in rete. */
   ytdlp: string[] | null
+  /** La conversazione della chat a cui appartiene il processo: l'attesa di un lavoro si chiude quando il creator scrive lì. */
+  conversazione: string | null
+  /** Il motore della conversazione non ha uno strumento suo per le domande: c'è lo strumento `domanda`. */
+  domande: boolean
 }
 
 /** Le stesse variabili d'ambiente del server (`docs/API.md`): porta, Python e modulo del motore. */
 export function opzioniMcp(ambiente: Record<string, string | undefined> = process.env): OpzioniMcp {
   // Gli strumenti non registrano lo schermo: la ricerca della scheda Nvidia (un processo) è del server.
   const o = opzioniDaAmbiente(ambiente, false)
+  const conversazione = ambiente["MANGO_ANIMATION_CONVERSAZIONE"] || null
   return {
     api: {
       indirizzo: `http://${o.indirizzo}:${o.porta}`,
@@ -33,5 +38,7 @@ export function opzioniMcp(ambiente: Record<string, string | undefined> = proces
     motore: o.motore,
     ffmpeg: o.ffmpeg,
     ytdlp: o.ytdlp,
+    conversazione,
+    domande: conversazione !== null && ambiente["MANGO_ANIMATION_DOMANDE"] === "1",
   }
 }

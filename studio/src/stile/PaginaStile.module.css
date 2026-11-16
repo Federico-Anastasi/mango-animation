@@ -1,85 +1,41 @@
 .pagina {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
   min-width: 0;
 }
 
-.testata {
-  position: sticky;
-  top: -1.25rem;
-  z-index: 4;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem 1rem;
-  padding: 0.5rem 0;
-  background: var(--carta);
+/* Salva e Annulla restano in vista mentre si scorre una pagina lunga; a schermo stretto scorrono via, per non coprire le righe. */
+@media (min-width: 640px) {
+  .testata {
+    position: sticky;
+    top: -1.25rem;
+    z-index: 4;
+    padding: 0.5rem 0;
+    background: var(--mango-ground);
+  }
 }
 
-.testata h1 {
+.problemi {
   margin: 0;
+  padding: 10px 16px 10px 32px;
+  border: 1px solid var(--mango-error);
+  border-radius: var(--mango-radius-card);
+  color: var(--mango-error);
+  font-size: 13px;
 }
 
-.salva {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ok {
-  color: var(--verde);
-  font-size: 0.9rem;
-}
-
-.problemi,
-.errore {
-  margin: 0;
-  padding: 0.6rem 0.9rem 0.6rem 1.8rem;
-  border: 1px solid var(--rosso);
-  border-radius: 6px;
-  color: var(--rosso);
-  font-size: 0.9rem;
-}
-
-.errore {
-  padding-left: 0.9rem;
-}
-
-.avviso {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  padding: 0.6rem 0.9rem;
-  border: 1px solid var(--grigio);
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-.avviso span {
-  flex: 1 1 18rem;
-}
-
+/* Una parte della pagina fatta di cartoline o di disegni: l'etichetta è quella delle card. */
 .sezione {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 10px;
   min-width: 0;
 }
 
 .sezione h2 {
   margin: 0;
-  padding-bottom: 0.3rem;
-  border-bottom: 1px solid var(--filo);
-}
-
-.nota {
-  margin: 0;
-  font-size: 0.86rem;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
+  font: 600 11px/1 var(--mango-font-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .quadri {
@@ -107,94 +63,19 @@
 
 .dettagli {
   width: 100%;
-  font-size: 0.88rem;
+  font-size: 14px;
 }
 
 .dettagli summary {
   cursor: pointer;
+  margin-bottom: 8px;
 }
 
 .misure {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  margin-top: 0.6rem;
-}
-
-.strato {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-}
-
-.strato h3,
-.gruppo h3 {
-  margin: 0;
-  font-size: 0.92rem;
-}
-
-.numeri {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem 1rem;
-}
-
-.scelta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.78rem;
-  color: var(--grigio);
-}
-
-.scelta select {
-  height: 2rem;
-  padding: 0 0.5rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  color: var(--inchiostro);
-  font-size: 0.9rem;
-}
-
-.colori {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.6rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.colori li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.colori input {
-  width: 2.4rem;
-  height: 2rem;
-  padding: 0;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: none;
-  cursor: pointer;
-}
-
-.colori code {
-  margin-left: auto;
-  font-size: 0.8rem;
-  color: var(--grigio);
-}
-
-.gruppo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  gap: 16px;
+  margin-top: 10px;
 }
 
 /* Il cartello di prova è piccolo come una cartolina, non largo quanto la pagina. */
@@ -202,13 +83,36 @@
   max-width: 24rem;
 }
 
-.spunte {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.9rem;
+/* Il nome è già nella riga: la sua etichetta dentro il campo resta per chi non vede, non a schermo. */
+.numero label > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.spunte input {
-  accent-color: var(--inchiostro);
+.numero label input {
+  min-height: 36px;
+  border-radius: var(--mango-radius-control);
+  font-family: var(--mango-font-code);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.valoreDelColore {
+  color: var(--mango-text-muted);
+  font-family: var(--mango-font-code);
+  font-size: 12.5px;
+}
+
+.colore {
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: none;
+  cursor: pointer;
 }

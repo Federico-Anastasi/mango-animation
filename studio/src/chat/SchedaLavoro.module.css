@@ -1,36 +1,19 @@
 .scheda {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  margin: 0.15rem 0 0.25rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--filo);
-  border-left: 3px solid var(--blu);
-  border-radius: 6px;
-  background: var(--carta);
-  font-size: 0.86rem;
-}
-
-.scheda[data-stato="fallito"],
-.scheda[data-stato="interrotto"] {
-  border-left-color: var(--rosso);
-}
-
-.scheda[data-stato="riuscito"],
-.scheda[data-stato="fermato"],
-.scheda[data-stato="finito"] {
-  border-left-color: var(--verde);
-}
-
-.scheda[data-stato="fermato"],
-.scheda[data-stato="in coda"] {
-  border-left-color: var(--grigio);
+  gap: 8px;
+  margin: 4px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+  font-size: 13px;
 }
 
 .testa {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -39,28 +22,21 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--grigio);
+  background: var(--mango-text-muted);
 }
 
 .scheda[data-stato="in corso"] .punto {
-  background: var(--rosso);
-  animation: pulsa 1.4s ease-in-out infinite;
+  background: var(--mango-action-text);
 }
 
 .scheda[data-stato="riuscito"] .punto,
 .scheda[data-stato="finito"] .punto {
-  background: var(--verde);
+  background: var(--mango-ready);
 }
 
 .scheda[data-stato="fallito"] .punto,
 .scheda[data-stato="interrotto"] .punto {
-  background: var(--rosso);
-}
-
-@keyframes pulsa {
-  50% {
-    opacity: 0.35;
-  }
+  background: var(--mango-error);
 }
 
 .nome {
@@ -70,53 +46,47 @@
   overflow-wrap: anywhere;
 }
 
-.ferma {
-  flex: 0 0 auto;
-  height: 1.7rem;
-  padding: 0 0.7rem;
-  border: 1px solid var(--inchiostro);
-  border-radius: 6px;
-  background: none;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.ferma:hover {
-  background: var(--carta-scura);
-}
-
 .riga {
   margin: 0;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 .barra {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--carta-scura);
+  height: 6px;
+  border-radius: var(--mango-radius-full);
+  background: var(--mango-raised);
   overflow: hidden;
 }
 
 .barra span {
   display: block;
   height: 100%;
-  background: var(--blu);
-  transition: width 0.9s linear;
+  background: linear-gradient(to right, var(--mango-action), var(--mango-action-end));
+  transition: width var(--mango-motion) linear;
 }
 
 .righe {
   margin: 0;
   max-height: 4.5rem;
   overflow: auto;
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  color: var(--grigio);
+  font-family: var(--mango-font-code);
+  font-size: 12px;
+  line-height: 1.6;
+  font-variant-ligatures: none;
+  color: var(--mango-text-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .errore {
   margin: 0;
-  color: var(--rosso);
+  color: var(--mango-error);
+}
+
+@media (max-width: 640px) {
+  .testa button {
+    min-height: 44px;
+  }
 }

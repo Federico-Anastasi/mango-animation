@@ -8,20 +8,20 @@
   display: flex;
   flex-direction: column;
   padding: 0.7rem 0.9rem;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .valore {
-  font-size: 1.8rem;
+  font-size: 23px;
   font-weight: 600;
   line-height: 1.1;
 }
 
 .nome {
-  font-size: 0.85rem;
+  font-size: 13px;
 }
 
 .nota {
-  color: var(--grigio);
-  font-size: 0.78rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }

@@ -117,7 +117,7 @@ export function PannelloTratto({
       {inEredita && (
         <div className={styles.avviso}>
           <p>{t("Questo pezzo viene dal video «{base}»: da qui non si cambia.", "This clip comes from the video «{base}»: it cannot be changed from here.", { base: ctx.proprio.base ?? "" })}</p>
-          <Bottone variante="vuoto" onClick={() => esegui(staccaDallaBase(ctx))} disabled={bloccato}>
+          <Bottone onClick={() => esegui(staccaDallaBase(ctx))} disabled={bloccato}>
             {t("Stacca dalla base", "Detach from base")}
           </Bottone>
         </div>
@@ -193,13 +193,13 @@ export function PannelloTratto({
 
       <div className={styles.azioni}>
         {!senzaVoce && (
-          <Bottone variante="vuoto" onClick={() => esegui(dividi(ctx, trasporto.t()))} disabled={bloccato || inEredita || !sotto} titolo={sotto ? undefined : t("Porta la linea rossa dentro questo pezzo", "Move the red line inside this clip")}>
+          <Bottone onClick={() => esegui(dividi(ctx, trasporto.t()))} disabled={bloccato || inEredita || !sotto} titolo={sotto ? undefined : t("Porta la linea verticale dentro questo pezzo", "Move the vertical line inside this clip")}>
             <Icona nome="dividi" />
             {t("Dividi qui", "Split here")}
           </Bottone>
         )}
         <Bottone
-          variante="vuoto"
+         
           onClick={() => {
             esegui(togliTratto(ctx, indice))
             onDeseleziona()
@@ -209,11 +209,11 @@ export function PannelloTratto({
           <Icona nome="togli" />
           {t("Togli", "Remove")}
         </Bottone>
-        <Bottone variante="vuoto" onClick={() => esegui(muoviPezzo(ctx, tratto.scena, tratto.pezzo, tratto.pezzo - 1))} disabled={bloccato || inEredita || tratto.pezzo === 0} titolo={tratto.pezzo === 0 ? t("È già il primo pezzo della scena", "It is already the first clip of the scene") : undefined}>
+        <Bottone onClick={() => esegui(muoviPezzo(ctx, tratto.scena, tratto.pezzo, tratto.pezzo - 1))} disabled={bloccato || inEredita || tratto.pezzo === 0} titolo={tratto.pezzo === 0 ? t("È già il primo pezzo della scena", "It is already the first clip of the scene") : undefined}>
           <Icona nome="sinistra" />
           {t("Sposta prima", "Move earlier")}
         </Bottone>
-        <Bottone variante="vuoto" onClick={() => esegui(muoviPezzo(ctx, tratto.scena, tratto.pezzo, tratto.pezzo + 1))} disabled={bloccato || inEredita || tratto.pezzo >= pezzi - 1} titolo={tratto.pezzo >= pezzi - 1 ? t("È già l'ultimo pezzo della scena", "It is already the last clip of the scene") : undefined}>
+        <Bottone onClick={() => esegui(muoviPezzo(ctx, tratto.scena, tratto.pezzo, tratto.pezzo + 1))} disabled={bloccato || inEredita || tratto.pezzo >= pezzi - 1} titolo={tratto.pezzo >= pezzi - 1 ? t("È già l'ultimo pezzo della scena", "It is already the last clip of the scene") : undefined}>
           {t("Sposta dopo", "Move later")}
           <Icona nome="destra" />
         </Bottone>

@@ -1,9 +1,9 @@
-// Fotografa ogni vista e ogni scheda a tre larghezze (1400, 1000, 430 px, o quelle di `--larghezze`), nel tema chiaro e in quello scuro,
+// Fotografa ogni vista e ogni scheda a tre larghezze (1400, 1000, 390 px, o quelle di `--larghezze`), nel tema chiaro e in quello scuro,
 // contro un server che serve l'interfaccia costruita (di default il finto server su 47531).
-//   node verifica/fotografa.mjs [--url http://127.0.0.1:47531] [--tema chiaro|scuro] [--lingua it|en] [--browser chrome] [--larghezze 1400,860,430] [--vista parte-del-nome] [--uscita cartella]
+//   node verifica/fotografa.mjs [--url http://127.0.0.1:47531] [--tema chiaro|scuro] [--lingua it|en] [--browser chrome] [--larghezze 1400,860,390] [--vista parte-del-nome] [--uscita cartella]
 // Fallisce se la pagina esce in orizzontale, se un controllo esce dal bordo destro, se un contenitore che
 // scorre da solo è più alto della parte visibile della pagina, se i pannelli del montaggio non sono alti quanto
-// l'anteprima accanto, se una vista resta su «carico…» o se la console ha errori. Le foto finiscono in `verifica/viste/`.
+// l'anteprima accanto, se una vista resta su «carico…», se sotto i 640 px qualcosa che si tocca è più basso di 44 px o se la console ha errori. Le foto finiscono in `verifica/viste/`.
 import { chromium } from "@playwright/test"
 import { mkdirSync, readdirSync, rmSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -21,8 +21,8 @@ const T = (italiano, ingleseTesto) => (inglese ? ingleseTesto : italiano)
 const SOLO_ITALIANO = ["chat-conversazione", "chat-permesso", "chat-immagine-grande", "chat-mango-lavora", "chat-menu-modello", "chat-domanda", "chat-allegato", "chat-lavoro", "chat-tempi", "chat-background", "chat-primo-giro", "chat-primo-giro-lavora", "chat-chiusa", "chat-chiudi", "lavori-piano-cambiato", "slide-carosello-avvisi", "scheda-non-valida", "montaggio-piano-non-valido", "girato-scheda-rifiutata"]
 // Con `--chat` ogni vista si fotografa con la chat aperta sulla conversazione d'esempio.
 const conChat = argomenti.includes("--chat")
-// A 430 px la chat copre la vista: con `--chat` le larghezze sono due, e a 430 la chat si fotografa con le sue scene.
-const larghezze = valore("--larghezze", "") ? valore("--larghezze", "").split(",").map(Number) : conChat ? [1400, 1000] : [1400, 1000, 430]
+// A 390 px la chat copre la vista: con `--chat` le larghezze sono due, e a 390 la chat si fotografa con le sue scene.
+const larghezze = valore("--larghezze", "") ? valore("--larghezze", "").split(",").map(Number) : conChat ? [1400, 1000] : [1400, 1000, 390]
 const cartella = valore("--uscita", join(dirname(fileURLToPath(import.meta.url)), "viste"))
 
 const FILE_DIRETTA = "2026-10-08/diretta-prova-cucina.mp4"
@@ -37,12 +37,12 @@ const VISTE = [
   { nome: "montaggio-zoom", indirizzo: "#/video/ricetta-in-diretta/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.locator("[data-tratto]").nth(1).click({ position: { x: 30, y: 25 } }) },
   { nome: "montaggio-parole", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.getByRole("heading", { name: T("Il parlato", "Speech") }).locator("..").getByRole("button").first().click() },
   { nome: "montaggio-scena", indirizzo: "#/video/pasta-fresca/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.getByRole("button", { name: "c2", exact: true }).click() },
-  { nome: "montaggio-montato", indirizzo: "#/video/pasta-fresca/montaggio", pronta: "video", dopo: (p) => p.getByRole("button", { name: T("Montato", "Edited"), exact: true }).click() },
+  { nome: "montaggio-montato", indirizzo: "#/video/pasta-fresca/montaggio", pronta: "video", dopo: (p) => p.getByRole("radiogroup", { name: T("Che anteprima vedere", "Which preview to show") }).getByText(T("Montato", "Edited"), { exact: true }).click() },
   { nome: "montaggio-lungo", indirizzo: "#/video/ricetta-intera/montaggio", prima: inPiano, pronta: "[data-testid=palco]" },
   { nome: "montaggio-senza-voce", indirizzo: "#/video/animazioni-e-voce/montaggio", prima: inPiano, pronta: "[data-testid=palco]" },
   { nome: "montaggio-senza-voce-tratto", indirizzo: "#/video/animazioni-e-voce/montaggio", prima: inPiano, pronta: "[data-testid=palco]", dopo: (p) => p.locator("[data-tratto]").nth(0).click({ position: { x: 30, y: 25 } }) },
   { nome: "prova-senza-piano", indirizzo: "#/video/registrazione-guidata", pronta: "video" },
-  { nome: "montaggio-montato-piano-cambiato", indirizzo: "#/video/ricetta-in-diretta/montaggio", pronta: "video", dopo: (p) => p.getByRole("button", { name: T("Montato", "Edited"), exact: true }).click() },
+  { nome: "montaggio-montato-piano-cambiato", indirizzo: "#/video/ricetta-in-diretta/montaggio", pronta: "video", dopo: (p) => p.getByRole("radiogroup", { name: T("Che anteprima vedere", "Which preview to show") }).getByText(T("Montato", "Edited"), { exact: true }).click() },
   { nome: "montaggio-senza-piano", indirizzo: "#/video/cena-fra-due-cucine/montaggio" },
   { nome: "scheda-pubblicato", indirizzo: "#/video/primo-video-pubblicato/scheda" },
   { nome: "scheda-proposta", indirizzo: "#/video/cena-fra-due-cucine/scheda" },
@@ -82,6 +82,8 @@ const VISTE = [
   { nome: "profilo-non-valido", indirizzo: "#/video", dopo: profiloNonValido, poi: profiloCorretto },
   { nome: "girato-senza-scheda", indirizzo: `#/girato?file=${encodeURIComponent("2026-10-09/messo-a-mano.mp4")}` },
   { nome: "produzione", indirizzo: "#/produzione" },
+  { nome: "produzione-solo-claude", indirizzo: "#/produzione", dopo: (p) => codexNellaChat(p, false), poi: (p) => codexNellaChat(p, true) },
+  { nome: "produzione-codex-senza-token", indirizzo: "#/produzione", dopo: (p) => tokenDiCodex(p, false), poi: (p) => tokenDiCodex(p, true) },
   // «Canale»: tre schede di una voce, che c'è solo con un canale letto. I vecchi indirizzi (`#/pubblico`, `#/classifica`, `#/crescita`) portano alla scheda.
   { nome: "canale-pubblico", indirizzo: "#/pubblico" },
   { nome: "canale-pubblico-senza-commenti", indirizzo: "#/pubblico?video=ricetta-in-diretta" },
@@ -89,7 +91,7 @@ const VISTE = [
   { nome: "canale-crescita-vuota", indirizzo: "#/crescita" },
   { nome: "canale-senza-lettura", indirizzo: "#/canale", dopo: (p) => canaleLetto(p, false), poi: (p) => canaleLetto(p, true) },
   { nome: "barra-senza-canale", indirizzo: "#/video", dopo: (p) => canaleLetto(p, false), poi: (p) => canaleLetto(p, true) },
-  // Le impostazioni: ogni sezione. `#/stile` e `#/motori` sono gli indirizzi di prima di due di esse.
+  // Le impostazioni: ogni sezione. `#/stile` e `#/motori` portano anche loro a due di esse.
   { nome: "impostazioni-profilo", indirizzo: "#/impostazioni/profilo" },
   { nome: "impostazioni-profilo-errore", indirizzo: "#/impostazioni/profilo", dopo: profiloSenzaNome, poi: (p) => p.reload() },
   { nome: "impostazioni-profilo-vuoto", indirizzo: "#/impostazioni/profilo", dopo: (p) => profiloDelCreator(p, true), poi: (p) => profiloDelCreator(p, false) },
@@ -98,14 +100,26 @@ const VISTE = [
   { nome: "stile-usa-questo", indirizzo: "#/impostazioni/stile", dopo: usaLoStileCaldo, poi: scartaLeModifiche },
   { nome: "stile-carattere-aggiunto", indirizzo: "#/impostazioni/stile", dopo: aggiungiUnCarattere, mostra: (p) => p.getByRole("heading", { name: T("Carattere", "Font"), level: 3 }), poi: (p) => p.reload() },
   { nome: "stile-carattere-rifiutato", indirizzo: "#/impostazioni/stile", dopo: aggiungiUnFileSbagliato, mostra: (p) => p.getByRole("heading", { name: T("Carattere", "Font"), level: 3 }), poi: (p) => p.reload() },
-  { nome: "impostazioni-computer", indirizzo: "#/motori", pronta: "ul[aria-label]" },
-  { nome: "impostazioni-generali", indirizzo: "#/impostazioni/generali" },
+  { nome: "impostazioni-computer", indirizzo: "#/motori", pronta: "[role=group] [role=switch]" },
+  // Generale e Aiuto: nel browser, poi con i ponti che l'app mette nella pagina (grandezza, cartella dei dati, aggiornamenti, registri, segnalazione), scelti da localStorage.
+  { nome: "impostazioni-generale", indirizzo: "#/impostazioni/generale", pronta: "[role=switch]" },
+  { nome: "impostazioni-generale-app", indirizzo: "#/impostazioni/generale", prima: (p) => scenarioApp(p, { grandezza: "1.2", cartella: "si" }), pronta: "[role=group] output", poi: (p) => scenarioApp(p, {}) },
+  { nome: "impostazioni-aiuto", indirizzo: "#/impostazioni/aiuto" },
+  { nome: "impostazioni-aiuto-app", indirizzo: "#/impostazioni/aiuto", prima: (p) => scenarioApp(p, { aiuto: "ultima", segnalazione: "si" }), pronta: "[role=group] [role=switch]", poi: (p) => scenarioApp(p, {}) },
+  { nome: "impostazioni-aiuto-controllo", indirizzo: "#/impostazioni/aiuto", prima: (p) => scenarioApp(p, { aiuto: "ultima" }), pronta: "[role=group] [role=switch]", dopo: (p) => controllaOra(p, T("Hai l'ultima versione", "You have the latest version")), poi: (p) => scenarioApp(p, {}) },
+  { nome: "impostazioni-aiuto-nuova-versione", indirizzo: "#/impostazioni/aiuto", prima: (p) => scenarioApp(p, { aiuto: "nuova" }), pronta: "[role=group] [role=switch]", dopo: (p) => controllaOra(p, /0\.1\.7/), poi: (p) => scenarioApp(p, {}) },
+  { nome: "impostazioni-aiuto-errore", indirizzo: "#/impostazioni/aiuto", prima: (p) => scenarioApp(p, { aiuto: "errore" }), pronta: "[role=group] [role=switch]", dopo: (p) => controllaOra(p, T("Il server degli aggiornamenti non risponde.", "The update server is not answering.")), poi: (p) => scenarioApp(p, {}) },
+  { nome: "impostazioni-aiuto-segnala", indirizzo: "#/impostazioni/aiuto", prima: (p) => scenarioApp(p, { aiuto: "ultima", segnalazione: "si" }), pronta: "[role=group] [role=switch]", dopo: apriLaSegnalazioneInAiuto, poi: (p) => scenarioApp(p, {}) },
+  // La ricerca: i risultati prendono il posto dell'elenco; a schermo stretto `#/impostazioni` è l'elenco delle sezioni.
+  { nome: "impostazioni-elenco", indirizzo: "#/impostazioni" },
+  { nome: "impostazioni-cerca", indirizzo: "#/impostazioni", dopo: (p) => cercaNelleImpostazioni(p, "scuro", true), poi: (p) => cercaNelleImpostazioni(p, "", false) },
+  { nome: "impostazioni-cerca-niente", indirizzo: "#/impostazioni", dopo: (p) => cercaNelleImpostazioni(p, "pomodoro", false), poi: (p) => cercaNelleImpostazioni(p, "", false) },
   // L'app mette nella pagina il ponte del computer (`window.__MANGO_ANIMATION__.computer`): qui lo mette lo scenario scelto, che l'init script legge da localStorage.
-  { nome: "impostazioni-computer-app-con-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "scheda"), pronta: "section[aria-label] dl", poi: (p) => scenarioComputer(p, null) },
+  { nome: "impostazioni-computer-app-con-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "scheda"), pronta: "text=Ryzen", poi: (p) => scenarioComputer(p, null) },
   // «Segnala un problema» c'è solo nell'app, che mette nella pagina il ponte `segnalazione`: qui lo mette lo scenario scelto.
   { nome: "segnalazione-bottone", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), poi: (p) => scenarioSegnalazione(p, false) },
   { nome: "segnalazione-dialogo", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), dopo: apriLaSegnalazione, poi: (p) => scenarioSegnalazione(p, false) },
-  { nome: "impostazioni-computer-app-senza-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "senza"), pronta: "section[aria-label] dl", poi: (p) => scenarioComputer(p, null) },
+  { nome: "impostazioni-computer-app-senza-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "senza"), pronta: "text=Core i5", poi: (p) => scenarioComputer(p, null) },
   // La chat: le scene si fotografano con la chat aperta e poi la chiudono (a meno che non sia accesa con --chat).
   { nome: "chat-conversazione", indirizzo: "#/video/carosello-dispensa/slide", pronta: "img[alt^='Slide 1 ']", dopo: (p) => chatEsempio(p, "alto"), poi: chiudiChat },
   { nome: "chat-permesso", indirizzo: "#/video/carosello-dispensa/slide", pronta: "img[alt^='Slide 1 ']", dopo: (p) => chatEsempio(p, "basso"), poi: chiudiChat },
@@ -114,6 +128,11 @@ const VISTE = [
   { nome: "chat-mango-lavora", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: (p) => chatMango(p, false), poi: chiudiChatTempi },
   { nome: "chat-menu-modello-mango", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: (p) => chatMango(p, true), poi: async (p) => (await p.reload(), await chiudiChatTempi(p)) },
   { nome: "chat-menu-modello-claude", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: chatMenuClaude, poi: async (p) => (await p.reload(), await chiudiChatTempi(p)) },
+  // Un terzo motore: la sua conversazione (nome, segno, effort coi suoi livelli, nessun «Manda in background»), i suoi menu, e il menu di una conversazione nuova con i tre motori.
+  { nome: "chat-codex-lavora", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: (p) => chatCodex(p, null), poi: chiudiChatTempi },
+  { nome: "chat-codex-menu-modello", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: (p) => chatCodex(p, T("Modello", "Model")), poi: async (p) => (await p.reload(), await chiudiChatTempi(p)) },
+  { nome: "chat-codex-menu-effort", indirizzo: "#/video/ricetta-in-diretta/montaggio", dopo: (p) => chatCodex(p, "Effort"), poi: async (p) => (await p.reload(), await chiudiChatTempi(p)) },
+  { nome: "chat-motori-menu-modello", indirizzo: "#/girato", dopo: chatMenuTuttiIMotori, poi: async (p) => (await p.reload(), await chiudiChat(p)) },
   { nome: "chat-vuota", indirizzo: "#/girato", dopo: async (p) => (await apriChat(p), p.getByRole("button", { name: T("Nuova conversazione", "New conversation") }).click()), poi: chiudiChat },
   // La tendina dei comandi: «/» e un comando scelto con ↑ (la riga scelta, in fondo all'elenco, deve restare in vista); poi una parte del nome.
   { nome: "chat-comandi", indirizzo: "#/girato", dopo: (p) => chatComandi(p, "/", "ArrowUp"), poi: chiudiChat },
@@ -147,6 +166,32 @@ async function scenarioComputer(pagina, nome) {
   await pagina.reload()
 }
 
+// I ponti dell'app per Generale e Aiuto: `grandezza` è lo zoom, `cartella` mette la cartella dei dati, `aiuto` è come risponde il controllo degli aggiornamenti (ultima, nuova, errore).
+async function scenarioApp(pagina, scelte) {
+  await pagina.evaluate((c) => {
+    for (const chiave of ["grandezza", "cartella", "aiuto", "segnalazione"]) localStorage.removeItem(`prova.${chiave}`)
+    for (const [chiave, valore] of Object.entries(c)) localStorage.setItem(`prova.${chiave}`, valore)
+  }, scelte)
+  await pagina.reload()
+}
+
+async function controllaOra(pagina, atteso) {
+  await pagina.getByRole("button", { name: T("Controlla ora", "Check now") }).click()
+  await pagina.getByText(atteso).first().waitFor({ timeout: 5000 }).catch(() => problemi.push(`impostazioni-aiuto: dopo «Controlla ora» non compare ${atteso}`))
+}
+
+async function apriLaSegnalazioneInAiuto(pagina) {
+  await pagina.getByRole("button", { name: T("Scrivi", "Write") }).click()
+  await pagina.getByRole("textbox", { name: T("Cosa è successo?", "What happened?") }).waitFor({ timeout: 5000 }).catch(() => problemi.push("impostazioni-aiuto-segnala: il modulo non si apre"))
+}
+
+async function cercaNelleImpostazioni(pagina, testo, trovera) {
+  await pagina.getByRole("searchbox", { name: T("Cerca", "Search") }).fill(testo)
+  if (testo === "") return
+  const atteso = trovera ? pagina.getByRole("list", { name: T("Risultati", "Results") }) : pagina.getByRole("status")
+  await atteso.waitFor({ timeout: 3000 }).catch(() => problemi.push(`impostazioni-cerca: cercando «${testo}» non compare la risposta`))
+}
+
 async function scenarioSegnalazione(pagina, acceso) {
   await pagina.evaluate((a) => (a ? localStorage.setItem("prova.segnalazione", "si") : localStorage.removeItem("prova.segnalazione")), acceso)
   await pagina.reload()
@@ -159,8 +204,8 @@ async function apriLaSegnalazione(pagina) {
 
 // Un video già montato si apre su «Montato»: il palco c'è solo nel modo «Piano».
 async function inPiano(pagina) {
-  const piano = pagina.getByRole("button", { name: T("Piano", "Plan"), exact: true })
-  if ((await piano.getAttribute("aria-pressed").catch(() => "true")) === "false") await piano.click()
+  const piano = pagina.getByRole("radio", { name: T("Piano", "Plan"), exact: true })
+  if (!(await piano.isChecked().catch(() => true))) await pagina.getByRole("radiogroup", { name: T("Che anteprima vedere", "Which preview to show") }).getByText(T("Piano", "Plan"), { exact: true }).click()
 }
 
 // La resa delle slide chiesta come la chiede Claude e, a lavoro finito, un avviso aperto sulla sua slide.
@@ -243,8 +288,20 @@ async function studioDalTelefono(pagina, acceso, tailscale) {
     await manda("/finto/tailscale", "POST", { stato: t })
     await manda("/api/accesso-studio", "PUT", { acceso: a })
   }, [acceso, tailscale])
-  const atteso = acceso ? pagina.getByRole("button", { name: T("Spegni", "Turn off") }) : pagina.getByRole("button", { name: T("Accendi", "Turn on") })
-  await atteso.waitFor({ timeout: 5000 }).catch(() => problemi.push(`lo studio dal telefono ${acceso ? "non si accende" : "non si spegne"} nella pagina`))
+  const atteso = pagina.getByRole("switch", { name: T("Lo studio dal telefono", "The studio on your phone") })
+  await (acceso ? atteso.and(pagina.locator("[aria-checked=true]")) : atteso.and(pagina.locator("[aria-checked=false]"))).waitFor({ timeout: 5000 }).catch(() => problemi.push(`lo studio dal telefono ${acceso ? "non si accende" : "non si spegne"} nella pagina`))
+}
+
+// Codex è o non è fra i motori della chat, e i conti del lavoro in chat lo contano o no.
+async function codexNellaChat(pagina, acceso) {
+  await pagina.evaluate((a) => fetch("/finto/consumi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codex: a }) }), acceso)
+  await pagina.getByText(/Codex \d/).first().waitFor({ state: acceso ? "visible" : "detached", timeout: 5000 }).catch(() => problemi.push(`la pagina non ${acceso ? "mostra" : "toglie"} la parte di Codex`))
+}
+
+// Codex ha o non ha i token dei suoi giri: la pagina dice quando non si conoscono.
+async function tokenDiCodex(pagina, noti) {
+  await pagina.evaluate((n) => fetch("/finto/consumi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: n }) }), noti)
+  await pagina.getByText(T("Per Codex i token non si conoscono", "Tokens are not known for Codex")).first().waitFor({ state: noti ? "detached" : "visible", timeout: 5000 }).catch(() => problemi.push(`la pagina non ${noti ? "toglie" : "dice"} che i token di Codex non si conoscono`))
 }
 
 // Il canale ha o non ha una lettura: la voce «Canale» compare o sparisce dalla barra da sola.
@@ -262,11 +319,11 @@ function scartaLeModifiche(pagina) {
   return pagina.getByRole("button", { name: T("Annulla le modifiche", "Discard changes") }).click()
 }
 
-// Un carattere vero (Chivo Mono, in `src/assets/fonts/`) scelto dal computer: compare fra le scelte col nome letto dal file, e si usa per i sottotitoli e il titolo.
+// Un carattere vero (JetBrains Mono, in `suite/fonts/`) scelto dal computer: compare fra le scelte col nome letto dal file, e si usa per i sottotitoli e il titolo.
 async function aggiungiUnCarattere(pagina) {
-  await pagina.locator("input[type=file][accept='.ttf,.otf,.woff2']").setInputFiles(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "assets", "fonts", "ChivoMono-400.woff2"))
-  await pagina.getByRole("status").filter({ hasText: /Chivo Mono/ }).waitFor({ timeout: 5000 }).catch(() => problemi.push("stile-carattere-aggiunto: la conferma non compare"))
-  for (const etichetta of [T("Dei sottotitoli e delle animazioni", "Of the subtitles and animations"), T("Del titolo", "Of the title")]) await pagina.getByLabel(etichetta).selectOption({ label: "Chivo Mono Medium" })
+  await pagina.locator("input[type=file][accept='.ttf,.otf,.woff2']").setInputFiles(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "suite", "fonts", "JetBrainsMono-Regular.woff2"))
+  await pagina.getByRole("status").filter({ hasText: /JetBrains Mono/ }).waitFor({ timeout: 5000 }).catch(() => problemi.push("stile-carattere-aggiunto: la conferma non compare"))
+  for (const etichetta of [T("Dei sottotitoli e delle animazioni", "Of the subtitles and animations"), T("Del titolo", "Of the title")]) await pagina.getByLabel(etichetta).selectOption({ label: "JetBrains Mono" })
 }
 
 async function aggiungiUnFileSbagliato(pagina) {
@@ -522,6 +579,26 @@ async function chatMango(pagina, conMenu) {
   await pagina.waitForTimeout(500)
 }
 
+// Una conversazione di Codex che lavora; con `menu` il menu con quel nome si fotografa aperto.
+async function chatCodex(pagina, menu) {
+  await pagina.evaluate(() => localStorage.setItem("mango-animation.chat.corrente", "codex"))
+  await pagina.reload()
+  await apriChat(pagina)
+  await pagina.getByRole("status").filter({ hasText: T(/Codex (sta pensando|aspetta lo strumento)/, /Codex is (thinking|waiting for the tool)/) }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-codex: «Codex sta pensando» non compare"))
+  if ((await pagina.getByRole("button", { name: /Manda in background|Send to background/ }).count()) > 0) problemi.push("chat-codex: c'è «Manda in background» ma Codex non lo sa fare")
+  if (menu) await mostraMenu(pagina, menu)
+  await pagina.waitForTimeout(500)
+}
+
+// Una conversazione nuova con la scelta ricordata di Claude: il menu del modello ha un gruppo per motore, con «Altri…» dove serve.
+async function chatMenuTuttiIMotori(pagina) {
+  await apriChat(pagina)
+  await pagina.getByRole("button", { name: T("Nuova conversazione", "New conversation") }).click()
+  await pagina.getByLabel(T("Modello", "Model")).waitFor()
+  await mostraMenu(pagina, T("Modello", "Model"))
+  await pagina.waitForTimeout(300)
+}
+
 async function chatMenuClaude(pagina) {
   await pagina.evaluate(() => localStorage.setItem("mango-animation.chat.corrente", "esempio"))
   await pagina.reload()
@@ -533,7 +610,7 @@ async function chatMenuClaude(pagina) {
 
 async function mostraMenu(pagina, nome) {
   await pagina.getByLabel(nome).evaluate((el) => {
-    el.size = el.options.length
+    el.size = el.options.length + el.querySelectorAll("optgroup").length
     el.style.cssText += ";position:absolute;z-index:50;height:auto;box-shadow:0 2px 8px rgba(0,0,0,.25)"
   })
 }
@@ -592,7 +669,19 @@ function misura() {
     const attesa = Math.max(anteprima.getBoundingClientRect().height, parseFloat(getComputedStyle(el).minHeight) || 0)
     if (Math.abs(el.getBoundingClientRect().bottom - riga.getBoundingClientRect().bottom) > 1 || altezza > attesa + 1 || el.scrollHeight > el.clientHeight + 1) fuoriRiga.push(el.className)
   }
+  // A schermo stretto ciò che si tocca è alto almeno 44 px (l'interruttore ha l'area di tocco attorno). Fuori restano le parole del parlato e i pezzi della timeline: sono il banco, non controlli.
+  const piccoli = []
+  if (finestra < 640) {
+    for (const el of document.querySelectorAll('button, select, textarea, input:not([type=radio]):not([type=file]):not([type=hidden]), [data-aperta] a[href], [role=radiogroup] label')) {
+      if (el.getAttribute("role") === "switch") continue
+      if (el.hasAttribute("data-parola") || el.hasAttribute("data-tratto") || el.hasAttribute("data-scena") || el.closest("[data-timeline]")) continue
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === "hidden") continue
+      if (r.height < 43.5) piccoli.push(`${el.tagName.toLowerCase()} «${(el.textContent || el.getAttribute("aria-label") || "").trim().slice(0, 30)}» ${Math.round(r.height)}px`)
+    }
+  }
   return {
+    piccoli,
     fuoriRiga,
     doc: document.documentElement.scrollWidth - finestra,
     principale: principale ? principale.scrollWidth - principale.clientWidth : 0,
@@ -618,6 +707,21 @@ for (const tema of temi) {
       const ponte = {}
       if (nome && computer[nome]) ponte.computer = { leggi: async () => computer[nome] }
       if (localStorage.getItem("prova.segnalazione")) ponte.segnalazione = { invioAttivo: async () => true, invia: async () => ({ inviata: true }) }
+      const zoom = localStorage.getItem("prova.grandezza")
+      if (zoom) ponte.grandezza = { leggi: async () => Number(zoom), imposta: async () => undefined }
+      if (localStorage.getItem("prova.cartella")) ponte.cartellaDati = { leggi: async () => ({ attuale: "D:\\Mango\\Video", prossima: null, forzata: false }), sposta: async () => null }
+      const aiuto = localStorage.getItem("prova.aiuto")
+      if (aiuto) {
+        const nuova = aiuto === "nuova" ? "0.1.7" : null
+        const inglese = navigator.language.startsWith("en")
+        ponte.aiuto = {
+          leggi: async () => ({ versione: "0.1.6", aggiornaDaSolo: true }),
+          controlla: async () => (aiuto === "errore" ? Promise.reject({ message: inglese ? "The update server is not answering." : "Il server degli aggiornamenti non risponde." }) : { nuova }),
+          aggiornaDaSolo: async () => undefined,
+          riavviaEAggiorna: async () => undefined,
+          apriRegistri: async () => undefined,
+        }
+      }
       if (Object.keys(ponte).length > 0) window.__MANGO_ANIMATION__ = ponte
     }, COMPUTER_DI_PROVA)
     if (conChat) await pagina.addInitScript(() => (localStorage.setItem("mango-animation.chat.corrente", "esempio"), localStorage.setItem("mango-animation.chat.aperta", "si")))
@@ -629,6 +733,8 @@ for (const tema of temi) {
     for (const [n, vista] of VISTE.entries()) {
       if (soloVista && !vista.nome.includes(soloVista)) continue
       if (vista.soloSeChiesta && soloVista !== vista.nome) continue
+      // Le scene della chat scelgono da sé la conversazione: con `--chat`, che la fissa su quella d'esempio, non si fanno.
+      if (conChat && vista.nome.startsWith("chat-")) continue
       if (inglese && SOLO_ITALIANO.some((nome) => vista.nome.startsWith(nome))) continue
       const etichetta = `${vista.nome} @ ${larghezza}px, tema ${tema}`
       errori.length = 0
@@ -664,6 +770,7 @@ for (const tema of temi) {
       if (m.alti.length > 0) problemi.push(`${etichetta}: scorrono da soli ma sono più alti dello schermo: ${m.alti.slice(0, 3).join(", ")}`)
       if (m.fuoriRiga.length > 0) problemi.push(`${etichetta}: i pannelli accanto all'anteprima non sono alti quanto la riga`)
       if (m.caricamenti > 0) problemi.push(`${etichetta}: resta un «carico…»`)
+      if (m.piccoli.length > 0) problemi.push(`${etichetta}: ciò che si tocca è più basso di 44px: ${m.piccoli.slice(0, 5).join(", ")}`)
       // Un file che il server rifiuta (415, 409), o un profilo senza nome (400), è proprio ciò che la scena mostra: il browser lo scrive in console, non è un difetto.
       for (const e of errori) if (!((vista.nome === "girato-aggiungi-errori" && /status of (415|409)/.test(e)) || ((vista.nome === "impostazioni-profilo-errore" || vista.nome === "stile-carattere-rifiutato") && /status of 400/.test(e)))) problemi.push(`${etichetta}: errore in console: ${e}`)
       if (vista.poi) await vista.poi(pagina)

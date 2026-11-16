@@ -1,4 +1,5 @@
 // «A che punto sono fra i profili con cui mi confronto?»: i profili della classifica in archivio, con quello del creator aggiornato all'ultima lettura.
+import { Gruppo } from "../comuni/Gruppo"
 import { useState } from "react"
 import { api } from "../api"
 import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
@@ -105,12 +106,11 @@ export function Classifica() {
       </ol>
 
       {dato.come.length > 0 && (
-        <section className={styles.come}>
-          <h2>{t("Come leggerla", "How to read it")}</h2>
+        <Gruppo className={styles.come} titolo={t("Come leggerla", "How to read it")}>
           {dato.come.map((frase) => (
             <p key={frase}>{frase}</p>
           ))}
-        </section>
+        </Gruppo>
       )}
     </div>
   )

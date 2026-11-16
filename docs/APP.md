@@ -2,10 +2,10 @@
 
 Una finestra sola: lo studio del server a tutta pagina, come nel browser ma aperta col doppio clic
 dell'icona sul Desktop. La posizione, la misura e la finestra si ricordano fra un avvio e l'altro. La chat con
-Claude Code dentro lo studio (`docs/CHAT.md`, `studio/src/chat/`)
+Claude Code, Codex o Mango Code dentro lo studio (`docs/CHAT.md`, `studio/src/chat/`)
 funziona qui dentro come ogni altra vista dello studio, senza bisogno di niente in più nell'app.
 
-Ogni sezione qui sotto sta in un file della cartella `docs/app/`; i titoli sono quelli di sempre, così i rimandi esistenti restano validi.
+Ogni sezione qui sotto sta in un file della cartella `docs/app/`; i titoli restano qui perché il codice e gli altri documenti li citano.
 
 ## Come funziona
 
@@ -13,9 +13,9 @@ La radice del codice, la cartella di lavoro, l'ordine dell'avvio, il server che 
 
 - **La cartella di lavoro.** Come l'app la trova e la prepara: `docs/app/avvio.md` e `docs/app/cartella-dei-dati.md`.
 
-## Il Claude Code del creator
+## I motori della chat del creator
 
-Dove l'app cerca il suo Claude Code, e cosa dice al creator se manca o non è collegato: `docs/app/claude-code.md`.
+Dove l'app cerca Claude Code e Codex, come vede se Mango Code è acceso, e cosa dice al creator se nessuno è pronto: `docs/app/motori.md`.
 
 ## Dove stanno i video
 

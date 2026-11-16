@@ -11,7 +11,7 @@
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--inchiostro);
+  border: 1px solid var(--mango-text);
 }
 
 .figura figcaption {
@@ -24,48 +24,48 @@
 }
 
 .figura text {
-  font-family: var(--font-testo);
+  font-family: var(--mango-font-text);
   text-anchor: middle;
   dominant-baseline: middle;
-  fill: var(--inchiostro);
-  stroke: var(--carta);
+  fill: var(--mango-text);
+  stroke: var(--mango-ground);
   stroke-width: 12;
   paint-order: stroke;
 }
 
 .animazione rect {
-  fill: var(--blu);
+  fill: var(--mango-text-muted);
   fill-opacity: 0.18;
-  stroke: var(--blu);
+  stroke: var(--mango-text-muted);
   stroke-width: 6;
   stroke-dasharray: 24 14;
 }
 
 .girato rect {
-  fill: var(--inchiostro);
+  fill: var(--mango-text);
   fill-opacity: 0.14;
-  stroke: var(--inchiostro);
+  stroke: var(--mango-text);
   stroke-width: 6;
 }
 
 .sagoma rect {
-  fill: var(--rosso);
+  fill: var(--mango-action-text);
   fill-opacity: 0.2;
-  stroke: var(--rosso);
+  stroke: var(--mango-action-text);
   stroke-width: 6;
 }
 
 .riquadro rect,
 .inserto rect {
-  fill: var(--verde);
+  fill: var(--mango-text-muted);
   fill-opacity: 0.2;
-  stroke: var(--verde);
+  stroke: var(--mango-text-muted);
   stroke-width: 6;
 }
 
 .testo rect {
   fill: none;
-  stroke: var(--inchiostro);
+  stroke: var(--mango-text);
   stroke-width: 6;
   stroke-dasharray: 10 10;
 }

@@ -1,5 +1,6 @@
 // Il ponte che l'app Mango Animation mette nella pagina (`window.__MANGO_ANIMATION__.segnalazione`, `app/src/segnalazione/`).
 // Nel browser non c'è, e «Segnala un problema» non compare.
+import { fraseDi } from "../impostazioni/rifiuto"
 import { t } from "../lingua"
 
 export interface EsitoSegnalazione {
@@ -18,10 +19,7 @@ export interface PonteSegnalazione {
 export const ponteSegnalazione = (): PonteSegnalazione | null => window.__MANGO_ANIMATION__?.segnalazione ?? null
 
 /** La frase di un rifiuto del ponte: l'app rifiuta con un testo, un errore o `{ message }`. */
-export function fraseDelRifiuto(e: unknown): string {
-  const m = typeof e === "object" && e !== null ? (e as { message?: unknown }).message : e
-  return typeof m === "string" && m !== "" ? m : t("La segnalazione non è partita.", "The report could not be sent.")
-}
+export const fraseDelRifiuto = (e: unknown): string => fraseDi(e, t("La segnalazione non è partita.", "The report could not be sent."))
 
 /** Dopo che la pagina si è ridisegnata: la schermata della finestra si riprende da qui. */
 export const dopoIlDisegno = (): Promise<void> => new Promise((fatto) => requestAnimationFrame(() => requestAnimationFrame(() => fatto())))

@@ -1,209 +1,17 @@
 // La chat contro un Claude Code finto: la stessa `query` e gli stessi messaggi dell'SDK, emessi dalla prova.
 import { afterEach, describe, expect, spyOn, test } from "bun:test"
-import type { ModelInfo, Options, PermissionResult, SDKMessage, SDKUserMessage, SlashCommand } from "@anthropic-ai/claude-agent-sdk"
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import { delimiter, join } from "node:path"
 import { tmpdir } from "node:os"
 import { testoVisibile } from "../src/chat/allegati"
+import { ClaudeCode } from "../src/chat/claude/claude"
+import type { MessaggioSessione } from "../src/chat/claude/query"
 import { MangoCode } from "../src/chat/mangocode"
-import type { EventoChat, FunzioneQuery, MessaggioSessione, MisuraDelContesto, QueryChat, Sessioni, VoceSessione } from "../src/chat/tipi"
+import type { EventoChat } from "../src/chat/tipi"
 import { aspetta, ascolta, avviaAmbiente, chiama, fermaTutti, scriviVideo, type Ambiente } from "./aiuti"
+import { esitoDi, FintaQuery, FinteSessioni, Finto, init, risultato, testoAPezzi } from "./aiuti-chat"
 
 afterEach(fermaTutti)
-
-const messaggio = (m: object): SDKMessage => m as unknown as SDKMessage
-
-const LIVELLI = ["low", "medium", "high", "xhigh", "max"] as const
-const MODELLI_FINTI: ModelInfo[] = [
-  { value: "default", resolvedModel: "claude-sonnet-5-5", displayName: "Default (recommended)", description: "Sonnet 5.5 · efficient", supportsEffort: true, supportedEffortLevels: [...LIVELLI] },
-  { value: "opus", resolvedModel: "claude-opus-5-5", displayName: "Opus 5.5", description: "Best for everyday, complex tasks", supportsEffort: true, supportedEffortLevels: [...LIVELLI] },
-  { value: "sonnet", resolvedModel: "claude-sonnet-5-5", displayName: "Sonnet 5.5", description: "Efficient for routine tasks", supportsEffort: true, supportedEffortLevels: [...LIVELLI] },
-  { value: "claude-opus-4-6", resolvedModel: "claude-opus-4-6", displayName: "Opus 4.6", description: "Older", supportsEffort: true, supportedEffortLevels: ["low", "medium", "high", "max"] },
-  { value: "claude-haiku-4-5-20251001", resolvedModel: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5", description: "Fastest" },
-]
-
-const COMANDI_FINTI: SlashCommand[] = [
-  { name: "context", description: "Show current context usage", argumentHint: "", builtin: true },
-  { name: "usage", description: "Show plan usage limits", argumentHint: "", aliases: ["cost", "stats"], builtin: true },
-  { name: "model", description: "Set the AI model", argumentHint: "[model]", builtin: true },
-  { name: "monta", description: "Edits a video.", argumentHint: "<slug>" },
-]
-
-class FintaQuery implements QueryChat {
-  readonly ricevuti: SDKUserMessage[] = []
-  interrotta = 0
-  chiusa = false
-  /** Se è scritto, `supportedModels` e `supportedCommands` falliscono con questa frase. */
-  rifiutaLaLettura: string | null = null
-  /** Finché c'è, il flusso di messaggi non finisce dopo `close`: la chiusura del processo è lenta. */
-  chiusuraLenta: Promise<void> | null = null
-  /** Le chiamate di cambio che l'SDK riceve, nell'ordine. */
-  readonly cambi: unknown[][] = []
-  /** Se è scritto, il prossimo cambio fallisce con questa frase. */
-  rifiutaIlCambio: string | null = null
-  private readonly pronti: SDKMessage[] = []
-  private attende: ((risultato: IteratorResult<SDKMessage>) => void) | null = null
-  private fallisce: ((errore: Error) => void) | null = null
-  private errorePronto: Error | null = null
-
-  constructor(
-    readonly opzioni: Options,
-    prompt: AsyncIterable<SDKUserMessage>,
-  ) {
-    void (async () => {
-      for await (const m of prompt) this.ricevuti.push(m)
-    })()
-  }
-
-  emetti(...messaggi: object[]): void {
-    messaggi.forEach((m) => {
-      if (this.attende) {
-        const consegna = this.attende
-        this.attende = null
-        this.fallisce = null
-        consegna({ value: messaggio(m), done: false })
-      } else {
-        this.pronti.push(messaggio(m))
-      }
-    })
-  }
-
-  rompi(errore: Error): void {
-    if (this.fallisce) this.fallisce(errore)
-    else this.errorePronto = errore
-  }
-
-  interrupt = (): Promise<unknown> => {
-    this.interrotta++
-    return Promise.resolve()
-  }
-
-  private cambia(...cambio: unknown[]): Promise<void> {
-    if (this.rifiutaIlCambio !== null) return Promise.reject(new Error(this.rifiutaIlCambio))
-    this.cambi.push(cambio)
-    return Promise.resolve()
-  }
-  setModel = (modello?: string): Promise<void> => this.cambia("modello", modello)
-  applyFlagSettings = (impostazioni: { effortLevel?: string | null }): Promise<void> => this.cambia("effort", impostazioni.effortLevel)
-  supportedModels = (): Promise<ModelInfo[]> => (this.rifiutaLaLettura !== null ? Promise.reject(new Error(this.rifiutaLaLettura)) : Promise.resolve(MODELLI_FINTI))
-  supportedCommands = (): Promise<SlashCommand[]> => (this.rifiutaLaLettura !== null ? Promise.reject(new Error(this.rifiutaLaLettura)) : Promise.resolve(COMANDI_FINTI))
-  readonly lavoriFermati: string[] = []
-  /** Se è scritto, il prossimo `stopTask` fallisce con questa frase. */
-  rifiutaLoStop: string | null = null
-  stopTask = (idLavoro: string): Promise<void> => {
-    if (this.rifiutaLoStop !== null) return Promise.reject(new Error(this.rifiutaLoStop))
-    this.lavoriFermati.push(idLavoro)
-    return Promise.resolve()
-  }
-  readonly inBackground: (string | undefined)[] = []
-  backgroundTasks = (idStrumento?: string): Promise<boolean> => {
-    this.inBackground.push(idStrumento)
-    return Promise.resolve(true)
-  }
-  misura: MisuraDelContesto = { totalTokens: 0, rawMaxTokens: 0 }
-  /** Se è scritto, la misura del contesto fallisce con questa frase. */
-  rifiutaLaMisura: string | null = null
-  readonly misureChieste: unknown[] = []
-  getContextUsage = (opzioni: { detail: "summary" }): Promise<MisuraDelContesto> => {
-    this.misureChieste.push(opzioni)
-    return this.rifiutaLaMisura !== null ? Promise.reject(new Error(this.rifiutaLaMisura)) : Promise.resolve(this.misura)
-  }
-
-  /** Le richieste di collegamento all'app di Claude (`enableRemoteControl`, che l'SDK ha ma non dichiara nei tipi). */
-  readonly collegamenti: unknown[][] = []
-  /** Se è scritto, il collegamento fallisce con questa frase. */
-  rifiutaIlCollegamento: string | null = null
-  enableRemoteControl = (acceso: boolean, nome?: string): Promise<unknown> => {
-    this.collegamenti.push([acceso, nome])
-    if (this.rifiutaIlCollegamento !== null) return Promise.reject(new Error(this.rifiutaIlCollegamento))
-    return Promise.resolve({ session_url: "https://claude.ai/code/SESSIONE-SEGRETA", bridge_session_id: "SESSIONE-SEGRETA", bridge_epoch: 1 })
-  }
-
-  close = (): void => {
-    this.chiusa = true
-    const fine = this.attende
-    if (!fine) return
-    if (this.chiusuraLenta) void this.chiusuraLenta.then(() => fine({ value: undefined, done: true }))
-    else fine({ value: undefined, done: true })
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
-    return {
-      next: () => {
-        const primo = this.pronti.shift()
-        if (primo) return Promise.resolve({ value: primo, done: false })
-        if (this.errorePronto) return Promise.reject(this.errorePronto)
-        if (this.chiusa) return (this.chiusuraLenta ?? Promise.resolve()).then(() => ({ value: undefined, done: true as const }))
-        return new Promise((risolvi, rifiuta) => {
-          this.attende = risolvi
-          this.fallisce = rifiuta
-        })
-      },
-    }
-  }
-
-  /** Un permesso chiesto come fa l'SDK: la risposta arriva quando il creator ha scelto. */
-  async chiediPermesso(strumento: string, ingresso: Record<string, unknown>, id: string, segnale = new AbortController().signal): Promise<PermissionResult> {
-    const risposta = await this.opzioni.canUseTool!(strumento, ingresso, { signal: segnale, toolUseID: id, requestId: id })
-    if (risposta === null) throw new Error("canUseTool ha risposto null")
-    return risposta
-  }
-}
-
-class Finto {
-  readonly queries: FintaQuery[] = []
-  rifiutaLaLettura: string | null = null
-  chiusuraLenta: Promise<void> | null = null
-  readonly query: FunzioneQuery = ({ prompt, options }) => {
-    const q = new FintaQuery(options, prompt)
-    q.rifiutaLaLettura = this.rifiutaLaLettura
-    q.chiusuraLenta = this.chiusuraLenta
-    this.queries.push(q)
-    return q
-  }
-}
-
-class FinteSessioni implements Sessioni {
-  voci: VoceSessione[] = []
-  readonly file = new Map<string, MessaggioSessione[]>()
-  /** Finché c'è, la lettura di un file aspetta: la conversazione si sta aprendo. */
-  blocca: Promise<void> | null = null
-  elenchi = 0
-  private readonly osservatori: ((id: string) => void)[] = []
-  elenca = async (): Promise<VoceSessione[]> => {
-    this.elenchi++
-    return [...this.voci]
-  }
-  leggi = async (id: string): Promise<MessaggioSessione[] | null> => {
-    await this.blocca
-    return this.file.get(id) ?? null
-  }
-  osserva = async (alCambio: (id: string) => void) => {
-    this.osservatori.push(alCambio)
-    return { chiudi: () => void this.osservatori.splice(0) }
-  }
-  cambia(id: string): void {
-    this.osservatori.forEach((o) => o(id))
-  }
-}
-
-const init = { type: "system", subtype: "init", session_id: "x" }
-const risultato = (extra: object = {}) => ({ type: "result", subtype: "success", is_error: false, duration_ms: 1200, total_cost_usd: 0.05, result: "", queued_turn_count: 0, ...extra })
-
-/** Un testo che arriva a pezzi, come con `includePartialMessages`. */
-const testoAPezzi = (id: string, pezzi: string[]): object[] => [
-  { type: "stream_event", parent_tool_use_id: null, event: { type: "message_start", message: { id } } },
-  { type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } },
-  ...pezzi.map((testo) => ({ type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: testo } } })),
-  { type: "assistant", parent_tool_use_id: null, message: { id, content: [{ type: "text", text: pezzi.join("") }] } },
-  { type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_stop", index: 0 } },
-]
-
-const esitoDi = (id: string, content: unknown, is_error = false): object => ({
-  type: "user",
-  parent_tool_use_id: null,
-  message: { role: "user", content: [{ type: "tool_result", tool_use_id: id, content, is_error }] },
-})
 
 interface Avvio {
   a: Ambiente
@@ -215,7 +23,7 @@ async function avvia(semina?: Parameters<typeof avviaAmbiente>[1]): Promise<Avvi
   const finto = new Finto()
   const sessioni = new FinteSessioni()
   const senzaMangoCode = new MangoCode({ dati: join(tmpdir(), "mango-code-che-non-c-e"), archivio: join(tmpdir(), "mango-code-che-non-c-e"), adesso: () => new Date() })
-  const a = await avviaAmbiente({ chat: { query: finto.query, sessioni, mangoCode: senzaMangoCode } }, semina)
+  const a = await avviaAmbiente({ chat: { motori: [new ClaudeCode(finto.query, sessioni), senzaMangoCode] } }, semina)
   return { a, finto, sessioni }
 }
 
@@ -311,6 +119,69 @@ describe("una conversazione nuova", () => {
     const r = await chiama<{ errore: string }>(c.a, "POST", "/api/chat", { testo: "   " })
     expect(r.stato).toBe(400)
     expect(r.corpo.errore).toContain("vuoto")
+  })
+})
+
+describe("GET /api/chat/:id/in-coda", () => {
+  /** La richiesta resta aperta finché il server non risponde: `risposta` resta `null` fino ad allora. */
+  const chiediInCoda = (c: Avvio, id: string) => {
+    const fermo = new AbortController()
+    const esito: { risposta: { stato: number; corpo: unknown } | null } = { risposta: null }
+    void fetch(`${c.a.url}/api/chat/${id}/in-coda`, { headers: c.a.accesso, signal: fermo.signal }).then(
+      async (r) => {
+        esito.risposta = { stato: r.status, corpo: await r.json() }
+      },
+      () => undefined,
+    )
+    return { esito, chiudi: () => fermo.abort() }
+  }
+
+  test("resta aperta finché il creator non scrive a giro in corso: il messaggio che apre il giro non conta", async () => {
+    const c = await avvia()
+    const { id, q } = await nuova(c)
+    q.emetti(init, ...testoAPezzi("msg_1", ["uno"]))
+    const attesa = chiediInCoda(c, id)
+    await Bun.sleep(300)
+    expect(attesa.esito.risposta).toBeNull()
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "Aspetta, cambia il titolo" })
+    expect(await aspetta(() => attesa.esito.risposta)).toEqual({ stato: 200, corpo: { in_coda: true } })
+  })
+
+  test("risponde subito se il messaggio è già in coda, e non più quando uno strumento è finito: il motore l'ha letto", async () => {
+    const c = await avvia()
+    const { id, q } = await nuova(c)
+    q.emetti(init, ...testoAPezzi("msg_1", ["uno"]))
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "Aspetta, cambia il titolo" })
+    const subito = chiediInCoda(c, id)
+    expect(await aspetta(() => subito.esito.risposta)).toEqual({ stato: 200, corpo: { in_coda: true } })
+
+    q.emetti(
+      { type: "stream_event", parent_tool_use_id: null, event: { type: "message_start", message: { id: "msg_2" } } },
+      { type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_1", name: "mcp__video__lavoro_aspetta", input: {} } } },
+      { type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_stop", index: 0 } },
+      esitoDi("toolu_1", "in corso"),
+    )
+    await aspetta(async () => (await dettaglio(c, id)).corpo.messaggi.some((m) => m.parti.some((p) => p["esito"] === "in corso")))
+    const dopo = chiediInCoda(c, id)
+    await Bun.sleep(300)
+    expect(dopo.esito.risposta).toBeNull()
+    dopo.chiudi()
+  })
+
+  test("a giro finito non c'è più niente in coda, e una conversazione non aperta è 404", async () => {
+    const c = await avvia()
+    const { id, q } = await nuova(c)
+    q.emetti(init, ...testoAPezzi("msg_1", ["uno"]))
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "Anzi, fai un'altra cosa" })
+    q.emetti(risultato({ queued_turn_count: 1 }))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.messaggi.some((m) => m.parti.some((p) => p["tipo"] === "fine")))
+    const attesa = chiediInCoda(c, id)
+    await Bun.sleep(300)
+    expect(attesa.esito.risposta).toBeNull()
+    attesa.chiudi()
+
+    const chiusa = await chiama<{ errore: string }>(c.a, "GET", `/api/chat/${ID_FINTO}/in-coda`)
+    expect(chiusa.stato).toBe(404)
   })
 })
 
@@ -638,6 +509,30 @@ describe("ferma", () => {
     expect(parti?.at(-1)).toEqual({ tipo: "fine", costo: 0.05, durata_ms: 1200, lavoro_ms: expect.any(Number) })
   })
 
+  test("uno strumento rimasto senza esito in un giro fermato dice che è stato fermato, non che è riuscito; quello di un giro finito da sé no", async () => {
+    const c = await avvia()
+    const { id, q } = await nuova(c)
+    const strumento = (messaggio: string, idStrumento: string) => [
+      { type: "stream_event", parent_tool_use_id: null, event: { type: "message_start", message: { id: messaggio } } },
+      { type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: idStrumento, name: "Bash", input: {} } } },
+      { type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_stop", index: 0 } },
+    ]
+    q.emetti(init, ...strumento("msg_1", "toolu_lasciato"), risultato())
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+
+    await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "Ancora" })
+    q.emetti(...strumento("msg_2", "toolu_fermato"))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.messaggi.some((m) => m.parti.some((p) => p["id"] === "toolu_fermato")))
+    expect((await chiama(c.a, "POST", `/api/chat/${id}/ferma`)).stato).toBe(200)
+    q.emetti(risultato({ subtype: "error_during_execution", is_error: true, errors: ["interrupted"] }))
+    await aspetta(async () => (await dettaglio(c, id)).corpo.stato === "pronta")
+
+    const parti = (await dettaglio(c, id)).corpo.messaggi.flatMap((m) => m.parti)
+    expect(parti.find((p) => p["id"] === "toolu_fermato")).toMatchObject({ errore: "Fermato prima della fine.", finito: expect.any(String) })
+    const lasciato = parti.find((p) => p["id"] === "toolu_lasciato")
+    expect([lasciato?.["errore"], lasciato?.["esito"]]).toEqual([undefined, undefined])
+  })
+
   test("una conversazione chiusa non ha niente da fermare, una che non c'è non si trova", async () => {
     const c = await avvia()
     c.sessioni.voci = [{ id: ID_FINTO, titolo: "vecchia", aggiornata: 1 }]
@@ -943,10 +838,10 @@ describe("l'elenco", () => {
       { id: "11111111-1111-4111-8111-111111111111", titolo: "[Context: the creator is looking at the video «Orto» (orto).]\n\nVecchia", aggiornata: Date.parse("2026-10-01T10:00:00Z") },
       { id: "22222222-2222-4222-8222-222222222222", titolo: lungo, aggiornata: Date.parse("2026-10-20T10:00:00Z") },
     ]
-    const prima = await chiama<{ id: string; titolo: string; aggiornata: string; attiva: boolean }[]>(c.a, "GET", "/api/chat")
+    const prima = await chiama<{ id: string; motore: string; titolo: string; aggiornata: string; attiva: boolean }[]>(c.a, "GET", "/api/chat")
     expect(prima.corpo).toEqual([
-      { id: "22222222-2222-4222-8222-222222222222", titolo: `${lungo.slice(0, 59).trimEnd()}…`, aggiornata: "2026-10-20T10:00:00.000Z", attiva: false },
-      { id: "11111111-1111-4111-8111-111111111111", titolo: "Vecchia", aggiornata: "2026-10-01T10:00:00.000Z", attiva: false },
+      { id: "22222222-2222-4222-8222-222222222222", motore: "claude-code", titolo: `${lungo.slice(0, 59).trimEnd()}…`, aggiornata: "2026-10-20T10:00:00.000Z", attiva: false },
+      { id: "11111111-1111-4111-8111-111111111111", motore: "claude-code", titolo: "Vecchia", aggiornata: "2026-10-01T10:00:00.000Z", attiva: false },
     ])
 
     const { id } = await nuova(c, "Una cosa nuova")
@@ -1043,9 +938,9 @@ describe("gli allegati e il contesto", () => {
 
   test("lo strumento «video» parte dal codice e lavora nella cartella di lavoro, anche se un'impostazione locale lo spegne", async () => {
     const c = await avvia()
-    const { q } = await nuova(c)
+    const { id, q } = await nuova(c)
     expect(q.opzioni.mcpServers).toEqual({
-      video: { type: "stdio", command: process.execPath, args: ["run", "--cwd", join(c.a.codice, "server"), "mcp"], env: { MANGO_ANIMATION_LAVORO: c.a.radice } },
+      video: { type: "stdio", command: process.execPath, args: ["run", "--cwd", join(c.a.codice, "server"), "mcp"], env: { MANGO_ANIMATION_LAVORO: c.a.radice, MANGO_ANIMATION_CONVERSAZIONE: id } },
     })
   })
 })
@@ -1055,7 +950,8 @@ describe("il modello e l'effort", () => {
     id: string
     nome: string
     descrizione: string
-    effort: string[]
+    motore: string
+    effort: { id: string; nome: { it: string; en: string } }[]
     reale: string
   }
   const impostazioni = (c: Avvio, id: string, corpo: unknown) => chiama<{ modello: string | null; effort: string | null; errore?: string }>(c.a, "POST", `/api/chat/${id}/impostazioni`, corpo)
@@ -1065,10 +961,24 @@ describe("il modello e l'effort", () => {
     const r = await chiama<Modello[]>(c.a, "GET", "/api/chat/modelli")
     expect(r.stato).toBe(200)
     expect(r.corpo.map((m) => m.id)).toEqual(["default", "opus", "sonnet", "claude-opus-4-6", "claude-haiku-4-5-20251001"])
-    expect(r.corpo[0]).toEqual({ id: "default", nome: "Predefinito (Sonnet 5.5)", descrizione: "Sonnet 5.5 · efficient", effort: [...LIVELLI], reale: "claude-sonnet-5-5" })
+    expect(r.corpo[0]).toEqual({
+      id: "default",
+      nome: "Predefinito (Sonnet 5.5)",
+      descrizione: "Sonnet 5.5 · efficient",
+      motore: "claude-code",
+      effort: [
+        { id: "low", nome: { it: "Basso", en: "Low" } },
+        { id: "medium", nome: { it: "Medio", en: "Medium" } },
+        { id: "high", nome: { it: "Alto", en: "High" } },
+        { id: "xhigh", nome: { it: "Molto alto", en: "Extra high" } },
+        { id: "max", nome: { it: "Massimo", en: "Max" } },
+      ],
+      reale: "claude-sonnet-5-5",
+    })
+    expect(r.corpo.map((m) => m.motore)).toEqual(Array(5).fill("claude-code"))
     expect(r.corpo[1]).toMatchObject({ id: "opus", nome: "Opus 5.5", reale: "claude-opus-5-5" })
     expect((await chiama<Modello[]>(c.a, "GET", "/api/chat/modelli", undefined, "en")).corpo[0]?.nome).toBe("Default (Sonnet 5.5)")
-    expect(r.corpo[3]?.effort).toEqual(["low", "medium", "high", "max"])
+    expect(r.corpo[3]?.effort.map((l) => l.id)).toEqual(["low", "medium", "high", "max"])
     expect(r.corpo[4]?.effort).toEqual([])
     // Si legge una volta sola per tutta la vita del server, e la query di servizio si chiude.
     await chiama(c.a, "GET", "/api/chat/modelli")

@@ -1,7 +1,7 @@
-// Le rotte di `docs/API.md` che usa lo studio (le altre le usa Claude, dai suoi strumenti). L'interfaccia non legge mai il disco: passa da qui.
+// Le rotte di `docs/API.md` che usa lo studio (le altre le usa il motore della chat, dai suoi strumenti). L'interfaccia non legge mai il disco: passa da qui.
 import type {
   ClassificaCanale,
-  ConsumiDiClaude,
+  ConsumiInChat,
   CrescitaCanale,
   CommentiDelVideo,
   MessaggiDelCanale,
@@ -124,7 +124,7 @@ export const api = {
   profilo: () => chiedi<StatoProfilo>("GET", "/api/profilo"),
   /** Cambia le sezioni date del profilo (`null` ne toglie una) e lascia il resto com'è. */
   scriviProfilo: (sezioni: SezioniDelProfilo) => chiedi<StatoProfilo>("PUT", "/api/profilo", sezioni),
-  consumi: () => chiedi<ConsumiDiClaude>("GET", "/api/consumi"),
+  consumi: () => chiedi<ConsumiInChat>("GET", "/api/consumi"),
   apri: (percorso: string) => chiedi<unknown>("POST", "/api/apri", { percorso }),
 }
 

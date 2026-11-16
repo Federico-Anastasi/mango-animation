@@ -1,5 +1,5 @@
 // L'interfaccia in italiano e in inglese. Il testo si scrive nelle due lingue nel punto in cui compare: `t("Annulla", "Undo")`.
-// La lingua è quella scelta dal pulsante in alto o, senza scelta, quella del sistema (italiano se il sistema parla italiano, inglese altrimenti);
+// La lingua è quella scelta in Impostazioni › Generale o, senza scelta, quella del sistema (italiano se il sistema parla italiano, inglese altrimenti);
 // cambiandola la pagina si ridisegna da capo, quindi un testo si traduce quando si disegna, mai alla partenza del programma.
 import { useSyncExternalStore } from "react"
 

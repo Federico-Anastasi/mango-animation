@@ -6,7 +6,7 @@ pagina la disegna a ogni istante, Playwright ne fa uno screenshot per fotogramma
 motore chiede le scene con `registra` (`../docs/MOTORE.md`, «Le animazioni»). Le scene sono quelle del prodotto (`src/scene/`: la sigla, le dimostrazioni degli
 elementi standard e tre scene d'esempio) e quelle del creator, che stanno nella sua cartella dei dati (`animazioni/scene-del-creator.md`).
 
-Il documento è diviso per argomento in questa cartella; ogni sezione qui sotto dice dove sta adesso.
+Il documento è diviso per argomento in questa cartella; ogni sezione qui sotto dice dove sta.
 
 ## Comandi
 

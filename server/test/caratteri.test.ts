@@ -10,14 +10,14 @@ afterEach(fermaTutti)
 
 const REPO = join(import.meta.dir, "..", "..")
 const TTF = readFileSync(join(REPO, "font", "Metropolis-Medium.ttf"))
-const WOFF2 = readFileSync(join(REPO, "studio", "src", "assets", "fonts", "ChivoMono-400.woff2"))
+const WOFF2 = readFileSync(join(REPO, "suite", "fonts", "JetBrainsMono-Regular.woff2"))
 const manda = (a: Awaited<ReturnType<typeof avviaAmbiente>>, nome: string, byte: Uint8Array, lingua: "it" | "en" = "it") =>
   chiama<{ file?: string; nome?: string; errore?: string }>(a, "POST", "/api/caratteri", { nome, dati: Buffer.from(byte).toString("base64") }, lingua)
 
 describe("il nome di un carattere", () => {
   test("si legge dal file, anche in un .woff2", () => {
     expect(nomeDelCarattere(TTF)).toBe("Metropolis Medium")
-    expect(nomeDelCarattere(WOFF2)).toBe("Chivo Mono Medium")
+    expect(nomeDelCarattere(WOFF2)).toBe("JetBrains Mono")
   })
 
   test("un file che non è un carattere non ha nome", () => {
@@ -35,11 +35,11 @@ describe("la rotta dei caratteri", () => {
       { file: "font/Archivo-700.ttf", nome: "Archivo SemiBold", mio: false },
       { file: "font/Metropolis-Medium.ttf", nome: "Metropolis Medium", mio: false },
     ])
-    const aggiunto = await manda(a, "Chivo Mono.woff2", WOFF2)
-    expect(aggiunto).toMatchObject({ stato: 200, corpo: { file: "font/Chivo_Mono.woff2", nome: "Chivo Mono Medium" } })
-    expect(readFileSync(join(a.radice, "font", "Chivo_Mono.woff2"))).toEqual(WOFF2)
+    const aggiunto = await manda(a, "JetBrains Mono.woff2", WOFF2)
+    expect(aggiunto).toMatchObject({ stato: 200, corpo: { file: "font/JetBrains_Mono.woff2", nome: "JetBrains Mono" } })
+    expect(readFileSync(join(a.radice, "font", "JetBrains_Mono.woff2"))).toEqual(WOFF2)
     const dopo = await chiama<Array<{ file: string; mio: boolean }>>(a, "GET", "/api/caratteri")
-    expect(dopo.corpo.map((c) => [c.file, c.mio])).toEqual([["font/Archivo-700.ttf", false], ["font/Metropolis-Medium.ttf", false], ["font/Chivo_Mono.woff2", true]])
+    expect(dopo.corpo.map((c) => [c.file, c.mio])).toEqual([["font/Archivo-700.ttf", false], ["font/Metropolis-Medium.ttf", false], ["font/JetBrains_Mono.woff2", true]])
   })
 
   test("lo stesso file due volte non si ripete; un altro con lo stesso nome prende un numero; non si copre mai un carattere del prodotto", async () => {

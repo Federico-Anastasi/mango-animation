@@ -1,4 +1,4 @@
-// Cosa ha il computer, per la pagina «Motori»: il ponte che l'app mette nella pagina (`window.__MANGO_ANIMATION__.computer`, `app/src/computer/ponte.rs`) e il giudizio,
+// Cosa ha il computer, per Impostazioni › Computer: il ponte che l'app mette nella pagina (`window.__MANGO_ANIMATION__.computer`, `app/src/computer/ponte.rs`) e il giudizio,
 // per ogni funzione, su dove può girare. Nel browser senza l'app il ponte non c'è: la pagina non può dire se una scelta è possibile.
 import { t } from "../lingua"
 import { peso } from "../testo"

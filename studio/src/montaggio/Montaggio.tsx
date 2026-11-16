@@ -5,6 +5,7 @@ import { api, ErroreApi, urlMedia, urlUscita } from "../api"
 import { Bottone } from "../comuni/Bottone"
 import { Colonne } from "../comuni/Colonne"
 import { Icona } from "../comuni/icone"
+import { Segmenti } from "../comuni/Segmenti"
 import { t } from "../lingua"
 import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
 import { animazioni, copiaVideo, grezzo, lavori, stile as copiaStile, useCopia } from "../dati"
@@ -226,7 +227,7 @@ function Aperto({
       setErrore(null)
       if (uguali(esito.piano, video.piano)) return
       setInvio(true)
-      // Solo ciò che il gesto ha cambiato, sul piano che c'è nel file adesso: se Claude (o altro) ha scritto nel frattempo, il suo cambio resta.
+      // Solo ciò che il gesto ha cambiato, sul piano che c'è nel file adesso: se la chat (o altro) ha scritto nel frattempo, il suo cambio resta.
       api
         .ritoccaPiano(slug, ritocchiTra(video.piano, esito.piano))
         .then(() => setAttesa(JSON.stringify(video.piano)))
@@ -322,13 +323,16 @@ function Aperto({
 
   const anteprima = (
     <div className={styles.anteprima}>
-      <div className={styles.modi} role="group" aria-label={t("Che anteprima vedere", "Which preview to show")}>
-        <button type="button" aria-pressed={modo === "piano"} onClick={() => setModo("piano")}>
-          {t("Piano", "Plan")}
-        </button>
-        <button type="button" aria-pressed={modo === "montato"} onClick={() => setModo("montato")}>
-          {t("Montato", "Edited")}
-        </button>
+      <div className={styles.modi}>
+        <Segmenti
+          etichetta={t("Che anteprima vedere", "Which preview to show")}
+          valori={[
+            { id: "piano", nome: t("Piano", "Plan") },
+            { id: "montato", nome: t("Montato", "Edited") },
+          ]}
+          scelta={modo}
+          onScegli={setModo}
+        />
       </div>
       {modo === "piano" ? (
         <>
@@ -370,7 +374,7 @@ function Aperto({
       {sceltaValida?.tipo === "parole" && <PannelloParole azione={azione} da={sceltaValida.da} a={sceltaValida.a} correggi={correggi} onDeseleziona={() => setSelezione(null)} />}
       {sceltaValida === null && <PannelloVideo azione={azione} stile={stile} onVaiA={vaiAlTratto} />}
       {sceltaValida !== null && (
-        <Bottone variante="vuoto" onClick={() => setSelezione(null)}>
+        <Bottone onClick={() => setSelezione(null)}>
           {t("Torna al video intero", "Back to the whole video")}
         </Bottone>
       )}
@@ -422,11 +426,11 @@ function Aperto({
   return (
     <div className={styles.montaggio}>
       <div className={styles.barra}>
-        <Bottone variante="vuoto" onClick={() => viaServer(() => api.annulla(slug))} disabled={!video.puo_annullare || inViaggio} titolo={t("Annulla (Ctrl+Z)", "Undo (Ctrl+Z)")}>
+        <Bottone onClick={() => viaServer(() => api.annulla(slug))} disabled={!video.puo_annullare || inViaggio} titolo={t("Annulla (Ctrl+Z)", "Undo (Ctrl+Z)")}>
           <Icona nome="annulla" />
           {t("Annulla", "Undo")}
         </Bottone>
-        <Bottone variante="vuoto" onClick={() => viaServer(() => api.rifai(slug))} disabled={!video.puo_rifare || inViaggio} titolo={t("Rifai (Ctrl+Maiusc+Z)", "Redo (Ctrl+Shift+Z)")}>
+        <Bottone onClick={() => viaServer(() => api.rifai(slug))} disabled={!video.puo_rifare || inViaggio} titolo={t("Rifai (Ctrl+Maiusc+Z)", "Redo (Ctrl+Shift+Z)")}>
           <Icona nome="rifai" />
           {t("Rifai", "Redo")}
         </Bottone>

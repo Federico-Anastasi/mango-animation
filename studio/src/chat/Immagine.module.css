@@ -2,15 +2,15 @@
   display: block;
   max-width: 100%;
   padding: 0;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta-scura);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-raised);
   overflow: hidden;
   cursor: zoom-in;
 }
 
 .miniatura:hover {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text-muted);
 }
 
 .miniatura img {
@@ -29,8 +29,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1rem 1rem;
-  background: color-mix(in srgb, var(--inchiostro) 88%, transparent);
+  padding: 40px 16px 16px;
+  background: color-mix(in srgb, var(--mango-text) 88%, transparent);
   cursor: zoom-out;
 }
 
@@ -38,22 +38,29 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  background: var(--carta);
+  background: var(--mango-ground);
   cursor: default;
 }
 
 .chiudi {
   position: absolute;
-  top: 0.6rem;
-  right: 0.8rem;
+  top: 8px;
+  right: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  color: var(--inchiostro);
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-raised);
+  color: var(--mango-text);
   cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .chiudi {
+    width: 44px;
+    height: 44px;
+  }
 }

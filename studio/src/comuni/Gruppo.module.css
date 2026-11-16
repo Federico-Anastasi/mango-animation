@@ -1,0 +1,23 @@
+.gruppo {
+  min-width: 0;
+}
+
+.nome {
+  margin: 0 0 8px;
+  color: var(--mango-text-muted);
+  font: 600 11px/1.3 var(--mango-font-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card {
+  --fondo-segno: var(--mango-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+}

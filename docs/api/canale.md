@@ -4,10 +4,10 @@ Parte di `docs/API.md` (le regole comuni: la chiave, gli errori, la lingua).
 
 ## Il canale
 
-Le letture di un canale le scrive Claude da terminale in `archivio/canali/<canale>/letture/<AAAA-MM-GG-HHMM>/`
+Le letture di un canale le scrive un motore (dalla chat o da terminale) in `archivio/canali/<canale>/letture/<AAAA-MM-GG-HHMM>/`
 (`docs/CANALE.md`, «Una lettura del canale»). Il server le tiene in memoria cartella per cartella. Una
 lettura compare nelle rotte quando il suo `esito.json` si legge (la skill lo scrive per ultimo); un file che
-manca o che è ancora a metà (JSON incompleto mentre Claude scrive) non rompe niente: resta com'era e si
+manca o che è ancora a metà (JSON incompleto mentre il motore scrive) non rompe niente: resta com'era e si
 riprova alla notizia dopo. `:canale` ha lettere minuscole, numeri e trattini (`tiktok`); un canale senza
 letture risponde con i campi vuoti, non con un errore.
 

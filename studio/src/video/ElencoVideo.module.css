@@ -20,8 +20,8 @@
 
 .suggerimento {
   margin: 0.2rem 0 0;
-  font-size: 0.8rem;
-  color: var(--grigio);
+  font-size: 12px;
+  color: var(--mango-text-muted);
 }
 
 .strumenti {
@@ -37,21 +37,21 @@
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
-  font-size: 0.85rem;
+  font-size: 13px;
 }
 
 .campo input,
 .campo select {
   height: 2rem;
   padding: 0 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
 }
 
 .campo input:focus,
 .campo select:focus {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text);
 }
 
 .nascosto {
@@ -77,6 +77,10 @@
 .gruppo summary h2,
 .titoloGruppo h2 {
   margin: 0;
+  color: var(--mango-text-muted);
+  font: 600 11px/1.3 var(--mango-font-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .titoloGruppo {
@@ -86,8 +90,8 @@
 }
 
 .conto {
-  font-size: 0.85rem;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .griglia {
@@ -101,17 +105,18 @@
 
 .carta {
   display: flex;
-  gap: 0.8rem;
+  gap: 12px;
   height: 100%;
-  padding: 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  padding: 10px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
   color: inherit;
   text-decoration: none;
 }
 
 .carta:hover {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text-faint);
 }
 
 .miniatura {
@@ -119,8 +124,8 @@
   align-self: flex-start;
   aspect-ratio: 9 / 16;
   overflow: hidden;
-  border-radius: 4px;
-  background: var(--carta-scura);
+  border-radius: 5px;
+  background: var(--mango-raised);
 }
 
 .miniatura img {
@@ -137,28 +142,21 @@
   height: 100%;
   padding: 0.3rem;
   text-align: center;
-  font-size: 0.68rem;
-  color: var(--grigio);
-}
-
-.mancante {
-  padding: 0 0.4rem;
-  border: 1px dashed var(--filo);
-  border-radius: 3px;
-  font-size: 0.74rem;
+  font-size: 11px;
+  color: var(--mango-text-muted);
 }
 
 .testo {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
 }
 
 .titolo {
-  font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.25;
+  font-weight: 600;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -166,6 +164,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0 0.75rem;
-  font-size: 0.82rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
+}
+
+.stati {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }

@@ -1,14 +1,6 @@
-// I lavori che Claude Code ha in corso (comandi e sottoagenti, in primo piano o in background), seguiti dai messaggi `task_*` dell'SDK.
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk"
+// I lavori che il motore ha in corso (comandi e sottoagenti, in primo piano o in background), seguiti dai suoi eventi `lavoro`.
+import type { EventoMotore } from "./motore"
 import type { TaskChat } from "./tipi"
-
-const TIPI: Record<string, TaskChat["tipo"]> = { local_bash: "comando", local_agent: "agente" }
-const tipoDi = (tipo: string | undefined): TaskChat["tipo"] => (tipo === undefined ? "altro" : (TIPI[tipo] ?? "altro"))
-
-/** Un lavoro di servizio, o di un sottoagente, non è ciò che il creator guarda. */
-const daMostrare = (m: { ambient?: boolean; skip_transcript?: boolean; parent_task_id?: string }): boolean => m.ambient !== true && m.skip_transcript !== true && m.parent_task_id === undefined
-
-const FINITI = new Set(["completed", "failed", "killed"])
 
 export class ElencoTask {
   private readonly voci = new Map<string, TaskChat>()
@@ -27,45 +19,44 @@ export class ElencoTask {
     return this.voci.has(id)
   }
 
-  /** Il processo di Claude Code è finito o riparte: i suoi lavori non ci sono più. */
+  /** Il motore si è spento o riparte: i suoi lavori non ci sono più. */
   azzera(): boolean {
     const c = this.voci.size > 0
     this.voci.clear()
     return c
   }
 
+  /** A fine giro nessun lavoro è più in primo piano: se la sua fine non è arrivata, non resta. `true` se l'elenco è cambiato. */
+  fineDelGiro(): boolean {
+    const prima = this.voci.size
+    for (const voce of this.voci.values()) if (!voce.background) this.voci.delete(voce.id)
+    return this.voci.size !== prima
+  }
+
   /** `true` se l'elenco è cambiato. */
-  applica(m: SDKMessage): boolean {
+  applica(e: Extract<EventoMotore, { tipo: "lavoro" }>): boolean {
     const prima = JSON.stringify(this.elenco)
-    // A fine giro nessun lavoro è più in primo piano: se la sua fine non è arrivata, non resta.
-    if (m.type === "result") {
-      for (const voce of this.voci.values()) if (!voce.background) this.voci.delete(voce.id)
-      return JSON.stringify(this.elenco) !== prima
-    }
-    if (m.type !== "system") return false
-    switch (m.subtype) {
-      case "task_started":
-        if (daMostrare(m)) this.metti(m.task_id, m.task_type, m.description, m.is_backgrounded ?? true)
+    switch (e.cosa) {
+      case "iniziato":
+        this.metti(e.id, e.genere, e.descrizione, e.background)
         break
-      case "task_updated": {
-        const voce = this.voci.get(m.task_id)
-        if (FINITI.has(m.patch.status ?? "")) this.voci.delete(m.task_id)
-        else if (voce) this.voci.set(m.task_id, { ...voce, background: m.patch.is_backgrounded ?? voce.background, descrizione: m.patch.description ?? voce.descrizione })
+      case "cambiato": {
+        const voce = this.voci.get(e.id)
+        if (voce) this.voci.set(e.id, { ...voce, background: e.background ?? voce.background, descrizione: e.descrizione ?? voce.descrizione })
         break
       }
-      case "task_progress": {
+      case "uso": {
         // Solo di un lavoro che si mostra: l'avanzamento di uno di servizio o già finito non lo fa comparire.
-        const voce = this.voci.get(m.task_id)
-        if (voce) this.voci.set(m.task_id, { ...voce, uso: { token: m.usage.total_tokens, strumenti: m.usage.tool_uses } })
+        const voce = this.voci.get(e.id)
+        if (voce) this.voci.set(e.id, { ...voce, uso: e.uso })
         break
       }
-      case "task_notification":
-        this.voci.delete(m.task_id)
+      case "finito":
+        this.voci.delete(e.id)
         break
-      case "background_tasks_changed": {
-        const vivi = m.tasks.filter(daMostrare)
-        vivi.forEach((t) => this.metti(t.task_id, t.task_type, t.description, true))
-        const ids = new Set(vivi.map((t) => t.task_id))
+      case "in_background": {
+        e.lavori.forEach((l) => this.metti(l.id, l.genere, l.descrizione, true))
+        const ids = new Set(e.lavori.map((l) => l.id))
         for (const voce of this.voci.values()) if (voce.background && !ids.has(voce.id)) this.voci.delete(voce.id)
         break
       }
@@ -73,9 +64,9 @@ export class ElencoTask {
     return JSON.stringify(this.elenco) !== prima
   }
 
-  /** Un lavoro che l'SDK annuncia di nuovo (l'elenco a ogni cambio) resta com'era: l'inizio e l'uso non si perdono. */
-  private metti(id: string, tipo: string | undefined, descrizione: string, background: boolean): void {
+  /** Un lavoro che il motore annuncia di nuovo (l'elenco a ogni cambio) resta com'era: l'inizio e l'uso non si perdono. */
+  private metti(id: string, tipo: TaskChat["tipo"], descrizione: string, background: boolean): void {
     const prima = this.voci.get(id)
-    this.voci.set(id, { id, tipo: tipoDi(tipo), descrizione, iniziato: prima?.iniziato ?? this.adesso().toISOString(), background, ...(prima?.uso ? { uso: prima.uso } : {}) })
+    this.voci.set(id, { id, tipo, descrizione, iniziato: prima?.iniziato ?? this.adesso().toISOString(), background, ...(prima?.uso ? { uso: prima.uso } : {}) })
   }
 }

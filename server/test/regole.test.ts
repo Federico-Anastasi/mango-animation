@@ -1,5 +1,5 @@
 // Le regole del metodo: quelle di ogni passo si caricano sempre, quelle che servono a pochi passi le legge la skill di quei passi.
-import { describe, expect, test } from "bun:test"
+import { beforeAll, describe, expect, test } from "bun:test"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
@@ -83,17 +83,37 @@ describe("le regole del metodo", () => {
   })
 })
 
-/** Ogni file di testo e di codice del repo, senza ciò che non è nostro (dipendenze, costruzioni, copie di lavoro). */
-const fileDelRepo = (): string[] => {
-  const escluse = /(^|\/)(node_modules|target|dist|\.git|worktrees|__pycache__|foto)\//
-  const estensioni = /\.(md|ts|tsx|rs|py|mjs|js|yml|toml|html)$/
-  return [...new Bun.Glob("**/*").scanSync({ cwd: REPO, onlyFiles: true, dot: true })].map((f) => f.replaceAll("\\", "/")).filter((f) => !escluse.test(f) && estensioni.test(f))
+const ESCLUSE = new Set(["node_modules", "target", "dist", ".git", "worktrees", "__pycache__", "foto"])
+const ESTENSIONI = /\.(md|ts|tsx|rs|py|mjs|js|yml|toml|html)$/
+
+/**
+ * Ogni file di testo e di codice del repo, senza ciò che non è nostro (dipendenze, costruzioni, copie di lavoro): quelle cartelle
+ * non si aprono nemmeno, perché sono le più grosse e a scorrerle la prova passa il suo tempo.
+ */
+function fileDelRepo(cartella = ""): string[] {
+  return readdirSync(join(REPO, cartella), { withFileTypes: true }).flatMap((voce) => {
+    const percorso = cartella === "" ? voce.name : `${cartella}/${voce.name}`
+    if (voce.isDirectory()) return ESCLUSE.has(voce.name) ? [] : fileDelRepo(percorso)
+    return voce.isFile() && ESTENSIONI.test(voce.name) ? [percorso] : []
+  })
 }
 
 describe("i rimandi ai documenti", () => {
+  /** Il repo si legge una volta, tutti i file insieme: letti in fila, su un disco occupato da altre prove, passano la scadenza. */
+  const repo = new Map<string, string>()
+  beforeAll(async () => {
+    const letti = await Promise.all(fileDelRepo().map(async (dove): Promise<[string, string]> => [dove, await Bun.file(join(REPO, dove)).text()]))
+    for (const [dove, testo] of letti) repo.set(dove, testo)
+  })
+  const documento = (file: string): string => repo.get(file) ?? leggi(file)
+  const titoli = new Map<string, string[]>()
   const titoliDi = (file: string): string[] => {
-    const contenuto = leggi(file)
-    return [...contenuto.matchAll(/^#+ (.+)$/gm), ...contenuto.matchAll(/\*\*([^*]+?)\.?\*\*/g)].map((t) => t[1]!.replace(/`/g, "").toLowerCase())
+    const noti = titoli.get(file)
+    if (noti) return noti
+    const contenuto = documento(file)
+    const trovati = [...contenuto.matchAll(/^#+ (.+)$/gm), ...contenuto.matchAll(/\*\*([^*]+?)\.?\*\*/g)].map((t) => t[1]!.replace(/`/g, "").toLowerCase())
+    titoli.set(file, trovati)
+    return trovati
   }
   /** Una riga a capo dentro un commento o un elenco non spezza un rimando. */
   const unita = (grezzo: string): string => grezzo.replace(/\s*\n\s*(?:\/\/[\/!]?\s*|#\s+|\*\s+)?/g, " ")
@@ -101,8 +121,8 @@ describe("i rimandi ai documenti", () => {
   test("ogni documento citato con la sua sezione (o il suo paragrafo) esiste, e la sezione è un titolo di quel file", () => {
     const rotti: string[] = []
     let controllati = 0
-    for (const dove of fileDelRepo()) {
-      const testo = unita(leggi(dove))
+    for (const [dove, grezzo] of repo) {
+      const testo = unita(grezzo)
       for (const m of testo.matchAll(/(?<![\w\/.-])`?(docs\/[A-Za-z0-9_\/-]+\.md)`?[,:]?\s?\(?(?:«([^»]+)»|§(\d+))/g)) {
         const [, file, sezione, numero] = m
         controllati++
@@ -111,7 +131,7 @@ describe("i rimandi ai documenti", () => {
           continue
         }
         if (sezione !== undefined && !titoliDi(file!).some((t) => t.includes(sezione.toLowerCase()))) rotti.push(`${dove}: la sezione «${sezione}» non è in ${file}`)
-        if (numero !== undefined && !new RegExp(`^#+ ${numero}\\. `, "m").test(leggi(file!))) rotti.push(`${dove}: la sezione §${numero} non è in ${file}`)
+        if (numero !== undefined && !new RegExp(`^#+ ${numero}\\. `, "m").test(documento(file!))) rotti.push(`${dove}: la sezione §${numero} non è in ${file}`)
       }
     }
     expect(controllati).toBeGreaterThan(100)
@@ -120,8 +140,8 @@ describe("i rimandi ai documenti", () => {
 
   test("ogni documento nominato fra apici esiste", () => {
     const mancanti: string[] = []
-    for (const dove of fileDelRepo()) {
-      for (const m of leggi(dove).matchAll(/(?<![\w\/.-])`(docs\/[A-Za-z0-9_\/-]+\.md)`(?!\]\(http)/g)) if (!existsSync(join(REPO, m[1]!))) mancanti.push(`${dove}: ${m[1]}`)
+    for (const [dove, testo] of repo) {
+      for (const m of testo.matchAll(/(?<![\w\/.-])`(docs\/[A-Za-z0-9_\/-]+\.md)`(?!\]\(http)/g)) if (!existsSync(join(REPO, m[1]!))) mancanti.push(`${dove}: ${m[1]}`)
     }
     expect(mancanti).toEqual([])
   })

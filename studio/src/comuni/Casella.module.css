@@ -1,0 +1,20 @@
+.casella {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--mango-line);
+  border-radius: 4px;
+  background: var(--mango-ground);
+  color: var(--mango-on-action);
+  transition:
+    background var(--mango-motion),
+    border-color var(--mango-motion);
+}
+
+.casella[data-spuntata="true"] {
+  border-color: var(--mango-action);
+  background: var(--mango-action);
+}

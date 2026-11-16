@@ -5,15 +5,16 @@
 //! non un riquadro. Il server avviato da questa app, e tutto ciò che lui avvia, muore con l'app.
 
 pub mod aggiornamento;
+mod aiuto;
 mod appunti;
 mod cartella;
-mod claude;
 mod codice;
 mod computer;
 mod dati;
 mod istanza;
 mod lavoro;
 mod lingua;
+mod motori;
 mod percorsi;
 mod preparazione;
 mod radice;
@@ -34,7 +35,7 @@ use radice::trova_radice;
 use serde::Serialize;
 use server::{aspetta_pronto, comando_server, decidi, indirizzo_dello_studio, porta_da, porta_per_il_server, sorveglia, Decisione, Evento};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU8, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use supervisor::{Giobbe, Supervisore};
@@ -52,7 +53,7 @@ static GIOBBE: OnceLock<Giobbe> = OnceLock::new();
 
 #[derive(Clone, Serialize, Default)]
 struct Stato {
-    /// "attesa", "mancante" (la cartella dei dati ricordata non c'è più), "claude" (Claude Code manca o non è collegato), "cartella" (primo avvio: dove tenere i video), "spostamento" (la cartella dei dati si sposta in un'altra), "computer" (manca qualcosa da scaricare per le funzioni accese), "aggiornamento" (c'è una versione nuova) o "errore"
+    /// "attesa", "mancante" (la cartella dei dati ricordata non c'è più), "motori" (nessun motore della chat è pronto: Claude Code, Codex o Mango Code manca, non è collegato o è spento), "cartella" (primo avvio: dove tenere i video), "spostamento" (la cartella dei dati si sposta in un'altra), "computer" (manca qualcosa da scaricare per le funzioni accese), "aggiornamento" (c'è una versione nuova) o "errore"
     fase: String,
     /// Un errore sulla radice non si riprova (serve riavviare l'app con `MANGO_ANIMATION_RADICE`): niente bottone.
     radice: bool,
@@ -65,8 +66,8 @@ struct Stato {
     secondi: u64,
     messaggio: String,
     log: Option<String>,
-    /// Con "claude": com'è messo Claude Code, per la pagina che guida il creator.
-    claude: Option<claude::StatoClaude>,
+    /// Con "motori": com'è messo ognuno dei motori della chat, per la pagina che guida il creator.
+    motori: Option<Vec<motori::StatoMotore>>,
     /// Con "spostamento": come va la copia della cartella dei dati nella nuova, o come è finita.
     spostamento: Option<sposta::StatoSpostamento>,
     /// Con "cartella": la cartella proposta per i video, lo spazio libero, l'avviso di OneDrive e le altre scelte.
@@ -77,6 +78,27 @@ struct Stato {
     aggiornamento: Option<aggiornamento::StatoAggiornamento>,
     /// La lingua delle frasi di questo stato e di quelle fisse della pagina: `it` o `en` (`lingua.rs`).
     lingua: String,
+    /// La versione dell'app, per il piede della pagina.
+    versione: String,
+    /// A che tappa dell'avvio è l'app, su quante (`tappe`): la pagina d'attesa ne fa una barra che avanza di un pezzo a ogni tappa.
+    tappa: u8,
+    tappe: u8,
+}
+
+/// Le tappe dell'avvio, nell'ordine in cui l'app le attraversa. La scelta della cartella dei video sta dentro quella dei motori: non ha niente da aspettare.
+#[derive(Clone, Copy)]
+enum Tappa {
+    ServerGiaAcceso = 1,
+    VersioneNuova,
+    Motori,
+    Computer,
+    Server,
+}
+
+const TAPPE: u8 = Tappa::Server as u8;
+
+fn alla_tappa(stato: Stato, tappa: u8) -> Stato {
+    Stato { tappa, tappe: TAPPE, ..stato }
 }
 
 fn attesa(secondi: u64, messaggio: impl Into<String>) -> Stato {
@@ -84,7 +106,7 @@ fn attesa(secondi: u64, messaggio: impl Into<String>) -> Stato {
 }
 
 fn nella_lingua_in_uso(stato: Stato) -> Stato {
-    Stato { lingua: lingua::corrente().codice().into(), ..stato }
+    Stato { lingua: lingua::corrente().codice().into(), versione: env!("CARGO_PKG_VERSION").into(), ..stato }
 }
 
 struct Interno {
@@ -99,6 +121,8 @@ struct Interno {
     /// Le risposte del creator ai passi dell'avvio che lo aspettano.
     risposte: preparazione::Risposte,
     in_avvio: AtomicBool,
+    /// L'ultima tappa dell'avvio cominciata: ogni stato che va alla pagina la porta.
+    tappa: AtomicU8,
     /// La porta in cui lo studio risponde, 0 finché l'app non la sa: solo lì la finestra può navigare e la pagina ha i permessi dell'app.
     porta: AtomicU16,
     main: OnceLock<WebviewWindow>,
@@ -107,7 +131,7 @@ struct Interno {
 }
 
 fn imposta_stato(app: &AppHandle, nuovo: Stato) {
-    let nuovo = nella_lingua_in_uso(nuovo);
+    let nuovo = alla_tappa(nella_lingua_in_uso(nuovo), app.state::<Interno>().tappa.load(Ordering::SeqCst));
     *app.state::<Interno>().stato.lock().unwrap() = nuovo.clone();
     let _ = app.emit("mango://stato", nuovo);
 }
@@ -121,7 +145,7 @@ fn avvia_studio(app: AppHandle) {
     }
     let esito = (|| -> Result<Option<String>> {
         let radice = stato.radice.clone().map_err(|e| anyhow!(e))?;
-        // Il primo avvio non ha ancora una cartella dei dati: la sceglie il creator, dopo Claude Code e prima del computer pronto.
+        // Il primo avvio non ha ancora una cartella dei dati: la sceglie il creator, dopo i motori della chat e prima del computer pronto.
         let (ricordata, proposta) = match stato.lavoro.lock().unwrap().clone() {
             Esito::Pronta(cartella) => (Some(cartella), None),
             Esito::DaScegliere(proposta) => (None, proposta),
@@ -133,17 +157,21 @@ fn avvia_studio(app: AppHandle) {
         };
         let indicata = std::env::var("MANGO_ANIMATION_PORTA").ok();
         let mut porta = porta_da(indicata.as_deref())?;
+        let comincia = |tappa: Tappa| stato.tappa.store(tappa as u8, Ordering::SeqCst);
         if let Some(lavoro) = &ricordata {
+            comincia(Tappa::ServerGiaAcceso);
             imposta_stato(&app, attesa(0, t("Controllo se il server è già acceso", "Checking whether the server is already running")));
             if decidi(porta, lavoro) == Decisione::GiaAcceso {
                 usa_porta(&app, porta)?;
                 return Ok(Some(indirizzo_dello_studio(porta, lavoro)));
             }
         }
+        comincia(Tappa::VersioneNuova);
         preparazione::codice_in_ordine(&app, &radice);
         preparazione::aggiornamento_del_prodotto(&app, &radice);
-        imposta_stato(&app, attesa(0, t("Controllo Claude Code", "Checking Claude Code")));
-        let claude = preparazione::claude_del_creator(&app).map_err(|e| anyhow!(e))?;
+        comincia(Tappa::Motori);
+        imposta_stato(&app, attesa(0, t("Controllo i motori della chat", "Checking the chat engines")));
+        let motori = preparazione::motori_del_creator(&app).map_err(|e| anyhow!(e))?;
         let lavoro = match ricordata {
             Some(cartella) => {
                 let lavoro = preparazione::spostamento_del_creator(&app, cartella.clone(), &stato.impostazioni).map_err(|e| anyhow!(e))?;
@@ -160,13 +188,14 @@ fn avvia_studio(app: AppHandle) {
                 cartella
             }
         };
+        comincia(Tappa::Computer);
         imposta_stato(&app, attesa(0, t("Controllo il computer", "Checking the computer")));
         let preparato = preparazione::computer_del_creator(&app, &radice, &lavoro).map_err(|e| anyhow!(e))?;
         if let Some(python) = &preparato.python {
             app.state::<voce::Voce>().usa_python(python);
         }
         let percorsi = preparato.ambiente.iter().find(|(k, _)| k == "PATH").map(|(_, v)| v.clone()).unwrap_or_default();
-        let ambiente = std::iter::once((claude::VARIABILE.into(), claude.into_os_string())).chain(preparato.ambiente).collect();
+        let ambiente = motori.into_iter().chain(preparato.ambiente).collect();
         let bun = risolvi_bun(&percorsi)
             .ok_or_else(|| {
                 anyhow!(t(
@@ -177,6 +206,7 @@ fn avvia_studio(app: AppHandle) {
         porta = porta_per_il_server(porta, indicata.is_some_and(|v| !v.is_empty()));
         let comando = comando_server(bun, &radice, &lavoro, std::process::id(), porta, ambiente);
         stato.sup.avvia(&comando)?;
+        comincia(Tappa::Server);
         imposta_stato(&app, attesa(0, t("Accendo il server", "Starting the server")));
         aspetta_pronto(&stato.sup, "server", porta, &lavoro, ATTESA_SERVER, |secondi| imposta_stato(&app, attesa(secondi, t("Accendo il server", "Starting the server"))))?;
         usa_porta(&app, porta)?;
@@ -418,6 +448,13 @@ fn prepara(app: &tauri::App) -> Result<()> {
                 segnalazione::scrivi_ui_log,
                 segnalazione::segnalazione_invio_attivo,
                 zoom::ricorda_zoom,
+                zoom::zoom_leggi,
+                zoom::zoom_imposta,
+                aiuto::aiuto_leggi,
+                aiuto::aiuto_controlla,
+                aiuto::aiuto_aggiorna_da_solo,
+                aiuto::aiuto_aggiorna_ora,
+                aiuto::aiuto_apri_registri,
             ])
             .build(),
     )?;
@@ -436,9 +473,10 @@ fn prepara(app: &tauri::App) -> Result<()> {
         lavoro: Mutex::new(lavoro),
         scegliendo: AtomicBool::new(false),
         sup: Supervisore::nuovo(&log),
-        stato: Mutex::new(attesa(0, t("Preparazione", "Getting ready"))),
+        stato: Mutex::new(alla_tappa(attesa(0, t("Preparazione", "Getting ready")), 0)),
         risposte: preparazione::Risposte::default(),
         in_avvio: AtomicBool::new(false),
+        tappa: AtomicU8::new(0),
         porta: AtomicU16::new(0),
         main: OnceLock::new(),
         pagina: OnceLock::new(),
@@ -458,6 +496,8 @@ fn prepara(app: &tauri::App) -> Result<()> {
         .zoom_hotkeys_enabled(true)
         .initialization_script(titolo::SINCRONIA)
         .initialization_script(zoom::SINCRONIA)
+        .initialization_script(zoom::PONTE)
+        .initialization_script(aiuto::PONTE)
         .initialization_script(voce::PONTE)
         .initialization_script(dati::PONTE)
         .initialization_script(appunti::PONTE)
@@ -544,7 +584,7 @@ mod prove {
     #[test]
     fn ogni_comando_del_ponte_ha_il_permesso_il_gestore_e_la_pagina_che_lo_chiama() {
         let (build, capability, sorgente) = (include_str!("../build.rs"), include_str!("../capabilities/default.json"), include_str!("lib.rs"));
-        let pagine = [include_str!("titolo.rs"), include_str!("zoom.rs"), include_str!("dati.rs"), include_str!("appunti.rs"), include_str!("lingua.rs"), include_str!("computer/ponte.rs"), include_str!("segnalazione/ponte.js"), include_str!("voce/ponte.js")].concat();
+        let pagine = [include_str!("titolo.rs"), include_str!("zoom.rs"), include_str!("aiuto.rs"), include_str!("dati.rs"), include_str!("appunti.rs"), include_str!("lingua.rs"), include_str!("computer/ponte.rs"), include_str!("segnalazione/ponte.js"), include_str!("voce/ponte.js")].concat();
         let elenco = build.split(".commands(&[").nth(1).unwrap().split("])").next().unwrap();
         let comandi: Vec<&str> = elenco.split('"').skip(1).step_by(2).collect();
         assert!(comandi.len() > 10, "{comandi:?}");
@@ -560,6 +600,22 @@ mod prove {
         let json = |s: Stato| serde_json::to_value(nella_lingua_in_uso(s)).unwrap();
         assert_eq!(json(attesa(0, "x"))["lingua"], "it");
         lingua::con(lingua::Lingua::En, || assert_eq!(json(attesa(0, "x"))["lingua"], "en"));
+    }
+
+    #[test]
+    fn ogni_stato_dice_alla_pagina_la_versione_dell_app() {
+        let tauri: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let stato = serde_json::to_value(nella_lingua_in_uso(attesa(0, "x"))).unwrap();
+        assert_eq!(stato["versione"], tauri["version"]);
+    }
+
+    #[test]
+    fn ogni_stato_dice_alla_pagina_a_che_tappa_e_l_avvio_e_le_tappe_cominciano_in_ordine() {
+        let stato = serde_json::to_value(alla_tappa(attesa(0, "x"), Tappa::Motori as u8)).unwrap();
+        assert_eq!((stato["tappa"].as_u64(), stato["tappe"].as_u64()), (Some(3), Some(5)));
+        let sorgente = include_str!("lib.rs");
+        let posti: Vec<usize> = ["ServerGiaAcceso", "VersioneNuova", "Motori", "Computer", "Server"].iter().map(|nome| sorgente.find(&format!("comincia(Tappa::{nome})")).unwrap_or_else(|| panic!("la tappa {nome} non comincia mai"))).collect();
+        assert!(posti.windows(2).all(|coppia| coppia[0] < coppia[1]), "{posti:?}");
     }
 
     fn url(s: &str) -> Url {

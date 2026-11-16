@@ -33,7 +33,7 @@ controllo, uscite, montato, materiali, puo_annullare, puo_rifare, fase, lavoro, 
   l'ultima scheda valida; `piano` è il testo del file (un piano che non è JSON lascia l'ultimo leggibile), e `piano_risolto_da_base` è `null`
   finché il piano non passa lo schema. Lo studio li mostra sopra le schede della pagina del video.
 - `cartella` è il percorso assoluto della cartella del video: l'interfaccia lo mostra da copiare, per dirlo a
-  Claude nel terminale.
+  un motore da terminale.
 - `piano_risolto_da_base` è il piano con `base` già applicata (uguale a `piano` se non c'è); `null` se la
   base non esiste o fa un giro.
 - `risolto`, `controllo`: il contenuto del file, o `null` se non c'è.

@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react"
 import { api } from "../api"
 import { BottoneCopia, copiaNegliAppunti } from "../comuni/BottoneCopia"
+import { Casella } from "../comuni/Casella"
 import { Icona } from "../comuni/icone"
 import { Stima } from "../comuni/Stima"
 import type { Pezzo } from "./collegamenti"
@@ -195,7 +196,11 @@ function Blocchi({ blocchi, collega }: { blocchi: Blocco[]; collega?: Collega })
           <Tag key={i} {...(b.ordinato && b.inizio !== 1 ? { start: b.inizio } : {})}>
             {b.voci.map((v, k) => (
               <li key={k} className={v.casella === null ? undefined : styles.casella}>
-                {v.casella !== null && <input type="checkbox" checked={v.casella} readOnly aria-label={v.casella ? t("fatto", "done") : t("da fare", "to do")} />}
+                {v.casella !== null && (
+                  <span role="img" aria-label={v.casella ? t("fatto", "done") : t("da fare", "to do")} className={styles.segnoCasella}>
+                    <Casella spuntata={v.casella} />
+                  </span>
+                )}
                 <div>
                   <Blocchi blocchi={v.blocchi} collega={collega} />
                 </div>
@@ -235,7 +240,7 @@ function Blocchi({ blocchi, collega }: { blocchi: Blocco[]; collega?: Collega })
   })
 }
 
-/** Il markdown di Claude, reso senza HTML grezzo: niente di ciò che è scritto può diventare codice della pagina. */
+/** Il markdown del motore, reso senza HTML grezzo: niente di ciò che è scritto può diventare codice della pagina. */
 export function Markdown({ testo, collega }: { testo: string; collega?: Collega }) {
   const blocchi = useMemo(() => leggiBlocchi(testo), [testo])
   return (

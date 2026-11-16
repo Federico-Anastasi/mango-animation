@@ -439,7 +439,12 @@ describe("riavvia-app: il sistema vero, su processi che si accendono qui", () =>
     cartelle.push(cartella)
     const uscita = join(cartella, "ambiente.txt")
     const script = join(cartella, "finta-app.cmd")
-    await writeFile(script, `@echo off\r\necho %PROVA_RIAVVIO%> "${uscita}"\r\nping -n 30 127.0.0.1 >nul\r\n`)
+    // La finta app è staccata e senza console: un programma lanciato da lei aprirebbe una finestra. Resta viva leggendo un tubo.
+    const tubo = String.raw`\\.\pipe\mango-prova-riavvio-${process.pid}-${Date.now()}`
+    const ascolto = createServer()
+    await new Promise<void>((ok, no) => ascolto.once("error", no).listen(tubo, ok))
+    chiusure.push(() => void ascolto.close())
+    await writeFile(script, `@echo off\r\necho %PROVA_RIAVVIO%> "${uscita}"\r\nset /p ATTESA=<${tubo}\r\n`)
     const avviato = sistemaVero.avvia(script, { ...(process.env as Record<string, string>), PROVA_RIAVVIO: "ciao" })
     pid.push(avviato)
     const scritto = await aspetta(async () => (await readFile(uscita, "utf-8").catch(() => "")) || null, 10_000)

@@ -1,5 +1,5 @@
 // I comandi con la barra della chat (`docs/CHAT.md`, «I comandi con la barra»): quelli dello studio, che fanno nello studio ciò che nel
-// terminale ha la sua finestra, e quelli di Claude Code, che arrivano dal server.
+// terminale ha la sua finestra, e quelli del motore, che arrivano dal server.
 import { t } from "../lingua"
 import type { ComandoChat } from "./tipi"
 
@@ -33,7 +33,7 @@ function comandiDelloStudio(): VoceComando[] {
 const minuscolo = (nome: string) => nome.toLowerCase()
 const nomiDi = (v: ComandoChat): string[] => [v.nome, ...v.alias].map(minuscolo)
 
-/** I comandi dello studio, poi quelli del server se la conversazione è di Claude Code. Un comando del server che ha il nome (o un alias) di uno dello studio non si ripete. */
+/** I comandi dello studio, poi quelli del server se il motore della conversazione ne ha. Un comando del server che ha il nome (o un alias) di uno dello studio non si ripete. */
 export function elencoComandi(delServer: ComandoChat[] | null, conServer: boolean): VoceComando[] {
   const studio = comandiDelloStudio()
   if (!conServer || !delServer) return studio

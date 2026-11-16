@@ -6,42 +6,42 @@
 }
 
 .etichetta {
-  font-size: 0.82rem;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .campo textarea {
   width: 100%;
   min-height: 2.5rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
   line-height: 1.45;
   resize: none;
   overflow: hidden;
 }
 
 .campo textarea:focus {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text);
 }
 
 .errore {
-  font-size: 0.85rem;
-  color: var(--rosso);
+  font-size: 13px;
+  color: var(--mango-error);
 }
 
 .riga {
   width: 100%;
   min-height: 2.5rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
   line-height: 1.45;
 }
 
 .riga:focus {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text);
 }

@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: 0.55rem;
   padding: 0.6rem 0;
-  border-top: 1px solid var(--filo);
+  border-top: 1px solid var(--mango-line);
   min-width: 0;
 }
 
@@ -20,8 +20,8 @@
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .segno {
@@ -30,33 +30,33 @@
   justify-content: center;
   width: 1.3rem;
   height: 1.3rem;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 50%;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-family: var(--mango-font-code);
+  font-size: 11px;
 }
 
 .passo[data-stato="fatto"] .segno {
-  border-color: var(--inchiostro);
-  background: var(--inchiostro);
-  color: var(--carta);
+  border-color: var(--mango-text);
+  background: var(--mango-text);
+  color: var(--mango-ground);
 }
 
 .passo[data-stato="adesso"] {
-  color: var(--inchiostro);
+  color: var(--mango-text);
   font-weight: 600;
 }
 
 .passo[data-stato="adesso"] .segno {
-  border: 2px solid var(--rosso);
-  color: var(--inchiostro);
+  border: 2px solid var(--mango-action-text);
+  color: var(--mango-text);
 }
 
 .corto {
   display: none;
   margin: 0;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .adesso {
@@ -68,7 +68,7 @@
 
 .adesso p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 13px;
   min-width: 0;
 }
 
@@ -82,15 +82,15 @@
     flex: 1 1 0;
     height: 0.4rem;
     border-radius: 2px;
-    background: var(--filo);
+    background: var(--mango-line);
   }
 
   .passo[data-stato="fatto"] {
-    background: var(--inchiostro);
+    background: var(--mango-text);
   }
 
   .passo[data-stato="adesso"] {
-    background: var(--rosso);
+    background: var(--mango-action);
   }
 
   .segno,

@@ -1,8 +1,10 @@
 // La pagina «Impostazioni»: le sezioni, i vecchi indirizzi di Stile e Motori, e il profilo che si corregge a mano.
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { readFileSync } from "node:fs"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProfiloDelCreator } from "../src/tipi"
 import { caratteriDiProva, partenzeDiProva, stileDiProva } from "./fixture"
+import { CLAUDE, modello } from "./motoriChat"
 import { errore, installaEventi, installaRete, type Chiamata } from "./rete"
 
 const SVG = "<svg xmlns='http://www.w3.org/2000/svg'/>"
@@ -28,6 +30,7 @@ function rete(profilo: unknown, extra: Record<string, unknown> = {}) {
     "GET /api/accesso-studio": { acceso: false, in_ascolto: true, casa: null, fuori: null, pronto: true, motivo: null },
     "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] },
     "GET /api/chat": [],
+    "GET /api/chat/motori": [],
     "GET /api/chat/modelli": [],
     "GET /api/chat/comandi": [],
     "GET /api/stile": stileDiProva(),
@@ -60,7 +63,7 @@ const messaggiAClaude = () => chiamate.filter((c) => c.metodo === "POST" && c.pe
 
 beforeEach(() => {
   eventi = installaEventi()
-  delete document.documentElement.dataset.tema
+  delete document.documentElement.dataset.mangoTheme
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -69,11 +72,21 @@ afterEach(() => {
 })
 
 describe("le sezioni", () => {
+  it("si dispongono sulla larghezza della pagina, non dello schermo: con la chat aperta la pagina è stretta anche su uno schermo largo", async () => {
+    const foglio = (nome: string) => readFileSync(`src/impostazioni/${nome}.module.css`, "utf8")
+    expect(foglio("Impostazioni")).toMatch(/\.contenitore \{[^}]*container: pagina \/ inline-size/)
+    expect(foglio("Impostazioni")).toMatch(/@container pagina \(max-width: 639\.98px\) \{\s*\.pagina \{[^}]*flex-direction: column/)
+    expect(foglio("Impostazioni")).not.toMatch(/@media \(max-width: 639\.98px\) \{\s*\.pagina \{/)
+    expect(foglio("Controlli")).toMatch(/@container pagina \(max-width: 639\.98px\)/)
+    await studio("#/impostazioni/generale")
+    const pagina = (await schede()).parentElement
+    expect(pagina?.parentElement?.className).toMatch(/contenitore/)
+  })
+
   it("la barra ha «Impostazioni» e non più Stile, Motori, lingua, tema e cartella dei dati", async () => {
     window.__MANGO_ANIMATION__ = { cartellaDati: { leggi: async () => ({ attuale: "C:\\Dati", prossima: null, forzata: false }), sposta: async () => null } }
     await studio("#/video")
-    const menu = await screen.findByRole("navigation", { name: "Sezioni" })
-    expect(within(menu).getByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "#/impostazioni")
+    expect(await screen.findByRole("link", { name: "Impostazioni" })).toHaveAttribute("href", "#/impostazioni")
     expect(screen.queryByRole("link", { name: "Stile" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Motori" })).toBeNull()
     expect(screen.queryByRole("button", { name: /Lingua/ })).toBeNull()
@@ -81,13 +94,13 @@ describe("le sezioni", () => {
     expect(screen.queryByRole("button", { name: "Cartella dei dati" })).toBeNull()
   })
 
-  it("ha cinque sezioni, la prima è il Profilo, e la voce di barra è accesa", async () => {
+  it("ha sei sezioni, la prima è il Profilo, e la voce di barra è accesa", async () => {
     await studio("#/impostazioni")
     const nav = await schede()
-    expect(within(nav).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profilo", "Stile", "Computer", "Telefono", "Generali"])
+    expect(within(nav).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profilo", "Stile", "Computer", "Telefono", "Generale", "Aiuto"])
     expect(within(nav).getByRole("link", { name: "Profilo" })).toHaveAttribute("aria-current", "page")
     expect(within(nav).getByRole("link", { name: "Stile" })).toHaveAttribute("href", "#/impostazioni/stile")
-    expect(within(screen.getByRole("navigation", { name: "Sezioni" })).getByRole("link", { name: "Impostazioni" })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("aria-current", "page")
     expect(await screen.findByRole("heading", { level: 1, name: "Profilo" })).toBeInTheDocument()
   })
 
@@ -103,37 +116,90 @@ describe("le sezioni", () => {
     expect(screen.getByRole("link", { name: "Impostazioni" })).toHaveAttribute("aria-current", "page")
   })
 
-  it("Telefono ha i codici per collegarlo e lo studio dal telefono; «Collega un telefono» accende la ricezione", async () => {
+  it("Telefono ha i codici per collegarlo e lo studio dal telefono; l'interruttore «Arrivi dal telefono» accende la ricezione", async () => {
     await studio("#/impostazioni/telefono", stato(PROFILO), { "PUT /api/arrivi": {} })
     expect(await screen.findByRole("heading", { level: 1, name: "Telefono" })).toBeInTheDocument()
     expect(await screen.findByText(/Spento: il computer non ascolta la rete/)).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "Lo studio dal telefono" })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Collega un telefono" }))
+    expect(await screen.findByRole("switch", { name: "Lo studio dal telefono" })).not.toBeChecked()
+    fireEvent.click(screen.getByRole("switch", { name: "Arrivi dal telefono" }))
     await waitFor(() => expect(chiamate.find((c) => c.metodo === "PUT" && c.percorso === "/api/arrivi")?.corpo).toEqual({ acceso: true }))
   })
 
-  it("Telefono con il telefono pronto mostra l'indirizzo, i due codici e «Scollega i telefoni»", async () => {
+  it("Telefono con il telefono pronto mostra l'indirizzo, i due codici e l'interruttore acceso", async () => {
     const pronto = { acceso: true, in_ascolto: true, indirizzo: "192.168.1.20:47420", qr: SVG, errore: null, ultimi: [{ file: "2026-10-06/20261006-prova.mp4", quando: "2026-10-06T22:28:01", byte: 412_000 }], firewall: "consentito", pronto: true, motivo: null, carica: "http://192.168.1.20:47420/carica?chiave=k", qr_carica: SVG }
     await studio("#/impostazioni/telefono", stato(PROFILO), { "GET /api/arrivi": pronto })
     expect(await screen.findByText("192.168.1.20:47420")).toBeInTheDocument()
     expect(screen.getByAltText(/installare la Scorciatoia/)).toBeInTheDocument()
     expect(screen.getByAltText(/pagina che manda i video/)).toBeInTheDocument()
     expect(screen.getByText("iPhone: la Scorciatoia")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Scollega i telefoni" })).toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: "Arrivi dal telefono" })).toBeChecked()
   })
 
-  it("Generali: la lingua e il tema si scelgono qui, e la guida è nella lingua scelta", async () => {
-    await studio("#/impostazioni/generali")
-    expect(await screen.findByRole("heading", { level: 1, name: "Generali" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Apri la guida" })).toHaveAttribute("href", "https://github.com/Federico-Anastasi/mango-animation/blob/main/docs/guida/italiano.md")
-    fireEvent.click(screen.getByRole("radio", { name: "Scuro" }))
-    expect(document.documentElement.dataset.tema).toBe("scuro")
-    expect(screen.getByRole("radio", { name: "Scuro" })).toBeChecked()
-    fireEvent.click(screen.getByRole("radio", { name: "English" }))
-    expect(await screen.findByRole("link", { name: "Open the guide" })).toHaveAttribute("href", "https://github.com/Federico-Anastasi/mango-animation/blob/main/docs/guida/english.md")
-    expect(screen.getByRole("heading", { level: 1, name: "General" })).toBeInTheDocument()
-    expect(within(screen.getByRole("navigation", { name: "Sections" })).getByRole("link", { name: "Settings" })).toBeInTheDocument()
+  it("Generale: lingua, tema e dettatura nell'ordine di ogni app Mango, e la guida è in Aiuto nella lingua scelta", async () => {
+    await studio("#/impostazioni/generale")
+    expect(await screen.findByRole("heading", { level: 1, name: "Generale" })).toBeInTheDocument()
+    const card = await screen.findByRole("group", { name: "Come lo usi" })
+    expect(within(card).getAllByRole("listitem").map((r) => r.querySelector("span")?.textContent)).toEqual(["Lingua", "Tema", "Dettatura"])
+    expect(screen.queryByRole("checkbox")).toBeNull()
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Tema" })).getByRole("radio", { name: "Scuro" }))
+    expect(document.documentElement.dataset.mangoTheme).toBe("dark")
+    expect(within(screen.getByRole("radiogroup", { name: "Tema" })).getByRole("radio", { name: "Scuro" })).toBeChecked()
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Lingua" })).getByRole("radio", { name: "English" }))
+    expect(await screen.findByRole("heading", { level: 1, name: "General" })).toBeInTheDocument()
+    expect(within(screen.getByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Help" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Settings" })).toBeInTheDocument()
     expect(window.localStorage.getItem("mango-animation.lingua")).toBe("en")
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Help" }))
+    expect(await screen.findByRole("link", { name: "Open the guide" })).toHaveAttribute("href", "https://github.com/Federico-Anastasi/mango-animation/blob/main/docs/guida/english.md")
+  })
+
+  it("Generale: la dettatura accende e spegne la funzione `dettatura` dei motori, la stessa di Computer", async () => {
+    await studio("#/impostazioni/generale", stato(PROFILO), { "GET /api/motori": { dettatura: { dove: "scheda" } }, "PUT /api/motori": {} })
+    const interruttore = await screen.findByRole("switch", { name: "Dettatura" })
+    expect(interruttore).toBeChecked()
+    fireEvent.click(interruttore)
+    await waitFor(() => expect(chiamate.find((c) => c.metodo === "PUT" && c.percorso === "/api/motori")?.corpo).toEqual({ dettatura: { dove: "scheda", attiva: false } }))
+  })
+
+  it("Generale: la grandezza c'è solo nell'app, a passi del 10% fra 50% e 200%, e si ricorda", async () => {
+    await studio("#/impostazioni/generale")
+    await screen.findByRole("switch", { name: "Dettatura" })
+    expect(screen.queryByRole("group", { name: "Grandezza" })).toBeNull()
+    document.body.innerHTML = ""
+    let zoom = 1.2
+    const imposta = vi.fn(async (z: number) => void (zoom = z))
+    window.__MANGO_ANIMATION__ = { grandezza: { leggi: async () => zoom, imposta } }
+    await studio("#/impostazioni/generale")
+    const gruppo = await screen.findByRole("group", { name: "Grandezza" })
+    expect(within(gruppo).getByText("120%")).toBeInTheDocument()
+    fireEvent.click(within(gruppo).getByRole("button", { name: "Più" }))
+    await waitFor(() => expect(within(gruppo).getByText("130%")).toBeInTheDocument())
+    expect(imposta).toHaveBeenLastCalledWith(1.3)
+    fireEvent.click(within(gruppo).getByRole("button", { name: "Meno" }))
+    await waitFor(() => expect(within(gruppo).getByText("120%")).toBeInTheDocument())
+    fireEvent.click(within(gruppo).getByRole("button", { name: "Meno" }))
+    await waitFor(() => expect(within(gruppo).getByText("110%")).toBeInTheDocument())
+    expect(imposta).toHaveBeenLastCalledWith(1.1)
+  })
+
+  it("Generale: la grandezza si ferma a 50% e a 200%", async () => {
+    window.__MANGO_ANIMATION__ = { grandezza: { leggi: async () => 2, imposta: async () => undefined } }
+    await studio("#/impostazioni/generale")
+    const gruppo = await screen.findByRole("group", { name: "Grandezza" })
+    expect(within(gruppo).getByRole("button", { name: "Più" })).toBeDisabled()
+    document.body.innerHTML = ""
+    window.__MANGO_ANIMATION__ = { grandezza: { leggi: async () => 0.5, imposta: async () => undefined } }
+    await studio("#/impostazioni/generale")
+    expect(within(await screen.findByRole("group", { name: "Grandezza" })).getByRole("button", { name: "Meno" })).toBeDisabled()
+  })
+
+  it("Generale: se l'app non cambia la grandezza lo dice con la sua frase e il valore resta com'era", async () => {
+    window.__MANGO_ANIMATION__ = { grandezza: { leggi: async () => 1, imposta: async () => Promise.reject({ message: "Non riesco a cambiare lo zoom." }) } }
+    await studio("#/impostazioni/generale")
+    const gruppo = await screen.findByRole("group", { name: "Grandezza" })
+    fireEvent.click(within(gruppo).getByRole("button", { name: "Più" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Non riesco a cambiare lo zoom.")
+    expect(within(gruppo).getByText("100%")).toBeInTheDocument()
   })
 })
 
@@ -141,12 +207,12 @@ describe("il profilo", () => {
   it("mostra i campi di profilo.json, con la frase che dice che si può anche dire in chat", async () => {
     await studio("#/impostazioni/profilo")
     expect(await screen.findByLabelText("Il tuo nome")).toHaveValue("Anna")
-    expect(screen.getByRole("combobox", { name: "La lingua in cui parli e scrivi" })).toHaveValue("it")
+    expect(within(screen.getByRole("radiogroup", { name: "La lingua in cui parli e scrivi" })).getByRole("radio", { name: "Italiano" })).toBeChecked()
     expect(screen.getByLabelText(/Che livello ha/)).toHaveValue("non tecnico")
     expect(screen.getByLabelText(/Le testate che citi/)).toHaveValue("Il Corriere, La Repubblica")
-    expect(screen.getByRole("combobox", { name: "Piattaforma" })).toHaveValue("tiktok")
+    expect(within(screen.getByRole("radiogroup", { name: "Piattaforma" })).getByRole("radio", { name: "TikTok" })).toBeChecked()
     expect(screen.getByLabelText("Nome del canale su TikTok")).toHaveValue("annavideo")
-    expect(screen.getByRole("combobox", { name: "Formato dei video su TikTok" })).toHaveValue("verticale")
+    expect(within(screen.getByRole("radiogroup", { name: "Formato dei video su TikTok" })).getByRole("radio", { name: "Verticale" })).toBeChecked()
     expect(screen.getByLabelText(/Una cosa per riga/)).toHaveValue("parolacce\nil nome del mio datore di lavoro")
     expect(screen.getByText(/Puoi anche dirlo in chat/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Salva" })).toBeDisabled()
@@ -175,7 +241,7 @@ describe("il profilo", () => {
     fireEvent.change(await screen.findByLabelText(/Una cosa per riga/), { target: { value: "" } })
     fireEvent.click(screen.getByRole("button", { name: "Togli il canale TikTok" }))
     for (const campo of [/Che livello ha/, /Le testate che citi/]) fireEvent.change(screen.getByLabelText(campo), { target: { value: "" } })
-    fireEvent.change(screen.getByRole("combobox", { name: "La lingua del pubblico" }), { target: { value: "" } })
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "La lingua del pubblico" })).getByRole("radio", { name: "Non detta" }))
     fireEvent.click(screen.getByRole("button", { name: "Salva" }))
     await waitFor(() => expect(scritture()).toHaveLength(1))
     expect(scritture()[0]!.corpo).toEqual({ creator: { nome: "Anna", lingua: "it" }, pubblico: null, canali: null, non_si_dice: null })
@@ -184,7 +250,7 @@ describe("il profilo", () => {
   it("si aggiunge un canale e si sceglie la piattaforma", async () => {
     await studio("#/impostazioni/profilo", stato({ creator: { nome: "Anna" } }), { "PUT /api/profilo": () => stato({ creator: { nome: "Anna" } }) })
     fireEvent.click(await screen.findByRole("button", { name: "Aggiungi un canale" }))
-    fireEvent.change(screen.getByRole("combobox", { name: "Piattaforma" }), { target: { value: "youtube" } })
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Piattaforma" })).getByRole("radio", { name: "YouTube" }))
     fireEvent.change(screen.getByLabelText("Nome del canale su YouTube"), { target: { value: "anna" } })
     fireEvent.click(screen.getByRole("button", { name: "Salva" }))
     await waitFor(() => expect(scritture()).toHaveLength(1))
@@ -238,7 +304,7 @@ describe("il profilo", () => {
 
   it("una lingua che lo studio non conosce resta com'è scritta nel profilo", async () => {
     await studio("#/impostazioni/profilo", stato({ creator: { nome: "Ana", lingua: "es" } }), { "PUT /api/profilo": () => stato({ creator: { nome: "Ana B", lingua: "es" } }) })
-    expect(await screen.findByRole("combobox", { name: "La lingua in cui parli e scrivi" })).toHaveValue("es")
+    expect(within(await screen.findByRole("radiogroup", { name: "La lingua in cui parli e scrivi" })).getByRole("radio", { name: "es" })).toBeChecked()
     fireEvent.change(screen.getByLabelText("Il tuo nome"), { target: { value: "Ana B" } })
     fireEvent.click(screen.getByRole("button", { name: "Salva" }))
     await waitFor(() => expect(scritture()[0]!.corpo).toMatchObject({ creator: { nome: "Ana B", lingua: "es" } }))
@@ -255,8 +321,8 @@ describe("il profilo", () => {
   })
 
   it("senza profilo c'è solo il primo giro, non il modulo: compilarlo a mano farebbe risultare fatto un giro mai fatto", async () => {
-    const modelli = [{ id: "opus", nome: "Opus 5.5", descrizione: "", effort: [], reale: "claude-opus-5-5" }]
-    await studio("#/impostazioni/profilo", stato({}, { presente: false }), { "GET /api/chat/modelli": modelli })
+    const modelli = [modello(CLAUDE, "opus", "Opus 5.5", [], "claude-opus-5-5")]
+    await studio("#/impostazioni/profilo", stato({}, { presente: false }), { "GET /api/chat/motori": [CLAUDE], "GET /api/chat/modelli": modelli })
     expect(await screen.findByRole("button", { name: "Fai il primo giro" })).toBeInTheDocument()
     expect(screen.queryByLabelText("Il tuo nome")).toBeNull()
     expect(screen.queryByRole("button", { name: "Salva" })).toBeNull()
@@ -285,8 +351,8 @@ describe("il profilo", () => {
     expect(await screen.findByLabelText("Your name")).toHaveValue("Anna")
     expect(screen.getByText(/You can also say it in the chat/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled()
-    expect(screen.getByRole("combobox", { name: "Video format on TikTok" })).toHaveValue("verticale")
-    expect(within(screen.getByRole("navigation", { name: "Settings" })).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profile", "Style", "Computer", "Phone", "General"])
+    expect(within(screen.getByRole("radiogroup", { name: "Video format on TikTok" })).getByRole("radio", { name: "Vertical" })).toBeChecked()
+    expect(within(screen.getByRole("navigation", { name: "Settings" })).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profile", "Style", "Computer", "Phone", "General", "Help"])
     expect(screen.queryByText("Il tuo nome")).toBeNull()
   })
 })

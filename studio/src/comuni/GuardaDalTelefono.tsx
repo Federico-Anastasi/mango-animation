@@ -16,7 +16,7 @@ export function GuardaDalTelefono() {
 
   return (
     <div className={styles.contenitore}>
-      <Bottone variante="vuoto" onClick={() => setAperto(!aperto)}>
+      <Bottone onClick={() => setAperto(!aperto)}>
         {aperto ? t("Chiudi", "Close") : t("Dal telefono", "From your phone")}
       </Bottone>
       {aperto && (

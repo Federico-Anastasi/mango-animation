@@ -4,6 +4,7 @@ import type { Stats } from "node:fs"
 import { open } from "node:fs/promises"
 import { join, resolve, sep } from "node:path"
 import { linguaDellaPagina } from "./accesso"
+import { STILE_BASE } from "./arrivi/pagine"
 import { statistica } from "./disco"
 import { frase, linguaDi, nellaLinguaDi, type Lingua, type Testo } from "./lingua"
 
@@ -115,7 +116,7 @@ const TESTO_DA_COSTRUIRE: Record<Lingua, string> = {
 
 const daCostruire = (lingua: Lingua): string => `<!doctype html>
 <html lang="${lingua}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mango Animation</title>
-<style>body{margin:0;background:#F1F0EB;color:#17171B;font:17px/1.5 system-ui,sans-serif;padding:48px 16px;max-width:560px;margin-inline:auto}code{background:#E4E2D9;padding:2px 6px}@media(prefers-color-scheme:dark){body{background:#17171B;color:#F1F0EB}code{background:#232328}}</style>
+<style>${STILE_BASE}</style>
 </head><body>${TESTO_DA_COSTRUIRE[lingua]}</body></html>`
 
 /** L'interfaccia costruita: il file chiesto, oppure `index.html` per le rotte dell'interfaccia. */

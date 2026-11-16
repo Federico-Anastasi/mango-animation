@@ -7,19 +7,21 @@ import { chiudiChat } from "../src/chat/pannello"
 import { PannelloChat } from "../src/chat/PannelloChat"
 import type { ComandoChat, DettaglioConversazione, Messaggio, ModelloChat } from "../src/chat/tipi"
 import { scegliLingua } from "../src/lingua"
+import { CINQUE, CLAUDE, CODEX, MODELLI_CODEX, MODELLO_MANGO, MOTORI_CON_CODEX, livelli, modello } from "./motoriChat"
 import { errore, installaEventi, installaRete, type Chiamata } from "./rete"
 
 let chiamate: Chiamata[]
 let eventi: ReturnType<typeof installaEventi>
 
-const TUTTI = ["low", "medium", "high", "xhigh", "max"] as const
-const MANGO = "mango-code/toq"
+const MANGO = MODELLO_MANGO.id
 const MODELLI: ModelloChat[] = [
-  { id: "default", nome: "Predefinito (Sonnet 5.5)", descrizione: "", effort: [...TUTTI], reale: "claude-sonnet-5-5" },
-  { id: "opus", nome: "Opus 5.5", descrizione: "", effort: [...TUTTI], reale: "claude-opus-5-5" },
-  { id: "claude-haiku-4-5-20251001", nome: "Haiku 4.5", descrizione: "", effort: [], reale: "claude-haiku-4-5-20251001" },
-  { id: MANGO, nome: "Mango Code · TOQ", descrizione: "", effort: [], reale: MANGO },
+  modello(CLAUDE, "default", "Predefinito (Sonnet 5.5)", CINQUE, "claude-sonnet-5-5"),
+  modello(CLAUDE, "opus", "Opus 5.5", CINQUE, "claude-opus-5-5"),
+  modello(CLAUDE, "claude-haiku-4-5-20251001", "Haiku 4.5"),
+  MODELLO_MANGO,
+  ...MODELLI_CODEX,
 ]
+const COMANDI_CODEX: ComandoChat[] = [{ nome: "monta", descrizione: "Edits or re-edits a video of the archive", argomenti: "", alias: [] }]
 
 const COMANDI: ComandoChat[] = [
   { nome: "compact", descrizione: "Clear conversation history but keep a summary in context", argomenti: "<optional custom summarization instructions>", alias: [] },
@@ -37,6 +39,7 @@ const conversazione = (extra: Partial<DettaglioConversazione> = {}): DettaglioCo
   stato: "pronta",
   lavora_da: null,
   lavoro: { ms: 0, da: null },
+  motore: "claude-code",
   modello: null,
   effort: null,
   messaggi: [],
@@ -54,8 +57,11 @@ function rete(rotte: Record<string, unknown> = {}) {
     "GET /api/video": [],
     "GET /api/chat": [{ id: "c1", titolo: "Le slide del carosello", aggiornata: "2026-11-02T10:00:00", attiva: true }],
     "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
+    "GET /api/chat/motori": MOTORI_CON_CODEX,
     "GET /api/chat/modelli": MODELLI,
-    "GET /api/chat/comandi": COMANDI,
+    "GET /api/chat/comandi?motore=claude-code": COMANDI,
+    "GET /api/chat/comandi?motore=mango-code": [],
+    "GET /api/chat/comandi?motore=codex": COMANDI_CODEX,
     "GET /api/chat/c1": conversazione(),
     ...rotte,
   }).chiamate
@@ -139,14 +145,15 @@ describe("i comandi: cosa si legge nel messaggio", () => {
     expect(comandoDelloStudio("clear")).toBeNull()
   })
 
-  it("l'effort si scrive con il livello o con il nome in italiano e in inglese", () => {
-    expect(livelloScritto("low")).toBe("low")
-    expect(livelloScritto("Molto alto")).toBe("xhigh")
-    expect(livelloScritto("very high")).toBe("xhigh")
-    expect(livelloScritto("X-High")).toBe("xhigh")
-    expect(livelloScritto("Massimo")).toBe("max")
-    expect(livelloScritto("predefinito")).toBeNull()
-    expect(livelloScritto("ultra")).toBeUndefined()
+  it("l'effort si scrive con il livello o con il nome in italiano e in inglese, fra i livelli del modello", () => {
+    expect(livelloScritto(CINQUE, "low")).toBe("low")
+    expect(livelloScritto(CINQUE, "Molto alto")).toBe("xhigh")
+    expect(livelloScritto(CINQUE, "very high")).toBe("xhigh")
+    expect(livelloScritto(CINQUE, "X-High")).toBe("xhigh")
+    expect(livelloScritto(CINQUE, "Massimo")).toBe("max")
+    expect(livelloScritto(CINQUE, "predefinito")).toBeNull()
+    expect(livelloScritto(CINQUE, "ultra")).toBeUndefined()
+    expect(livelloScritto(livelli("low", "ultra"), "Ultra")).toBe("ultra")
   })
 })
 
@@ -256,23 +263,38 @@ describe("la tendina dei comandi", () => {
   })
 
   it("in una conversazione di Mango Code ci sono solo i comandi dello studio", async () => {
-    await apri({ modello: MANGO })
+    await apri({ motore: "mango-code", modello: MANGO })
     scrivi(campo(), "/")
     await screen.findByRole("listbox", { name: "Comandi" })
     expect(opzioni()).toEqual(["/clear", "/exit", "/resume", "/model [modello]", "/effort [livello]"])
+  })
+
+  it("una conversazione di un motore con i comandi ha i suoi, chiesti per quel motore", async () => {
+    await apri({ motore: "codex", modello: "codex/gpt-6-luna" })
+    await scriviBarra("/")
+    await waitFor(() => expect(opzioni()).toEqual(["/clear", "/exit", "/resume", "/model [modello]", "/effort [livello]", "/monta"]))
+    expect(chiamate.filter((c) => c.percorso.startsWith("/api/chat/comandi")).map((c) => c.percorso)).toEqual(["/api/chat/comandi?motore=codex"])
+  })
+
+  it("un motore senza comandi non li chiede al server", async () => {
+    const senza = { ...CODEX, capacita: { ...CODEX.capacita, comandi: false } }
+    await apri({ motore: "codex", modello: "codex/gpt-6-luna" }, { "GET /api/chat/motori": [CLAUDE, senza] })
+    await scriviBarra("/")
+    expect(opzioni()).toEqual(["/clear", "/exit", "/resume", "/model [modello]", "/effort [livello]"])
+    expect(chiamate.some((c) => c.percorso.startsWith("/api/chat/comandi?motore=codex"))).toBe(false)
   })
 
   it("quando il server dice che i comandi sono cambiati, la tendina si aggiorna", async () => {
     await apri()
     await scriviBarra("/ren")
     await waitFor(() => expect(opzioni()).toEqual(["/rename <name>"]))
-    rete({ "GET /api/chat/comandi": [...COMANDI, { nome: "renew", descrizione: "Renew", argomenti: "", alias: [] }] })
+    rete({ "GET /api/chat/comandi?motore=claude-code": [...COMANDI, { nome: "renew", descrizione: "Renew", argomenti: "", alias: [] }] })
     await act(() => eventi.istanze.at(-1)!.manda({ tipo: "comandi" }))
     await waitFor(() => expect(opzioni()).toEqual(["/rename <name>", "/renew"]))
   })
 
   it("se i comandi del server non si leggono, restano quelli dello studio e lo dice", async () => {
-    await apri({}, { "GET /api/chat/comandi": () => errore(502, "Claude Code non risponde.") })
+    await apri({}, { "GET /api/chat/comandi?motore=claude-code": () => errore(502, "Claude Code non risponde.") })
     scrivi(campo(), "/")
     await screen.findByRole("listbox", { name: "Comandi" })
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Gli altri comandi non si leggono: Claude Code non risponde."))

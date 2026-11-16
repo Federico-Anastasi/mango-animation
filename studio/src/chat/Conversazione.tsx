@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Bottone } from "../comuni/Bottone"
 import { elencoVideo, useCopia } from "../dati"
 import { istante } from "../testo"
 import { creaCollegatore } from "./collegamenti"
 import { Cronometro } from "./Cronometro"
 import { IconaChat } from "./icone"
-import { motoreDellaChat } from "./motore"
+import { useMotoreDellaChat } from "./motore"
 import { MessaggioDiClaude, MessaggioDelCreator } from "./Messaggio"
 import { negozio, type StatoNegozio } from "./negozio"
 import { Richieste } from "./Richieste"
@@ -17,9 +18,9 @@ import { t } from "../lingua"
 
 const MARGINE_FONDO_PX = 48
 
-/** Cosa dice il messaggio mandato mentre si lavora. Ctrl+B vale per i lavori in primo piano, che ha solo il Claude Code installato sul computer. */
-const notaInCoda = (chi: string | undefined, inPrimoPiano: boolean): string => {
-  if (inPrimoPiano) {
+/** Cosa dice il messaggio mandato mentre si lavora. Ctrl+B vale per i lavori in primo piano, dei motori che li sanno mandare in background. */
+const notaInCoda = (chi: string | undefined, spostabile: boolean): string => {
+  if (spostabile) {
     return chi
       ? t("In coda: {chi} lo legge quando finisce il lavoro in corso. Con Ctrl+B lo legge subito.", "Queued: {chi} will read it when the current job finishes. With Ctrl+B it reads it right away.", { chi })
       : t("In coda: sarà letto quando finisce il lavoro in corso. Con Ctrl+B si legge subito.", "Queued: it will be read when the current job finishes. With Ctrl+B it is read right away.")
@@ -56,15 +57,16 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
   const slugs = useCopia(elencoVideo).dato?.map((v) => v.slug)
   const collega = useMemo(() => creaCollegatore(slugs ?? []), [slugs])
   const lavora = chat.stato === "lavora" || chat.stato === "aspetta"
-  const chi = motoreDellaChat(chat)?.corto ?? undefined
-  const inPrimoPiano = chat.task.some((lavoro) => !lavoro.background)
+  const motore = useMotoreDellaChat(chat)
+  const chi = motore?.nelle_frasi ?? undefined
+  const spostabile = chat.task.some((lavoro) => !lavoro.background) && motore?.capacita.in_background === true
   const usoInCorso = testoUso(usoInPrimoPiano(chat.task))
   const passo = passoInCorso(chat)
   const [erroreBackground, setErroreBackground] = useState<string | null>(null)
   // Senza un lavoro in primo piano la riga d'errore non ha più niente di cui parlare.
   useEffect(() => {
-    if (!inPrimoPiano) setErroreBackground(null)
-  }, [inPrimoPiano])
+    if (!spostabile) setErroreBackground(null)
+  }, [spostabile])
 
   const mandaInBackground = () => {
     setErroreBackground(null)
@@ -73,7 +75,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
 
   // Ctrl+B, come nel terminale: solo se c'è un lavoro da spostare; altrimenti il tasto resta al browser.
   useEffect(() => {
-    if (!inPrimoPiano) return
+    if (!spostabile) return
     const alTasto = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "b") return
       e.preventDefault()
@@ -81,7 +83,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
     }
     document.addEventListener("keydown", alTasto)
     return () => document.removeEventListener("keydown", alTasto)
-  }, [inPrimoPiano])
+  }, [spostabile])
 
   const scendi = () => {
     const el = area.current
@@ -135,18 +137,16 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
               ) : (
                 <MessaggioDelCreator
                   messaggio={{ id: `inviato-${i.chiave}`, ruolo: "utente", quando: new Date().toISOString(), parti: [...(i.messaggio.testo ? [{ tipo: "testo" as const, testo: i.messaggio.testo }] : []), ...(i.messaggio.allegati ?? []).map((a) => ({ tipo: "allegato" as const, percorso: a.percorso, immagine: /\.(png|jpe?g|gif|webp|bmp)$/i.test(a.percorso) }))] }}
-                  nota={i.errore ? undefined : lavora ? notaInCoda(chi, inPrimoPiano) : t("Lo sto mandando…", "Sending…")}
+                  nota={i.errore ? undefined : lavora ? notaInCoda(chi, spostabile) : t("Lo sto mandando…", "Sending…")}
                 />
               )}
               {i.errore && (
                 <p className={styles.erroreInvio} role="alert">
                   <span>{t("Non è partito: {errore}", "It was not sent: {errore}", { errore: i.errore })}</span>
-                  <button type="button" onClick={() => void negozio.riprova(i.chiave)}>
-                    {t("Riprova", "Try again")}
-                  </button>
-                  <button type="button" onClick={() => negozio.togli(i.chiave)}>
+                  <Bottone onClick={() => void negozio.riprova(i.chiave)}>{t("Riprova", "Try again")}</Bottone>
+                  <Bottone variante="distrugge" onClick={() => negozio.togli(i.chiave)}>
                     {t("Togli", "Remove")}
-                  </button>
+                  </Bottone>
                 </p>
               )}
             </div>
@@ -154,7 +154,7 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
           {chat.task
             .filter((lavoro) => lavoro.background)
             .map((lavoro) => (
-              <SchedaTask key={lavoro.id} task={lavoro} />
+              <SchedaTask key={lavoro.id} task={lavoro} puoFermare={motore?.capacita.ferma_lavoro === true} />
             ))}
           {lavora && chat.inAttesa.length === 0 && (
             <div className={styles.rigaLavora}>
@@ -177,10 +177,10 @@ export function Conversazione({ chat }: { chat: StatoNegozio }) {
                   {usoInCorso && ` · ${usoInCorso}`}
                 </span>
               </p>
-              {inPrimoPiano && (
-                <button type="button" className={styles.inBackground} onClick={mandaInBackground} title="Ctrl+B">
+              {spostabile && (
+                <Bottone onClick={mandaInBackground} titolo="Ctrl+B">
                   {t("Manda in background", "Send to background")}
-                </button>
+                </Bottone>
               )}
             </div>
           )}

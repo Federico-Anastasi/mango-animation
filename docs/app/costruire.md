@@ -57,18 +57,19 @@ Le prove `cargo test` non aprono finestre. La finestra vera non si guida con tas
 | `app/src/supervisor.rs` | i processi avviati, il Job Object, i log |
 | `app/src/lingua.rs` | la lingua delle pagine dell'app: come si sceglie, la scelta ricordata, `t(it, en)`, il ponte con cui lo studio dice la sua (un comando del ponte) |
 | `app/src/titolo.rs` | il colore della barra del titolo (un comando del ponte: lo studio è una pagina remota) |
-| `app/src/claude.rs` | il Claude Code del creator: dove sta, versione e account, l'accesso e l'installazione |
+| `app/src/motori/` | i motori della chat del creator: la descrizione di ognuno (`mod.rs`), dove stanno i programmi e il pacchetto dello Store di Codex (`store.rs`), se Mango Code è acceso (`mango_code.rs`), versione e account, l'accesso e l'installazione |
 | `app/src/codice.rs` | `codice\` dopo un aggiornamento: toglie i file che la versione nuova non ha più (l'elenco di `prepara.ts`) |
 | `app/src/preparazione.rs` | i passi dell'avvio che aspettano il creator, e le sue risposte dalla pagina d'attesa |
 | `app/src/computer/` | il computer pronto: cosa c'è (`hw.rs`), il manifesto di ciò che si scarica, il piano (`piano.rs`), lo scarico con verifica (`scarica.rs`), gli installatori (`installa.rs`), il profilo (`profilo.rs`), il ponte per lo studio (`ponte.rs`) |
 | `app/src/segnalazione/` | «Segnala un problema» e `ui.log`: l'evento per Sentry, l'anonimizzazione, la schermata, il ponte per le pagine (comandi del ponte) |
 | `app/src/aggiornamento.rs` | cercare, scaricare e installare una versione nuova, e l'errore dopo il sì |
 | `app/installer/`, `app/tests/aggiornamento.rs` | costruire e pubblicare l'installatore (`costruisci.ts`, `prepara.ts`, `pubblica.ts`) e provare gli aggiornamenti con l'updater vero e un server finto |
-| `app/src/zoom.rs` | lo zoom della finestra (Ctrl+ / Ctrl- / Ctrl+0), ricordato fra un avvio e l'altro |
+| `app/src/aiuto.rs` | la sezione «Aiuto» delle impostazioni dello studio: la versione, «Controlla ora», «Aggiorna da solo», i registri (comandi del ponte) |
+| `app/src/zoom.rs` | lo zoom della finestra (Ctrl+ / Ctrl- / Ctrl+0 e la riga «Grandezza» delle impostazioni), ricordato fra un avvio e l'altro |
 | `app/src/appunti.rs` | i file copiati in Esplora risorse, per la chat (un comando del ponte, come la dettatura) |
 | `app/src/trascinamento.rs` | i file lasciati sulla finestra, con il loro percorso (eventi, niente comandi) |
 | `app/src/voce/` | la dettatura: il microfono, il motore locale (`locale.rs`), il ponte verso la pagina (`ponte.js`) e le sue prove (`prove.rs`) |
-| `app/ui/`, `app/prove/pagina.test.ts` | la pagina d'attesa e d'errore, locale all'app, e le sue prove |
+| `app/ui/`, `app/prove/pagina.test.ts` | la pagina d'attesa e d'errore, locale all'app, e le sue prove. `app/ui/suite/` è la copia di `suite/` che `app/build.rs` rifà a ogni costruzione (fuori da git): colori e caratteri si cambiano in `suite/` |
 | `app/tests/linguaggio.rs` | le prove sui sorgenti: ogni frase della pagina e del Rust ha italiano e inglese |
 
 I log (`server.log`, `aggiornamento.log`, `codice.log`) stanno in `%LOCALAPPDATA%\dev.mango.animation\logs\`.

@@ -1,7 +1,10 @@
 import { eOggetto } from "../disco"
-// Il lavoro di Claude letto dai file delle conversazioni (`docs/API.md`, «Consumi»): ogni file si legge a righe, una volta, e poi solo ciò
-// che si aggiunge. Qui sta la regola; chi tiene i file e li osserva è `consumi.ts`.
+// Il lavoro in chat (`docs/api/consumi.md`): qui sta la regola, uguale per ogni motore: il giro, il tempo, il video a cui va un giro.
+// I file delle conversazioni di Claude Code si leggono a righe, una volta, e poi solo ciò che si aggiunge; chi li tiene e li osserva è
+// `consumi.ts`, chi legge i thread di Codex è `codex.ts`.
 
+export const CLAUDE_CODE = "claude-code"
+export const CODEX = "codex"
 
 export interface Token {
   /** `output_tokens`: ciò che Claude ha scritto. */
@@ -55,7 +58,8 @@ const conteggio = (valore: unknown): number => (typeof valore === "number" && Nu
 const testo = (valore: unknown): string | null => (typeof valore === "string" && valore !== "" ? valore : null)
 const istante = (valore: unknown): number => (typeof valore === "string" ? Date.parse(valore) : Number.NaN)
 
-function slugToccati(nome: string, ingressi: unknown[]): Set<string> {
+/** I video che una chiamata di strumento tocca: `nome` è quello che la chat dà allo strumento, `ingressi` ciò che gli si è passato. */
+export function slugToccati(nome: string, ingressi: unknown[]): Set<string> {
   const trovati = new Set<string>()
   for (const ingresso of ingressi) {
     if (nome.startsWith("mcp__video__") && eOggetto(ingresso) && typeof ingresso["slug"] === "string" && SLUG_INTERO.test(ingresso["slug"])) trovati.add(ingresso["slug"])
@@ -65,6 +69,9 @@ function slugToccati(nome: string, ingressi: unknown[]): Set<string> {
   }
   return trovati
 }
+
+/** Il video della riga di contesto che la chat manda col messaggio, se uno dei testi la porta. */
+export const slugDelContesto = (testi: string[]): string | null => testi.map((t) => CONTESTO.exec(t)?.[1]).find((s) => s !== undefined) ?? null
 
 /** Il testo di un messaggio del creator, se lo è: `null` per l'esito di uno strumento. */
 function testiDelMessaggio(riga: Record<string, unknown>): string[] | null {
@@ -113,8 +120,7 @@ export class FileDiConversazione {
     const inizio = istante(riga["timestamp"])
     const testi = testiDelMessaggio(riga)
     if (Number.isNaN(inizio) || testi === null) return
-    const contesto = testi.map((t) => CONTESTO.exec(t)?.[1]).find((s) => s !== undefined) ?? null
-    this.giri.push({ inizio, fine: inizio, richieste: 0, contesto, tocchi: new Map(), token: vuoti() })
+    this.giri.push({ inizio, fine: inizio, richieste: 0, contesto: slugDelContesto(testi), tocchi: new Map(), token: vuoti() })
   }
 
   private risposta(riga: Record<string, unknown>, reclama: (richiesta: string) => boolean): void {
@@ -175,7 +181,8 @@ export function videoDelGiro(contesto: string | null, tocchi: ReadonlyMap<string
   return scelto ?? contesto
 }
 
-interface Unita {
+/** Un giro com'è contato: il video si sceglie con `videoDelGiro`, il tempo e i token si sommano in `riepilogaUnita`. */
+export interface Unita {
   contesto: string | null
   tocchi: Map<string, number>
   token: Token
@@ -222,9 +229,13 @@ export function riepiloga(principali: ReadonlyMap<string, FileDiConversazione>, 
       somma(padre.token, giro.token)
     }
   }
+  return riepilogaUnita([...unita.values(), ...soli])
+}
 
+/** Somma i giri per video: un giro senza risposta (zero giri e nessun token) non conta, uno senza video sta a parte. */
+export function riepilogaUnita(tutte: Iterable<Unita>): Riepilogo {
   const riepilogo: Riepilogo = { video: new Map(), senzaVideo: { tempoMs: 0, giri: 0, token: vuoti() } }
-  for (const u of [...unita.values(), ...soli]) {
+  for (const u of tutte) {
     if (u.giri === 0 && u.token.scritti + u.token.riletti + u.token.nuovi === 0) continue
     const slug = videoDelGiro(u.contesto, u.tocchi)
     if (slug === null) {

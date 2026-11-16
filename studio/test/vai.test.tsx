@@ -39,6 +39,7 @@ describe("lo studio ascolta vai", () => {
       "GET /api/registrazione": { disponibile: true, motivo: null, dispositivi: { microfoni: [], camere: [] }, in_corso: null, ultima: null },
       "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: null },
       "GET /api/chat": [],
+      "GET /api/chat/motori": [],
       "GET /api/chat/modelli": [],
       "GET /api/chat/comandi": [],
       "GET /api/stile": {},

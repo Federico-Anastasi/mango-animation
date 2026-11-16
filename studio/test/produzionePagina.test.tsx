@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Produzione } from "../src/produzione/Produzione"
-import type { ConsumiDiClaude, ConsumoDiUnVideo, Scheda, StatoCanale, VoceElenco } from "../src/tipi"
+import type { ConsumiInChat, ConsumoDiUnVideo, Scheda, StatoCanale, VoceElenco } from "../src/tipi"
+import { CLAUDE, CODEX, MOTORI_CON_CODEX } from "./motoriChat"
 import { errore, installaEventi, installaRete } from "./rete"
 
 const GIORNO = 86_400_000
@@ -20,9 +21,36 @@ const voce = (slug: string, scheda: Partial<Scheda>, ultimoCambio = fa(1)): Voce
   ultimo_cambio: ultimoCambio,
 })
 
-const conto = (tempo: number, scritti: number): ConsumoDiUnVideo => ({ tempo, giri: 4, token: { scritti, riletti: scritti * 500, nuovi: scritti * 5 }, dal: fa(30), al: fa(1) })
+const conto = (tempo: number, scritti: number): ConsumoDiUnVideo => {
+  const token = { scritti, riletti: scritti * 500, nuovi: scritti * 5 }
+  return { tempo, giri: 4, token, dal: fa(30), al: fa(1), motori: { "claude-code": { tempo, giri: 4, giri_con_token: 4, token } } }
+}
 
-const consumi = (video: Record<string, ConsumoDiUnVideo>, pronto = true): ConsumiDiClaude => ({ pronto, video, senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } } })
+/** Un video su cui hanno lavorato Claude e Codex, che non dice i token. */
+const contoInDue = (tempoDiClaude: number, tempoDiCodex: number, scritti: number): ConsumoDiUnVideo => {
+  const claude = conto(tempoDiClaude, scritti)
+  return { ...claude, tempo: tempoDiClaude + tempoDiCodex, giri: 6, motori: { ...claude.motori, codex: { tempo: tempoDiCodex, giri: 2, giri_con_token: 0, token: null } } }
+}
+
+/** Un video su cui hanno lavorato Claude e Codex, che dice i token dei suoi giri. */
+const contoInDueConToken = (tempoDiClaude: number, tempoDiCodex: number, scritti: number, scrittiDiCodex: number): ConsumoDiUnVideo => {
+  const claude = conto(tempoDiClaude, scritti)
+  const token = { scritti: scrittiDiCodex, riletti: scrittiDiCodex * 500, nuovi: scrittiDiCodex * 5 }
+  return {
+    ...claude,
+    tempo: tempoDiClaude + tempoDiCodex,
+    giri: 6,
+    token: { scritti: scritti + scrittiDiCodex, riletti: scritti * 500 + token.riletti, nuovi: scritti * 5 + token.nuovi },
+    motori: { ...claude.motori, codex: { tempo: tempoDiCodex, giri: 2, giri_con_token: 2, token } },
+  }
+}
+
+const consumi = (video: Record<string, ConsumoDiUnVideo>, pronto = true, contati = ["claude-code"]): ConsumiInChat => ({
+  pronto,
+  contati,
+  video,
+  senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 }, motori: {} },
+})
 
 const dal = (video: StatoCanale["video"], letto = true): StatoCanale => ({ ultima: letto ? { lettura: "2026-11-03-1000", quando: "2026-11-03T10:00:00" } : null, letture: [], profilo: null, video })
 
@@ -67,11 +95,11 @@ describe("Produzione", () => {
     expect(screen.getByRole("table", { name: "Quanto costa e quanto rende ogni video" })).toBeInTheDocument()
   })
 
-  it("la presentazione dice come si conta il lavoro di Claude, senza rimandare a una scheda che non lo mostra più", async () => {
+  it("la presentazione dice come si conta il lavoro in chat, senza rimandare a una scheda che non lo mostra più", async () => {
     rete()
     render(<Produzione />)
-    const testo = await screen.findByText(/Quanti video fai, quanto lavoro di Claude costano/)
-    expect(testo).toHaveTextContent(/anche quelle del terminale e dei suoi aiutanti/)
+    const testo = await screen.findByText(/Quanti video fai, quanto lavoro in chat costano/)
+    expect(testo).toHaveTextContent(/anche quelle del terminale e, per Claude, dei suoi aiutanti/)
     expect(testo).not.toHaveTextContent(/scheda di ogni video/)
   })
 
@@ -135,10 +163,114 @@ describe("Produzione", () => {
     expect(screen.getByText(/chiedilo nella chat: «aggiorna i dati di TikTok»/)).toBeInTheDocument()
   })
 
-  it("dice che il lavoro fatto con Mango Code non è contato", async () => {
-    rete({})
+  it("dice che il lavoro fatto con i motori della chat che i conti non leggono, nominati dal server, non è contato", async () => {
+    rete({ "GET /api/chat/motori": MOTORI_CON_CODEX })
+    render(<Produzione />)
+    expect(await screen.findByText(/Il lavoro fatto con Mango Code e Codex non è contato\./)).toBeInTheDocument()
+  })
+
+  it("con Codex fra i motori contati nomina solo quelli che davvero non lo sono", async () => {
+    rete({ "GET /api/chat/motori": MOTORI_CON_CODEX, "GET /api/consumi": consumi(CONTI, true, ["claude-code", "codex"]) })
     render(<Produzione />)
     expect(await screen.findByText(/Il lavoro fatto con Mango Code non è contato\./)).toBeInTheDocument()
+    expect(screen.queryByText(/Mango Code e Codex/)).toBeNull()
+  })
+
+  it("se il server non nomina altri motori, non dice che il lavoro di uno non è contato", async () => {
+    rete({ "GET /api/chat/motori": [CLAUDE] })
+    render(<Produzione />)
+    await screen.findByText(/Lavoro e conteggi sono la media di un video/)
+    await waitFor(() => expect(screen.queryByText(/non è contato/)).toBeNull())
+  })
+
+  describe("con più di un motore", () => {
+    const CONTI_DUE = { a: contoInDue(3660, 1800, 100_000), b: conto(7260, 200_000), c: conto(1800, 50_000), d: conto(60, 1) }
+    const reteDue = () => rete({ "GET /api/chat/motori": [CLAUDE, CODEX], "GET /api/consumi": consumi(CONTI_DUE, true, ["claude-code", "codex"]) })
+
+    it("la media di un periodo dice la parte di ognuno dove i motori sono due, e solo il totale dove ce n'è uno", async () => {
+      reteDue()
+      render(<Produzione />)
+      const tabella = await screen.findByRole("table", { name: "La media di un video, per periodo" })
+      const riga = (nome: RegExp) => within(tabella).getByRole("row", { name: nome })
+      await waitFor(() => expect(riga(/Ultima settimana/)).toHaveTextContent("Claude 1 h 1 min · Codex 30 min"))
+      expect(riga(/Ultima settimana/)).toHaveTextContent("1 h 31 min")
+      expect(riga(/Ultimo mese/)).toHaveTextContent("Claude 1 h 31 min · Codex 15 min")
+      expect(within(tabella).getByRole("columnheader", { name: "Lavoro in chat" })).toBeInTheDocument()
+    })
+
+    it("i token sono quelli di Claude: la pagina dice che per Codex non si conoscono", async () => {
+      reteDue()
+      render(<Produzione />)
+      expect(await screen.findByText(/Per Codex i token non si conoscono: i conteggi sono quelli degli altri motori\./)).toBeInTheDocument()
+      const tabella = screen.getByRole("table", { name: "La media di un video, per periodo" })
+      expect(within(tabella).getByRole("row", { name: /Ultima settimana/ })).toHaveTextContent("100 mila")
+    })
+
+    it("se Codex dice i token dei suoi giri entrano nei conti, e la pagina non dice che non si conoscono", async () => {
+      const conti = { a: contoInDueConToken(3660, 1800, 100_000, 20_000), b: conto(7260, 200_000), c: conto(1800, 50_000), d: conto(60, 1) }
+      rete({ "GET /api/chat/motori": [CLAUDE, CODEX], "GET /api/consumi": consumi(conti, true, ["claude-code", "codex"]) })
+      render(<Produzione />)
+      const tabella = await screen.findByRole("table", { name: "La media di un video, per periodo" })
+      await waitFor(() => expect(within(tabella).getByRole("row", { name: /Ultima settimana/ })).toHaveTextContent("120 mila"))
+      expect(screen.queryByText(/i token non si conoscono/)).toBeNull()
+      expect(screen.queryByText(/dei giri fatti dal terminale non si conoscono/)).toBeNull()
+    })
+
+    it("se Codex dice i token per alcuni video e non per altri, la pagina dice che sono quelli dei giri fatti con l'app accesa", async () => {
+      const conti = { a: contoInDueConToken(3660, 1800, 100_000, 20_000), b: contoInDue(7260, 600, 200_000), c: conto(1800, 50_000), d: conto(60, 1) }
+      rete({ "GET /api/chat/motori": [CLAUDE, CODEX], "GET /api/consumi": consumi(conti, true, ["claude-code", "codex"]) })
+      render(<Produzione />)
+      expect(await screen.findByText(/I token di Codex sono quelli dei giri fatti con l'app accesa: dei giri fatti dal terminale non si conoscono\./)).toBeInTheDocument()
+      expect(screen.queryByText(/Per Codex i token non si conoscono/)).toBeNull()
+    })
+
+    it("un solo video con giri di Codex fatti in parte con l'app accesa e in parte dal terminale fa comparire la frase", async () => {
+      const misto: ConsumoDiUnVideo = { tempo: 900, giri: 2, token: { scritti: 30_000, riletti: 3_000_000, nuovi: 120_000 }, dal: fa(5), al: fa(1), motori: { codex: { tempo: 900, giri: 2, giri_con_token: 1, token: { scritti: 30_000, riletti: 3_000_000, nuovi: 120_000 } } } }
+      rete({ "GET /api/chat/motori": [CLAUDE, CODEX], "GET /api/consumi": consumi({ a: misto }, true, ["claude-code", "codex"]) })
+      render(<Produzione />)
+      expect(await screen.findByText(/I token di Codex sono quelli dei giri fatti con l'app accesa: dei giri fatti dal terminale non si conoscono\./)).toBeInTheDocument()
+    })
+
+    it("un video fatto solo con Codex, con i token dei suoi giri, ha le sue medie", async () => {
+      const soloCodex: ConsumoDiUnVideo = { tempo: 900, giri: 2, token: { scritti: 30_000, riletti: 3_000_000, nuovi: 120_000 }, dal: fa(5), al: fa(1), motori: { codex: { tempo: 900, giri: 2, giri_con_token: 2, token: { scritti: 30_000, riletti: 3_000_000, nuovi: 120_000 } } } }
+      rete({ "GET /api/chat/motori": [CLAUDE, CODEX], "GET /api/consumi": consumi({ a: soloCodex }, true, ["claude-code", "codex"]) })
+      render(<Produzione />)
+      const tabella = await screen.findByRole("table", { name: "La media di un video, per periodo" })
+      await waitFor(() => expect(within(tabella).getByRole("row", { name: /Ultima settimana/ })).toHaveTextContent("15 min"))
+      const celle = within(within(tabella).getByRole("row", { name: /Ultima settimana/ })).getAllByRole("cell")
+      expect(celle.slice(1).map((c) => c.textContent)).toEqual(["15 min", "30 mila", "120 mila", "3,0 milioni"])
+    })
+
+    it("la tabella del costo dice la parte di ognuno solo per il video su cui hanno lavorato in due", async () => {
+      reteDue()
+      render(<Produzione />)
+      const tabella = await screen.findByRole("table", { name: "Quanto costa e quanto rende ogni video" })
+      await waitFor(() => expect(within(tabella).getAllByRole("row").length).toBe(4))
+      const righe = within(tabella).getAllByRole("row").slice(1)
+      const di = (titolo: string) => righe.find((r) => within(r).queryByRole("link", { name: titolo }))!
+      expect(di("Titolo a")).toHaveTextContent("1 h 31 min")
+      expect(di("Titolo a")).toHaveTextContent("Claude 1 h 1 min · Codex 30 min")
+      expect(di("Titolo b")).not.toHaveTextContent("Codex")
+    })
+
+    it("un video fatto solo con Codex ha il suo tempo e nessun token inventato", async () => {
+      const soloCodex: ConsumoDiUnVideo = { tempo: 900, giri: 2, token: { scritti: 0, riletti: 0, nuovi: 0 }, dal: fa(5), al: fa(1), motori: { codex: { tempo: 900, giri: 2, giri_con_token: 0, token: null } } }
+      rete({ "GET /api/chat/motori": [CLAUDE, CODEX], "GET /api/consumi": consumi({ a: soloCodex }, true, ["claude-code", "codex"]) })
+      render(<Produzione />)
+      const tabella = await screen.findByRole("table", { name: "La media di un video, per periodo" })
+      await waitFor(() => expect(within(tabella).getByRole("row", { name: /Ultima settimana/ })).toHaveTextContent("15 min"))
+      const celle = within(within(tabella).getByRole("row", { name: /Ultima settimana/ })).getAllByRole("cell")
+      expect(celle.slice(1).map((c) => c.textContent)).toEqual(["15 min", "—", "—", "—"])
+    })
+  })
+
+  it("con il solo Claude Code la pagina è quella di prima: nessuna parte per motore, nessuna frase sui token", async () => {
+    rete({ "GET /api/chat/motori": [CLAUDE] })
+    render(<Produzione />)
+    const tabella = await screen.findByRole("table", { name: "La media di un video, per periodo" })
+    await waitFor(() => expect(within(tabella).getByRole("row", { name: /Ultima settimana/ })).toHaveTextContent("1 h 1 min"))
+    expect(screen.queryByText(/Claude 1 h 1 min/)).toBeNull()
+    expect(screen.queryByText(/token non si conoscono/)).toBeNull()
   })
 
   it("finché il server legge le conversazioni avverte che i conti sono parziali", async () => {

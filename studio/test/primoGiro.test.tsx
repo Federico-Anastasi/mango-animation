@@ -1,6 +1,7 @@
 // Il primo giro: la chat si apre da sola senza profilo, si salta, e le pagine dei canali senza dati portano il creator da Claude.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { CLAUDE, CODEX, MANGO, MODELLI_CODEX, MODELLO_MANGO, MOTORI, MOTORI_CON_CODEX, modello } from "./motoriChat"
 import { installaEventi, installaRete, type Chiamata } from "./rete"
 
 const CHIAVE = "mango-animation.primo-giro"
@@ -11,7 +12,7 @@ const CANALE_VUOTO = { ultima: null, letture: [], video: [] }
 const CLASSIFICA_VUOTA = { quando: null, io: null, quando_io: null, come: [], righe: [] }
 const STRATEGIA_VUOTA = { quando: null }
 
-const DETTAGLIO = { id: "c1", titolo: "", attiva: true, stato: "lavora", lavora_da: null, lavoro: { ms: 0, da: null }, modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, primo_giro: true }
+const DETTAGLIO = { id: "c1", titolo: "", attiva: true, stato: "lavora", lavora_da: null, lavoro: { ms: 0, da: null }, motore: "claude-code", modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, primo_giro: true }
 
 function rete(profilo: unknown, extra: Record<string, unknown> = {}) {
   return installaRete({
@@ -21,6 +22,7 @@ function rete(profilo: unknown, extra: Record<string, unknown> = {}) {
     "GET /api/registrazione": { disponibile: true, motivo: null, dispositivi: { microfoni: [], camere: [] }, in_corso: null, ultima: null },
     "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: null },
     "GET /api/chat": [],
+    "GET /api/chat/motori": MOTORI,
     "GET /api/chat/modelli": [],
     "GET /api/chat/comandi": [],
     "GET /api/canale/tiktok": CANALE_VUOTO,
@@ -144,11 +146,11 @@ describe("i passi di Claude nel primo giro", () => {
 
 describe("il primo giro parte con un modello grande", () => {
   const MODELLI = [
-    { id: "default", nome: "Predefinito (Sonnet 4.6)", descrizione: "", effort: [], reale: "claude-sonnet-4-6" },
-    { id: "claude-opus-4-6", nome: "Opus 4.6", descrizione: "", effort: [], reale: "claude-opus-4-6" },
-    { id: "opus", nome: "Opus 5.5", descrizione: "", effort: [], reale: "claude-opus-5-5" },
-    { id: "opus[1m]", nome: "Opus 5.5 (1M)", descrizione: "", effort: [], reale: "claude-opus-5-5[1m]" },
-    { id: "claude-haiku-4-5", nome: "Haiku 4.5", descrizione: "", effort: [], reale: "claude-haiku-4-5" },
+    modello(CLAUDE, "default", "Predefinito (Sonnet 4.6)", [], "claude-sonnet-4-6"),
+    modello(CLAUDE, "claude-opus-4-6", "Opus 4.6"),
+    modello(CLAUDE, "opus", "Opus 5.5", [], "claude-opus-5-5"),
+    modello(CLAUDE, "opus[1m]", "Opus 5.5 (1M)", [], "claude-opus-5-5[1m]"),
+    modello(CLAUDE, "claude-haiku-4-5", "Haiku 4.5"),
   ]
   const corpoDellaNuova = (chiamate: Chiamata[]) => chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo
 
@@ -190,7 +192,7 @@ describe("il primo giro parte con un modello grande", () => {
   })
 
   it("se il creator ha scelto Mango Code, il primo giro resta con Mango Code", async () => {
-    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": [...MODELLI, { id: "mango-code/toq", nome: "Mango Code · TOQ", descrizione: "", effort: [], reale: "mango-code/toq" }] })
+    const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": [...MODELLI, MODELLO_MANGO] })
     vi.resetModules()
     window.localStorage.clear()
     window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "mango-code/toq", effort: null }))
@@ -200,6 +202,41 @@ describe("il primo giro parte con un modello grande", () => {
     render(<App />)
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
     expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "mango-code/toq" })
+  })
+})
+
+describe("il primo giro con più motori", () => {
+  const corpoDellaNuova = (chiamate: Chiamata[]) => chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo
+
+  async function conScelta(scelta: object, extra: Record<string, unknown>) {
+    const chiamate = rete(PROFILO_VUOTO, extra)
+    vi.resetModules()
+    window.localStorage.clear()
+    window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify(scelta))
+    window.location.hash = ""
+    ;(await import("../src/lingua")).scegliLingua("it")
+    const { App } = await import("../src/App")
+    render(<App />)
+    await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
+    return chiamate
+  }
+
+  it("parte con il modello grande che il motore scelto indica", async () => {
+    const chiamate = await conScelta({ modello: "codex/gpt-6-luna", effort: "low" }, { "GET /api/chat/motori": MOTORI_CON_CODEX, "GET /api/chat/modelli": [modello(CLAUDE, "default", "Predefinito"), ...MODELLI_CODEX] })
+    expect(corpoDellaNuova(chiamate)).toEqual({ avvio: "primo-giro", modello: "codex/gpt-6-terra" })
+    expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "codex/gpt-6-luna", effort: "low" })
+  })
+
+  it("il modello grande che il server indica per Claude Code vale più della regola dell'Opus più recente", async () => {
+    const motori = [{ ...CLAUDE, modello_grande: "claude-opus-4-6" }, MANGO]
+    const modelli = [modello(CLAUDE, "default", "Predefinito"), modello(CLAUDE, "claude-opus-4-6", "Opus 4.6"), modello(CLAUDE, "opus", "Opus 5.5", [], "claude-opus-5-5")]
+    const chiamate = await conScelta({ modello: null, effort: null }, { "GET /api/chat/motori": motori, "GET /api/chat/modelli": modelli })
+    expect(corpoDellaNuova(chiamate)).toEqual({ avvio: "primo-giro", modello: "claude-opus-4-6" })
+  })
+
+  it("un motore che non indica un modello grande e non ha un Opus tiene la scelta del creator", async () => {
+    const chiamate = await conScelta({ modello: "codex/gpt-6-luna", effort: "low" }, { "GET /api/chat/motori": [CLAUDE, { ...CODEX, modello_grande: null }], "GET /api/chat/modelli": [modello(CLAUDE, "default", "Predefinito"), ...MODELLI_CODEX] })
+    expect(corpoDellaNuova(chiamate)).toEqual({ avvio: "primo-giro", modello: "codex/gpt-6-luna", effort: "low" })
   })
 })
 
@@ -233,11 +270,41 @@ describe("le pagine dei canali senza dati", () => {
 
   it("la lettura del canale parte sempre con Claude Code, che ha il browser, anche se la scelta di prima era Mango Code, e non cambia quella scelta", async () => {
     window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "mango-code/toq", effort: "low" }))
-    const modelli = ["default", "mango-code/toq"].map((id) => ({ id, nome: id, descrizione: "", effort: ["low"], reale: id }))
+    const modelli = [modello(CLAUDE, "default", "default"), MODELLO_MANGO]
     const chiamate = await pagina("classifica", PROFILO_FATTO([{ piattaforma: "tiktok", nome: "@alice.cucina" }]), { "GET /api/chat/modelli": modelli })
     fireEvent.click(await screen.findByRole("button", { name: "Leggi i dati di TikTok" }))
     await waitFor(() => expect(chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo).toEqual({ testo: "Aggiorna i dati di TikTok.", modello: "default" }))
     expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "mango-code/toq", effort: "low" })
+  })
+
+  describe("la lettura del canale va a un motore che ha il browser", () => {
+    const corpo = (chiamate: Chiamata[]) => chiamate.find((c) => c.metodo === "POST" && c.percorso === "/api/chat")?.corpo
+    const TIKTOK = PROFILO_FATTO([{ piattaforma: "tiktok", nome: "@alice.cucina" }])
+    const modelli = [modello(CLAUDE, "default", "Predefinito"), MODELLO_MANGO, ...MODELLI_CODEX]
+
+    it("se il creator ha scelto un motore che il browser ce l'ha, resta con la sua scelta", async () => {
+      window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "codex/gpt-6-luna", effort: "low" }))
+      const motori = [CLAUDE, MANGO, { ...CODEX, capacita: { ...CODEX.capacita, browser: true } }]
+      const chiamate = await pagina("classifica", TIKTOK, { "GET /api/chat/motori": motori, "GET /api/chat/modelli": modelli })
+      fireEvent.click(await screen.findByRole("button", { name: "Leggi i dati di TikTok" }))
+      await waitFor(() => expect(corpo(chiamate)).toEqual({ testo: "Aggiorna i dati di TikTok.", modello: "codex/gpt-6-luna", effort: "low" }))
+    })
+
+    it("altrimenti va al primo motore pronto che ce l'ha, col suo modello predefinito", async () => {
+      window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "codex/gpt-6-luna", effort: "low" }))
+      const motori = [{ ...CLAUDE, pronto: false }, MANGO, CODEX, { ...CLAUDE, id: "altro", nome: "Altro", nelle_frasi: "Altro", prefisso: "altro/" }]
+      const chiamate = await pagina("classifica", TIKTOK, { "GET /api/chat/motori": motori, "GET /api/chat/modelli": [...modelli, modello({ ...CLAUDE, id: "altro" }, "altro/x", "Altro X")] })
+      fireEvent.click(await screen.findByRole("button", { name: "Leggi i dati di TikTok" }))
+      await waitFor(() => expect(corpo(chiamate)).toEqual({ testo: "Aggiorna i dati di TikTok.", modello: "altro/x" }))
+      expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "codex/gpt-6-luna", effort: "low" })
+    })
+
+    it("se nessun motore ce l'ha, la richiesta parte con la scelta del creator, senza promettere un motore", async () => {
+      window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "mango-code/toq", effort: null }))
+      const chiamate = await pagina("classifica", TIKTOK, { "GET /api/chat/motori": [{ ...CLAUDE, capacita: { ...CLAUDE.capacita, browser: false } }, MANGO], "GET /api/chat/modelli": modelli })
+      fireEvent.click(await screen.findByRole("button", { name: "Leggi i dati di TikTok" }))
+      await waitFor(() => expect(corpo(chiamate)).toEqual({ testo: "Aggiorna i dati di TikTok.", modello: "mango-code/toq" }))
+    })
   })
 
   it("con solo Instagram dicono che la lettura automatica arriverà e propongono a Claude di guardare il profilo", async () => {

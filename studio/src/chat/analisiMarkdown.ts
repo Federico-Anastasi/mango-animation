@@ -1,4 +1,4 @@
-// Il markdown di Claude letto in un albero, senza HTML: titoli, elenchi, tabelle, codice, citazioni, enfasi, collegamenti.
+// Il markdown del motore letto in un albero, senza HTML: titoli, elenchi, tabelle, codice, citazioni, enfasi, collegamenti.
 // Un testo scritto a metà (un blocco di codice non chiuso) si legge comunque: serve mentre arriva a pezzi.
 
 export type Inline =

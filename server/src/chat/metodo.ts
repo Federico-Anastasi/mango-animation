@@ -1,29 +1,60 @@
-// Come il metodo del prodotto (regole, skill, motore, strumento «video») arriva a Claude Code, che lavora nella cartella di lavoro.
-import type { McpStdioServerConfig, Options } from "@anthropic-ai/claude-agent-sdk"
-import { delimiter, join } from "node:path"
-import { stessaCartella } from "./sessioni"
-import type { FunzioneQuery } from "./tipi"
+// Come lo strumento «video» del prodotto arriva a un motore, che lavora nella cartella di lavoro.
+import { delimiter, join, resolve } from "node:path"
+import type { CapacitaDelMotore } from "./motore"
 
-/** Il codice è una cartella in più di Claude Code: ne carica regole e skill, e il suo Python si trova da qualunque cartella. */
-export function aperturaDelMetodo(codice: string, lavoro: string, ambiente: Record<string, string | undefined> = process.env): Required<Pick<Options, "additionalDirectories" | "env">> {
-  return {
-    additionalDirectories: stessaCartella(codice, lavoro) ? [] : [codice],
-    env: {
-      ...ambiente,
-      CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: "1",
-      MANGO_ANIMATION_LAVORO: lavoro,
-      PYTHONPATH: [codice, ambiente["PYTHONPATH"]].filter((p): p is string => !!p).join(delimiter),
-    },
-  }
-}
+export const stessaCartella = (a: string, b: string): boolean => resolve(a).toLowerCase() === resolve(b).toLowerCase()
 
 export const NOME_STRUMENTO_VIDEO = "video"
 
-/** Lo strumento «video»: il suo codice sta nel prodotto, i dati che legge nella cartella di lavoro. */
-export const serverVideo = (codice: string, lavoro: string): Record<string, McpStdioServerConfig> => ({
-  [NOME_STRUMENTO_VIDEO]: { type: "stdio", command: process.execPath, args: ["run", "--cwd", join(codice, "server"), "mcp"], env: { MANGO_ANIMATION_LAVORO: lavoro } },
+/** Un server MCP che il motore lancia come processo, con la forma che gli adattatori traducono nella propria configurazione. */
+export interface ServerMcp {
+  type: "stdio"
+  command: string
+  args: string[]
+  env: Record<string, string>
+}
+
+/** A quale conversazione appartiene lo strumento «video» che si sta configurando, e cosa sa fare il suo motore. */
+export interface ConversazioneDelloStrumento {
+  id: string
+  capacita: Pick<CapacitaDelMotore, "strumentoDelleDomande">
+}
+
+/**
+ * Lo strumento «video»: il suo codice sta nel prodotto, i dati che legge nella cartella di lavoro. Con la conversazione riceve anche il
+ * suo id: l'attesa di un lavoro si chiude quando il creator scrive lì, e se il motore non ha uno strumento suo per le domande le fa lui.
+ */
+export const serverVideo = (codice: string, lavoro: string, conversazione?: ConversazioneDelloStrumento): Record<string, ServerMcp> => ({
+  [NOME_STRUMENTO_VIDEO]: {
+    type: "stdio",
+    command: process.execPath,
+    args: ["run", "--cwd", join(codice, "server"), "mcp"],
+    env: {
+      MANGO_ANIMATION_LAVORO: lavoro,
+      ...(conversazione ? { MANGO_ANIMATION_CONVERSAZIONE: conversazione.id } : {}),
+      ...(conversazione && !conversazione.capacita.strumentoDelleDomande ? { MANGO_ANIMATION_DOMANDE: "1" } : {}),
+    },
+  },
 })
 
-/** La chat usa il Claude Code che il creator ha sul computer (lo trova l'app, `docs/APP.md`), non la copia che l'SDK porta con sé. */
-export const conIlClaudeDelCreator = (query: FunzioneQuery, percorso: string | undefined): FunzioneQuery =>
-  percorso ? ({ prompt, options }) => query({ prompt, options: { ...options, pathToClaudeCodeExecutable: percorso } }) : query
+/** L'ambiente dei processi di un motore: dove sono i dati del creator e come `python -m motore` trova il codice, da qualunque cartella. */
+export const ambienteDelMetodo = (codice: string, lavoro: string, ambiente: Record<string, string | undefined>): Record<string, string | undefined> => ({
+  ...ambiente,
+  MANGO_ANIMATION_LAVORO: lavoro,
+  PYTHONPATH: [codice, ambiente["PYTHONPATH"]].filter((p): p is string => !!p).join(delimiter),
+})
+
+/**
+ * Ciò che Claude Code sa dall'ambiente e gli altri motori no: dove sono i dati e cosa è il metodo. Il metodo stesso (CLAUDE.md, regole,
+ * skill) arriva a ciascuno per la sua strada.
+ */
+export function istruzioniDelMetodo(lavoro: string, codice: string, aggiunte: string): string {
+  return [
+    `You work in ${lavoro}: the creator's data folder, where every relative path of the method starts (archivio/grezzo/<day>/ the footage, archivio/video/<slug>/ the videos, profilo.json and .claude/ the creator's profile and rules). Look for files there and with the tools, not elsewhere on the computer.`,
+    `The product's method (its CLAUDE.md, rules and skills, which you already have) lives in ${codice}: read it, never write there.`,
+    `The engine runs as \`python -m motore\` with PYTHONPATH=${codice}.`,
+    aggiunte,
+  ]
+    .filter((r) => r !== "")
+    .join("\n")
+}

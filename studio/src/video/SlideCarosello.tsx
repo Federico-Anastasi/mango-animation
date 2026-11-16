@@ -104,13 +104,13 @@ export function SlideCarosello({ video }: PropsScheda) {
         <div className={styles.lettore} ref={lettore}>
           <img className={styles.grande} src={urlUscita(attuale)} alt={t("Slide {n} di {tot}", "Slide {n} of {tot}", { n: indice + 1, tot: slide.length })} />
           <div className={styles.comandi}>
-            <Bottone variante="vuoto" etichetta={t("Slide precedente", "Previous slide")} disabled={indice === 0} onClick={() => vaiA(indice - 1)}>
+            <Bottone etichetta={t("Slide precedente", "Previous slide")} disabled={indice === 0} onClick={() => vaiA(indice - 1)}>
               <Icona nome="sinistra" />
             </Bottone>
             <span className="mono">
               {indice + 1} / {slide.length}
             </span>
-            <Bottone variante="vuoto" etichetta={t("Slide successiva", "Next slide")} disabled={indice === slide.length - 1} onClick={() => vaiA(indice + 1)}>
+            <Bottone etichetta={t("Slide successiva", "Next slide")} disabled={indice === slide.length - 1} onClick={() => vaiA(indice + 1)}>
               <Icona nome="destra" />
             </Bottone>
           </div>

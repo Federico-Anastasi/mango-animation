@@ -7,8 +7,8 @@ import { creaCopia } from "../dati"
 import { t } from "../lingua"
 import { istante } from "../testo"
 import { apiChat, type NuovoMessaggio } from "./api"
-import { correggi, leggiPredefinite, MODELLO_PREDEFINITO, modelliChat, modelliLetti, opusPiuRecente, ricordaPredefinite } from "./modelli"
-import { MOTORE_CHAT, motoreDi } from "./motore"
+import { correggi, leggiPredefinite, MODELLO_PREDEFINITO, modelliChat, modelliLetti, modelloGrande, predefinitoDi, ricordaPredefinite } from "./modelli"
+import { motoreDelModello, motoriChat, motoriLetti } from "./motore"
 import type { ContestoUsato, DettaglioConversazione, EventoChat, ImpostazioniChat, Messaggio, Richiesta, SceltaRisposta, StatoConversazione, TaskChat, TempoDiLavoro, VoceConversazione } from "./tipi"
 
 const lavoroDa = (l: TempoDiLavoro): StatoNegozio["lavoro"] => ({ ms: l.ms, da: l.da === null ? null : istante(l.da) })
@@ -20,29 +20,31 @@ export interface Inviato {
   /** Quanti messaggi del creator con lo stesso testo c'erano quando è partito: quando ce n'è uno in più, è tornato. */
   gia: number
   errore: string | null
-  /** Solo Claude Code: per ciò che chiede il browser del creator, che Mango Code non ha. */
-  soloClaudeCode?: boolean
-  /** Una conversazione nuova parte con l'Opus più recente (o «Predefinito» se non c'è), a meno che il creator abbia scelto Mango Code. */
+  /** Per ciò che chiede il browser del creator: la conversazione nuova è di un motore che lo sa usare. */
+  conBrowser?: boolean
+  /** Una conversazione nuova parte col modello grande del suo motore (il «Predefinito» se il motore non ne indica uno e non ha un Opus). */
   modelloGrande?: boolean
 }
 
 export interface StatoNegozio extends ImpostazioniChat {
   id: string | null
+  /** Il motore della conversazione aperta; `null` finché non si sa. Una conversazione nuova non ce l'ha: lo dice il modello scelto. */
+  motore: string | null
   caricato: boolean
   errore: string | null
   titolo: string
   attiva: boolean
   stato: StatoConversazione
-  /** L'istante (ms) in cui è cominciato il giro in cui Claude lavora; `null` se non lavora. */
+  /** L'istante (ms) in cui è cominciato il giro in cui il motore lavora; `null` se non lavora. */
   lavoraDa: number | null
-  /** Il lavoro di tutta la conversazione: `ms` già fatti, più il tratto in corso dall'istante `da` (ms), `null` se Claude non lavora. */
+  /** Il lavoro di tutta la conversazione: `ms` già fatti, più il tratto in corso dall'istante `da` (ms), `null` se il motore non lavora. */
   lavoro: { ms: number; da: number | null }
   messaggi: Messaggio[]
   inAttesa: Richiesta[]
-  /** I lavori che Claude Code ha in corso, in primo piano e in background. */
+  /** I lavori che il motore ha in corso, in primo piano e in background. */
   task: TaskChat[]
   contestoUsato: ContestoUsato | null
-  /** La conversazione è del primo giro: i passi di Claude stanno raccolti, per chi non è tecnico. */
+  /** La conversazione è del primo giro: i passi del motore stanno raccolti, per chi non è tecnico. */
   primoGiro: boolean
   inviati: Inviato[]
   /** Perché l'ultima scelta di modello o effort non è andata. */
@@ -71,6 +73,7 @@ function ricordaCorrente(id: string | null): void {
 /** Una conversazione nuova parte con l'ultima scelta di modello ed effort; una già fatta ha la sua, che arriva dal server. */
 const vuoto = (id: string | null): StatoNegozio => ({
   id,
+  motore: null,
   caricato: false,
   errore: null,
   titolo: "",
@@ -173,7 +176,7 @@ class Negozio {
   }
 
   private dalDettaglio(d: DettaglioConversazione): StatoNegozio {
-    return this.senzaRitornati({ ...this.stato, id: d.id, caricato: true, errore: null, titolo: d.titolo, attiva: d.attiva, stato: d.stato, lavoraDa: d.lavora_da ? istante(d.lavora_da) : null, lavoro: lavoroDa(d.lavoro), modello: d.modello, effort: d.effort, messaggi: d.messaggi, inAttesa: d.in_attesa, task: d.task, contestoUsato: d.contesto_usato, primoGiro: d.primo_giro })
+    return this.senzaRitornati({ ...this.stato, id: d.id, caricato: true, errore: null, titolo: d.titolo, attiva: d.attiva, stato: d.stato, lavoraDa: d.lavora_da ? istante(d.lavora_da) : null, lavoro: lavoroDa(d.lavoro), motore: d.motore, modello: d.modello, effort: d.effort, messaggi: d.messaggi, inAttesa: d.in_attesa, task: d.task, contestoUsato: d.contesto_usato, primoGiro: d.primo_giro })
   }
 
   /** Toglie dagli inviati quelli che il server ha già messo fra i messaggi. */
@@ -251,7 +254,7 @@ class Negozio {
     }, 120)
   }
 
-  async invia(messaggio: NuovoMessaggio, opzioni: { soloClaudeCode?: boolean } = {}): Promise<void> {
+  async invia(messaggio: NuovoMessaggio, opzioni: { conBrowser?: boolean; modelloGrande?: boolean } = {}): Promise<void> {
     const inviato: Inviato = { chiave: this.prossimaChiave++, messaggio, gia: quantiDelCreator(this.stato.messaggi, messaggio.testo ?? ""), errore: null, ...opzioni }
     this.imposta({ ...this.stato, inviati: [...this.stato.inviati, inviato] })
     await this.spedisci(inviato)
@@ -272,25 +275,41 @@ class Negozio {
     this.imposta({ ...this.stato, inviati: this.stato.inviati.map((i) => (i.chiave === chiave ? { ...i, errore } : i)) })
   }
 
+  /** Modello, effort e motore con cui nasce una conversazione nuova: la scelta ricordata, a meno che il messaggio chieda un motore con il browser o il modello grande del suo motore. Una scelta per questa conversazione sola: quella ricordata per le prossime resta com'è. */
+  private async sceltaPerLaNuova(inviato: Inviato): Promise<{ scelta: Partial<ImpostazioniChat>; motore: string | null }> {
+    const { modello, effort } = this.stato
+    const ricordata = { ...(modello === null ? {} : { modello }), ...(effort === null ? {} : { effort }) }
+    if (!inviato.conBrowser && !inviato.modelloGrande) return { scelta: ricordata, motore: motoreDelModello(motoriChat.stato().dato ?? [], modelliChat.stato().dato ?? [], modello)?.id ?? null }
+    const [motori, modelli] = [(await motoriLetti()) ?? [], (await modelliLetti()) ?? []]
+    let motore = motoreDelModello(motori, modelli, modello)
+    let scelta: Partial<ImpostazioniChat> = ricordata
+    if (inviato.conBrowser && motore && !motore.capacita.browser) {
+      const altro = motori.find((m) => m.pronto && m.capacita.browser)
+      if (altro) {
+        motore = altro
+        const predefinito = predefinitoDi(altro, modelli)
+        scelta = predefinito === null ? {} : { modello: predefinito }
+      }
+    }
+    if (inviato.modelloGrande && motore) {
+      const grande = modelloGrande(motore, modelli)
+      if (grande) scelta = { modello: grande.id }
+      else if (motore.prefisso === null) scelta = { modello: MODELLO_PREDEFINITO }
+    }
+    return { scelta, motore: motore?.id ?? null }
+  }
+
   private async spedisci(inviato: Inviato): Promise<void> {
     const id = this.stato.id
     try {
       if (id === null) {
-        const { modello, effort } = this.stato
-        // Una scelta per questa conversazione sola: quella ricordata per le prossime resta com'è.
-        const daClaude = motoreDi(modello).id === MOTORE_CHAT.id
-        const scelta =
-          inviato.modelloGrande && daClaude
-            ? { modello: opusPiuRecente((await modelliLetti()) ?? [])?.id ?? MODELLO_PREDEFINITO }
-            : inviato.soloClaudeCode && !daClaude
-              ? { modello: MODELLO_PREDEFINITO }
-              : { ...(modello === null ? {} : { modello }), ...(effort === null ? {} : { effort }) }
+        const { scelta, motore } = await this.sceltaPerLaNuova(inviato)
         const { id: nuovo } = await apiChat.nuova(inviato.messaggio, scelta)
         ricordaCorrente(nuovo)
         this.versione += 1
         // L'avvio non ritorna fra i messaggi del creator: finito di partire, non c'è più niente da aspettare.
         if (inviato.messaggio.avvio) this.togli(inviato.chiave)
-        this.imposta({ ...this.stato, id: nuovo, attiva: true, stato: "lavora", lavoraDa: this.stato.lavoraDa ?? Date.now(), lavoro: { ms: this.stato.lavoro.ms, da: this.stato.lavoro.da ?? Date.now() } })
+        this.imposta({ ...this.stato, id: nuovo, motore, attiva: true, stato: "lavora", lavoraDa: this.stato.lavoraDa ?? Date.now(), lavoro: { ms: this.stato.lavoro.ms, da: this.stato.lavoro.da ?? Date.now() } })
         await this.carica()
       } else {
         // «Lavora» prima di mandare: un comando locale finisce prima che la POST torni, e il suo evento «pronta» deve venire dopo.
@@ -327,7 +346,7 @@ class Negozio {
     }
   }
 
-  /** Chiude la conversazione: Claude si ferma e il suo processo si spegne; un messaggio la riapre. */
+  /** Chiude la conversazione: il motore si ferma e il suo processo si spegne; un messaggio la riapre. */
   async chiudi(): Promise<void> {
     const { id } = this.stato
     if (id === null) return

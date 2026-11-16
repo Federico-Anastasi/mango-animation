@@ -11,7 +11,7 @@ export function testoUso(uso: UsoTask | undefined): string | null {
   return `${token} · ${strumenti}`.replaceAll(" ", "\u00A0")
 }
 
-/** Ciò che i lavori in primo piano hanno usato, insieme: Claude li aspetta tutti. `undefined` se nessuno ha numeri. */
+/** Ciò che i lavori in primo piano hanno usato, insieme: il motore li aspetta tutti. `undefined` se nessuno ha numeri. */
 export function usoInPrimoPiano(task: TaskChat[]): UsoTask | undefined {
   const usi = task.flatMap((x) => (!x.background && x.uso ? [x.uso] : []))
   return usi.length === 0 ? undefined : { token: usi.reduce((somma, u) => somma + u.token, 0), strumenti: usi.reduce((somma, u) => somma + u.strumenti, 0) }

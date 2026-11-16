@@ -3,10 +3,13 @@ import { useState } from "react"
 import { api, chiedi } from "../api"
 import { Bottone } from "../comuni/Bottone"
 import { BottoneCopia } from "../comuni/BottoneCopia"
+import { CardDiRighe, Riga } from "../comuni/CardDiRighe"
 import { immagineQr } from "../comuni/GuardaDalTelefono"
+import { Interruttore } from "../comuni/Interruttore"
 import { arrivi, useCopia } from "../dati"
 import { t } from "../lingua"
 import { dataOra, nomeFile, peso } from "../testo"
+import { testoDi } from "./righe"
 import styles from "./RiquadroArrivi.module.css"
 
 export function RiquadroArrivi() {
@@ -14,7 +17,7 @@ export function RiquadroArrivi() {
   const [errore, setErrore] = useState<string | null>(null)
   const [occupato, setOccupato] = useState(false)
   const stato = copia.dato
-  if (!stato) return copia.errore ? <p className={styles.errore}>{copia.errore}</p> : null
+  if (!stato) return copia.errore ? <p className={styles.spento}>{copia.errore}</p> : null
 
   const imposta = (acceso: boolean) => {
     setErrore(null)
@@ -24,79 +27,45 @@ export function RiquadroArrivi() {
       .catch((e: Error) => setErrore(e.message))
       .finally(() => setOccupato(false))
   }
-
-  if (!stato.acceso) {
-    return (
-      <section className={styles.riquadro} aria-label={t("Arrivi dal telefono", "Files from your phone")}>
-        <div className={styles.testo}>
-          <h2>{t("Arrivi dal telefono", "Files from your phone")}</h2>
-          <p>{t("Spento: il computer non ascolta la rete, e nessun altro apparecchio può mandargli file.", "Off: the computer is not listening on the network, and no other device can send it files.")}</p>
-          <p className={styles.tenue}>{t("Per mandare i video dal telefono, collegalo qui: compaiono i codici da inquadrare.", "To send videos from your phone, connect it here: the codes to scan appear.")}</p>
-          <div className={styles.azioni}>
-            <Bottone disabled={occupato} onClick={() => imposta(true)}>
-              {t("Collega un telefono", "Connect a phone")}
-            </Bottone>
-          </div>
-          {errore && <p className={styles.spento}>{errore}</p>}
-        </div>
-      </section>
+  const controllaDiNuovo = () => {
+    setErrore(null)
+    api.controllaArrivi().then(
+      () => void arrivi.rileggi(),
+      (e: Error) => setErrore(e.message),
     )
   }
 
+  const riga = testoDi("telefono.arrivi")
+  const spiegazione = !stato.acceso
+    ? t("Spento: il computer non ascolta la rete, e nessun altro apparecchio può mandargli file. Accendilo per mandare i video dal telefono: compaiono i codici da inquadrare.", "Off: the computer is not listening on the network, and no other device can send it files. Turn it on to send videos from your phone: the codes to scan appear.")
+    : stato.pronto
+      ? t("Il telefono può mandare i file: il computer è in ascolto.", "Your phone can send files: the computer is listening.")
+      : (stato.motivo ?? stato.errore ?? t("Gli arrivi dal telefono non sono pronti.", "Receiving files from your phone is not ready."))
+
   return (
-    <section className={styles.riquadro} aria-label={t("Arrivi dal telefono", "Files from your phone")}>
-      <div className={styles.testo}>
-        <h2>{t("Arrivi dal telefono", "Files from your phone")}</h2>
-        {stato.pronto ? (
-          <>
-            <p>{t("Il telefono può mandare i file: il computer è in ascolto.", "Your phone can send files: the computer is listening.")}</p>
-            {stato.motivo && <p className={styles.tenue}>{stato.motivo}</p>}
-            {stato.indirizzo && (
-              <p className={styles.indirizzo}>
-                <code>{stato.indirizzo}</code>
-                <BottoneCopia testo={stato.indirizzo} etichetta={t("Copia l'indirizzo", "Copy the address")} />
-              </p>
-            )}
-          </>
-        ) : (
-          <>
-            <p className={styles.spento}>{stato.motivo ?? stato.errore ?? t("Gli arrivi dal telefono non sono pronti.", "Receiving files from your phone is not ready.")}</p>
-            <Bottone
-              variante="vuoto"
-              onClick={() => {
-                setErrore(null)
-                api.controllaArrivi().then(
-                  () => void arrivi.rileggi(),
-                  (e: Error) => setErrore(e.message),
-                )
-              }}
-            >
-              {t("Controlla di nuovo", "Check again")}
-            </Bottone>
-            {errore && <p className={styles.spento}>{errore}</p>}
-          </>
+    <>
+      <CardDiRighe nome={t("Mandare i video", "Sending videos")}>
+        <Riga nome={riga.nome} spiegazione={spiegazione}>
+          {stato.acceso && !stato.pronto && <Bottone onClick={controllaDiNuovo}>{t("Controlla di nuovo", "Check again")}</Bottone>}
+          <Interruttore etichetta={riga.nome} acceso={stato.acceso} disabled={occupato} onCambia={imposta} />
+        </Riga>
+        {stato.acceso && stato.pronto && stato.motivo && (
+          <Riga nome={t("Da sapere", "Good to know")} spiegazione={stato.motivo}>
+            {null}
+          </Riga>
         )}
-        <div className={styles.azioni}>
-          <Bottone variante="vuoto" disabled={occupato} onClick={() => imposta(false)}>
-            {t("Scollega i telefoni", "Disconnect the phones")}
-          </Bottone>
-        </div>
-        {stato.ultimi.length > 0 ? (
-          <ul className={styles.ultimi}>
-            {stato.ultimi.slice(0, 4).map((u) => (
-              <li key={`${u.file}-${u.quando}`}>
-                <span>{nomeFile(u.file)}</span>
-                <span className={styles.tenue}>
-                  {peso(u.byte)} · {dataOra(u.quando)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className={styles.tenue}>{t("Dal telefono non è ancora arrivato niente.", "Nothing has arrived from your phone yet.")}</p>
+        {stato.acceso && stato.pronto && stato.indirizzo && (
+          <Riga nome={t("Indirizzo", "Address")} spiegazione={stato.indirizzo}>
+            <BottoneCopia testo={stato.indirizzo} etichetta={t("Copia l'indirizzo", "Copy the address")} />
+          </Riga>
         )}
-      </div>
-      {stato.pronto && (
+      </CardDiRighe>
+      {errore && (
+        <p className={styles.spento} role="alert">
+          {errore}
+        </p>
+      )}
+      {stato.acceso && stato.pronto && (stato.qr || (stato.carica && stato.qr_carica)) && (
         <div className={styles.codici}>
           {stato.qr && (
             <figure className={styles.codice}>
@@ -113,6 +82,21 @@ export function RiquadroArrivi() {
           )}
         </div>
       )}
-    </section>
+      {stato.acceso && (
+        <CardDiRighe nome={t("Ultimi arrivi", "Latest arrivals")}>
+          {stato.ultimi.length > 0 ? (
+            stato.ultimi.slice(0, 4).map((u) => (
+              <Riga key={`${u.file}-${u.quando}`} nome={nomeFile(u.file)} spiegazione={`${peso(u.byte)} · ${dataOra(u.quando)}`}>
+                {null}
+              </Riga>
+            ))
+          ) : (
+            <Riga nome={t("Ancora niente", "Nothing yet")} spiegazione={t("Dal telefono non è ancora arrivato niente.", "Nothing has arrived from your phone yet.")}>
+              {null}
+            </Riga>
+          )}
+        </CardDiRighe>
+      )}
+    </>
   )
 }

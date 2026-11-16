@@ -49,7 +49,7 @@ const log = aside.getByRole("log", { name: "La conversazione" })
 
 // 1. L'elenco dei modelli del server, e i menu che lo mostrano.
 const elenco = await pagina.evaluate(async () => (await fetch("/api/chat/modelli")).json())
-console.log("modelli:", elenco.map((m) => `${m.id}=${m.nome} [${m.effort.join(",")}]`).join(" | "))
+console.log("modelli:", elenco.map((m) => `${m.id}=${m.nome} [${m.effort.map((l) => l.id).join(",")}]`).join(" | "))
 if (!elenco.some((m) => m.nome === "Opus 5.5") || !elenco.some((m) => m.nome === "Sonnet 5.5")) manca("nell'elenco non ci sono Opus 5.5 e Sonnet 5.5")
 else ok("l'elenco ha Opus 5.5 e Sonnet 5.5, con nome leggibile e livelli di effort")
 await modello.waitFor()
@@ -133,7 +133,7 @@ else manca("Claude non cita strumenti di Chrome")
 await foto("chrome")
 
 // 8. La stessa conversazione nelle tre larghezze.
-for (const larghezza of [1000, 430]) {
+for (const larghezza of [1000, 390]) {
   await pagina.setViewportSize({ width: larghezza, height: 900 })
   await pagina.waitForTimeout(400)
   const scorre = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)

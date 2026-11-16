@@ -1,3 +1,5 @@
 .cronometro {
+  font-family: var(--mango-font-code);
   font-variant-numeric: tabular-nums;
+  font-variant-ligatures: none;
 }

@@ -1,18 +1,18 @@
 //! I passi dell'avvio che aspettano il creator: la pagina d'attesa mostra cosa manca e cosa fare, e l'avvio prosegue quando lui risponde.
 
 use crate::aggiornamento::{self, dopo_il_si, stato_d_errore, Fallito, Passo, Proposta, StatoAggiornamento};
-use crate::claude::{self, StatoClaude};
 use crate::cartella::{Sistema, StatoCartella};
 use crate::codice;
 use crate::lavoro;
 use crate::sposta::{self, Avanzamento, Fallita, Fase, Spostata, StatoSpostamento};
 use crate::lingua::t;
+use crate::motori::{self, Id, Installata, Motore, StatoMotore};
 use crate::computer::installa::{Evento, SondeVere, HUGGING_FACE};
 use crate::computer::piano::{calcola, Funzioni, Luoghi, ModelliScelti, SceltaPython};
 use crate::computer::{self, applica, computer_pronto, esegui_piano, hw, manifesto, profilo, vista, Dove, Progresso, Risposta};
 use crate::{imposta_stato, Interno, Stato};
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,10 +26,10 @@ use tauri::{AppHandle, Manager};
 pub enum Azione {
     /// Ha sistemato (o crede di aver sistemato): si guarda di nuovo.
     Ricontrolla,
-    /// Vuole fare l'accesso a Claude Code.
-    Accedi,
-    /// Vuole installare Claude Code.
-    Installa,
+    /// Vuole fare l'accesso a questo motore.
+    Accedi(Id),
+    /// Vuole installare questo motore.
+    Installa(Id),
     /// Va avanti così com'è.
     Continua,
     /// Ha acceso o spento delle funzioni (`{ "sagoma": false, … }`): si ricalcola cosa si scarica.
@@ -77,7 +77,7 @@ impl Risposte {
     }
 }
 
-/// Mostra `stato` e aspetta una risposta che `accetta` riconosce (le altre, un «Ricontrolla» di Claude Code arrivato tardi, si lasciano cadere). Se il canale delle risposte si chiude
+/// Mostra `stato` e aspetta una risposta che `accetta` riconosce (le altre, un «Ricontrolla» dei motori arrivato tardi, si lasciano cadere). Se il canale delle risposte si chiude
 /// torna `se_chiude`.
 fn chiedi_fra<T>(app: &AppHandle, stato: Stato, se_chiude: T, accetta: impl Fn(Azione) -> Option<T>) -> T {
     let risposte = &app.state::<Interno>().risposte;
@@ -161,6 +161,10 @@ pub fn aggiornamento_del_prodotto(app: &AppHandle, radice: &Path) {
         return;
     }
     aggiornamento::togli_installatori_vecchi(&std::env::temp_dir());
+    // «Aggiorna da solo» spento nelle impostazioni dello studio: la versione nuova si cerca solo da lì, con «Controlla ora».
+    if app.path().app_config_dir().is_ok_and(|impostazioni| !crate::aiuto::aggiorna_da_solo(&impostazioni)) {
+        return;
+    }
     imposta_stato(app, crate::attesa(0, t("Cerco una versione nuova", "Looking for a new version")));
     let proposta = match aggiornamento::cerca(app) {
         Ok(Some(proposta)) => proposta,
@@ -386,56 +390,95 @@ fn spostamento_pronto(
     }
 }
 
-/// Il Claude Code del creator, controllato e, se non va, spiegato (`docs/APP.md`): senza Claude Code collegato l'app non serve a niente, e l'avvio non va avanti.
-/// Torna il programma da dare alla chat.
-pub fn claude_del_creator(app: &AppHandle) -> Result<PathBuf, String> {
-    let percorsi = std::env::var_os("PATH").unwrap_or_default();
-    let indicato = std::env::var(claude::VARIABILE).ok();
-    let casa = std::env::var_os("USERPROFILE").map(PathBuf::from);
-    let appdata = std::env::var_os("APPDATA").map(PathBuf::from);
-    claude_pronto(
-        || claude::trova(indicato.as_deref(), &percorsi, casa.as_deref(), appdata.as_deref()),
-        claude::esamina,
-        claude::accedi,
-        claude::installa,
-        |stato| chiedi(app, Stato { fase: "claude".into(), claude: Some(stato), ..Default::default() }),
-    )
+/// I motori della chat del creator, controllati e, se nessuno va, spiegati (`docs/app/motori.md`): ne basta uno pronto, e senza l'app non serve a niente, quindi l'avvio non va avanti.
+/// Torna le variabili con cui il server trova i programmi: una per ogni programma trovato.
+pub fn motori_del_creator(app: &AppHandle) -> Result<Vec<(OsString, OsString)>, String> {
+    motori_pronti(
+        motori::trova_nel_computer,
+        motori::esamina,
+        motori::mango_code_nel_computer,
+        motori::accedi,
+        motori::installa,
+        |stati| chiedi(app, Stato { fase: "motori".into(), motori: Some(stati), ..Default::default() }),
+    )?;
+    variabili_dei_motori(motori::trova_nel_computer)
 }
 
-/// Il giro dei controlli, senza finestra: `trova`, `esamina`, `accedi` e `installa` sono quelli veri o quelli finti di una prova, `chiedi` mostra lo stato e aspetta.
-fn claude_pronto(
-    trova: impl Fn() -> Result<Option<PathBuf>, String>,
-    esamina: impl Fn(&Path) -> StatoClaude,
-    accedi: impl Fn(&Path) -> Result<(), String>,
-    installa: impl Fn() -> Result<(), String>,
-    mut chiedi: impl FnMut(StatoClaude) -> Azione,
-) -> Result<PathBuf, String> {
-    let mut avviso: Option<String> = None;
-    let mut dopo_l_installazione = false;
-    loop {
-        let programma = trova()?;
-        let stato = match &programma {
-            Some(p) => esamina(p),
-            None => StatoClaude::default(),
-        };
-        if let (true, Some(programma)) = (stato.pronto(), &programma) {
-            return Ok(programma.clone());
+/// Un percorso per ogni programma trovato, nella variabile che il server legge; un programma che non c'è non ha variabile.
+fn variabili_dei_motori(trova: impl Fn(&Motore) -> Result<Option<PathBuf>, String>) -> Result<Vec<(OsString, OsString)>, String> {
+    let mut variabili = Vec::new();
+    for motore in motori::MOTORI {
+        let Some(programma) = &motore.programma else { continue };
+        if let Some(percorso) = trova(motore)? {
+            variabili.push((programma.variabile.into(), percorso.into_os_string()));
         }
-        // Un accesso o un'installazione che non sono andati a buon fine si dicono sopra lo stato di Claude Code, che nel frattempo si è riletto.
-        let provato_a_installare = std::mem::take(&mut dopo_l_installazione);
-        let messaggio = avviso.take().or(stato.messaggio).or_else(|| (provato_a_installare && !stato.trovato).then(claude::installazione_non_riuscita));
-        let comando = (!stato.trovato).then(|| claude::COMANDO_DI_INSTALLAZIONE.to_owned());
-        match chiedi(StatoClaude { messaggio, comando, ..stato }) {
-            Azione::Accedi => {
-                if let Some(p) = &programma {
-                    avviso = accedi(p).err();
+    }
+    Ok(variabili)
+}
+
+/// Il giro dei controlli, senza finestra: `trova`, `esamina`, `mango_code`, `accedi` e `installa` sono quelli veri o quelli finti di una prova, `chiedi` mostra lo stato di tutti i motori e aspetta.
+/// Si guardano nell'ordine di `motori::MOTORI` e ci si ferma al primo pronto: torna quello.
+fn motori_pronti(
+    trova: impl Fn(&Motore) -> Result<Option<PathBuf>, String>,
+    esamina: impl Fn(&Motore, &Path) -> StatoMotore,
+    mango_code: impl Fn() -> StatoMotore,
+    accedi: impl Fn(&Motore, &Path) -> Result<(), String>,
+    installa: impl Fn(&Motore) -> Result<Installata, String>,
+    mut chiedi: impl FnMut(Vec<StatoMotore>) -> Azione,
+) -> Result<Vec<Id>, String> {
+    let mut avvisi: BTreeMap<Id, String> = BTreeMap::new();
+    let mut dopo_l_installazione: BTreeSet<Id> = BTreeSet::new();
+    loop {
+        let mut stati = Vec::new();
+        let mut programmi: BTreeMap<Id, PathBuf> = BTreeMap::new();
+        for motore in motori::MOTORI {
+            let stato = match &motore.programma {
+                None => mango_code(),
+                Some(_) => match trova(motore)? {
+                    Some(programma) => {
+                        let stato = esamina(motore, &programma);
+                        programmi.insert(motore.id, programma);
+                        stato
+                    }
+                    None => StatoMotore::vuoto(motore),
+                },
+            };
+            if stato.pronto() {
+                return Ok(vec![motore.id]);
+            }
+            stati.push(stato);
+        }
+        // Un accesso o un'installazione che non sono andati a buon fine si dicono sopra lo stato del loro motore, che nel frattempo si è riletto.
+        let provati_a_installare = std::mem::take(&mut dopo_l_installazione);
+        let visti = stati
+            .into_iter()
+            .map(|stato| {
+                let motore = motori::motore(stato.id);
+                let messaggio = avvisi.remove(&stato.id).or(stato.messaggio).or_else(|| (provati_a_installare.contains(&stato.id) && !stato.trovato).then(|| motori::installazione_non_riuscita(motore)));
+                let comando = if stato.trovato { None } else { motore.comando_di_installazione().map(str::to_owned) };
+                StatoMotore { messaggio, comando, ..stato }
+            })
+            .collect();
+        match chiedi(visti) {
+            Azione::Accedi(id) => {
+                if let Some(programma) = programmi.get(&id) {
+                    if let Err(e) = accedi(motori::motore(id), programma) {
+                        avvisi.insert(id, e);
+                    }
                 }
             }
-            Azione::Installa => {
-                avviso = installa().err();
-                dopo_l_installazione = true;
-            }
-            // Gli altri passi dell'avvio non riguardano Claude Code; «Ricontrolla» è proprio il giro che segue.
+            Azione::Installa(id) => match installa(motori::motore(id)) {
+                Ok(Installata::Finita) => {
+                    dopo_l_installazione.insert(id);
+                }
+                Ok(Installata::Aperta(frase)) => {
+                    avvisi.insert(id, frase);
+                }
+                Err(e) => {
+                    avvisi.insert(id, e);
+                }
+            },
+            // Gli altri passi dell'avvio non riguardano i motori; «Ricontrolla» è proprio il giro che segue.
             _ => {}
         }
     }
@@ -447,22 +490,54 @@ mod prove {
     use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
 
-    fn programma() -> PathBuf {
-        PathBuf::from(r"C:\claude\claude.exe")
+    fn programma(motore: &Motore) -> PathBuf {
+        PathBuf::from(format!(r"C:\motori\{}.exe", motore.nome))
     }
 
-    fn pronto() -> StatoClaude {
-        StatoClaude { trovato: true, collegato: true, versione: Some("2.1.318".into()), ..Default::default() }
+    fn pronto(motore: &Motore) -> StatoMotore {
+        StatoMotore { trovato: true, collegato: true, versione: Some("2.1.318".into()), ..StatoMotore::vuoto(motore) }
     }
 
-    fn non_collegato() -> StatoClaude {
-        StatoClaude { trovato: true, versione: Some("2.1.318".into()), ..Default::default() }
+    fn non_collegato(motore: &Motore) -> StatoMotore {
+        StatoMotore { collegato: false, ..pronto(motore) }
+    }
+
+    fn mango_spento() -> StatoMotore {
+        StatoMotore::vuoto(motori::MANGO_CODE)
+    }
+
+    fn mango_pronto() -> StatoMotore {
+        pronto(motori::MANGO_CODE)
+    }
+
+    fn solo_claude(motore: &Motore) -> Result<Option<PathBuf>, String> {
+        Ok((motore.id == Id::ClaudeCode).then(|| programma(motore)))
+    }
+
+    fn solo_codex(motore: &Motore) -> Result<Option<PathBuf>, String> {
+        Ok((motore.id == Id::Codex).then(|| programma(motore)))
+    }
+
+    fn nessuno(_: &Motore) -> Result<Option<PathBuf>, String> {
+        Ok(None)
+    }
+
+    fn senza_installare(_: &Motore) -> Result<Installata, String> {
+        unreachable!("non c'era niente da installare")
+    }
+
+    fn senza_accedere(_: &Motore, _: &Path) -> Result<(), String> {
+        unreachable!("non c'era nessun accesso da fare")
+    }
+
+    fn senza_esaminare(_: &Motore, _: &Path) -> StatoMotore {
+        unreachable!("non c'era nessun programma da guardare")
     }
 
     /// Le risposte del creator in ordine, e gli stati che la pagina ha mostrato.
     struct Prova {
         risposte: RefCell<VecDeque<Azione>>,
-        mostrati: RefCell<Vec<StatoClaude>>,
+        mostrati: RefCell<Vec<Vec<StatoMotore>>>,
     }
 
     impl Prova {
@@ -470,161 +545,277 @@ mod prove {
             Prova { risposte: RefCell::new(risposte.iter().cloned().collect()), mostrati: RefCell::default() }
         }
 
-        fn chiedi(&self, stato: StatoClaude) -> Azione {
-            self.mostrati.borrow_mut().push(stato);
+        fn chiedi(&self, stati: Vec<StatoMotore>) -> Azione {
+            self.mostrati.borrow_mut().push(stati);
             self.risposte.borrow_mut().pop_front().expect("la pagina ha chiesto una risposta in più")
+        }
+
+        fn dello(&self, giro: usize, id: Id) -> StatoMotore {
+            self.mostrati.borrow()[giro].iter().find(|s| s.id == id).cloned().unwrap()
         }
     }
 
-    fn senza_installare() -> Result<(), String> {
-        unreachable!("non c'era niente da installare")
+    #[test]
+    fn se_un_motore_va_la_pagina_non_si_ferma_a_chiedere_e_gli_altri_non_si_guardano() {
+        let p = Prova::nuova(&[]);
+        let guardati = RefCell::new(Vec::new());
+        let esamina = |m: &Motore, _: &Path| {
+            guardati.borrow_mut().push(m.id);
+            pronto(m)
+        };
+        let trovati = RefCell::new(Vec::new());
+        let trova = |m: &Motore| {
+            trovati.borrow_mut().push(m.id);
+            solo_claude(m)
+        };
+        let esito = motori_pronti(trova, esamina, || unreachable!("Mango Code non serviva"), senza_accedere, senza_installare, |s| p.chiedi(s));
+        assert_eq!(esito, Ok(vec![Id::ClaudeCode]));
+        assert!(p.mostrati.borrow().is_empty());
+        assert_eq!((guardati.take(), trovati.take()), (vec![Id::ClaudeCode], vec![Id::ClaudeCode]));
     }
 
     #[test]
-    fn se_claude_code_va_la_pagina_non_si_ferma_a_chiedere() {
+    fn basta_uno_solo_fra_i_tre_e_la_pagina_non_si_apre() {
+        type Trova = fn(&Motore) -> Result<Option<PathBuf>, String>;
+        type Mango = fn() -> StatoMotore;
+        let casi: [(Id, Trova, Mango); 3] = [(Id::ClaudeCode, solo_claude, mango_spento), (Id::Codex, solo_codex, mango_spento), (Id::MangoCode, nessuno, mango_pronto)];
+        for (id, trova, mango) in casi {
+            let p = Prova::nuova(&[]);
+            let esito = motori_pronti(trova, |m, _| pronto(m), mango, senza_accedere, senza_installare, |s| p.chiedi(s));
+            assert_eq!(esito, Ok(vec![id]));
+            assert!(p.mostrati.borrow().is_empty(), "{id:?}");
+        }
+    }
+
+    #[test]
+    fn un_motore_trovato_ma_non_collegato_non_basta_se_un_altro_e_pronto_basta_quell_altro() {
         let p = Prova::nuova(&[]);
-        let esito = claude_pronto(|| Ok(Some(programma())), |_| pronto(), |_| unreachable!(), senza_installare, |s| p.chiedi(s));
-        assert_eq!(esito, Ok(programma()));
+        let trova = |m: &Motore| Ok(matches!(m.id, Id::ClaudeCode | Id::Codex).then(|| programma(m)));
+        let esamina = |m: &Motore, _: &Path| if m.id == Id::Codex { pronto(m) } else { non_collegato(m) };
+        assert_eq!(motori_pronti(trova, esamina, mango_spento, senza_accedere, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::Codex]));
         assert!(p.mostrati.borrow().is_empty());
     }
 
     #[test]
-    fn se_manca_la_pagina_offre_l_installazione_con_il_comando_e_dopo_il_ricontrollo_lo_trova() {
+    fn se_non_c_e_nessuno_la_pagina_li_elenca_tutti_offre_cosa_si_puo_fare_e_dopo_il_ricontrollo_lo_trova() {
         let p = Prova::nuova(&[Azione::Ricontrolla, Azione::Ricontrolla]);
-        let giri = Cell::new(0);
-        let trova = || {
-            giri.set(giri.get() + 1);
-            Ok((giri.get() >= 3).then(programma))
-        };
-        let esito = claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, |s| p.chiedi(s));
-        assert_eq!(esito, Ok(programma()));
+        let trova = |m: &Motore| Ok((m.id == Id::ClaudeCode && p.mostrati.borrow().len() >= 2).then(|| programma(m)));
+        let esito = motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, senza_installare, |s| p.chiedi(s));
+        assert_eq!(esito, Ok(vec![Id::ClaudeCode]));
         let mostrati = p.mostrati.borrow();
         assert_eq!(mostrati.len(), 2);
-        assert!(mostrati.iter().all(|s| !s.trovato && s.percorso.is_none() && s.messaggio.is_none()));
-        assert!(mostrati.iter().all(|s| s.comando.as_deref() == Some("irm https://claude.ai/install.ps1 | iex")));
+        for giro in mostrati.iter() {
+            assert_eq!(giro.iter().map(|s| s.id).collect::<Vec<_>>(), [Id::ClaudeCode, Id::Codex, Id::MangoCode]);
+            assert!(giro.iter().all(|s| !s.trovato && s.percorso.is_none() && s.messaggio.is_none()));
+            assert_eq!(giro.iter().map(|s| (s.installabile, s.accedibile)).collect::<Vec<_>>(), [(true, true), (true, true), (false, false)]);
+            // Il comando da incollare c'è solo dove l'installazione è un comando.
+            assert_eq!(giro.iter().map(|s| s.comando.as_deref()).collect::<Vec<_>>(), [Some("irm https://claude.ai/install.ps1 | iex"), None, None]);
+        }
+    }
+
+    #[test]
+    fn mango_code_che_si_accende_dopo_si_vede_al_ricontrollo() {
+        let p = Prova::nuova(&[Azione::Ricontrolla]);
+        let mango = || {
+            if !p.mostrati.borrow().is_empty() {
+                mango_pronto()
+            } else {
+                mango_spento()
+            }
+        };
+        assert_eq!(motori_pronti(nessuno, senza_esaminare, mango, senza_accedere, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::MangoCode]));
+        assert_eq!(p.mostrati.borrow().len(), 1);
+        assert_eq!(p.dello(0, Id::MangoCode), mango_spento());
+    }
+
+    #[test]
+    fn l_installazione_di_codex_apre_lo_store_e_dopo_il_ricontrollo_codex_c_e() {
+        let p = Prova::nuova(&[Azione::Installa(Id::Codex)]);
+        let installato = Cell::new(false);
+        let trova = |m: &Motore| Ok((m.id == Id::Codex && installato.get()).then(|| programma(m)));
+        let installa = |m: &Motore| {
+            assert_eq!(m.id, Id::Codex);
+            installato.set(true);
+            Ok(Installata::Aperta("Ho aperto lo Store.".into()))
+        };
+        assert_eq!(motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, installa, |s| p.chiedi(s)), Ok(vec![Id::Codex]));
+        assert_eq!(p.mostrati.borrow().len(), 1);
+    }
+
+    #[test]
+    fn l_installazione_di_codex_dice_che_continua_nello_store_finche_non_c_e_e_il_messaggio_vale_per_un_giro() {
+        let p = Prova::nuova(&[Azione::Installa(Id::Codex), Azione::Ricontrolla, Azione::Ricontrolla]);
+        let trova = |m: &Motore| Ok((m.id == Id::Codex && p.mostrati.borrow().len() >= 3).then(|| programma(m)));
+        let installa = |_: &Motore| Ok(Installata::Aperta("Ho aperto lo Store.".into()));
+        assert_eq!(motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, installa, |s| p.chiedi(s)), Ok(vec![Id::Codex]));
+        assert_eq!(p.dello(0, Id::Codex).messaggio, None);
+        assert_eq!(p.dello(1, Id::Codex).messaggio.as_deref(), Some("Ho aperto lo Store."));
+        assert_eq!(p.dello(2, Id::Codex).messaggio, None);
+        assert_eq!(p.dello(1, Id::ClaudeCode).messaggio, None);
     }
 
     #[test]
     fn l_installazione_riuscita_porta_dritta_all_accesso_senza_dire_che_e_fallita() {
-        let p = Prova::nuova(&[Azione::Installa, Azione::Accedi]);
+        let p = Prova::nuova(&[Azione::Installa(Id::ClaudeCode), Azione::Accedi(Id::ClaudeCode)]);
         let installato = Cell::new(false);
         let acceduto = Cell::new(false);
-        let trova = || Ok(installato.get().then(programma));
-        let esamina = |_: &Path| if acceduto.get() { pronto() } else { non_collegato() };
-        let installa = || {
+        let trova = |m: &Motore| Ok((m.id == Id::ClaudeCode && installato.get()).then(|| programma(m)));
+        let esamina = |m: &Motore, _: &Path| if acceduto.get() { pronto(m) } else { non_collegato(m) };
+        let installa = |m: &Motore| {
+            assert_eq!(m.id, Id::ClaudeCode);
             installato.set(true);
-            Ok(())
+            Ok(Installata::Finita)
         };
-        let accedi = |_: &Path| {
+        let accedi = |m: &Motore, percorso: &Path| {
+            assert_eq!((m.id, percorso), (Id::ClaudeCode, programma(m).as_path()));
             acceduto.set(true);
             Ok(())
         };
-        assert_eq!(claude_pronto(trova, esamina, accedi, installa, |s| p.chiedi(s)), Ok(programma()));
-        let mostrati = p.mostrati.borrow();
-        assert_eq!(mostrati.len(), 2);
-        assert!(!mostrati[0].trovato && mostrati[0].comando.is_some());
-        assert!(mostrati[1].trovato && !mostrati[1].collegato && mostrati[1].messaggio.is_none() && mostrati[1].comando.is_none());
+        assert_eq!(motori_pronti(trova, esamina, mango_spento, accedi, installa, |s| p.chiedi(s)), Ok(vec![Id::ClaudeCode]));
+        assert_eq!(p.mostrati.borrow().len(), 2);
+        let (prima, dopo) = (p.dello(0, Id::ClaudeCode), p.dello(1, Id::ClaudeCode));
+        assert!(!prima.trovato && prima.comando.is_some());
+        assert!(dopo.trovato && !dopo.collegato && dopo.messaggio.is_none() && dopo.comando.is_none());
     }
 
     #[test]
-    fn un_installazione_che_non_porta_claude_code_si_dice_e_si_puo_riprovare() {
-        let p = Prova::nuova(&[Azione::Installa, Azione::Installa]);
+    fn un_installazione_che_non_porta_il_motore_si_dice_e_si_puo_riprovare() {
+        let p = Prova::nuova(&[Azione::Installa(Id::ClaudeCode), Azione::Installa(Id::ClaudeCode)]);
         let tentativi = Cell::new(0);
-        let installa = || {
+        let installa = |_: &Motore| {
             tentativi.set(tentativi.get() + 1);
-            Ok(())
+            Ok(Installata::Finita)
         };
-        let trova = || Ok((tentativi.get() >= 2).then(programma));
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), installa, |s| p.chiedi(s)), Ok(programma()));
-        let mostrati = p.mostrati.borrow();
-        assert_eq!(mostrati.len(), 2);
-        assert_eq!(mostrati[0].messaggio, None);
-        assert_eq!(mostrati[1].messaggio.as_deref(), Some("L'installazione di Claude Code non è andata a buon fine."));
-        assert!(mostrati[1].comando.is_some());
+        let trova = |m: &Motore| Ok((m.id == Id::ClaudeCode && tentativi.get() >= 2).then(|| programma(m)));
+        assert_eq!(motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, installa, |s| p.chiedi(s)), Ok(vec![Id::ClaudeCode]));
+        assert_eq!(p.mostrati.borrow().len(), 2);
+        assert_eq!(p.dello(0, Id::ClaudeCode).messaggio, None);
+        let dopo = p.dello(1, Id::ClaudeCode);
+        assert_eq!(dopo.messaggio.as_deref(), Some("L'installazione di Claude Code non è andata a buon fine."));
+        assert!(dopo.comando.is_some());
+        // Gli altri motori non c'entrano.
+        assert_eq!(p.dello(1, Id::Codex).messaggio, None);
     }
 
     #[test]
     fn un_installatore_che_non_parte_dice_perche_e_il_messaggio_vale_per_un_giro_solo() {
-        let p = Prova::nuova(&[Azione::Installa, Azione::Ricontrolla, Azione::Ricontrolla]);
-        let installa = || Err("Non riesco ad avviare l'installazione di Claude Code: PowerShell non c'è.".to_owned());
-        let giri = Cell::new(0);
-        let trova = || {
-            giri.set(giri.get() + 1);
-            Ok((giri.get() >= 4).then(programma))
-        };
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), installa, |s| p.chiedi(s)), Ok(programma()));
-        let mostrati = p.mostrati.borrow();
-        assert_eq!(mostrati[1].messaggio.as_deref(), Some("Non riesco ad avviare l'installazione di Claude Code: PowerShell non c'è."));
-        assert_eq!(mostrati[2].messaggio, None);
+        let p = Prova::nuova(&[Azione::Installa(Id::ClaudeCode), Azione::Ricontrolla, Azione::Ricontrolla]);
+        let installa = |_: &Motore| Err("Non riesco ad avviare l'installazione di Claude Code: PowerShell non c'è.".to_owned());
+        let trova = |m: &Motore| Ok((m.id == Id::ClaudeCode && p.mostrati.borrow().len() >= 3).then(|| programma(m)));
+        assert_eq!(motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, installa, |s| p.chiedi(s)), Ok(vec![Id::ClaudeCode]));
+        assert_eq!(p.dello(1, Id::ClaudeCode).messaggio.as_deref(), Some("Non riesco ad avviare l'installazione di Claude Code: PowerShell non c'è."));
+        assert_eq!(p.dello(2, Id::ClaudeCode).messaggio, None);
     }
 
     #[test]
-    fn se_non_e_collegato_l_accesso_lo_fa_claude_e_poi_si_ricontrolla() {
-        let p = Prova::nuova(&[Azione::Accedi]);
+    fn se_non_e_collegato_l_accesso_lo_fa_il_programma_e_poi_si_ricontrolla() {
+        let p = Prova::nuova(&[Azione::Accedi(Id::Codex)]);
         let acceduto = Cell::new(false);
-        let esamina = |_: &Path| if acceduto.get() { pronto() } else { non_collegato() };
-        let accedi = |_: &Path| {
+        let esamina = |m: &Motore, _: &Path| if acceduto.get() { pronto(m) } else { non_collegato(m) };
+        let accedi = |m: &Motore, _: &Path| {
+            assert_eq!(m.id, Id::Codex);
             acceduto.set(true);
             Ok(())
         };
-        let esito = claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, |s| p.chiedi(s));
-        assert_eq!(esito, Ok(programma()));
-        let mostrati = p.mostrati.borrow();
-        assert_eq!(mostrati.len(), 1);
-        assert!(mostrati[0].trovato && !mostrati[0].collegato && mostrati[0].comando.is_none());
+        assert_eq!(motori_pronti(solo_codex, esamina, mango_spento, accedi, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::Codex]));
+        assert_eq!(p.mostrati.borrow().len(), 1);
+        let visto = p.dello(0, Id::Codex);
+        assert!(visto.trovato && !visto.collegato && visto.comando.is_none());
     }
 
     #[test]
-    fn un_accesso_che_non_riesce_si_dice_nella_pagina_di_dopo() {
-        let p = Prova::nuova(&[Azione::Accedi, Azione::Ricontrolla]);
-        let giri = Cell::new(0);
-        let esamina = |_: &Path| {
-            giri.set(giri.get() + 1);
-            if giri.get() >= 3 {
-                pronto()
+    fn un_accesso_che_non_riesce_si_dice_nella_pagina_di_dopo_sul_suo_motore() {
+        let p = Prova::nuova(&[Azione::Accedi(Id::ClaudeCode), Azione::Ricontrolla]);
+        let esamina = |m: &Motore, _: &Path| {
+            if p.mostrati.borrow().len() >= 2 {
+                pronto(m)
             } else {
-                non_collegato()
+                non_collegato(m)
             }
         };
-        let accedi = |_: &Path| Err("L'accesso a Claude Code non è finito entro dieci minuti: riprova.".into());
-        let esito = claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, |s| p.chiedi(s));
-        assert_eq!(esito, Ok(programma()));
-        let mostrati = p.mostrati.borrow();
-        assert_eq!(mostrati[0].messaggio, None);
-        assert_eq!(mostrati[1].messaggio.as_deref(), Some("L'accesso a Claude Code non è finito entro dieci minuti: riprova."));
+        let accedi = |_: &Motore, _: &Path| Err("L'accesso a Claude Code non è finito entro dieci minuti: riprova.".into());
+        assert_eq!(motori_pronti(solo_claude, esamina, mango_spento, accedi, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::ClaudeCode]));
+        assert_eq!(p.dello(0, Id::ClaudeCode).messaggio, None);
+        assert_eq!(p.dello(1, Id::ClaudeCode).messaggio.as_deref(), Some("L'accesso a Claude Code non è finito entro dieci minuti: riprova."));
+        assert_eq!(p.dello(1, Id::Codex).messaggio, None);
     }
 
     #[test]
-    fn senza_claude_code_non_si_va_avanti_nemmeno_se_la_pagina_lo_chiede() {
+    fn senza_motori_non_si_va_avanti_nemmeno_se_la_pagina_lo_chiede() {
         let p = Prova::nuova(&[Azione::Continua, Azione::Continua, Azione::Ricontrolla]);
-        let giri = Cell::new(0);
-        let trova = || {
-            giri.set(giri.get() + 1);
-            Ok((giri.get() >= 4).then(programma))
-        };
-        assert_eq!(claude_pronto(trova, |_| pronto(), |_| unreachable!(), senza_installare, |s| p.chiedi(s)), Ok(programma()));
+        let trova = |m: &Motore| Ok((m.id == Id::Codex && p.mostrati.borrow().len() >= 3).then(|| programma(m)));
+        assert_eq!(motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::Codex]));
         assert_eq!(p.mostrati.borrow().len(), 3);
     }
 
     #[test]
-    fn un_claude_code_non_collegato_non_passa_alla_chat() {
-        let p = Prova::nuova(&[Azione::Continua, Azione::Accedi]);
+    fn un_motore_non_collegato_non_passa_alla_chat() {
+        let p = Prova::nuova(&[Azione::Continua, Azione::Accedi(Id::ClaudeCode)]);
         let acceduto = Cell::new(false);
-        let esamina = |_: &Path| if acceduto.get() { pronto() } else { non_collegato() };
-        let accedi = |_: &Path| {
+        let esamina = |m: &Motore, _: &Path| if acceduto.get() { pronto(m) } else { non_collegato(m) };
+        let accedi = |_: &Motore, _: &Path| {
             acceduto.set(true);
             Ok(())
         };
-        assert_eq!(claude_pronto(|| Ok(Some(programma())), esamina, accedi, senza_installare, |s| p.chiedi(s)), Ok(programma()));
+        assert_eq!(motori_pronti(solo_claude, esamina, mango_spento, accedi, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::ClaudeCode]));
         assert_eq!(p.mostrati.borrow().len(), 2);
+    }
+
+    #[test]
+    fn un_accesso_che_non_ha_senso_per_quel_motore_si_lascia_cadere() {
+        // Mango Code non ha accesso; Codex non trovato non ha un programma con cui accedere.
+        let p = Prova::nuova(&[Azione::Accedi(Id::MangoCode), Azione::Accedi(Id::Codex), Azione::Ricontrolla]);
+        let trova = |m: &Motore| Ok((m.id == Id::ClaudeCode && p.mostrati.borrow().len() >= 3).then(|| programma(m)));
+        assert_eq!(motori_pronti(trova, |m, _| pronto(m), mango_spento, senza_accedere, senza_installare, |s| p.chiedi(s)), Ok(vec![Id::ClaudeCode]));
+        assert_eq!(p.mostrati.borrow().len(), 3);
+    }
+
+    #[test]
+    fn l_installazione_di_mango_code_apre_la_sua_pagina_lo_dice_per_un_giro_e_quando_e_acceso_si_va_avanti() {
+        let p = Prova::nuova(&[Azione::Installa(Id::MangoCode), Azione::Ricontrolla, Azione::Ricontrolla]);
+        let non_installato = || StatoMotore { installabile: true, ..mango_spento() };
+        let mango = || if p.mostrati.borrow().len() >= 3 { mango_pronto() } else { non_installato() };
+        let installa = |m: &Motore| {
+            assert_eq!(m.id, Id::MangoCode);
+            Ok(Installata::Aperta("Ho aperto la pagina.".into()))
+        };
+        assert_eq!(motori_pronti(nessuno, senza_esaminare, mango, senza_accedere, installa, |s| p.chiedi(s)), Ok(vec![Id::MangoCode]));
+        assert_eq!(p.dello(0, Id::MangoCode), non_installato());
+        assert_eq!(p.dello(1, Id::MangoCode), StatoMotore { messaggio: Some("Ho aperto la pagina.".into()), ..non_installato() });
+        assert_eq!(p.dello(2, Id::MangoCode), non_installato());
     }
 
     #[test]
     fn una_variabile_che_indica_un_programma_che_non_c_e_e_un_errore_e_non_una_pagina_da_aspettare() {
         let p = Prova::nuova(&[]);
-        let esito = claude_pronto(|| Err("Il programma indicato non c'è.".into()), |_| unreachable!(), |_| unreachable!(), senza_installare, |s| p.chiedi(s));
+        let esito = motori_pronti(|_| Err("Il programma indicato non c'è.".into()), senza_esaminare, mango_spento, senza_accedere, senza_installare, |s| p.chiedi(s));
         assert_eq!(esito, Err("Il programma indicato non c'è.".into()));
         assert!(p.mostrati.borrow().is_empty());
+    }
+
+    #[test]
+    fn al_server_va_un_percorso_per_ogni_programma_trovato_nella_sua_variabile_e_niente_per_gli_altri() {
+        let entrambi = variabili_dei_motori(|m| Ok(Some(programma(m)))).unwrap();
+        assert_eq!(
+            entrambi,
+            [
+                (OsString::from("MANGO_ANIMATION_CLAUDE"), OsString::from(r"C:\motori\Claude Code.exe")),
+                (OsString::from("MANGO_ANIMATION_CODEX"), OsString::from(r"C:\motori\Codex.exe")),
+            ]
+        );
+        assert_eq!(variabili_dei_motori(solo_claude).unwrap(), [entrambi[0].clone()]);
+        assert_eq!(variabili_dei_motori(solo_codex).unwrap(), [entrambi[1].clone()]);
+        assert!(variabili_dei_motori(nessuno).unwrap().is_empty());
+        assert_eq!(variabili_dei_motori(|_| Err("variabile sbagliata".into())), Err("variabile sbagliata".into()));
+    }
+
+    #[test]
+    fn la_pagina_risponde_con_il_motore_scelto() {
+        let azione = |json: &str| serde_json::from_str::<Azione>(json).unwrap();
+        assert_eq!(azione(r#"{ "accedi": "codex" }"#), Azione::Accedi(Id::Codex));
+        assert_eq!(azione(r#"{ "installa": "claude-code" }"#), Azione::Installa(Id::ClaudeCode));
+        assert_eq!(azione(r#""ricontrolla""#), Azione::Ricontrolla);
+        assert!(serde_json::from_str::<Azione>(r#""accedi""#).is_err());
     }
 
     fn sistema_vuoto() -> Sistema {
@@ -862,12 +1053,12 @@ mod prove {
     #[test]
     fn la_risposta_che_nessuno_aspetta_si_perde_e_quella_attesa_arriva() {
         let risposte = Risposte::default();
-        risposte.invia(Azione::Accedi);
+        risposte.invia(Azione::Accedi(Id::Codex));
         let ricevitore = risposte.apri();
         risposte.invia(Azione::Ricontrolla);
         assert_eq!(ricevitore.try_recv(), Ok(Azione::Ricontrolla));
         risposte.chiudi();
-        risposte.invia(Azione::Accedi);
+        risposte.invia(Azione::Accedi(Id::Codex));
         assert!(ricevitore.try_recv().is_err());
     }
 }

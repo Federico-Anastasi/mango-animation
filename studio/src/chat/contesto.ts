@@ -1,4 +1,4 @@
-// Cosa sta guardando il creator nello studio: parte con ogni messaggio, così Claude sa di quale video e scheda si parla.
+// Cosa sta guardando il creator nello studio: parte con ogni messaggio, così il motore sa di quale video e scheda si parla.
 import { copiaVideo, useCopia, type Copia } from "../dati"
 import { useIndirizzo, type Indirizzo, type SchedaVideo } from "../indirizzo"
 import type { DettaglioVideo } from "../tipi"
@@ -6,7 +6,7 @@ import type { ContestoChat } from "./tipi"
 
 const NOME_SCHEDA: Record<SchedaVideo, string> = { prova: "Prova", montaggio: "Montaggio", slide: "Slide", scheda: "Scheda", controllo: "Controllo", copertina: "Copertina", file: "File" }
 const NOME_VISTA = { video: "Elenco dei video", girato: "Girato", produzione: "Produzione" } as const
-const NOME_PARTE = { pubblico: "Pubblico", classifica: "Classifica", crescita: "Crescita", profilo: "Profilo", stile: "Stile", computer: "Computer", telefono: "Telefono", generali: "Generali" } as const
+const NOME_PARTE = { pubblico: "Pubblico", classifica: "Classifica", crescita: "Crescita", profilo: "Profilo", stile: "Stile", computer: "Computer", telefono: "Telefono", generale: "Generale", aiuto: "Aiuto" } as const
 
 /** Il nome della vista fuori dai video; le schede del canale e le sezioni delle impostazioni hanno il loro. */
 const nomeVista = (i: Indirizzo): string => (i.vista === "canale" ? NOME_PARTE[i.parte] : i.vista === "impostazioni" ? `Impostazioni › ${NOME_PARTE[i.parte]}` : NOME_VISTA[i.vista])
@@ -38,5 +38,5 @@ export function useSguardo(): Sguardo {
   return { slug, vista: slug ? (scheda ? NOME_SCHEDA[scheda] : NOME_VISTA.video) : nomeVista(indirizzo) }
 }
 
-/** Ciò che parte con ogni messaggio: il video e la scheda. Claude lo legge, il creator non lo vede nel messaggio. */
+/** Ciò che parte con ogni messaggio: il video e la scheda. Il motore lo legge, il creator non lo vede nel messaggio. */
 export const contestoDa = (s: Sguardo): ContestoChat => ({ ...(s.slug ? { video: s.slug } : {}), vista: s.vista })

@@ -11,6 +11,7 @@ import { ErroreChat } from "./tipi"
 interface Chiamata {
   req: Request
   param: string[]
+  senzaScadenza: () => void
 }
 
 type Gestore = (chiamata: Chiamata) => Promise<Response> | Response
@@ -86,8 +87,9 @@ export function rotteDellaChat(chat: Chat, percorsiScelti: PercorsiScelti): Rott
     ["POST", /^\/api\/chat$/, async ({ req }) => risposta({ id: await chat.crea(await corpoJson(req)) }, 201)],
     ["POST", /^\/api\/chat\/allegati$/, caricaAllegato],
     ["POST", /^\/api\/chat\/allegati\/locale$/, copiaAllegato],
+    ["GET", /^\/api\/chat\/motori$/, async () => risposta(await chat.motoriOfferti())],
     ["GET", /^\/api\/chat\/modelli$/, async () => risposta(await chat.modelli())],
-    ["GET", /^\/api\/chat\/comandi$/, async () => risposta(await chat.comandi())],
+    ["GET", /^\/api\/chat\/comandi$/, async ({ req }) => risposta(await chat.comandi(new URL(req.url).searchParams.get("motore") ?? undefined))],
     ["GET", /^\/api\/chat\/([^/]+)$/, async (c) => risposta(await chat.leggi(parametro(c, 0)))],
     [
       "POST",
@@ -128,6 +130,24 @@ export function rotteDellaChat(chat: Chat, percorsiScelti: PercorsiScelti): Rott
       async (c) => {
         await chat.fermaTask(parametro(c, 0), parametro(c, 1))
         return risposta({ ok: true })
+      },
+    ],
+    [
+      "POST",
+      /^\/api\/chat\/([^/]+)\/domande$/,
+      async (c) => {
+        // Il creator può rispondere dopo minuti: la connessione resta aperta finché non risponde o chi chiede la chiude.
+        c.senzaScadenza()
+        return risposta(await chat.domande(parametro(c, 0), await corpoJson(c.req), c.req.signal))
+      },
+    ],
+    [
+      "GET",
+      /^\/api\/chat\/([^/]+)\/in-coda$/,
+      async (c) => {
+        // Il creator può non scrivere mai: la connessione resta aperta finché scrive o chi chiede la chiude.
+        c.senzaScadenza()
+        return risposta({ in_coda: await chat.inCoda(parametro(c, 0), c.req.signal) })
       },
     ],
     [

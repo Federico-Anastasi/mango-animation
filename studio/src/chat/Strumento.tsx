@@ -66,9 +66,25 @@ export function Strumento({ parte, lavora }: { parte: ParteStrumento; lavora: bo
           <IconaChat nome={icona} dimensione={16} />
         </span>
         <span className={styles.etichetta}>{etichetta}</span>
-        {inCorso && <span className={styles.stato}>{trascorso !== null && trascorso >= DA_QUANDO_SI_CONTA ? t("in corso · {tempo}", "in progress · {tempo}", { tempo: tempoLeggibile(trascorso, false) }) : t("in corso…", "in progress…")}</span>}
-        {fallito && <span className={styles.stato}>{t("non riuscito", "failed")}{lungo && trascorso !== null ? ` · ${durataAlSecondo(trascorso)}` : ""}</span>}
-        {lungo && !fallito && trascorso !== null && <span className={styles.durata}>{durataAlSecondo(trascorso)}</span>}
+        {inCorso && (
+          <span className={styles.esito} data-esito="corso">
+            {trascorso !== null && trascorso >= DA_QUANDO_SI_CONTA ? t("in corso · {tempo}", "in progress · {tempo}", { tempo: tempoLeggibile(trascorso, false) }) : t("in corso…", "in progress…")}
+          </span>
+        )}
+        {fallito && (
+          <span className={styles.esito} data-esito="fallito">
+            {t("non riuscito", "failed")}
+            {lungo && trascorso !== null ? ` · ${durataAlSecondo(trascorso)}` : ""}
+          </span>
+        )}
+        {!inCorso && !fallito && (
+          <span className={styles.esito} data-esito="riuscito">
+            {lungo && trascorso !== null && durataAlSecondo(trascorso)}
+            <span role="img" aria-label={t("riuscito", "succeeded")} className={styles.segno}>
+              <IconaChat nome="spunta" dimensione={14} />
+            </span>
+          </span>
+        )}
         <span className={styles.freccia}>
           <IconaChat nome={aperto ? "su" : "giu"} dimensione={14} />
         </span>

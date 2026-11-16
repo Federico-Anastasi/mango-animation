@@ -4,23 +4,52 @@
 import { deflateSync } from "node:zlib"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { ComandoChat, ContestoUsato, DomandaChat, ImpostazioniChat, LivelloEffort, Messaggio, ModelloChat, Parte, Richiesta, StatoConversazione, TaskChat, VoceConversazione } from "../src/chat/tipi"
+import type { ComandoChat, ContestoUsato, DomandaChat, ImpostazioniChat, LivelloDelModello, LivelloEffort, Messaggio, ModelloChat, MotoreChat, Parte, Richiesta, StatoConversazione, TaskChat, VoceConversazione } from "../src/chat/tipi"
 import type { Evento } from "../src/tipi"
 
 export interface DipendenzeChat {
   archivio: string
   emetti: (evento: Evento) => void
   mettiInCoda: (compito: { slug: string | null; comando: string }) => string
+  /** Codex è fra i motori della chat. */
+  codexAcceso: () => boolean
 }
 
-const TUTTI: LivelloEffort[] = ["low", "medium", "high", "xhigh", "max"]
+const livelli = (...ids: string[]): LivelloDelModello[] => ids.map((id) => ({ id, nome: NOMI_EFFORT[id]! }))
+const NOMI_EFFORT: Record<string, { it: string; en: string }> = {
+  low: { it: "Basso", en: "Low" },
+  medium: { it: "Medio", en: "Medium" },
+  high: { it: "Alto", en: "High" },
+  xhigh: { it: "Molto alto", en: "Very high" },
+  max: { it: "Massimo", en: "Maximum" },
+  ultra: { it: "Ultra", en: "Ultra" },
+}
+const TUTTI = livelli("low", "medium", "high", "xhigh", "max")
+
+const SENZA_CAPACITA = { effort: false, comandi: false, ferma_lavoro: false, in_background: false, immagini_negli_esiti: false, controllo_remoto: false, sottoagenti: false, browser: false }
+const MOTORI: MotoreChat[] = [
+  { id: "claude-code", nome: "Claude", nelle_frasi: null, prefisso: null, pronto: true, modello_grande: null, capacita: { effort: true, comandi: true, ferma_lavoro: true, in_background: true, immagini_negli_esiti: true, controllo_remoto: true, sottoagenti: true, browser: true } },
+  { id: "mango-code", nome: "Mango Code", nelle_frasi: "Mango Code", prefisso: "mango-code/", pronto: true, modello_grande: null, capacita: { ...SENZA_CAPACITA, comandi: true } },
+  { id: "codex", nome: "Codex", nelle_frasi: "Codex", prefisso: "codex/", pronto: true, modello_grande: "codex/gpt-6-terra", capacita: { ...SENZA_CAPACITA, effort: true, comandi: true, ferma_lavoro: true, immagini_negli_esiti: true } },
+]
+
 const MODELLI: ModelloChat[] = [
-  { id: "default", nome: "Predefinito (Sonnet 5.5)", descrizione: "Efficient for routine tasks", effort: TUTTI, reale: "claude-sonnet-5-5" },
-  { id: "opus", nome: "Opus 5.5", descrizione: "Best for everyday, complex tasks", effort: TUTTI, reale: "claude-opus-5-5" },
-  { id: "sonnet", nome: "Sonnet 5.5", descrizione: "Efficient for routine tasks", effort: TUTTI, reale: "claude-sonnet-5-5" },
-  { id: "claude-opus-4-6", nome: "Opus 4.6", descrizione: "Older", effort: ["low", "medium", "high", "max"], reale: "claude-opus-4-6" },
-  { id: "claude-haiku-4-5-20251001", nome: "Haiku 4.5", descrizione: "Fastest", effort: [], reale: "claude-haiku-4-5-20251001" },
-  { id: "mango-code/toq", nome: "Mango Code · TOQ-v1", descrizione: "Mango Code, sul computer · 64k di contesto · non vede le immagini", effort: [], reale: "mango-code/toq" },
+  { id: "default", nome: "Predefinito (Sonnet 5.5)", descrizione: "Efficient for routine tasks", effort: TUTTI, reale: "claude-sonnet-5-5", motore: "claude-code" },
+  { id: "opus", nome: "Opus 5.5", descrizione: "Best for everyday, complex tasks", effort: TUTTI, reale: "claude-opus-5-5", motore: "claude-code" },
+  { id: "sonnet", nome: "Sonnet 5.5", descrizione: "Efficient for routine tasks", effort: TUTTI, reale: "claude-sonnet-5-5", motore: "claude-code" },
+  { id: "claude-opus-4-6", nome: "Opus 4.6", descrizione: "Older", effort: livelli("low", "medium", "high", "max"), reale: "claude-opus-4-6", motore: "claude-code" },
+  { id: "claude-haiku-4-5-20251001", nome: "Haiku 4.5", descrizione: "Fastest", effort: [], reale: "claude-haiku-4-5-20251001", motore: "claude-code" },
+  { id: "mango-code/toq", nome: "Mango Code · TOQ-v1", descrizione: "Mango Code, sul computer · 64k di contesto · non vede le immagini", effort: [], reale: "mango-code/toq", motore: "mango-code" },
+  { id: "codex/gpt-6-luna", nome: "gpt-6-luna", descrizione: "Codex, piccolo e veloce", effort: livelli("low", "medium", "high"), reale: "codex/gpt-6-luna", motore: "codex" },
+  { id: "codex/gpt-6-terra", nome: "gpt-6-terra", descrizione: "Codex, per i lavori lunghi", effort: livelli("low", "medium", "high", "ultra"), reale: "codex/gpt-6-terra", motore: "codex" },
+]
+
+/** Il motore di un modello dell'elenco; senza modello, quello predefinito. */
+const motoreDi = (modello: string | null): string => MODELLI.find((m) => m.id === (modello ?? "default") || m.reale === modello)?.motore ?? "claude-code"
+
+const COMANDI_CODEX: ComandoChat[] = [
+  { nome: "monta", descrizione: "Edits or re-edits a video of the archive", argomenti: "", alias: [] },
+  { nome: "controlla", descrizione: "Checks an edited video before sending it to the creator", argomenti: "", alias: [] },
 ]
 
 const COMANDI: ComandoChat[] = [
@@ -129,7 +158,11 @@ Le ho corrette in \`materiali/carosello.html\` e riscritto con:
 python -m motore carosello carosello-dispensa
 \`\`\`
 
-Il video \`carosello-dispensa\` è in \`archivio/video/carosello-dispensa/uscite/slide-1.png\`: ora gli avvisi sono zero.`
+Il video \`carosello-dispensa\` è in \`archivio/video/carosello-dispensa/uscite/slide-1.png\`: ora gli avvisi sono zero.
+
+- [x] titolo della slide 4 stretto
+- [x] blocco della slide 7 alzato
+- [ ] didascalia da scrivere`
 
 const mostra = (testo: string): Parte => ({ tipo: "testo", testo })
 
@@ -218,7 +251,7 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
   const dormi = (ms: number) => new Promise((ok) => setTimeout(ok, ms))
   const emetti = (id: string, resto: object) => d.emetti({ tipo: "chat", id, ...resto } as Evento)
   const attiva = (c: Conversazione) => c.chiusa !== true && (c.stato !== "pronta" || c.accesa === true)
-  const elenco = (): VoceConversazione[] => [...conversazioni.values()].sort((a, b) => b.aggiornata.localeCompare(a.aggiornata)).map((c) => ({ id: c.id, titolo: c.titolo, aggiornata: c.aggiornata, attiva: attiva(c) }))
+  const elenco = (): VoceConversazione[] => [...conversazioni.values()].sort((a, b) => b.aggiornata.localeCompare(a.aggiornata)).map((c) => ({ id: c.id, titolo: c.titolo, aggiornata: c.aggiornata, attiva: attiva(c), motore: motoreDi(c.modello) }))
   // Il finto non somma i giri: il tempo di lavoro è quello del giro in corso.
   const lavoroDi = (c: Conversazione) => ({ ms: 0, da: c.stato === "lavora" ? c.lavoraDa : null })
   const imposta = (c: Conversazione, stato: StatoConversazione) => {
@@ -284,6 +317,37 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
             mostra("Guardo la cartella dei video."),
             { tipo: "strumento", id: "mc-1", nome: "LS", ingresso: { path: "archivio/video" }, esito: "ricetta-in-diretta\ncarosello-dispensa\nvariante-ricetta", iniziato: fa(44), finito: fa(43) },
             { tipo: "strumento", id: "mc-2", nome: "Read", ingresso: { file_path: "archivio/video/ricetta-in-diretta/scheda.json" }, iniziato: fa(5) },
+          ],
+        },
+      ],
+    }
+  }
+
+  // Una conversazione di Codex che lavora: nome e segno nella testata e nelle frasi, il menu dell'effort coi suoi livelli, nessun «Manda in background» pur con un comando in primo piano.
+  function creaCodex(): Conversazione {
+    return {
+      id: "codex",
+      titolo: "Rendere le slide e controllare gli avvisi",
+      aggiornata: new Date().toISOString(),
+      stato: "lavora",
+      lavoraDa: fa(58),
+      fermata: false,
+      modello: "codex/gpt-6-terra",
+      effort: "ultra",
+      contestoUsato: { usati: 61_000, totale: 258_400 },
+      inAttesa: [],
+      task: [{ id: "cx-fg", tipo: "comando", descrizione: "Rende le 9 slide del carosello della dispensa", iniziato: fa(30), background: false }],
+      messaggi: [
+        { id: "cx1", ruolo: "utente", quando: fa(70), parti: [mostra("Rendi le slide del carosello della dispensa e dimmi se gli avvisi sono zero.")] },
+        {
+          id: "cx2",
+          ruolo: "claude",
+          quando: fa(65),
+          parti: [
+            mostra("Guardo la scheda del video, poi rendo le slide e leggo gli avvisi."),
+            { tipo: "strumento", id: "cx-a", nome: "mcp__video__video_leggi", ingresso: { slug: "carosello-dispensa" }, esito: '{"titolo":"Carosello della dispensa","formato":"carosello","slide":9}', iniziato: fa(64), finito: fa(63) },
+            { tipo: "strumento", id: "cx-b", nome: "mcp__video__slide", ingresso: { slug: "carosello-dispensa", slide: [4] }, esito: "1 slide", immagini: [{ media_type: "image/png", data: slideFinta(4) }], iniziato: fa(60), finito: fa(55) },
+            { tipo: "strumento", id: "cx-c", nome: "Bash", ingresso: { command: "python -m motore carosello carosello-dispensa", description: "Rende le slide" }, iniziato: fa(30) },
           ],
         },
       ],
@@ -494,8 +558,9 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
       void rispondi(c, dati.testo ?? "")
       return json({ id: c.id }, 201)
     }
+    if (percorso === "/api/chat/motori" && metodo === "GET") return json(MOTORI.filter((m) => m.id !== "codex" || d.codexAcceso()))
     if (percorso === "/api/chat/modelli" && metodo === "GET") return json(MODELLI)
-    if (percorso === "/api/chat/comandi" && metodo === "GET") return json(COMANDI)
+    if (percorso === "/api/chat/comandi" && metodo === "GET") return json({ "claude-code": COMANDI, codex: COMANDI_CODEX }[url.searchParams.get("motore") ?? ""] ?? [])
     if (percorso === "/api/chat/allegati" && metodo === "POST") {
       const nome = decodeURIComponent(richiesta.headers.get("x-nome") ?? "allegato").replace(/[^\w.-]+/g, "_")
       const relativo = `chat/allegati/${++contatore}-${nome}`
@@ -509,10 +574,11 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
     if (idUna === "tempi" && metodo === "GET" && !una[2]) conversazioni.set("tempi", creaTempi())
     if (idUna === "background" && metodo === "GET" && !una[2]) conversazioni.set("background", creaBackground())
     if (idUna === "mango" && metodo === "GET" && !una[2]) conversazioni.set("mango", creaMango())
+    if (idUna === "codex" && metodo === "GET" && !una[2]) conversazioni.set("codex", creaCodex())
     if (idUna === "primogiro" && metodo === "GET" && !una[2]) conversazioni.set("primogiro", creaPrimoGiroAMeta())
     const c = conversazioni.get(idUna)
     if (!c) return errore(404, "Questa conversazione non c'è.")
-    if (!una[2] && metodo === "GET") return json({ id: c.id, titolo: c.titolo, attiva: attiva(c), stato: c.stato, lavora_da: c.lavoraDa, lavoro: lavoroDi(c), modello: c.modello, effort: c.effort, messaggi: c.messaggi, in_attesa: c.inAttesa, task: c.task, contesto_usato: c.contestoUsato ?? null, primo_giro: c.primoGiro === true })
+    if (!una[2] && metodo === "GET") return json({ id: c.id, titolo: c.titolo, attiva: attiva(c), stato: c.stato, lavora_da: c.lavoraDa, lavoro: lavoroDi(c), motore: motoreDi(c.modello), modello: c.modello, effort: c.effort, messaggi: c.messaggi, in_attesa: c.inAttesa, task: c.task, contesto_usato: c.contestoUsato ?? null, primo_giro: c.primoGiro === true })
     if (una[2] === "messaggi" && metodo === "POST") {
       const dati = await corpo<{ testo: string; allegati?: Array<{ percorso: string }> }>()
       aggiungiMessaggioDelCreator(c, dati)
@@ -524,7 +590,7 @@ export function creaChatFinta(d: DipendenzeChat): (richiesta: Request, url: URL)
       if (dati.modello !== undefined) c.modello = dati.modello
       if (dati.effort !== undefined) c.effort = dati.effort
       const livelli = MODELLI.find((m) => m.id === (c.modello ?? "default") || m.reale === c.modello)?.effort ?? []
-      if (c.effort !== null && !livelli.includes(c.effort)) c.effort = null
+      if (c.effort !== null && !livelli.some((l) => l.id === c.effort)) c.effort = null
       emetti(c.id, { evento: "impostazioni", modello: c.modello, effort: c.effort })
       return json({ modello: c.modello, effort: c.effort })
     }

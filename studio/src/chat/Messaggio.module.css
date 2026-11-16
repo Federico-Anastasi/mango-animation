@@ -1,30 +1,29 @@
 .claude {
   min-width: 0;
-  font-size: 0.93rem;
+  font-size: 13px;
 }
 
 .fa {
   align-self: flex-end;
-  max-width: 92%;
+  max-width: 90%;
   min-width: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--filo);
-  border-radius: 8px;
-  background: var(--carta-scura);
+  padding: 9px 12px;
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-raised);
 }
 
 .testoFa {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 0.93rem;
+  font-size: 13px;
 }
 
 .allegati {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.4rem;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .allegati > button {
@@ -32,65 +31,71 @@
 }
 
 .nota {
-  margin: 0.25rem 0 0;
-  color: var(--grigio);
-  font-size: 0.78rem;
+  margin: 4px 0 0;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .file {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 6px;
   max-width: 100%;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  font-size: 0.8rem;
+  padding: 4px 8px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-surface);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 .pensiero {
-  margin: 0.2rem 0;
-  color: var(--grigio);
-  font-size: 0.84rem;
+  margin: 4px 0;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .pensiero summary {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 6px;
   cursor: pointer;
 }
 
 .pensiero p {
-  margin: 0.3rem 0 0;
-  padding-left: 0.8rem;
-  border-left: 2px solid var(--filo);
+  margin: 4px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--mango-line);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .fine {
-  margin: 0.45rem 0 0;
-  color: var(--grigio);
-  font-size: 0.78rem;
+  margin: 8px 0 0;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .fineErrore {
   display: flex;
   align-items: flex-start;
-  gap: 0.4rem;
-  margin: 0.45rem 0 0;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--rosso);
-  border-radius: 6px;
-  color: var(--rosso);
-  font-size: 0.86rem;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--mango-error);
+  border-radius: var(--mango-radius-control);
+  color: var(--mango-error);
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
 .fineErrore svg {
   flex: 0 0 auto;
-  margin-top: 0.15rem;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .pensiero summary {
+    min-height: 44px;
+  }
 }

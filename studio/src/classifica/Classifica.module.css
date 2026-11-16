@@ -7,8 +7,8 @@
 .sotto {
   margin: 0;
   max-width: 70ch;
-  color: var(--grigio);
-  font-size: 0.9rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .mio {
@@ -22,14 +22,15 @@
   justify-content: space-between;
   gap: 0.4rem 1.5rem;
   padding: 0.6rem 0.9rem;
-  border: 2px solid var(--inchiostro);
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
 }
 
 .mioNome {
-  font-family: var(--font-display);
+  font-family: var(--mango-font-title);
   font-weight: 700;
-  color: var(--rosso);
+  color: var(--mango-text);
 }
 
 .mioNumeri {
@@ -41,30 +42,30 @@
 
 .mioNumeri dt,
 .numeri dt {
-  color: var(--grigio);
-  font-size: 0.7rem;
+  color: var(--mango-text-muted);
+  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .mioNumeri dd {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: 1rem;
+  font-family: var(--mango-font-code);
+  font-size: 14px;
 }
 
 .mioNumeri small {
-  color: var(--grigio);
-  font-size: 0.75rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .accesa dt {
-  color: var(--inchiostro);
+  color: var(--mango-text);
   font-weight: 600;
 }
 
 .accesa dd {
-  color: var(--rosso);
+  color: var(--mango-action-text);
 }
 
 .ordina {
@@ -76,36 +77,36 @@
 
 .ordina > span {
   margin-right: 0.25rem;
-  color: var(--grigio);
-  font-size: 0.7rem;
+  color: var(--mango-text-muted);
+  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .ordina button {
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--filo);
-  background: transparent;
-  color: var(--inchiostro);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  padding: 7px 11px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: none;
+  color: var(--mango-text-muted);
+  font: 500 13px/1 var(--mango-font-text);
   cursor: pointer;
 }
 
 .ordina button:hover {
-  border-color: var(--inchiostro);
+  color: var(--mango-text);
 }
 
 .ordina button[aria-pressed="true"] {
-  border-color: var(--inchiostro);
-  background: var(--inchiostro);
-  color: var(--carta);
+  background: var(--mango-raised);
+  color: var(--mango-text);
+  font-weight: 600;
 }
 
 .lista {
   margin: 0;
   padding: 0;
-  border-top: 2px solid var(--inchiostro);
+  border-top: 1px solid var(--mango-line);
   list-style: none;
 }
 
@@ -115,20 +116,20 @@
   gap: 0.25rem 1rem;
   align-items: baseline;
   padding: 0.7rem 0.6rem;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
 }
 
 .io {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .posto {
-  font-family: var(--font-mono);
-  color: var(--grigio);
+  font-family: var(--mango-font-code);
+  color: var(--mango-text-muted);
 }
 
 .lista li:nth-child(-n + 3) .posto {
-  color: var(--rosso);
+  color: var(--mango-text);
 }
 
 .chi {
@@ -136,26 +137,26 @@
 }
 
 .chi a {
-  font-family: var(--font-display);
+  font-family: var(--mango-font-title);
   font-weight: 700;
-  color: var(--inchiostro);
+  color: var(--mango-text);
   text-decoration: none;
   overflow-wrap: anywhere;
 }
 
 .chi a:hover {
-  color: var(--blu);
+  color: var(--mango-action-text);
   text-decoration: underline;
 }
 
 .io .chi a {
-  color: var(--rosso);
+  color: var(--mango-action-text);
 }
 
 .chi p {
   margin: 0.15rem 0 0;
-  color: var(--grigio);
-  font-size: 0.9rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .numeri {
@@ -168,23 +169,13 @@
 
 .numeri dd {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--mango-font-code);
+  font-size: 13px;
 }
 
 .come {
-  padding: 1rem 1.1rem;
-  background: var(--carta-scura);
-  color: var(--grigio);
-  font-size: 0.88rem;
-}
-
-.come h2 {
-  margin: 0 0 0.5rem;
-  color: var(--inchiostro);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .come p {
@@ -207,6 +198,6 @@
   }
 
   .numeri dt {
-    font-size: 0.62rem;
+    font-size: 11px;
   }
 }

@@ -1,7 +1,9 @@
 // La dettatura: il ponte che l'app Mango Animation mette nella pagina (`window.__MANGO_ANIMATION__.voce`) e il
 // testo che ne arriva. Nel browser il ponte non c'è, e il microfono non compare.
 import { useCallback, useEffect, useRef, useState } from "react"
+import type { PonteAiuto } from "../impostazioni/ponteAiuto"
 import type { PonteCartella } from "../impostazioni/cartellaDati"
+import type { PonteGrandezza } from "../impostazioni/ponteGrandezza"
 import type { PonteComputer } from "../motori/computer"
 import type { PonteSegnalazione } from "../segnalazione/ponte"
 import type { PonteAppunti } from "./appunti"
@@ -26,7 +28,7 @@ export interface PonteVoce {
 
 declare global {
   interface Window {
-    __MANGO_ANIMATION__?: { voce?: PonteVoce; cartellaDati?: PonteCartella; appunti?: PonteAppunti; computer?: PonteComputer; segnalazione?: PonteSegnalazione; trascinamento?: PonteTrascinamento }
+    __MANGO_ANIMATION__?: { voce?: PonteVoce; cartellaDati?: PonteCartella; appunti?: PonteAppunti; computer?: PonteComputer; grandezza?: PonteGrandezza; aiuto?: PonteAiuto; segnalazione?: PonteSegnalazione; trascinamento?: PonteTrascinamento }
   }
 }
 

@@ -71,7 +71,7 @@ export function CartolineDiStile({ stile, partenze, onUsa }: { stile: Stile; par
             <AnteprimaDelCartello stile={conAspetto(stile, p)} />
             <h3>{p.nome[lingua()]}</h3>
             <p>{p.descrizione[lingua()]}</p>
-            <Bottone variante={inUso ? "vuoto" : "pieno"} disabled={inUso} onClick={() => onUsa(p)} etichetta={t("Usa lo stile {nome}", "Use the {nome} style", { nome: p.nome[lingua()] })}>
+            <Bottone disabled={inUso} onClick={() => onUsa(p)} etichetta={t("Usa lo stile {nome}", "Use the {nome} style", { nome: p.nome[lingua()] })}>
               {inUso ? t("In uso", "In use") : t("Usa questo", "Use this one")}
             </Bottone>
           </li>

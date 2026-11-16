@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react"
+import { Bottone } from "../comuni/Bottone"
+import { EtichettaDiStato } from "../comuni/EtichettaDiStato"
 import { Caricamento, Errore } from "../comuni/Stati"
 import { Compositore } from "./Compositore"
 import { Conversazione } from "./Conversazione"
@@ -8,11 +10,12 @@ import { ContestoUsato } from "./ContestoUsato"
 import { EtichettaMotore } from "./EtichettaMotore"
 import { Impostazioni } from "./Impostazioni"
 import { IconaChat } from "./icone"
-import { motoreDellaChat, motoreDi, type MotoreChat } from "./motore"
+import { useMotoreDellaChat } from "./motore"
 import { negozio, useChat, type StatoNegozio } from "./negozio"
 import { avviaPrimoGiro, saltaPrimoGiro, usePrimoGiroInCorso } from "./primoGiro"
 import { chiudiChat, LARGHEZZA_MINIMA, ripristinaLarghezzaChat, scegliLarghezzaChat, SOGLIA_STRETTA, usePannelloChat } from "./pannello"
 import { ponteTrascinamento } from "./trascinamento"
+import type { MotoreChat } from "./tipi"
 import { useAllegati } from "./useAllegati"
 import styles from "./PannelloChat.module.css"
 import { t } from "../lingua"
@@ -28,8 +31,8 @@ const ascoltaFinestra = (ascolta: () => void) => {
   return () => window.removeEventListener("resize", ascolta)
 }
 
-/** La finestra è stretta come un telefono: la chat prende tutto lo schermo. */
-const useStretta = (): boolean => useSyncExternalStore(ascoltaFinestra, () => window.innerWidth <= SOGLIA_STRETTA)
+/** Quanto è larga la finestra adesso: cambia anche con la grandezza scelta nelle impostazioni. */
+const useFinestra = (): number => useSyncExternalStore(ascoltaFinestra, () => window.innerWidth)
 
 const massimaPer = (finestra: number) => Math.max(LARGHEZZA_MINIMA, Math.min(LARGHEZZA_MASSIMA, finestra - LARGHEZZA_PAGINA_MINIMA))
 
@@ -44,6 +47,18 @@ function nomeStato(chat: StatoNegozio): string {
       return t("Aspetta una tua risposta", "Waiting for your reply")
     case "errore":
       return t("Si è interrotta", "Stopped")
+  }
+}
+
+function coloreDelloStato(chat: StatoNegozio): "pronto" | "in-corso" | "errore" | undefined {
+  switch (chat.stato) {
+    case "pronta":
+      return nomeStato(chat) === t("Chiusa", "Closed") ? undefined : "pronto"
+    case "lavora":
+    case "aspetta":
+      return "in-corso"
+    case "errore":
+      return "errore"
   }
 }
 
@@ -95,29 +110,34 @@ function Maniglia({ larghezza }: { larghezza: number }) {
   )
 }
 
-function Vuota({ motore, onScelta }: { motore: MotoreChat; onScelta: () => void }) {
-  const mango = motore.id === "mango-code"
+function Vuota({ motore, onScelta }: { motore: MotoreChat | null; onScelta: () => void }) {
+  const chi = motore?.nelle_frasi
   return (
     <div className={styles.vuota}>
-      <h2>{mango ? t("Parla con Mango Code", "Talk to Mango Code") : t("Cosa facciamo?", "What shall we do?")}</h2>
+      <h2>{chi ? t("Parla con {chi}", "Talk to {chi}", { chi }) : t("Cosa facciamo?", "What shall we do?")}</h2>
       <p>
-        {mango
-          ? t("È Mango Code, coi modelli sul computer: lavora sui tuoi file e monta i video. Scrivi qui sotto.", "This is Mango Code, with the models on your computer: it works on your files and edits your videos. Write below.")
-          : t("Lavora sui tuoi file e monta i video, con il Claude Code installato sul computer. Scrivi qui sotto.", "It works on your files and edits your videos, using the Claude Code installed on your computer. Write below.")}
+        {chi
+          ? t("È {chi}: lavora sui tuoi file e monta i video. Scrivi qui sotto.", "This is {chi}: it works on your files and edits your videos. Write below.", { chi })
+          : motore === null
+            ? t("Lavora sui tuoi file e monta i video. Scrivi qui sotto.", "It works on your files and edits your videos. Write below.")
+            : t("Lavora sui tuoi file e monta i video, con il Claude Code installato sul computer. Scrivi qui sotto.", "It works on your files and edits your videos, using the Claude Code installed on your computer. Write below.")}
       </p>
       <h3>{t("Riprendi una conversazione", "Pick up a conversation")}</h3>
       <Elenco corrente={null} massimo={5} onScelta={onScelta} />
-      <button type="button" className={styles.ripeti} onClick={() => avviaPrimoGiro(true)}>
+      <Bottone variante="minore" onClick={() => avviaPrimoGiro(true)}>
         {t("Rifai il primo giro", "Redo the first round")}
-      </button>
+      </Bottone>
     </div>
   )
 }
 
 export function PannelloChat() {
   const chat = useChat()
-  const { larghezza } = usePannelloChat()
-  const stretta = useStretta()
+  const finestra = useFinestra()
+  // La larghezza scelta su una finestra più larga non toglie alla pagina il suo minimo: qui si stringe, e torna quando c'è posto.
+  const larghezza = Math.min(usePannelloChat().larghezza, massimaPer(finestra))
+  // Stretta come un telefono, la chat prende tutto lo schermo.
+  const stretta = finestra <= SOGLIA_STRETTA
   const [lista, setLista] = useState(false)
   const [erroreChiusura, setErroreChiusura] = useState<string | null>(null)
   const [trascina, setTrascina] = useState(false)
@@ -177,7 +197,7 @@ export function PannelloChat() {
   }
 
   const primoGiro = usePrimoGiroInCorso()
-  const motore = motoreDellaChat(chat)
+  const motore = useMotoreDellaChat(chat)
   const vuota = chat.id === null && chat.messaggi.length === 0 && chat.inviati.length === 0
   const nonAperta = chat.id !== null && chat.messaggi.length === 0 && chat.inviati.length === 0 && (!chat.caricato || chat.errore !== null)
   const titolo = chat.id === null ? t("Nuova conversazione", "New conversation") : chat.titolo || t("Conversazione", "Conversation")
@@ -209,9 +229,9 @@ export function PannelloChat() {
             <span className={styles.sotto}>
               {motore && <EtichettaMotore motore={motore} />}
               <span className={styles.stato} data-stato={chat.stato}>
-                {nomeStato(chat)}
+                <EtichettaDiStato stato={coloreDelloStato(chat)}>{nomeStato(chat)}</EtichettaDiStato>
                 {(chat.lavoro.ms > 0 || chat.lavoro.da !== null) && (
-                  <span title={t("Il tempo di lavoro di Claude in tutta la conversazione, senza le attese", "Claude's working time across the whole conversation, without the waits")}>
+                  <span title={motore?.nelle_frasi ? t("Il tempo di lavoro di {chi} in tutta la conversazione, senza le attese", "{chi}'s working time across the whole conversation, without the waits", { chi: motore.nelle_frasi }) : t("Il tempo di lavoro in tutta la conversazione, senza le attese", "Working time across the whole conversation, without the waits")}>
                     {" · "}
                     <Cronometro da={chat.lavoro.da} prima={chat.lavoro.ms} />
                   </span>
@@ -245,10 +265,10 @@ export function PannelloChat() {
         </header>
         {primoGiro && (
           <div className={styles.primoGiro}>
-            <span>{t("Primo giro: Claude ti fa qualche domanda.", "First round: Claude asks you a few questions.")}</span>
-            <button type="button" onClick={saltaPrimoGiro} aria-label={t("Salta il primo giro", "Skip the first round")}>
+            <span>{motore?.nelle_frasi ? t("Primo giro: {chi} ti fa qualche domanda.", "First round: {chi} asks you a few questions.", { chi: motore.nelle_frasi }) : t("Primo giro: qualche domanda per te.", "First round: a few questions for you.")}</span>
+            <Bottone variante="minore" onClick={saltaPrimoGiro} etichetta={t("Salta il primo giro", "Skip the first round")}>
               {t("Salta", "Skip")}
-            </button>
+            </Bottone>
           </div>
         )}
         {lista ? (
@@ -257,7 +277,7 @@ export function PannelloChat() {
           </div>
         ) : vuota ? (
           <div className={styles.scorri}>
-            <Vuota motore={motoreDi(chat.modello)} onScelta={() => setLista(false)} />
+            <Vuota motore={motore} onScelta={() => setLista(false)} />
           </div>
         ) : nonAperta ? (
           <div className={styles.scorri}>{chat.errore ? <Errore messaggio={chat.errore} onRiprova={() => void negozio.carica()} /> : <Caricamento etichetta={t("Apro la conversazione…", "Opening the conversation…")} />}</div>

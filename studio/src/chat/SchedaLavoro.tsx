@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { api } from "../api"
+import { Bottone } from "../comuni/Bottone"
 import { Stima } from "../comuni/Stima"
 import { NOME_COMANDO } from "../cornice/PannelloLavori"
 import { elencoVideo, useCopia } from "../dati"
@@ -39,9 +40,9 @@ export function SchedaLavoro({ lavoro, stato }: { lavoro: Lavoro; stato: "in cor
           {NOME_COMANDO[lavoro.comando] ?? lavoro.comando} · {titolo}
         </span>
         {stato !== "finito" && (
-          <button type="button" className={styles.ferma} onClick={ferma}>
+          <Bottone variante={stato === "in coda" ? "distrugge" : "normale"} onClick={ferma}>
             {stato === "in coda" ? t("Togli", "Remove") : t("Ferma", "Stop")}
-          </button>
+          </Bottone>
         )}
       </div>
       <p className={styles.riga}>

@@ -1,0 +1,75 @@
+.menu {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.menu select {
+  appearance: none;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 8px 32px 8px 10px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font: 400 14px/1.2 var(--mango-font-text);
+  text-overflow: ellipsis;
+}
+
+.menu::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--mango-text-muted);
+  border-bottom: 2px solid var(--mango-text-muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.menu select:disabled {
+  opacity: 0.5;
+}
+
+.campo,
+.area {
+  width: 18rem;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font: 400 14px/1.2 var(--mango-font-text);
+}
+
+.campo {
+  min-height: 36px;
+}
+
+.area {
+  min-height: 72px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.campo:focus,
+.area:focus {
+  border-color: var(--mango-action-text);
+}
+
+.area {
+  width: 26rem;
+}
+
+@container pagina (max-width: 639.98px) {
+  .campo,
+  .area,
+  .menu,
+  .menu select {
+    width: 100%;
+  }
+}

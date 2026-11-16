@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { delimiter, join } from "node:path"
 import type { Options } from "@anthropic-ai/claude-agent-sdk"
-import { aperturaDelMetodo, conIlClaudeDelCreator, serverVideo } from "../src/chat/metodo"
-import type { FunzioneQuery, QueryChat } from "../src/chat/tipi"
+import { aperturaDelMetodo, conIlClaudeDelCreator } from "../src/chat/claude/metodo"
+import type { FunzioneQuery, QueryChat } from "../src/chat/claude/query"
+import { serverVideo } from "../src/chat/metodo"
 
 describe("come il metodo del prodotto arriva a Claude, che lavora nella cartella di lavoro", () => {
   test("il codice si aggiunge come cartella in più, con le sue regole, e Python lo trova", () => {

@@ -1,9 +1,10 @@
 import { useEffect, useId, useState } from "react"
+import { Bottone } from "../comuni/Bottone"
 import { useCopia } from "../dati"
-import { dividiModelli, MODELLO_PREDEFINITO, modelliChat, modelliOfferti, modelloScelto, nomeEffort, nomeFuoriElenco } from "./modelli"
-import { motoreDellaChat, motoreDi, MOTORE_CHAT } from "./motore"
+import { dividiModelli, MODELLO_PREDEFINITO, modelliChat, modelliOfferti, modelloScelto, nomeFuoriElenco, nomeLivello } from "./modelli"
+import { motoreDellaChat, motoriChat } from "./motore"
 import { negozio, type StatoNegozio } from "./negozio"
-import type { LivelloEffort, ModelloChat } from "./tipi"
+import type { ModelloChat, MotoreChat } from "./tipi"
 import styles from "./Impostazioni.module.css"
 import { t } from "../lingua"
 
@@ -39,37 +40,45 @@ export function apriMenu(quale: NomeMenu): boolean {
 
 /** I due menu della testata: il modello e l'effort della conversazione aperta, che diventano la scelta delle nuove. Una conversazione iniziata resta del suo motore: offre solo i suoi modelli. */
 export function Impostazioni({ chat }: { chat: StatoNegozio }) {
-  const { dato: modelli, errore } = useCopia(modelliChat)
+  const { dato: modelli, errore: erroreModelli } = useCopia(modelliChat)
+  const { dato: motori, errore: erroreMotori } = useCopia(motoriChat)
+  const errore = erroreModelli ?? erroreMotori
   const idModello = useId()
   const idEffort = useId()
-  const motore = motoreDellaChat(chat)
-  const offerti = modelliOfferti(modelli ?? [], chat)
-  const motoriOfferti = [...new Map(offerti.map((m) => [motoreDi(m.id).id, motoreDi(m.id)])).values()]
+  const motore = motoreDellaChat(chat, motori ?? [], modelli ?? [])
+  const offerti = modelliOfferti(modelli ?? [], chat, motore)
+  const motoriOfferti = (motori ?? []).filter((m) => offerti.some((o) => o.motore === m.id))
   const scelto = modelloScelto(offerti, chat.modello)
-  const livelli = scelto?.effort ?? []
+  const livelli = motore?.capacita.effort ? (scelto?.effort ?? []) : []
   const { principali, altri } = dividiModelli(offerti)
-  const [apertiAltri, setApertiAltri] = useState(false)
-  // Il modello scelto non sparisce mai dal menu: se sta fra gli «Altri», gli «Altri» restano aperti.
-  const mostraAltri = apertiAltri || (scelto !== undefined && altri.includes(scelto))
+  const [apertiAltri, setApertiAltri] = useState<string[]>([])
+  // Il modello scelto non sparisce mai dal menu: se sta fra gli «Altri» del suo motore, quelli restano aperti.
+  const mostraAltri = (id: string) => apertiAltri.includes(id) || (scelto !== undefined && scelto.motore === id && altri.includes(scelto))
 
-  // Un modello ricordato che Claude Code non offre più non deve bloccare la prima conversazione.
+  // Un modello ricordato che il motore non offre più non deve bloccare la prima conversazione.
   useEffect(() => {
-    if (modelli && chat.id === null && chat.modello !== null && !modelli.some((m) => m.id === chat.modello)) void negozio.scegli({ modello: MODELLO_PREDEFINITO })
+    if (modelli && chat.id === null && chat.modello !== null && !modelli.some((m) => m.id === chat.modello)) void negozio.scegli({ modello: modelli.some((m) => m.id === MODELLO_PREDEFINITO) ? MODELLO_PREDEFINITO : null })
   }, [modelli, chat.id, chat.modello])
 
   useEffect(() => {
-    if (apertiAltri) apriMenu("modello")
+    if (apertiAltri.length > 0) apriMenu("modello")
   }, [apertiAltri])
 
-  if (!modelli) {
+  if (!modelli || !motori) {
     return (
       <p className={styles.nota} role={errore ? "alert" : undefined}>
         {errore ? (
           <>
             {t("I modelli non si leggono: {errore}", "The models cannot be read: {errore}", { errore })}{" "}
-            <button type="button" className={styles.riprova} onClick={() => void modelliChat.rileggi()}>
+            <Bottone
+              variante="minore"
+              onClick={() => {
+                void modelliChat.rileggi()
+                void motoriChat.rileggi()
+              }}
+            >
               {t("Riprova", "Try again")}
-            </button>
+            </Bottone>
           </>
         ) : (
           t("Carico i modelli…", "Loading the models…")
@@ -85,6 +94,15 @@ export function Impostazioni({ chat }: { chat: StatoNegozio }) {
       {m.nome}
     </option>
   )
+  const conGruppi = motoriOfferti.length > 1
+  const altriDi = (id: string) => altri.filter((m) => m.motore === id)
+  const vociAltri = (id: string) => !mostraAltri(id) && altriDi(id).length > 0 && <option key={`altri-voce-${id}`} value={`${VOCE_ALTRI}${id}`}>{t("Altri…", "More…")}</option>
+  const gruppoAltri = (m: MotoreChat) =>
+    mostraAltri(m.id) && altriDi(m.id).length > 0 && (
+      <optgroup key={`altri-${m.id}`} label={conGruppi ? t("{nome} · Altri", "{nome} · More", { nome: m.nome }) : t("Altri", "More")}>
+        {altriDi(m.id).map(opzione)}
+      </optgroup>
+    )
 
   return (
     <div className={styles.impostazioni}>
@@ -95,21 +113,20 @@ export function Impostazioni({ chat }: { chat: StatoNegozio }) {
           id={idModello}
           value={scelto?.id ?? ""}
           onChange={(e) => {
-            if (e.target.value === VOCE_ALTRI) setApertiAltri(true)
+            if (e.target.value.startsWith(VOCE_ALTRI)) setApertiAltri([...apertiAltri, e.target.value.slice(VOCE_ALTRI.length)])
             else void negozio.scegli({ modello: e.target.value })
           }}
         >
-          {scelto ? null : <option value="">{nomeFuoriElenco(modelli, chat.modello)}</option>}
-          {motoriOfferti.length > 1
-            ? motoriOfferti.map((m) => (
+          {scelto ? null : <option value="">{nomeFuoriElenco(motore, chat.modello)}</option>}
+          {conGruppi
+            ? motoriOfferti.flatMap((m) => [
                 <optgroup key={m.id} label={m.nome}>
-                  {principali.filter((modello) => motoreDi(modello.id).id === m.id).map(opzione)}
-                  {m.id === MOTORE_CHAT.id && altri.length > 0 && !mostraAltri && <option value={VOCE_ALTRI}>{t("Altri…", "More…")}</option>}
-                </optgroup>
-              ))
-            : principali.map(opzione)}
-          {motoriOfferti.length <= 1 && altri.length > 0 && !mostraAltri && <option value={VOCE_ALTRI}>{t("Altri…", "More…")}</option>}
-          {mostraAltri && altri.length > 0 && <optgroup label={t("Altri", "More")}>{altri.map(opzione)}</optgroup>}
+                  {principali.filter((modello) => modello.motore === m.id).map(opzione)}
+                  {vociAltri(m.id)}
+                </optgroup>,
+                gruppoAltri(m),
+              ])
+            : [...principali.map(opzione), vociAltri(motoriOfferti[0]?.id ?? ""), motoriOfferti[0] ? gruppoAltri(motoriOfferti[0]) : null]}
         </select>
       </div>
       {livelli.length > 0 && (
@@ -118,14 +135,14 @@ export function Impostazioni({ chat }: { chat: StatoNegozio }) {
           <select
             ref={registraEffort}
             id={idEffort}
-            value={chat.effort !== null && livelli.includes(chat.effort) ? chat.effort : ""}
+            value={chat.effort !== null && livelli.some((l) => l.id === chat.effort) ? chat.effort : ""}
             title={t("Quanto ragiona prima di rispondere.", "How much it thinks before answering.")}
-            onChange={(e) => void negozio.scegli({ effort: e.target.value === "" ? null : (e.target.value as LivelloEffort) })}
+            onChange={(e) => void negozio.scegli({ effort: e.target.value === "" ? null : e.target.value })}
           >
             <option value="">{t("Predefinito", "Default")}</option>
             {livelli.map((l) => (
-              <option key={l} value={l}>
-                {nomeEffort(l)}
+              <option key={l.id} value={l.id}>
+                {nomeLivello(l)}
               </option>
             ))}
           </select>

@@ -45,7 +45,7 @@ describe("il montaggio in inglese", () => {
     await screen.findByRole("heading", { name: "The video" })
     expect(screen.getByRole("heading", { name: "Speech" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Undo/ })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Edited" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "Edited" })).toBeInTheDocument()
     expect(screen.getByLabelText("Video layout")).toBeInTheDocument()
     expect(screen.getByRole("option", { name: "Word by word" })).toBeInTheDocument()
     expect(screen.getByText("Clips")).toBeInTheDocument()
@@ -81,7 +81,7 @@ describe("l'avviso del piano o dello stile cambiati in inglese", () => {
   it("dice plan or style, con la data, e che il video non li segue ancora", async () => {
     const uscite = conUscite([{ file: "video/prova/uscite/finale.mp4", byte: 10, cambiato: "2026-10-09T10:00:00Z" }])
     render(<Montaggio video={{ ...dettaglioDiProva(), ...uscite, piano_cambiato: "2026-10-09T11:15:00Z", piano_dopo_montato: true }} tempoIniziale={null} />)
-    fireEvent.click(await screen.findByRole("button", { name: "Edited" }))
+    fireEvent.click(await screen.findByRole("radio", { name: "Edited" }))
     expect(await screen.findByText(/The plan or the style changed after the last edit \(.+\): this video does not follow them yet\. Ask in the chat to re-edit it\./)).toBeInTheDocument()
   })
 })

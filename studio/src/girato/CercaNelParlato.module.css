@@ -2,11 +2,11 @@
   width: 100%;
   height: 2.1rem;
   padding: 0 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  color: var(--inchiostro);
-  font-size: 0.9rem;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font-size: 13px;
 }
 
 .nascosto {
@@ -28,25 +28,25 @@
 .conto,
 .nessuno {
   margin: 0;
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .errore {
   margin: 0;
-  font-size: 0.88rem;
-  color: var(--rosso);
+  font-size: 13px;
+  color: var(--mango-error);
 }
 
 .file h3 {
   margin: 0 0 0.25rem;
-  font-size: 0.9rem;
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
 .giorno {
   font-weight: 400;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .file ul {
@@ -55,12 +55,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
 }
 
 .file li + li {
-  border-top: 1px solid var(--filo);
+  border-top: 1px solid var(--mango-line);
 }
 
 .risultato {
@@ -71,22 +72,22 @@
   padding: 0.45rem 0.6rem;
   border: 0;
   background: none;
-  color: var(--inchiostro);
+  color: var(--mango-text);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
 
 .risultato:hover {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .tempo {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--grigio);
+  font-family: var(--mango-font-code);
+  font-size: 12px;
+  color: var(--mango-text-muted);
 }
 
 .frase {
@@ -97,7 +98,7 @@
 .frase mark {
   padding: 0 0.1rem;
   border-radius: 2px;
-  background: var(--carta-scura);
-  color: var(--inchiostro);
+  background: var(--mango-raised);
+  color: var(--mango-text);
   font-weight: 600;
 }

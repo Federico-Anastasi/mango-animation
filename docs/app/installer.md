@@ -21,6 +21,10 @@ all'eseguibile (l'app lo trova da lì: `app/src/radice.rs`). **Non è firmato co
   **Dopo il sì**, invece, un errore (lo scarico non finisce o la firma non torna, l'installatore non parte, l'app resta aperta) si dice: la pagina «L'aggiornamento non è andato» scrive il motivo in parole semplici e offre
   «Riprova» (cerca di nuovo la versione e rifà il giro) e «Continua con la versione che hai» (lo studio parte con quella installata). Il motivo tecnico dell'updater sta in `aggiornamento.log`.
   Il giro è `aggiornamento::dopo_il_si`, con le parti iniettabili per le prove.
+- **Dallo studio** (`app/src/aiuto.rs`, il ponte `window.__MANGO_ANIMATION__.aiuto`; solo l'app installata): la sezione «Aiuto» delle impostazioni dice la versione dell'app e ha «Controlla ora», che cerca la versione nuova
+  allo stesso indirizzo dell'avvio e dice se c'è; se c'è, «Riavvia e aggiorna» la scarica e lancia l'installatore come all'avvio (l'app si chiude con il server e i suoi lavori, e l'installatore la riapre).
+  Un controllo o uno scarico che non riesce si dice lì, con la frase del motivo, e si scrive in `aggiornamento.log`. «Aggiorna da solo» spento (`aggiorna-da-solo.txt` con `no` nella cartella delle impostazioni
+  dell'app; acceso, che è di serie, il file non c'è) salta la ricerca all'avvio: la versione nuova si cerca solo da «Controlla ora». «Registri» apre la cartella dei registri in Esplora file.
 - **I file della versione.** L'installatore sovrascrive e non toglie: un file che la versione nuova non ha più resterebbe in `codice\`, e per le skill e le regole di `.claude\` vorrebbe dire che una skill tolta resta attiva. Per questo `prepara.ts`
   scrive in `codice\` l'elenco della versione (`.mango-elenco.json`: le cartelle e i file di primo livello del prodotto, tutti i file portati, e cosa non è del prodotto), e all'avvio dell'app installata, prima di cercare aggiornamenti
   (`app/src/codice.rs`), si toglie ciò che nelle cartelle del prodotto l'elenco non nomina, con le cartelle rimaste vuote. Non si tocca: `node_modules` e `__pycache__` a qualunque profondità, ciò che l'installatore non porta (le prove,

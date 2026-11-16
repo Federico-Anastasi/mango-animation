@@ -1,29 +1,35 @@
-.pieno,
-.vuoto {
+.bottone {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  height: 2rem;
-  padding: 0 0.85rem;
-  border-radius: 6px;
-  border: 1px solid var(--inchiostro);
-  font-family: var(--font-testo);
-  font-size: 0.86rem;
+  padding: 9px 13px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-raised);
+  color: var(--mango-text);
+  font: 600 13px/1 var(--mango-font-text);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.pieno {
-  background: var(--inchiostro);
-  color: var(--carta);
+.bottone[data-variante="principale"] {
+  border-color: transparent;
+  background: linear-gradient(to right, var(--mango-action), var(--mango-action-end));
+  color: var(--mango-on-action);
 }
 
-.vuoto {
+.bottone[data-variante="minore"],
+.bottone[data-variante="distrugge"] {
+  border-color: transparent;
   background: none;
-  color: var(--inchiostro);
+  color: var(--mango-text-muted);
 }
 
-.pieno:disabled,
-.vuoto:disabled {
+.bottone[data-variante="distrugge"] {
+  color: var(--mango-error);
+}
+
+.bottone:disabled {
   opacity: 0.5;
   cursor: default;
 }

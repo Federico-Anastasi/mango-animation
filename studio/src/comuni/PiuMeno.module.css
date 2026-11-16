@@ -1,0 +1,38 @@
+.piuMeno {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border: 1px solid var(--mango-line);
+  border-radius: calc(var(--mango-radius-control) + 1px);
+}
+
+.piuMeno button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--mango-radius-control) - 1px);
+  background: var(--mango-raised);
+  color: var(--mango-text);
+  font: 600 13px/1 var(--mango-font-text);
+  cursor: pointer;
+}
+
+.piuMeno button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.piuMeno output {
+  padding: 0 8px;
+  font: 500 13px/1 var(--mango-font-text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 639px) {
+  .piuMeno button {
+    width: 44px;
+    height: 44px;
+  }
+}

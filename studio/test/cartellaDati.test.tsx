@@ -1,7 +1,7 @@
 // La cartella dei dati nelle impostazioni, con un ponte finto al posto di quello dell'app (`app/src/dati.rs`).
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { Generali } from "../src/impostazioni/Generali"
+import { Generale } from "../src/impostazioni/Generale"
 import type { DatiCartella } from "../src/impostazioni/cartellaDati"
 import { installaEventi, installaRete } from "./rete"
 
@@ -15,7 +15,7 @@ function ponteFinto(iniziali: DatiCartella, dopoIlGesto: DatiCartella | null) {
 
 beforeEach(() => {
   installaEventi()
-  installaRete({})
+  installaRete({ "GET /api/motori": {} })
 })
 afterEach(() => {
   delete window.__MANGO_ANIMATION__
@@ -23,15 +23,15 @@ afterEach(() => {
 })
 
 const apri = async () => {
-  render(<Generali />)
-  return screen.findByRole("region", { name: "Cartella dei dati" })
+  render(<Generale />)
+  return screen.findByRole("group", { name: "Solo di Mango Animation" })
 }
 
 describe("la cartella dei dati", () => {
   it("nel browser, senza l'app, non c'è", () => {
-    render(<Generali />)
-    expect(screen.queryByRole("heading", { name: "Cartella dei dati" })).toBeNull()
-    expect(screen.getByRole("heading", { name: "Lingua e tema" })).toBeInTheDocument()
+    render(<Generale />)
+    expect(screen.queryByRole("group", { name: "Solo di Mango Animation" })).toBeNull()
+    expect(screen.getByRole("group", { name: "Come lo usi" })).toBeInTheDocument()
   })
 
   it("dice dove stanno i dati e, cambiata, quale vale dal prossimo avvio senza spostare niente", async () => {
@@ -41,8 +41,8 @@ describe("la cartella dei dati", () => {
     expect(pannello).not.toHaveTextContent("prossimo avvio")
     fireEvent.click(screen.getByRole("button", { name: "Sposta la cartella dei dati…" }))
     expect(await screen.findByText("D:\Video")).toBeInTheDocument()
-    expect(pannello).toHaveTextContent("Dal prossimo avvio:")
-    expect(pannello).toHaveTextContent("Alla prossima apertura sposto io i file")
+    expect(pannello).toHaveTextContent("Dal prossimo avvio")
+    expect(screen.getByText(/Alla prossima apertura sposto io i file/)).toBeInTheDocument()
     expect(ponte.sposta).toHaveBeenCalledOnce()
   })
 

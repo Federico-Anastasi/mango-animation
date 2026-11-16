@@ -24,7 +24,7 @@ pub const SINCRONIA: &str = r#"
   addEventListener("DOMContentLoaded", sincronizza);
   addEventListener("load", sincronizza);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(sincronizza, 50));
-  // Il tema cambia con un attributo o una classe sulla radice (lo studio: `data-tema`), una vista nuova con l'indirizzo: si guardano quelli, non il tempo.
+  // Il tema cambia con un attributo o una classe sulla radice (lo studio: `data-mango-theme`), una vista nuova con l'indirizzo: si guardano quelli, non il tempo.
   addEventListener("hashchange", sincronizza);
   addEventListener("DOMContentLoaded", () => new MutationObserver(() => setTimeout(sincronizza, 50)).observe(document.documentElement, { attributes: true }));
 })();

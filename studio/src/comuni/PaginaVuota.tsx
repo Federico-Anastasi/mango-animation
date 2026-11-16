@@ -1,5 +1,5 @@
-// Una pagina che vive dei dati di un canale, quando i dati non ci sono: cosa fa in due righe e un pulsante che porta il creator da Claude.
-import { chiediAClaude } from "../chat/primoGiro"
+// Una pagina che vive dei dati di un canale, quando i dati non ci sono: cosa fa in due righe e un pulsante che porta il creator dalla chat.
+import { chiediAllaChat } from "../chat/primoGiro"
 import { profilo, useCopia } from "../dati"
 import { t } from "../lingua"
 import { CANALI } from "../video/liste"
@@ -12,7 +12,7 @@ const DATI_TIKTOK = () => t("Non ci sono ancora dati del tuo TikTok: la chat li 
 export const LEGGI_TIKTOK = () => t("Leggi i dati di TikTok", "Read the TikTok data")
 export const AGGIORNA_TIKTOK = () => t("Aggiorna i dati di TikTok.", "Update the TikTok data.")
 
-/** Cosa fa la pagina; cosa manca quando il canale è TikTok, la sola lettura automatica di oggi; cosa chiedere a Claude per averla. «canale» è la pagina sola che c'è finché non c'è nessuna lettura. */
+/** Cosa fa la pagina; cosa manca quando il canale è TikTok, la sola lettura automatica di oggi; cosa chiedere alla chat per averla. «canale» è la pagina sola che c'è finché non c'è nessuna lettura. */
 const TESTI: Record<PaginaDiCanale, { cosaFa: () => string; manca: () => string; pulsante: () => string; richiesta: () => string }> = {
   canale: {
     cosaFa: () => t("Qui vedi come vanno i tuoi video usciti, come ti confronti con altri profili e il piano per far crescere il canale.", "Here you see how your released videos are doing, how you compare with other profiles and the plan to grow the channel."),
@@ -40,14 +40,14 @@ const TESTI: Record<PaginaDiCanale, { cosaFa: () => string; manca: () => string;
   },
 }
 
-function Vuota({ titolo, righe, pulsante, richiesta, soloClaudeCode = false }: { titolo?: string; righe: string[]; pulsante: string; richiesta: string; soloClaudeCode?: boolean }) {
+function Vuota({ titolo, righe, pulsante, richiesta, conBrowser = false }: { titolo?: string; righe: string[]; pulsante: string; richiesta: string; conBrowser?: boolean }) {
   return (
     <section className={styles.vuota} aria-labelledby={titolo ? "pagina-vuota" : undefined}>
       {titolo && <h1 id="pagina-vuota">{titolo}</h1>}
       {righe.map((r) => (
         <p key={r}>{r}</p>
       ))}
-      <Bottone onClick={() => chiediAClaude(richiesta, { soloClaudeCode })}>{pulsante}</Bottone>
+      <Bottone variante="principale" onClick={() => chiediAllaChat(richiesta, { conBrowser })}>{pulsante}</Bottone>
     </section>
   )
 }
@@ -73,7 +73,7 @@ export function PaginaDiCanaleVuota({ pagina, titolo }: { pagina: PaginaDiCanale
         righe={[cosaFa, testi.manca()]}
         pulsante={testi.pulsante()}
         richiesta={testi.richiesta()}
-        soloClaudeCode
+        conBrowser
       />
     )
   const canale = canali[0]!

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { copyFile } from "node:fs/promises"
+import { copyFile, mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { generaArchivio } from "../../studio/verifica/genera-archivio"
-import { avviaAmbiente, chiama, fermaTutti, type Ambiente } from "./aiuti"
+import { aspetta, avviaAmbiente, chiama, fermaTutti, type Ambiente } from "./aiuti"
 import { leggiTipi, tipiDelloStudio, type TipiLetti } from "./tipiDelloStudio"
 
 // La prova unica fra server e studio: lo studio ha i suoi tipi scritti a mano (`studio/src/tipi.ts`), il server il suo indice. Qui il server vero legge l'archivio di esempio
@@ -60,11 +60,32 @@ describe("ciò che il server manda ha la forma dei tipi dello studio", () => {
       ["/api/arrivi", "StatoArrivi"],
       ["/api/accesso-studio", "StatoStudioRemoto"],
       ["/api/registrazione", "StatoRegistrazione"],
-      ["/api/consumi", "ConsumiDiClaude"],
+      ["/api/consumi", "ConsumiInChat"],
     ]
     for (const [percorso, tipo] of casi) expect(tipi.controlla(tipo, await leggi(percorso)), percorso).toEqual([])
     const animazioni = await leggi<Record<string, unknown[]>>("/api/animazioni")
     for (const [video, scene] of Object.entries(animazioni)) expect(tipi.controlla("AnimazioneDisponibile", scene, { elenco: true }), video).toEqual([])
+  })
+
+  test("il lavoro in chat di un video, con la parte di ogni motore", async () => {
+    const slug = (await leggi<{ slug: string }[]>("/api/video"))[0]!.slug
+    const riga = (secondi: number, resto: object): string =>
+      JSON.stringify({ isSidechain: false, uuid: `u${secondi}`, timestamp: new Date(Date.UTC(2026, 10, 13, 9, 0, secondi)).toISOString(), ...resto })
+    const cartella = join(a.radice, "conversazioni-finte")
+    await mkdir(cartella, { recursive: true })
+    await writeFile(
+      join(cartella, "11111111-1111-4111-8111-111111111111.jsonl"),
+      `${[
+        riga(0, { type: "user", message: { role: "user", content: `[Context: the creator is looking at the video «Un titolo» (${slug}), tab «Montaggio».]\n\nmonta` } }),
+        riga(20, { type: "assistant", requestId: "r1", message: { id: "m1", role: "assistant", content: [{ type: "text", text: "ok" }], usage: { input_tokens: 1, output_tokens: 10, cache_read_input_tokens: 100, cache_creation_input_tokens: 5 } } }),
+      ].join("\n")}\n`,
+    )
+    const consumi = await aspetta(async () => {
+      const letti = await leggi<{ video: Record<string, unknown> }>("/api/consumi")
+      return slug in letti.video ? letti : null
+    })
+    expect(tipi.controlla("ConsumiInChat", consumi)).toEqual([])
+    expect(consumi.video[slug]).toMatchObject({ motori: { "claude-code": { giri: 1, giri_con_token: 1 } } })
   })
 
   test("gli stili di partenza e i caratteri", async () => {

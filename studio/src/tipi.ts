@@ -650,7 +650,7 @@ export interface FunzioneMotore {
 
 export type Motori = Partial<Record<NomeMotore, FunzioneMotore>>
 
-// --- Il lavoro di Claude per video (`docs/API.md`, «Consumi») --------------------------------------
+// --- Il lavoro in chat per video (`docs/api/consumi.md`) -------------------------------------------
 
 export interface GettoniDiClaude {
   /** Ciò che Claude ha scritto. */
@@ -661,23 +661,37 @@ export interface GettoniDiClaude {
   nuovi: number
 }
 
-export interface ConsumoDiClaude {
-  /** Secondi in cui Claude lavorava. */
+/** La parte di un motore: `token` è `null` se di nessuno dei suoi giri si sa quanti ne ha usati. */
+export interface ConsumoDelMotore {
+  /** Secondi in cui il motore lavorava. */
+  tempo: number
+  giri: number
+  /** Quanti dei `giri` hanno i token saputi. */
+  giri_con_token: number
+  token: GettoniDiClaude | null
+}
+
+export interface ConsumoInChat {
+  /** Il tempo e i giri di tutti i motori; i token sono quelli dei soli motori che li dicono. */
   tempo: number
   giri: number
   token: GettoniDiClaude
+  /** Per id del motore, solo quelli che hanno lavorato. */
+  motori: Record<string, ConsumoDelMotore>
 }
 
-export interface ConsumoDiUnVideo extends ConsumoDiClaude {
+export interface ConsumoDiUnVideo extends ConsumoInChat {
   dal: string
   al: string
 }
 
-export interface ConsumiDiClaude {
+export interface ConsumiInChat {
   /** Falso finché il server non ha letto tutte le conversazioni la prima volta: i conti di allora sono parziali. */
   pronto: boolean
+  /** I motori di cui il server legge il lavoro. */
+  contati: string[]
   video: Record<string, ConsumoDiUnVideo>
-  senza_video: ConsumoDiClaude
+  senza_video: ConsumoInChat
 }
 
 // --- Il canale: ciò che l'ultima lettura ha portato in archivio ------------------------------------

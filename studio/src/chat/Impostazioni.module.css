@@ -2,7 +2,7 @@
   flex: 1 0 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -10,7 +10,7 @@
   flex: 1 1 0;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -20,31 +20,31 @@
 
 .campo label {
   flex: 0 0 auto;
-  color: var(--grigio);
-  font-size: 0.76rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .campo select {
   flex: 1 1 auto;
   min-width: 0;
-  height: 1.9rem;
-  padding: 0 0.4rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  color: var(--inchiostro);
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
   font: inherit;
-  font-size: 0.84rem;
+  font-size: 13px;
   text-overflow: ellipsis;
   cursor: pointer;
 }
 
 .campo select:hover:not(:disabled) {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text-muted);
 }
 
 .campo select:disabled {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
   cursor: default;
 }
 
@@ -52,21 +52,11 @@
 .nota {
   flex: 1 0 100%;
   margin: 0;
-  color: var(--grigio);
-  font-size: 0.78rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 .errore {
-  color: var(--rosso);
-}
-
-.riprova {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
+  color: var(--mango-error);
 }

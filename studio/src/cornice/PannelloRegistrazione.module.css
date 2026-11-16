@@ -8,32 +8,7 @@
 .scelte {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  margin: 0;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-.scelte legend {
-  padding: 0;
-  margin-bottom: 0.35rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--grigio);
-}
-
-.scelta {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  cursor: pointer;
-}
-
-.scelta > span {
-  display: flex;
-  flex-direction: column;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -44,35 +19,12 @@
   gap: 0.5rem;
 }
 
-.principale {
-  height: 2rem;
-  padding: 0 0.9rem;
-  border: 1px solid var(--inchiostro);
-  border-radius: 6px;
-  background: var(--inchiostro);
-  color: var(--carta);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.principale:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .inCorso {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0;
   font-weight: 600;
-}
-
-.punto {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--rosso);
 }
 
 .dispositivo {
@@ -85,9 +37,9 @@
 .dispositivo select {
   min-width: 0;
   padding: 0.3rem 0.4rem;
-  border: 1px solid var(--filo);
-  border-radius: 4px;
-  background: var(--carta);
-  color: var(--inchiostro);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
   font: inherit;
 }

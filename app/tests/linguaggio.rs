@@ -203,7 +203,7 @@ fn senza_espressioni(testo: &str) -> String {
 }
 
 /// I nomi del prodotto non si traducono: non contano come parole.
-const NOMI: [&str; 1] = ["Mango Animation"];
+const NOMI: [&str; 3] = ["Mango Animation", "Claude Code", "Mango Code"];
 
 /// Una frase da leggere: due o più parole (nel JS anche una parola con la maiuscola), non il nome di un file, di un campo o di una variabile.
 fn e_una_frase(testo: &str, js: bool) -> bool {
@@ -305,10 +305,11 @@ fn ogni_frase_di_app_js_ha_l_italiano_e_l_inglese() {
 }
 
 /// Testi del Rust che non sono frasi per chi legge: il codice di un altro programma (che non si traduce) e i codici di stato che la pagina traduce da sé.
-const AMMESSI: [(&str, &str); 8] = [
+const AMMESSI: [(&str, &str); 9] = [
     ("supervisor.rs", "AssignProcessToJobObject"),
     ("supervisor.rs", "$ErrorActionPreference"),
-    ("claude.rs", "$ErrorActionPreference"),
+    ("motori/mod.rs", "$ErrorActionPreference"),
+    ("motori/mod.rs", "Logged in"),
     ("computer/installa.rs", "import "),
     ("lavoro.rs", "$ErrorActionPreference"),
     ("dati.rs", "(() =>"),
@@ -316,10 +317,12 @@ const AMMESSI: [(&str, &str); 8] = [
     ("computer/mod.rs", "in corso"),
 ];
 
-const FILE_RUST: [&str; 19] = [
+const FILE_RUST: [&str; 21] = [
     "lib.rs",
     "server.rs",
-    "claude.rs",
+    "motori/mod.rs",
+    "motori/mango_code.rs",
+    "motori/store.rs",
     "preparazione.rs",
     "aggiornamento.rs",
     "dati.rs",

@@ -1,43 +1,103 @@
-// Il consumo di Claude per video (`docs/API.md`, «Consumi»). Un solo proprietario in memoria: legge una volta tutti i file delle conversazioni
-// della cartella di lavoro e poi, quando l'osservatore dice che uno è cambiato, solo ciò che vi si è aggiunto.
+// Il lavoro in chat per video (`docs/api/consumi.md`). Un solo proprietario in memoria: legge una volta tutti i file delle conversazioni
+// di Claude Code della cartella di lavoro e poi, quando l'osservatore dice che uno è cambiato, solo ciò che vi si è aggiunto; a fianco
+// tiene i conti dei thread di Codex (`codex.ts`).
 import { mkdir, readdir } from "node:fs/promises"
 import { join, sep } from "node:path"
+import type { ClienteCodex } from "../chat/codex/protocollo"
 import { eOggetto, leggiTesto, statistica } from "../disco"
 import { osserva } from "../osservatore"
-
-import { FileDiConversazione, riepiloga, type Riepilogo, type Token } from "./lettura"
+import { ConsumiDiCodex } from "./codex"
+import { CLAUDE_CODE, CODEX, FileDiConversazione, riepiloga, riepilogaUnita, type Riepilogo, type Token } from "./lettura"
 
 const BLOCCO_BYTE = 16 * 1024 ** 2
 
+/** La parte di un motore in un conto: `token` è `null` se di nessun suo giro si sa quanti token ha usato. */
+export interface ConsumoDelMotore {
+  /** Secondi di lavoro (`docs/api/consumi.md`). */
+  tempo: number
+  giri: number
+  /** Quanti dei `giri` hanno i token saputi. */
+  giri_con_token: number
+  token: Token | null
+}
+
 export interface ConsumoDiVideo {
-  /** Secondi di lavoro di Claude (`docs/API.md`, «Consumi»). */
+  /** Il tempo e i giri dei motori sommati; i token sono quelli dei soli motori che li dicono. */
   tempo: number
   giri: number
   token: Token
   dal: string
   al: string
+  motori: Record<string, ConsumoDelMotore>
 }
 
 export interface VistaConsumi {
   /** Falso finché non sono stati letti tutti i file la prima volta: i conti di allora sono parziali. */
   pronto: boolean
+  /** I motori di cui il server legge il lavoro. */
+  contati: string[]
   video: Record<string, ConsumoDiVideo>
-  senza_video: { tempo: number; giri: number; token: Token }
+  senza_video: { tempo: number; giri: number; token: Token; motori: Record<string, ConsumoDelMotore> }
 }
 
 export interface OpzioniConsumi {
   /** Quanto devono restare fermi i file delle conversazioni prima che si rileggano: Claude li scrive di continuo mentre lavora. */
   quietoMs: number
+  /** Codex, se c'è: il suo programma è quello della chat, `lavoro` la cartella in cui lavora, `archivio` dove tiene i token dei giri, `attesaMs` quanto `pronto` lo aspetta. */
+  codex?: { cliente: ClienteCodex; lavoro: string; archivio: string; attesaMs: number }
+}
+
+interface Conteggio {
+  id: string
+  riepilogo: Riepilogo
+  /** Gli stessi conti, dei soli giri di cui si sa quanti token hanno usato. */
+  conToken: Riepilogo
 }
 
 const secondi = (ms: number): number => Math.round(ms / 1000)
 
-function vistaDi(riepilogo: Riepilogo, pronto: boolean): VistaConsumi {
-  const video: Record<string, ConsumoDiVideo> = {}
-  for (const [slug, v] of [...riepilogo.video].sort(([a], [b]) => a.localeCompare(b))) {
-    video[slug] = { tempo: secondi(v.tempoMs), giri: v.giri, token: v.token, dal: new Date(v.dal).toISOString(), al: new Date(v.al).toISOString() }
+type Totali = { tempoMs: number; giri: number; token: Token }
+
+const haLavorato = (v: Totali): boolean => v.giri > 0 || v.tempoMs > 0 || v.token.scritti + v.token.riletti + v.token.nuovi > 0
+
+const parteDi = (v: Totali, saputo: Totali | undefined): ConsumoDelMotore => ({
+  tempo: secondi(v.tempoMs),
+  giri: v.giri,
+  giri_con_token: saputo?.giri ?? 0,
+  token: saputo === undefined ? null : v.token,
+})
+
+function sommaDelle(parti: Record<string, ConsumoDelMotore>): { tempo: number; giri: number; token: Token } {
+  const somma = { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } }
+  for (const p of Object.values(parti)) {
+    somma.tempo += p.tempo
+    somma.giri += p.giri
+    if (p.token === null) continue
+    somma.token.scritti += p.token.scritti
+    somma.token.riletti += p.token.riletti
+    somma.token.nuovi += p.token.nuovi
   }
-  return { pronto, video, senza_video: { tempo: secondi(riepilogo.senzaVideo.tempoMs), giri: riepilogo.senzaVideo.giri, token: riepilogo.senzaVideo.token } }
+  return somma
+}
+
+function vistaDi(conteggi: Conteggio[], pronto: boolean): VistaConsumi {
+  const video: Record<string, ConsumoDiVideo> = {}
+  const slug = [...new Set(conteggi.flatMap((c) => [...c.riepilogo.video.keys()]))].sort((a, b) => a.localeCompare(b))
+  for (const s of slug) {
+    const motori: Record<string, ConsumoDelMotore> = {}
+    let dal = Number.POSITIVE_INFINITY
+    let al = Number.NEGATIVE_INFINITY
+    for (const c of conteggi) {
+      const v = c.riepilogo.video.get(s)
+      if (!v) continue
+      motori[c.id] = parteDi(v, c.conToken.video.get(s))
+      dal = Math.min(dal, v.dal)
+      al = Math.max(al, v.al)
+    }
+    video[s] = { ...sommaDelle(motori), dal: new Date(dal).toISOString(), al: new Date(al).toISOString(), motori }
+  }
+  const motori = Object.fromEntries(conteggi.filter((c) => haLavorato(c.riepilogo.senzaVideo)).map((c) => [c.id, parteDi(c.riepilogo.senzaVideo, haLavorato(c.conToken.senzaVideo) ? c.conToken.senzaVideo : undefined)]))
+  return { pronto, contati: conteggi.map((c) => c.id), video, senza_video: { ...sommaDelle(motori), motori } }
 }
 
 /** Legge le righe complete di `percorso` da `da` a `fino`, a blocchi, e dice fin dove è arrivato: una riga a metà aspetta il resto. */
@@ -66,8 +126,11 @@ export class Consumi {
   private coda: Promise<void> = Promise.resolve()
   private osservatore: { chiudi: () => void } | null = null
   private pronto = false
+  private fileLetti = false
+  private codexLetto = false
   private chiuso = false
-  private riepilogo: Riepilogo = { video: new Map(), senzaVideo: { tempoMs: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } } }
+  private readonly codex: ConsumiDiCodex | null
+  private conteggi: Conteggio[] = []
   private ultima = ""
 
   /** `cambiato` avvisa quando i conti sono diversi da come erano (e la prima volta che sono pronti). */
@@ -75,18 +138,22 @@ export class Consumi {
     private readonly cartella: string,
     private readonly opzioni: OpzioniConsumi,
     private readonly cambiato: () => void,
-  ) {}
+  ) {
+    this.codex = opzioni.codex ? new ConsumiDiCodex(opzioni.codex.cliente, opzioni.codex.lavoro, opzioni.codex.archivio, opzioni.codex.attesaMs, () => this.ricalcola()) : null
+    this.conteggi = this.conteggiDi(riepilogaUnita([]))
+  }
 
-  /** Comincia a osservare la cartella e legge i file in sfondo: i conti sono `pronto: false` finché non ha finito. */
+  /** Comincia a osservare la cartella e legge i file e i thread di Codex in sfondo: i conti sono `pronto: false` finché non ha finito. */
   async avvia(): Promise<void> {
+    if (this.codex === null) this.codexLetto = true
+    else void this.codex.avvia().then(() => this.segna("codex"))
     // Su un computer nuovo la cartella la crea Claude Code alla prima conversazione, magari dopo l'avvio: la si crea qui per osservarla.
     if (!(await statistica(this.cartella))?.isDirectory()) {
       try {
         await mkdir(this.cartella, { recursive: true })
       } catch (errore) {
         console.error(`consumi di Claude: non riesco a creare ${this.cartella}, i conti restano vuoti: ${errore instanceof Error ? errore.message : String(errore)}`)
-        this.pronto = true
-        this.ricalcola()
+        this.segna("file")
         return
       }
     }
@@ -108,23 +175,37 @@ export class Consumi {
         if (this.chiuso) return
         await this.aggiorna(p)
       }
-      this.pronto = true
-      this.ricalcola()
+      this.segna("file")
     })
   }
 
   vista(): VistaConsumi {
-    return vistaDi(this.riepilogo, this.pronto)
+    return vistaDi(this.conteggi, this.pronto)
   }
 
   async chiudi(): Promise<void> {
     this.chiuso = true
     this.osservatore?.chiudi()
+    await this.codex?.chiudi()
     await this.coda
   }
 
   private accoda(lavoro: () => Promise<void>): void {
     this.coda = this.coda.then(lavoro).catch((errore) => console.error(`consumi di Claude: ${errore instanceof Error ? (errore.stack ?? errore.message) : String(errore)}`))
+  }
+
+  /** I conti sono pronti quando i file di Claude e i thread di Codex sono stati letti la prima volta (o Codex ha smesso di essere aspettato). */
+  private segna(letto: "file" | "codex"): void {
+    if (letto === "file") this.fileLetti = true
+    else this.codexLetto = true
+    if (!this.fileLetti || !this.codexLetto || this.pronto) return
+    this.pronto = true
+    this.ricalcola()
+  }
+
+  private conteggiDi(claude: Riepilogo): Conteggio[] {
+    const codex = this.codex?.unita()
+    return [{ id: CLAUDE_CODE, riepilogo: claude, conToken: claude }, ...(codex ? [{ id: CODEX, riepilogo: riepilogaUnita(codex.tutte), conToken: riepilogaUnita(codex.conToken) }] : [])]
   }
 
   private ricalcola(): void {
@@ -134,8 +215,8 @@ export class Consumi {
       if (f.eAgente) agenti.push(f)
       else principali.set(this.doveSta(percorso).sessione, f)
     }
-    this.riepilogo = riepiloga(principali, agenti)
-    const scritta = JSON.stringify(vistaDi(this.riepilogo, this.pronto))
+    this.conteggi = this.conteggiDi(riepiloga(principali, agenti))
+    const scritta = JSON.stringify(vistaDi(this.conteggi, this.pronto))
     if (scritta === this.ultima) return
     this.ultima = scritta
     this.cambiato()

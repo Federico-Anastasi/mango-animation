@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { t } from "../lingua"
 import { Icona } from "./icone"
-import styles from "./Bottone.module.css"
+import { Bottone } from "./Bottone"
 
 /**
  * Scrive `testo` negli appunti. Lo studio dal telefono si apre da un indirizzo `http://` della rete di casa, dove il browser non
@@ -41,9 +41,9 @@ export function BottoneCopia({ testo, etichetta = t("Copia", "Copy") }: { testo:
   }
 
   return (
-    <button type="button" className={styles.vuoto} onClick={copia} title={stato === "fallito" ? t("Il browser non ha permesso di copiare: selezionalo a mano.", "The browser did not allow copying: select it by hand.") : undefined}>
+    <Bottone onClick={copia} titolo={stato === "fallito" ? t("Il browser non ha permesso di copiare: selezionalo a mano.", "The browser did not allow copying: select it by hand.") : undefined}>
       <Icona nome={stato === "copiato" ? "spunta" : "copia"} />
       {stato === "copiato" ? t("Copiato", "Copied") : stato === "fallito" ? t("Non copiato", "Not copied") : etichetta}
-    </button>
+    </Bottone>
   )
 }

@@ -1,18 +1,29 @@
 .compositore {
   position: relative;
   flex: 0 0 auto;
+  padding: 8px 12px 12px;
+  background: var(--mango-ground);
+}
+
+.scrivi {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.6rem 0.8rem 0.7rem;
-  border-top: 1px solid var(--filo);
-  background: var(--carta);
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+}
+
+.scrivi:has(.campo:focus-visible) {
+  outline: 2px solid var(--mango-action-text);
+  outline-offset: 2px;
 }
 
 .allegati {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -22,13 +33,13 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
   max-width: 100%;
-  padding: 0.25rem 0.3rem 0.25rem 0.3rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta-scura);
-  font-size: 0.78rem;
+  padding: 4px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-raised);
+  font-size: 12px;
 }
 
 .allegato img {
@@ -43,8 +54,8 @@
 }
 
 .allegato[data-stato="errore"] {
-  border-color: var(--rosso);
-  color: var(--rosso);
+  border-color: var(--mango-error);
+  color: var(--mango-error);
 }
 
 .nomeAllegato {
@@ -64,16 +75,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: 4px;
   background: none;
+  color: var(--mango-text-muted);
   cursor: pointer;
 }
 
 .allegato button:hover {
-  background: var(--filo);
+  background: var(--mango-line);
+  color: var(--mango-text);
 }
 
 .riga {
@@ -84,80 +97,82 @@
   flex: 1 1 auto;
   min-width: 0;
   max-height: 11rem;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid var(--filo);
-  border-radius: 8px;
-  background: var(--carta);
-  line-height: 1.45;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mango-text);
+  font-size: 13px;
+  line-height: 1.5;
   resize: none;
 }
 
+.campo::placeholder {
+  color: var(--mango-text-faint);
+}
+
 .campo:focus {
-  border-color: var(--inchiostro);
   outline: none;
 }
 
 .barra {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
 }
 
 .aiuto {
-  flex: 1 1 auto;
+  flex: 1 1 8rem;
   min-width: 0;
-  color: var(--grigio);
-  font-size: 0.76rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
-.icona,
-.invia,
-.ferma {
+.azioni {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  height: 2rem;
-  border: 1px solid var(--inchiostro);
-  border-radius: 6px;
-  cursor: pointer;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .icona {
-  width: 2rem;
-  border-color: var(--filo);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--mango-radius-control);
   background: none;
+  color: var(--mango-text-muted);
+  cursor: pointer;
 }
 
 .icona:hover {
-  border-color: var(--inchiostro);
-}
-
-.invia {
-  width: 2.4rem;
-  background: var(--inchiostro);
-  color: var(--carta);
-}
-
-.invia:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.ferma {
-  padding: 0 0.8rem;
-  border-color: var(--rosso);
-  background: none;
-  color: var(--rosso);
-  font-size: 0.86rem;
-}
-
-.ferma:hover {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
+  color: var(--mango-text);
 }
 
 .errore {
   margin: 0;
-  color: var(--rosso);
-  font-size: 0.84rem;
+  color: var(--mango-error);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .icona {
+    width: 44px;
+    height: 44px;
+  }
+
+  .azioni button {
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .allegato button {
+    width: 44px;
+    height: 44px;
+  }
 }

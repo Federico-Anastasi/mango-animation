@@ -1,4 +1,5 @@
 import { BottoneCopia } from "../comuni/BottoneCopia"
+import { Gruppo } from "../comuni/Gruppo"
 import { CampoTesto } from "../comuni/CampoTesto"
 import { Vuoto } from "../comuni/Stati"
 import { t } from "../lingua"
@@ -31,8 +32,7 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
 
   return (
     <div className={styles.pagina}>
-      <section className={styles.blocco}>
-        <h2>{t("Il copione", "The script")}</h2>
+      <Gruppo titolo={t("Il copione", "The script")}>
         <p className={styles.nota}>{t("Correggilo qui, anche a mano: la chat lo rilegge.", "Fix it here, even by hand: the chat reads it again.")}</p>
         <div className={styles.proposta}>
           {campoProposta("aggancio", t("Aggancio", "Hook"), 3)}
@@ -40,28 +40,25 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
           {campoProposta("chiusa", t("Chiusa", "Close"), 3)}
           {campoProposta("note", t("Note sulla proposta", "Notes on the proposal"), 3)}
         </div>
-      </section>
+      </Gruppo>
 
       <ScalettaScheda video={video} salvaScheda={salvaScheda} />
 
-      <section className={styles.blocco}>
-        <h2>{t("Didascalia e hashtag", "Caption and hashtags")}</h2>
+      <Gruppo titolo={t("Didascalia e hashtag", "Caption and hashtags")}>
         <CampoTesto etichetta={t("Didascalia", "Caption")} valore={scheda.didascalia ?? ""} righe={4} onSalva={(v) => salvaScheda({ ...scheda, didascalia: v })} />
         <div className={styles.azioni}>
           <BottoneCopia testo={scheda.didascalia ?? ""} etichetta={t("Copia la didascalia", "Copy the caption")} />
         </div>
         <HashtagScheda video={video} salvaScheda={salvaScheda} />
-      </section>
+      </Gruppo>
 
       <CanaliScheda video={video} salvaScheda={salvaScheda} />
 
-      <section className={styles.blocco}>
-        <h2>{t("Dove è uscito", "Where it came out")}</h2>
+      <Gruppo titolo={t("Dove è uscito", "Where it came out")}>
         <PubblicazioniScheda video={video} salvaScheda={salvaScheda} />
-      </section>
+      </Gruppo>
 
-      <section className={styles.blocco}>
-        <h2>{t("I numeri", "The numbers")}</h2>
+      <Gruppo titolo={t("I numeri", "The numbers")}>
         {numeri.length === 0 ? (
           <Vuoto>{t("Nessun numero registrato: compaiono quando si legge il canale dopo l'uscita.", "No numbers recorded: they appear when the channel is read after release.")}</Vuoto>
         ) : (
@@ -97,12 +94,11 @@ export function SchedaDelVideo({ video, salvaScheda }: PropsScheda) {
             <Andamento numeri={numeri} />
           </>
         )}
-      </section>
+      </Gruppo>
 
-      <section className={styles.blocco}>
-        <h2>{t("Note", "Notes")}</h2>
+      <Gruppo titolo={t("Note", "Notes")}>
         <CampoTesto etichetta={t("Note sul video", "Notes on the video")} valore={scheda.note ?? ""} righe={4} onSalva={(v) => salvaScheda({ ...scheda, note: v })} />
-      </section>
+      </Gruppo>
     </div>
   )
 }

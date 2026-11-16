@@ -181,6 +181,14 @@ impl Fallito {
     }
 }
 
+/// Il motivo per il creator quando «Controlla ora» non riesce a sapere se c'è una versione nuova.
+pub fn frase_del_controllo(dettaglio: &str) -> String {
+    if dettaglio.starts_with(CERTIFICATO_NON_ACCETTATO) {
+        return rete::frase_certificato();
+    }
+    t("Non riesco a controllare se c'è una versione nuova. Controlla la connessione a internet e riprova.", "I can't check whether there is a new version. Check your internet connection and try again.")
+}
+
 /// La pagina «L'aggiornamento non è andato»: la versione di cui si parlava, e il motivo.
 pub fn stato_d_errore(base: &StatoAggiornamento, fallito: &Fallito) -> StatoAggiornamento {
     StatoAggiornamento { fase: "errore".into(), note: None, fatti: 0, totale: 0, messaggio: Some(fallito.frase()), ..base.clone() }

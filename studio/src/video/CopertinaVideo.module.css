@@ -25,9 +25,9 @@
   max-width: 20rem;
   aspect-ratio: 9 / 16;
   object-fit: contain;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 6px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .griglia {
@@ -44,8 +44,8 @@
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
-  font-size: 0.82rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -53,22 +53,23 @@
   width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 6px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .altri {
   margin: 0.5rem 0 0;
   padding-left: 1.1rem;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .avviso {
   margin: 0.6rem 0 0;
   padding: 0.6rem 0.9rem;
-  border: 1px solid var(--filo);
-  border-left: 3px solid var(--rosso);
-  border-radius: 4px;
-  font-size: 0.9rem;
+  border: 1px solid var(--mango-line);
+  border-left: 3px solid var(--mango-error);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+  font-size: 13px;
 }

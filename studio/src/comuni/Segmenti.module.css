@@ -1,0 +1,43 @@
+.segmenti {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--mango-line);
+  border-radius: calc(var(--mango-radius-control) + 1px);
+  background: var(--mango-ground);
+}
+
+.segmento {
+  padding: 7px 11px;
+  border-radius: calc(var(--mango-radius-control) - 1px);
+  color: var(--mango-text-muted);
+  font: 500 13px/1 var(--mango-font-text);
+  cursor: pointer;
+}
+
+/* Il pallino non si vede, ma è lui che prende il fuoco e le frecce della tastiera. */
+.segmento input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmento:has(input:checked) {
+  background: var(--mango-raised);
+  color: var(--mango-text);
+  font-weight: 600;
+}
+
+.segmento:has(input:focus-visible) {
+  outline: 2px solid var(--mango-action-text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .segmento {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

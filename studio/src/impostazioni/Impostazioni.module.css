@@ -1,24 +1,315 @@
-/* A blocchi, non in colonna flessibile: in una colonna flessibile un contenuto largo allargherebbe la pagina oltre lo schermo. */
-.pagina {
+/* Larga e media: a sinistra le sezioni, a destra la sezione aperta. Stretta (sotto i 640 px): una schermata alla volta, l'elenco o la sezione.
+   Conta la larghezza della pagina, non quella dello schermo: la chat aperta gliene toglie più di metà. */
+.contenitore {
   container: pagina / inline-size;
   max-width: var(--cornice);
   margin: 0 auto;
+}
+
+.pagina {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
   min-width: 0;
 }
 
-.schede {
-  margin-bottom: 1rem;
-}
-
-/* Una sezione scritta qui: titolo, poi i blocchi uno sotto l'altro. Sono moduli: stanno a sinistra, non larghi quanto la pagina. */
-.contenuto {
+.colonna {
+  position: sticky;
+  top: 0;
+  flex: 0 0 216px;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  max-width: var(--moduli);
+  gap: 10px;
+  padding: 12px 10px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+}
+
+.cerca {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px 7px 32px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font: 400 14px/1.2 var(--mango-font-text);
+}
+
+.cerca:focus {
+  border-color: var(--mango-action-text);
+}
+
+.campoDiRicerca {
+  position: relative;
+  display: block;
+  color: var(--mango-text-muted);
+}
+
+.lente {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  display: flex;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voce {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: var(--mango-radius-control);
+  color: var(--mango-text-muted);
+  font: 500 14px/1.2 var(--mango-font-text);
+  text-decoration: none;
+}
+
+.voce:hover {
+  color: var(--mango-text);
+}
+
+.voce[aria-current="page"] {
+  background: var(--mango-raised);
+  color: var(--mango-text);
+  font-weight: 600;
+}
+
+.dove {
+  color: var(--mango-text-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.nulla {
+  margin: 0;
+  padding: 4px 10px;
+  color: var(--mango-text-muted);
+  font-size: 13px;
+}
+
+.linea {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--mango-line);
+}
+
+.versione {
+  margin: 0;
+  padding: 0 10px;
+  color: var(--mango-text-faint);
+  font-size: 12px;
+}
+
+.area {
+  flex: 1 1 0;
   min-width: 0;
 }
 
-.contenuto h1 {
+/* Il controllo di una riga può stringersi quanto la card: un campo largo non la fa uscire. */
+.pagina li > div:last-child:not(:empty) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.indietro {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  color: var(--mango-text-muted);
+  font: 500 14px/1 var(--mango-font-text);
+  text-decoration: none;
+}
+
+/* Il contenuto di ogni sezione: la testata, poi le card una sotto l'altra. */
+.sezione {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 760px;
+  min-width: 0;
+}
+
+.testata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.titoli {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.titoli h1 {
   margin: 0;
+  font-size: 23px;
+  letter-spacing: -0.01em;
+}
+
+.sotto {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--mango-text-muted);
+  font-size: 14px;
+}
+
+.azioni {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.nota {
+  margin: 0;
+  color: var(--mango-text-muted);
+  font-size: 13px;
+}
+
+.errore {
+  margin: 0;
+  color: var(--mango-error);
+  font-size: 13px;
+  white-space: pre-line;
+}
+
+.fatto {
+  color: var(--mango-ready);
+  font-size: 13px;
+}
+
+.scheda {
+  padding: 16px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+}
+
+.avviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+  font-size: 13px;
+}
+
+.avviso > span {
+  flex: 1 1 18rem;
+}
+
+.comeBottone {
+  text-decoration: none;
+}
+
+@container pagina (max-width: 999.98px) {
+  .colonna {
+    flex-basis: 196px;
+  }
+}
+
+@container pagina (max-width: 639.98px) {
+  .pagina {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .colonna {
+    position: static;
+    flex: none;
+  }
+
+  .indietro {
+    display: inline-flex;
+  }
+
+  .pagina[data-aperta="false"] .area,
+  .pagina[data-aperta="true"] .colonna {
+    display: none;
+  }
+
+  /* L'elenco non ha una sezione aperta da segnare. */
+  .pagina[data-aperta="false"] .voce[aria-current="page"] {
+    background: none;
+    color: var(--mango-text-muted);
+    font-weight: 500;
+  }
+
+  .pagina li > div:last-child:not(:empty) {
+    width: 100%;
+  }
+
+  .pagina.pagina [role="radiogroup"] {
+    max-width: 100%;
+  }
+}
+
+/* Ciò che si tocca col dito: questo sì dipende dallo schermo. */
+@media (max-width: 639.98px) {
+  .voce {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .cerca {
+    min-height: 44px;
+  }
+
+  /* Ciò che si tocca è alto almeno 44 px: i controlli comuni hanno la loro misura, qui la si porta su. */
+  .pagina.pagina button,
+  .pagina.pagina select,
+  .pagina.pagina input:not([type="color"]):not([type="file"]),
+  .pagina.pagina textarea,
+  .pagina.pagina a[data-comebottone] {
+    min-height: 44px;
+  }
+
+  .pagina.pagina [role="group"] > button {
+    min-width: 44px;
+  }
+
+  .pagina.pagina [role="radiogroup"] label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .pagina.pagina [role="switch"] {
+    min-height: 0;
+  }
+
+  .pagina.pagina [role="switch"]::before {
+    content: "";
+    position: absolute;
+    inset: -12px -6px;
+  }
+
+  .pagina.pagina input[type="color"] {
+    width: 44px;
+    height: 44px;
+  }
 }

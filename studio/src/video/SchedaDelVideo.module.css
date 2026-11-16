@@ -18,8 +18,8 @@
 
 .nota {
   margin: 0;
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .proposta {
@@ -40,15 +40,15 @@
   display: flex;
   gap: 0.9rem;
   padding: 0.6rem 0;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
   min-width: 0;
 }
 
 .numeroPasso {
   flex: none;
   width: 1.6rem;
-  font-family: var(--font-mono);
-  color: var(--grigio);
+  font-family: var(--mango-font-code);
+  color: var(--mango-text-muted);
   text-align: right;
 }
 
@@ -89,9 +89,9 @@
 
 .etichette li {
   padding: 0.1rem 0.6rem;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 999px;
-  font-size: 0.86rem;
+  font-size: 13px;
 }
 
 .pubblicazioni {
@@ -117,42 +117,26 @@
 .tabella {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .tabella th,
 .tabella td {
   padding: 0.35rem 0.7rem;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
   text-align: left;
   white-space: nowrap;
 }
 
 .tabella th {
-  font-size: 0.78rem;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .tabella .num {
   text-align: right;
-  font-family: var(--font-mono);
-}
-
-.canali {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.4rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.canali label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 2rem;
+  font-family: var(--mango-font-code);
 }
 
 .etichette li {
@@ -170,9 +154,9 @@
   height: 1.75rem;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--mango-radius-control);
   background: none;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
   cursor: pointer;
 }
 
@@ -183,7 +167,7 @@
 
 .togli:hover,
 .piccolo:hover:not(:disabled) {
-  color: var(--inchiostro);
+  color: var(--mango-text);
 }
 
 .piccolo:disabled {
@@ -204,19 +188,19 @@
   max-width: 24rem;
   height: 2rem;
   padding: 0 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
 }
 
 .aggiungi input:focus {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text);
 }
 
 .errore {
   flex-basis: 100%;
-  font-size: 0.85rem;
-  color: var(--rosso);
+  font-size: 13px;
+  color: var(--mango-error);
 }
 
 .azioniPasso {
@@ -232,7 +216,7 @@
   gap: 0.5rem 0.8rem;
   align-items: end;
   padding: 0.6rem 0;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
 }
 
 .campoScelta {
@@ -243,9 +227,9 @@
 }
 
 .campoScelta span {
-  font-size: 0.82rem;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .campoScelta select,
@@ -253,9 +237,9 @@
   width: 100%;
   min-height: 2.5rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
 }
 
 .azioniRiga {
@@ -269,9 +253,9 @@
 .titoloAggiungi {
   grid-column: 1 / -1;
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .rigaPubblicazione .errore {

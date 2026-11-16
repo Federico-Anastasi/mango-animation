@@ -7,7 +7,6 @@ import { caricaAllegato } from "../src/chat/api"
 import { BottoneChat } from "../src/chat/BottoneChat"
 import { Markdown } from "../src/chat/Markdown"
 import { EtichettaMotore } from "../src/chat/EtichettaMotore"
-import { MOTORE_CHAT, motoreDi } from "../src/chat/motore"
 import { negozio } from "../src/chat/negozio"
 import { scegliLarghezzaChat, apriChat, chiudiChat } from "../src/chat/pannello"
 import { PannelloChat } from "../src/chat/PannelloChat"
@@ -15,6 +14,7 @@ import { descriviStrumento, percorsoCorto } from "../src/chat/strumenti"
 import type { DettaglioConversazione, Messaggio, ModelloChat, Parte, Richiesta } from "../src/chat/tipi"
 import type { VoceElenco } from "../src/tipi"
 import { dettaglioDiProva } from "./fixture"
+import { CINQUE, CLAUDE, MANGO as MOTORE_MANGO, MODELLO_MANGO, MOTORI, livelli, modello } from "./motoriChat"
 import { errore, installaEventi, installaRete, type Chiamata } from "./rete"
 
 let chiamate: Chiamata[]
@@ -38,16 +38,15 @@ const VIDEO = [voce("orto-balcone", "L'orto sul balcone"), voce("carosello-orto"
 const claude = (id: string, ...parti: Parte[]): Messaggio => ({ id, ruolo: "claude", quando: "2026-11-02T10:00:00", parti })
 const fa = (id: string, testo: string): Messaggio => ({ id, ruolo: "utente", quando: "2026-11-02T09:59:00", parti: [{ tipo: "testo", testo }] })
 
-const TUTTI = ["low", "medium", "high", "xhigh", "max"] as const
 const MODELLI: ModelloChat[] = [
-  { id: "default", nome: "Predefinito (Sonnet 5.5)", descrizione: "", effort: [...TUTTI], reale: "claude-sonnet-5-5" },
-  { id: "opus", nome: "Opus 5.5", descrizione: "", effort: [...TUTTI], reale: "claude-opus-5-5" },
-  { id: "claude-opus-4-6", nome: "Opus 4.6", descrizione: "", effort: ["low", "medium", "high", "max"], reale: "claude-opus-4-6" },
-  { id: "claude-haiku-4-5-20251001", nome: "Haiku 4.5", descrizione: "", effort: [], reale: "claude-haiku-4-5-20251001" },
+  modello(CLAUDE, "default", "Predefinito (Sonnet 5.5)", CINQUE, "claude-sonnet-5-5"),
+  modello(CLAUDE, "opus", "Opus 5.5", CINQUE, "claude-opus-5-5"),
+  modello(CLAUDE, "claude-opus-4-6", "Opus 4.6", livelli("low", "medium", "high", "max")),
+  modello(CLAUDE, "claude-haiku-4-5-20251001", "Haiku 4.5"),
 ]
 
 function conversazione(extra: Partial<DettaglioConversazione> = {}): DettaglioConversazione {
-  return { id: "c1", titolo: "Le slide del carosello", attiva: false, stato: "pronta", lavora_da: null, lavoro: { ms: 0, da: null }, modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, primo_giro: false, ...extra }
+  return { id: "c1", titolo: "Le slide del carosello", attiva: false, stato: "pronta", lavora_da: null, lavoro: { ms: 0, da: null }, motore: "claude-code", modello: null, effort: null, messaggi: [], in_attesa: [], task: [], contesto_usato: null, primo_giro: false, ...extra }
 }
 
 function rete(rotte: Record<string, unknown> = {}) {
@@ -55,6 +54,7 @@ function rete(rotte: Record<string, unknown> = {}) {
     "GET /api/video": VIDEO,
     "GET /api/chat": [{ id: "c1", titolo: "Le slide del carosello", aggiornata: "2026-11-02T10:00:00", attiva: false }],
     "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
+    "GET /api/chat/motori": MOTORI,
     "GET /api/chat/modelli": MODELLI,
     "GET /api/chat/c1": conversazione(),
     ...rotte,
@@ -238,6 +238,18 @@ describe("la conversazione", () => {
   describe("i passi dell'agente raccolti in una riga", () => {
     const passo = (id: string, comando: string, extra: Record<string, unknown> = {}) => ({ tipo: "strumento" as const, id, nome: "Bash", ingresso: { command: comando }, esito: "ok", ...extra })
     const riga = () => screen.getByRole("button", { name: /Ha lavorato/ })
+
+    it("l'ingranaggio è delle impostazioni: la riga dei passi e uno strumento di fuori hanno un'icona loro", async () => {
+      await apriConversazione({
+        messaggi: [claude("m1", passo("t1", "bun test"), passo("t2", "bun lint"), { tipo: "strumento", id: "t3", nome: "mcp__altro__cosa", ingresso: {}, errore: "non risponde" }, { tipo: "fine", durata_ms: 1000 })],
+      })
+      const conversazione = screen.getByRole("log")
+      expect(riga().querySelector("svg")).not.toBeNull()
+      expect(within(conversazione).getByRole("button", { name: /altro · cosa/ }).querySelector("svg")).not.toBeNull()
+      expect(conversazione.querySelector('svg path[d^="M9.671 4.136"]')).toBeNull()
+      expect(descriviStrumento("mcp__altro__cosa", {}).icona).toBe("spina")
+      expect(descriviStrumento("patch", {}).icona).toBe("spina")
+    })
 
     it("gli strumenti finiti di fila stanno in una riga chiusa, con il numero dei passi e la durata, che si apre con un clic", async () => {
       await apriConversazione({
@@ -485,21 +497,20 @@ describe("l'etichetta del motore", () => {
     expect(testata.querySelectorAll("svg path[d^='M12.0 9.6']")).toHaveLength(0)
   })
 
-  it("un altro motore cambia l'etichetta da solo", () => {
-    render(<EtichettaMotore motore={{ id: "altro", nome: "Un altro motore", corto: "Altro", icona: "chat" }} />)
+  it("un altro motore cambia l'etichetta da solo: nome e segno vengono dai dati del motore", () => {
+    render(<EtichettaMotore motore={{ ...MOTORE_MANGO, id: "altro", nome: "Un altro motore", nelle_frasi: "Altro" }} />)
     expect(screen.getByText("Un altro motore")).toBeInTheDocument()
     expect(screen.queryByText("Claude Code")).toBeNull()
   })
 
-  it("il motore di Claude non ha il segno nella testata: l'etichetta non scrive niente", () => {
-    const { container } = render(<EtichettaMotore motore={MOTORE_CHAT} />)
+  it("il motore che le frasi non nominano non ha il segno nella testata: l'etichetta non scrive niente", () => {
+    const { container } = render(<EtichettaMotore motore={CLAUDE} />)
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("una conversazione con un modello di Mango Code dice Mango Code", () => {
-    expect(motoreDi("mango-code/toq")).toMatchObject({ id: "mango-code", nome: "Mango Code" })
-    expect(motoreDi("opus")).toBe(MOTORE_CHAT)
-    expect(motoreDi(null)).toBe(MOTORE_CHAT)
+  it("il motore di una conversazione è il suo campo, non il prefisso del modello", async () => {
+    await apriConversazione({ motore: "mango-code", modello: "opus" })
+    expect(within(screen.getByRole("banner")).getByText("Mango Code").closest("[data-motore]")).toHaveAttribute("data-motore", "mango-code")
   })
 })
 
@@ -520,9 +531,9 @@ describe("il modello e l'effort", () => {
   describe("l'elenco lungo", () => {
     const LUNGO: ModelloChat[] = [
       ...MODELLI,
-      { id: "sonnet", nome: "Sonnet 4.6", descrizione: "", effort: [...TUTTI], reale: "claude-sonnet-4-6" },
-      { id: "claude-opus-4-1", nome: "Opus 4.1", descrizione: "", effort: [], reale: "claude-opus-4-1" },
-      { id: "claude-haiku-3-5", nome: "Haiku 3.5", descrizione: "", effort: [], reale: "claude-haiku-3-5" },
+      modello(CLAUDE, "sonnet", "Sonnet 4.6", CINQUE, "claude-sonnet-4-6"),
+      modello(CLAUDE, "claude-opus-4-1", "Opus 4.1"),
+      modello(CLAUDE, "claude-haiku-3-5", "Haiku 3.5"),
     ]
 
     it("mostra «Predefinito» e i tre modelli più recenti; gli altri si aprono con «Altri…» e restano raggiungibili", async () => {
@@ -555,7 +566,7 @@ describe("il modello e l'effort", () => {
     await screen.findByLabelText("Modello")
     await assesta()
     expect(nomi(menu("Modello"))).not.toContain("Mango Code · TOQ")
-    rete({ "GET /api/chat/modelli": [...MODELLI, { id: "mango-code/toq", nome: "Mango Code · TOQ", descrizione: "", effort: [], reale: "mango-code/toq" }] })
+    rete({ "GET /api/chat/modelli": [...MODELLI, MODELLO_MANGO] })
     await act(() => eventi.istanze.at(-1)!.manda({ tipo: "modelli" }))
     await waitFor(() => expect(nomi(menu("Modello"))).toContain("Mango Code · TOQ"))
   })
@@ -1132,8 +1143,27 @@ describe("il pannello", () => {
     await assesta()
   })
 
+  it("una larghezza ricordata su una finestra più larga si stringe con la finestra, senza dimenticarla: alla pagina restano almeno 420 px", async () => {
+    vi.stubGlobal("innerWidth", 1600)
+    scegliLarghezzaChat(760, true)
+    apriChat()
+    rete()
+    render(<PannelloChat />)
+    const pannello = screen.getByRole("complementary", { name: "Chat" })
+    expect(pannello.style.width).toBe("760px")
+    vi.stubGlobal("innerWidth", 1095)
+    fireEvent(window, new Event("resize"))
+    expect(pannello.style.width).toBe("675px")
+    expect(screen.getByRole("separator", { name: "Larghezza della chat" })).toHaveAttribute("aria-valuenow", "675")
+    expect(localStorage.getItem("mango-animation.chat.larghezza")).toBe("760")
+    vi.stubGlobal("innerWidth", 1600)
+    fireEvent(window, new Event("resize"))
+    expect(pannello.style.width).toBe("760px")
+    await assesta()
+  })
+
   it("su un telefono prende tutto lo schermo e ha il bottone per tornare", async () => {
-    vi.stubGlobal("innerWidth", 430)
+    vi.stubGlobal("innerWidth", 390)
     rete()
     render(<PannelloChat />)
     const pannello = await screen.findByRole("complementary", { name: "Chat" })
@@ -1145,7 +1175,7 @@ describe("il pannello", () => {
   it("il nuovo e le vecchie conversazioni: si riprende una dall'elenco", async () => {
     rete({
       "GET /api/chat/c1": conversazione({ messaggi: [fa("m1", "Una vecchia domanda")] }),
-      "GET /api/chat/modelli": [...MODELLI, { id: "mango-code/toq", nome: "Mango Code · TOQ", descrizione: "", effort: [], reale: "mango-code/toq" }],
+      "GET /api/chat/modelli": [...MODELLI, MODELLO_MANGO],
     })
     render(<PannelloChat />)
     fireEvent.click(await screen.findByRole("button", { name: /Le slide del carosello/ }))
@@ -1168,8 +1198,7 @@ describe("il pannello", () => {
   })
 })
 
-const MANGO = "mango-code/toq"
-const MODELLO_MANGO: ModelloChat = { id: MANGO, nome: "Mango Code · TOQ", descrizione: "", effort: [], reale: MANGO }
+const MANGO = MODELLO_MANGO.id
 
 /** Tutto ciò che il creator può leggere o sentire dal lettore di schermo: i testi, le etichette, i segnaposto, i suggerimenti. */
 function tuttoIlTesto(el: HTMLElement): string {
@@ -1178,7 +1207,8 @@ function tuttoIlTesto(el: HTMLElement): string {
 }
 
 async function apriDiMango(dettaglio: Partial<DettaglioConversazione> = {}, modelli: ModelloChat[] = [...MODELLI, MODELLO_MANGO]) {
-  rete({ "GET /api/chat/modelli": modelli, "GET /api/chat/c1": conversazione({ modello: MANGO, ...dettaglio }), "POST /api/chat/c1/messaggi": {} })
+  const motori = modelli.some((m) => m.motore === "mango-code") ? MOTORI : [CLAUDE, { ...MOTORE_MANGO, pronto: false }]
+  rete({ "GET /api/chat/motori": motori, "GET /api/chat/modelli": modelli, "GET /api/chat/c1": conversazione({ motore: "mango-code", modello: MANGO, ...dettaglio }), "POST /api/chat/c1/messaggi": {} })
   negozio.apri("c1")
   render(<PannelloChat />)
   await screen.findByRole("log", { name: "La conversazione" })
@@ -1218,7 +1248,7 @@ describe("i testi dicono con chi si parla", () => {
   })
 
   it("il bottone Chat nella barra dice quale dei due sta lavorando o aspetta", async () => {
-    rete({ "GET /api/chat/c1": conversazione({ modello: MANGO, stato: "lavora" }) })
+    rete({ "GET /api/chat/c1": conversazione({ motore: "mango-code", modello: MANGO, stato: "lavora" }) })
     negozio.apri("c1")
     render(<BottoneChat />)
     expect(await screen.findByRole("button", { name: "Chat: Mango Code sta lavorando" })).toBeInTheDocument()
@@ -1308,5 +1338,83 @@ describe("i permessi", () => {
     await apriConversazione()
     expect(await screen.findByRole("combobox", { name: "Modello" })).toBeInTheDocument()
     expect(screen.queryByRole("checkbox", { name: "Salta i permessi" })).toBeNull()
+  })
+})
+
+describe("l'aspetto della chat", () => {
+  const variante = (nome: string | RegExp) => screen.getByRole("button", { name: nome }).getAttribute("data-variante")
+  const permessoAperto: Richiesta = { id: "r1", tipo: "permesso", strumento: "Bash", ingresso: { command: "ls" }, frase: "Claude vuole lanciare: ls" }
+
+  it("Manda è l'unico bottone principale; Ferma è un bottone normale", async () => {
+    await apriConversazione({ stato: "lavora", attiva: true, lavora_da: "2026-11-02T10:00:00", messaggi: [fa("m1", "Ciao")] })
+    expect(variante("Manda")).toBe("principale")
+    expect(variante("Ferma")).toBe("normale")
+    expect(document.querySelectorAll('[data-variante="principale"]')).toHaveLength(1)
+  })
+
+  it("quando la conversazione aspetta una risposta, il principale è quello della richiesta", async () => {
+    await apriConversazione({ stato: "aspetta", attiva: true, in_attesa: [permessoAperto] })
+    expect(variante("Consenti")).toBe("principale")
+    expect(variante("Consenti sempre")).toBe("normale")
+    expect(variante("Manda")).toBe("normale")
+    expect(document.querySelectorAll('[data-variante="principale"]')).toHaveLength(1)
+  })
+
+  it("lo stato nella testata ha il colore del suo significato: ambra in corso, verde pronto, rosso errore", async () => {
+    await apriConversazione({ stato: "lavora", attiva: true, lavora_da: "2026-11-02T10:00:00", messaggi: [fa("m1", "Ciao")] })
+    expect(screen.getByText("Sta lavorando")).toHaveAttribute("data-stato", "in-corso")
+    await manda({ id: "c1", evento: "stato", stato: "pronta", lavoro: { ms: 1000, da: null } })
+    expect(screen.getByText("Pronta")).toHaveAttribute("data-stato", "pronto")
+    await manda({ id: "c1", evento: "stato", stato: "errore", lavoro: { ms: 1000, da: null } })
+    expect(screen.getByText("Si è interrotta")).toHaveAttribute("data-stato", "errore")
+    await manda({ id: "c1", evento: "stato", stato: "aspetta", lavoro: { ms: 1000, da: null } })
+    expect(screen.getByText("Aspetta una tua risposta")).toHaveAttribute("data-stato", "in-corso")
+  })
+
+  it("uno strumento riuscito dice l'esito con un segno oltre che col colore; in corso e fallito lo dicono a parole", async () => {
+    await apriConversazione({
+      stato: "lavora",
+      attiva: true,
+      messaggi: [fa("m1", "Prova"), claude("m2", { tipo: "strumento", id: "t1", nome: "Bash", ingresso: { command: "bun test" }, esito: "ok" }, { tipo: "strumento", id: "t2", nome: "Bash", ingresso: { command: "ls" } })],
+    })
+    expect(within(screen.getByRole("button", { name: /Lancia: bun test/ })).getByRole("img", { name: "riuscito" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Lancia: ls/ })).toHaveTextContent("in corso…")
+  })
+
+  it("le caselle stanno dove se ne spunta più d'una, la domanda a risposta multipla e la lista di cose fatte; una risposta sola si sceglie col bottone intero, mai coi pallini", async () => {
+    const domanda: Richiesta = {
+      id: "q9",
+      tipo: "domanda",
+      domande: [
+        { domanda: "Quale tono?", opzioni: [{ etichetta: "Serio" }, { etichetta: "Ironico" }] },
+        { domanda: "Quali slide?", multipla: true, opzioni: [{ etichetta: "Prima" }, { etichetta: "Ultima" }] },
+      ],
+    }
+    await apriConversazione({ stato: "aspetta", attiva: true, in_attesa: [domanda], messaggi: [claude("m2", { tipo: "testo", testo: "- [x] fatto\n- [ ] da fare" })] })
+    expect(document.querySelectorAll('input[type="radio"]')).toHaveLength(0)
+    const casella = (dentro: HTMLElement) => dentro.querySelector("[data-spuntata]")
+    expect(casella(screen.getByRole("img", { name: "fatto" }))).toHaveAttribute("data-spuntata", "true")
+    expect(casella(screen.getByRole("img", { name: "da fare" }))).toHaveAttribute("data-spuntata", "false")
+
+    const prima = () => screen.getByRole("button", { name: /Prima/ })
+    expect(casella(prima())).toHaveAttribute("data-spuntata", "false")
+    fireEvent.click(prima())
+    expect(prima()).toHaveAttribute("aria-pressed", "true")
+    expect(casella(prima())).toHaveAttribute("data-spuntata", "true")
+    expect(screen.getAllByRole("button", { name: /Altro/ }).map((altro) => casella(altro) !== null)).toEqual([false, true])
+
+    fireEvent.click(screen.getByRole("button", { name: /Serio/ }))
+    expect(screen.getByRole("button", { name: /Serio/ })).toHaveAttribute("aria-pressed", "true")
+    expect(casella(screen.getByRole("button", { name: /Serio/ }))).toBeNull()
+  })
+
+  it("togliere un messaggio non partito è un'azione che distrugge; riprovare è normale", async () => {
+    await apriConversazione()
+    rete({ "GET /api/chat/c1": conversazione(), "POST /api/chat/c1/messaggi": () => errore(500, "Claude Code non risponde.") })
+    scrivi(screen.getByRole("textbox", { name: "Messaggio" }), "Ciao")
+    invio(screen.getByRole("textbox", { name: "Messaggio" }))
+    await screen.findByText(/Non è partito/)
+    expect(variante("Riprova")).toBe("normale")
+    expect(variante("Togli")).toBe("distrugge")
   })
 })

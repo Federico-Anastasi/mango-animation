@@ -44,7 +44,7 @@
   justify-content: space-between;
   gap: 0.2rem 1rem;
   padding: 0.4rem 0;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
 }
 
 .confronto {
@@ -56,49 +56,33 @@
 }
 
 .vai {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--mango-font-code);
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .tenue {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .errore {
   margin: 0;
-  color: var(--rosso);
+  color: var(--mango-error);
 }
 
 .avviso {
   margin: 0;
   padding: 0.55rem 0.8rem;
-  border: 1px solid var(--rosso);
-  border-radius: 6px;
-}
-
-.spunta {
-  display: flex;
-  gap: 0.6rem;
-  align-items: flex-start;
-  cursor: pointer;
-}
-
-.spunta input {
-  margin-top: 0.3rem;
-  accent-color: var(--inchiostro);
-}
-
-.fatto {
-  text-decoration: line-through;
-  color: var(--grigio);
+  border: 1px solid var(--mango-error);
+  border-radius: var(--mango-radius-card);
 }
 
 .sentito {
   margin: 0.5rem 0 0;
   padding: 0.6rem 0.8rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

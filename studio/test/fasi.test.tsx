@@ -113,6 +113,7 @@ describe("la frase scritta dal bottone arriva nel campo della chat", () => {
       "GET /api/video": [],
       "GET /api/chat": [],
       "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
+      "GET /api/chat/motori": [],
       "GET /api/chat/modelli": [],
     })
     render(<PannelloChat />)

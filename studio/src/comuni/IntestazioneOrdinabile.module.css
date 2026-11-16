@@ -8,6 +8,6 @@
 }
 
 .ordina:hover {
-  color: var(--inchiostro);
+  color: var(--mango-text);
   text-decoration: underline;
 }

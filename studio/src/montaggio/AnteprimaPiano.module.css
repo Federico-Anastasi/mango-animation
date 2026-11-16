@@ -12,9 +12,9 @@
   aspect-ratio: 9 / 16;
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 4px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
   cursor: pointer;
   user-select: none;
   touch-action: pan-y;
@@ -47,8 +47,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .problemi li {

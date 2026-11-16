@@ -2,8 +2,8 @@
 
 Parte di `docs/APP.md`. La cartella di lavoro com'è fatta: `docs/ARCHITETTURA.md`, «La cartella di lavoro».
 
-Al primo avvio (nessuna cartella ricordata e nessuna `MANGO_ANIMATION_LAVORO`), dopo Claude Code, l'app chiede dove tenere i video; il codice è in `app/src/cartella.rs` (cosa dire di una cartella),
-`app/src/lavoro.rs` (la scelta ricordata) e `app/src/preparazione.rs` (il giro della pagina). Chi ha già una cartella ricordata non vede niente di nuovo.
+Al primo avvio (nessuna cartella ricordata e nessuna `MANGO_ANIMATION_LAVORO`), dopo il passo dei motori della chat, l'app chiede dove tenere i video; il codice è in `app/src/cartella.rs` (cosa dire di una cartella),
+`app/src/lavoro.rs` (la scelta ricordata) e `app/src/preparazione.rs` (il giro della pagina). Con una cartella già ricordata questo passo non c'è.
 
 - **La pagina** «Dove tengo i tuoi video?»: la cartella proposta (`Mango Animation` dentro Documenti, quella vera di Windows) con lo spazio libero del suo disco; «Usa questa cartella» la prepara (con `archivio/`) e la ricorda;
   «Scegli un'altra cartella» apre il dialogo di sistema (se non si apre, perché un criterio del computer lo vieta, la pagina lo dice e il creator sceglie fra le cartelle proposte). Sotto, «Altre cartelle»: i dischi fissi con più spazio libero di quello della cartella in discussione (non quelli rimovibili o di rete), ognuno con `Mango Animation` dentro

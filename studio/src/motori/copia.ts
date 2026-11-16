@@ -3,7 +3,7 @@ import { creaCopia } from "../dati"
 import type { Motori } from "../tipi"
 import type { MacchinaDelProfilo } from "./computer"
 
-/** I motori del profilo: si rileggono quando il profilo cambia, anche se l'ha cambiato un altro (Claude da terminale). */
+/** I motori del profilo: si rileggono quando il profilo cambia, anche se l'ha cambiato un altro (un motore della chat, da terminale). */
 export const motori = creaCopia<Motori>(() => chiedi<Motori>("GET", "/api/motori"), (e) => e.tipo === "profilo")
 
 export const scriviMotori = (nuovi: Motori) => chiedi<Motori>("PUT", "/api/motori", nuovi)

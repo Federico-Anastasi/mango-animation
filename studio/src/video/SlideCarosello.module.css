@@ -35,23 +35,23 @@
 
 .stato {
   margin: 0;
-  color: var(--grigio);
-  font-size: 0.9rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .errore {
   margin: 0;
-  color: var(--rosso);
-  font-size: 0.9rem;
+  color: var(--mango-error);
+  font-size: 13px;
 }
 
 .avvisi h3 {
   margin: 0 0 0.4rem;
-  font-size: 0.95rem;
+  font-size: 14px;
 }
 
 .quando {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
   font-weight: normal;
 }
 
@@ -62,12 +62,12 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .avvisi li {
   padding-left: 0.7rem;
-  border-left: 3px solid var(--rosso);
+  border-left: 3px solid var(--mango-error);
   overflow-wrap: anywhere;
 }
 
@@ -75,7 +75,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--blu);
+  color: var(--mango-action-text);
   font: inherit;
   text-align: left;
   text-decoration: underline;
@@ -95,9 +95,9 @@
   max-height: 75vh;
   aspect-ratio: 9 / 16;
   object-fit: contain;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 6px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .comandi {
@@ -128,7 +128,7 @@
 }
 
 .miniatura[aria-current="true"] {
-  border-color: var(--rosso);
+  border-color: var(--mango-action-text);
 }
 
 .miniatura img {

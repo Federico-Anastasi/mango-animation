@@ -2,10 +2,12 @@
 import { useRef, useState } from "react"
 import { api } from "../api"
 import { Bottone } from "../comuni/Bottone"
+import { CardDiRighe, Riga } from "../comuni/CardDiRighe"
 import { caratteri as copiaCaratteri, useCopia } from "../dati"
 import { t } from "../lingua"
 import type { Stile } from "../tipi"
-import styles from "./ScelteDelCarattere.module.css"
+import { Menu } from "../impostazioni/Controlli"
+import pagina from "../impostazioni/Impostazioni.module.css"
 
 /** Lo stesso limite del server (`MASSIMO_BYTE` in `server/src/caratteri.ts`): un file più grosso non si manda nemmeno. */
 const MASSIMO_BYTE = 5 * 1024 ** 2
@@ -18,20 +20,19 @@ const base64Di = (file: File): Promise<string> =>
     lettore.readAsDataURL(file)
   })
 
-function Scelta({ etichetta, file, elenco, onCambia }: { etichetta: string; file: string; elenco: Array<{ file: string; nome: string }>; onCambia: (file: string) => void }) {
+function RigaCarattere({ etichetta, file, elenco, onCambia }: { etichetta: string; file: string; elenco: Array<{ file: string; nome: string }>; onCambia: (file: string) => void }) {
   // Un carattere che lo stile nomina e l'elenco non ha (il file non si legge): si vede com'è scritto, e resta finché non se ne sceglie un altro.
   const opzioni = elenco.some((c) => c.file === file) ? elenco : [...elenco, { file, nome: file }]
   return (
-    <label className={styles.scelta}>
-      <span>{etichetta}</span>
-      <select value={file} onChange={(e) => onCambia(e.target.value)}>
+    <Riga nome={etichetta}>
+      <Menu etichetta={etichetta} valore={file} onCambia={onCambia}>
         {opzioni.map((c) => (
           <option key={c.file} value={c.file}>
             {c.nome}
           </option>
         ))}
-      </select>
-    </label>
+      </Menu>
+    </Riga>
   )
 }
 
@@ -60,12 +61,11 @@ export function ScelteDelCarattere({ stile, modifica }: { stile: Stile; modifica
   }
 
   return (
-    <div className={styles.gruppo}>
-      <h3>{t("Carattere", "Font")}</h3>
-      <div className={styles.scelte}>
-        <Scelta etichetta={t("Dei sottotitoli e delle animazioni", "Of the subtitles and animations")} file={stile.caratteri[stile.sottotitoli.carattere] ?? ""} elenco={elenco} onCambia={(file) => modifica((s) => { s.caratteri["titoli"] = file; s.sottotitoli.carattere = "titoli" })} />
-        <Scelta etichetta={t("Del titolo", "Of the title")} file={stile.caratteri[stile.titolo.carattere] ?? ""} elenco={elenco} onCambia={(file) => modifica((s) => { s.caratteri["titolo"] = file; s.titolo.carattere = "titolo" })} />
-        <div className={styles.aggiungi}>
+    <>
+      <CardDiRighe nome={t("Carattere", "Font")}>
+        <RigaCarattere etichetta={t("Dei sottotitoli e delle animazioni", "Of the subtitles and animations")} file={stile.caratteri[stile.sottotitoli.carattere] ?? ""} elenco={elenco} onCambia={(file) => modifica((s) => { s.caratteri["titoli"] = file; s.sottotitoli.carattere = "titoli" })} />
+        <RigaCarattere etichetta={t("Del titolo", "Of the title")} file={stile.caratteri[stile.titolo.carattere] ?? ""} elenco={elenco} onCambia={(file) => modifica((s) => { s.caratteri["titolo"] = file; s.titolo.carattere = "titolo" })} />
+        <Riga nome={t("Un altro carattere", "Another font")} spiegazione={t("Un file .ttf, .otf o .woff2 dal computer.", "A .ttf, .otf or .woff2 file from the computer.")}>
           <input
             ref={campo}
             type="file"
@@ -78,16 +78,16 @@ export function ScelteDelCarattere({ stile, modifica }: { stile: Stile; modifica
               if (file) void aggiungi(file)
             }}
           />
-          <Bottone variante="vuoto" disabled={invio} onClick={() => campo.current?.click()}>
+          <Bottone disabled={invio} onClick={() => campo.current?.click()}>
             {invio ? t("Aggiungo…", "Adding…") : t("Aggiungi un carattere", "Add a font")}
           </Bottone>
-        </div>
-      </div>
+        </Riga>
+      </CardDiRighe>
       {esito && (
-        <p className={esito.ok ? styles.ok : styles.errore} role={esito.ok ? "status" : "alert"}>
+        <p className={esito.ok ? pagina.fatto : pagina.errore} role={esito.ok ? "status" : "alert"}>
           {esito.testo}
         </p>
       )}
-    </div>
+    </>
   )
 }

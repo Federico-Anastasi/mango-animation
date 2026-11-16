@@ -1,7 +1,8 @@
 import { useEffect } from "react"
 import cornice from "../cornice/Cornice.module.css"
+import { Punto } from "../cornice/Punto"
 import { IconaChat } from "./icone"
-import { motoreDellaChat } from "./motore"
+import { useMotoreDellaChat } from "./motore"
 import { useChat } from "./negozio"
 import { commutaChat, usePannelloChat } from "./pannello"
 import { t } from "../lingua"
@@ -31,14 +32,14 @@ export function BottoneChat() {
   const { aperta } = usePannelloChat()
   const chat = useChat()
   const { stato, inAttesa } = chat
-  const chi = motoreDellaChat(chat)?.corto ?? undefined
+  const chi = useMotoreDellaChat(chat)?.nelle_frasi ?? undefined
   const aspetta = inAttesa.length > 0
   const etichetta = etichettaChat(chi, aspetta, stato === "lavora")
   return (
     <button type="button" className={cornice.stato} aria-pressed={aperta} aria-label={etichetta} title={`${etichetta} (Ctrl+J)`} onClick={commutaChat}>
-      <IconaChat nome="chat" />
+      <span className={cornice.icona}><IconaChat nome="chat" dimensione={16} /></span>
       <span>{t("Chat", "Chat")}</span>
-      <span className={aspetta || stato === "lavora" ? cornice.puntoRosso : cornice.puntoGrigio} aria-hidden="true" />
+      <Punto tono={aspetta || stato === "lavora" ? "in-corso" : "spento"} />
     </button>
   )
 }

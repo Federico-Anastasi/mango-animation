@@ -2,6 +2,7 @@ import { copiaVideo, useCopia } from "../dati"
 import { t } from "../lingua"
 import type { Lavoro } from "../tipi"
 import cornice from "./Cornice.module.css"
+import { Punto } from "./Punto"
 import styles from "./PannelloLavori.module.css"
 
 export type MontaggioInCorso = Lavoro & { slug: string }
@@ -20,7 +21,7 @@ export function SegnoMontaggio({ lavoro }: { lavoro: MontaggioInCorso }) {
   return (
     <>
       <span className={cornice.solo}>{superato ? t("Piano cambiato", "Plan changed") : t("Lavoro in corso", "Job in progress")}</span>
-      {superato ? <span className={cornice.segno} aria-hidden="true">!</span> : <span className={cornice.puntoRosso} aria-hidden="true" />}
+      {superato ? <span className={cornice.segno} aria-hidden="true">!</span> : <Punto tono="in-corso" />}
     </>
   )
 }

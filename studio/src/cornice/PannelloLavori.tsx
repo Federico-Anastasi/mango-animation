@@ -1,5 +1,7 @@
 import { useRef, useState } from "react"
 import { api } from "../api"
+import { Bottone } from "../comuni/Bottone"
+import { EtichettaDiStato } from "../comuni/EtichettaDiStato"
 import { Stima } from "../comuni/Stima"
 import { useChiudiFuori } from "../comuni/useChiudiFuori"
 import { elencoVideo, lavori, useCopia } from "../dati"
@@ -87,9 +89,7 @@ export function PannelloLavori({ onChiudi }: { onChiudi: () => void }) {
           <div className={styles.riga}>
             <div className={styles.testa}>
               <span>{nome(inCorso)}</span>
-              <button type="button" className={styles.azione} onClick={() => ferma(inCorso.id)}>
-                {t("Ferma", "Stop")}
-              </button>
+              <Bottone onClick={() => ferma(inCorso.id)}>{t("Ferma", "Stop")}</Bottone>
             </div>
             {inCorso.iniziato && <span className={styles.piccolo}>{t("partito il {data}", "started {data}", { data: dataOra(inCorso.iniziato) })}</span>}
             <span className={styles.piccolo}>
@@ -111,9 +111,9 @@ export function PannelloLavori({ onChiudi }: { onChiudi: () => void }) {
             {inCoda.map((l) => (
               <li key={l.id} className={styles.testa}>
                 <span>{nome(l)}</span>
-                <button type="button" className={styles.azione} onClick={() => ferma(l.id)}>
+                <Bottone variante="distrugge" onClick={() => ferma(l.id)}>
                   {t("Togli", "Remove")}
-                </button>
+                </Bottone>
               </li>
             ))}
           </ul>
@@ -128,7 +128,7 @@ export function PannelloLavori({ onChiudi }: { onChiudi: () => void }) {
             {finiti.map((l) => (
               <li key={l.id} className={styles.finito}>
                 <span>{nome(l)}</span>
-                <span className={l.esito === "fallito" || l.esito === "interrotto" ? styles.fallito : styles.piccolo}>{l.esito ? NOME_ESITO[l.esito]() : t("finito", "finished")}</span>
+                <EtichettaDiStato stato={l.esito === "riuscito" ? "pronto" : l.esito === "fallito" || l.esito === "interrotto" ? "errore" : undefined}>{l.esito ? NOME_ESITO[l.esito]() : t("finito", "finished")}</EtichettaDiStato>
                 {l.errore && <span className={styles.fallito}>{l.errore}</span>}
               </li>
             ))}

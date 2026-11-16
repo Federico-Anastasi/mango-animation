@@ -5,8 +5,9 @@
   min-width: 0;
   min-height: 0;
   max-width: 100%;
-  border-left: 1px solid var(--filo);
-  background: var(--carta);
+  border-left: 1px solid var(--mango-line);
+  background: var(--mango-ground);
+  font-size: 13px;
 }
 
 /* Sul telefono la chat copre tutto e ha il suo bottone per tornare. */
@@ -48,9 +49,8 @@
   left: 50%;
   width: 2px;
   transform: translateX(-50%);
-  background: var(--inchiostro);
+  background: var(--mango-action-text);
   opacity: 0;
-  transition: opacity 0.12s;
 }
 
 .maniglia:hover::before,
@@ -63,24 +63,25 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0.55rem 0.8rem;
-  border-bottom: 1px solid var(--filo);
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--mango-line);
 }
 
 .indietro {
   flex: 1 0 100%;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 4px;
   align-self: flex-start;
   width: fit-content;
-  height: 2rem;
-  padding: 0 0.6rem 0 0.3rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: none;
-  font-size: 0.88rem;
+  min-height: 34px;
+  padding: 0 10px 0 4px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-raised);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -88,6 +89,7 @@
   flex: 1 1 8rem;
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
   line-height: 1.25;
 }
@@ -96,53 +98,47 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.92rem;
+  font-size: 14px;
 }
 
 .sotto {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.1rem 0.35rem;
+  gap: 2px 8px;
   min-width: 0;
 }
 
 .stato {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--grigio);
-  font-size: 0.76rem;
-}
-
-.stato:not(:first-child)::before {
-  content: "·";
-  margin-right: 0.35rem;
-  color: var(--grigio);
-}
-
-.stato[data-stato="lavora"],
-.stato[data-stato="aspetta"],
-.stato[data-stato="errore"] {
-  color: var(--rosso);
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .icona {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 34px;
+  height: 34px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--mango-radius-control);
   background: none;
+  color: var(--mango-text-muted);
   cursor: pointer;
 }
 
-.icona:hover,
+.icona:hover {
+  background: var(--mango-raised);
+  color: var(--mango-text);
+}
+
 .icona[aria-pressed="true"] {
-  border-color: var(--inchiostro);
+  background: var(--mango-raised);
+  color: var(--mango-text);
 }
 
 .scorri {
@@ -150,95 +146,76 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 16px;
 }
 
 .vuota h2 {
-  font-size: 1.1rem;
+  font-size: 17px;
+  letter-spacing: -0.01em;
 }
 
 .vuota h3 {
-  margin: 1.1rem 0 0.5rem;
-  color: var(--grigio);
-  font-family: var(--font-testo);
-  font-size: 0.76rem;
+  margin: 16px 0 8px;
+  color: var(--mango-text-muted);
+  font-family: var(--mango-font-text);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .vuota p {
   margin: 0;
-  color: var(--grigio);
-  font-size: 0.92rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .erroreTestata {
   flex: 1 0 100%;
   margin: 0;
-  color: var(--rosso);
-  font-size: 0.78rem;
+  color: var(--mango-error);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 .errore {
   margin: 0;
-  color: var(--rosso);
+  color: var(--mango-error);
   white-space: pre-line;
 }
 
 .rilascia {
   position: absolute;
-  inset: 0.5rem;
+  inset: 8px;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px dashed var(--inchiostro);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--carta) 90%, transparent);
+  border: 2px dashed var(--mango-action-text);
+  border-radius: var(--mango-radius-card);
+  background: color-mix(in srgb, var(--mango-ground) 90%, transparent);
   font-weight: 600;
   pointer-events: none;
 }
 
-.ripeti {
-  margin-top: 1.1rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--grigio);
-  font-family: var(--font-testo);
-  font-size: 0.85rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.ripeti:hover {
-  color: var(--inchiostro);
-}
-
 .primoGiro {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.35rem 0.9rem;
-  border-bottom: 1px solid var(--filo);
-  color: var(--grigio);
-  font-size: 0.8rem;
+  gap: 12px;
+  padding: 4px 12px 4px 16px;
+  border-bottom: 1px solid var(--mango-line);
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
-.primoGiro button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--grigio);
-  font-family: var(--font-testo);
-  font-size: 0.8rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
+@media (max-width: 640px) {
+  .indietro,
+  .icona {
+    min-height: 44px;
+  }
 
-.primoGiro button:hover {
-  color: var(--inchiostro);
+  .icona {
+    width: 44px;
+  }
 }

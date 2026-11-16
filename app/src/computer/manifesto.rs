@@ -4,7 +4,7 @@
 use serde::Deserialize;
 
 /// Le funzioni pesanti che il creator accende o spegne (`docs/MOTORI.md`, `motori.<funzione>` del profilo): per ognuna l'etichetta in italiano e in
-/// inglese, come nella pagina «Motori» dello studio.
+/// inglese, come in Impostazioni › Computer dello studio.
 pub const FUNZIONI: [(&str, &str, &str); 6] = [
     ("trascrizione", "Capire cosa dico", "Understanding what I say"),
     ("allineamento", "Tagli precisi sulle parole", "Precise cuts on words"),

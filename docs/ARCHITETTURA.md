@@ -1,8 +1,8 @@
 # Architettura
 
-Mango Animation è l'archivio e il banco di montaggio dei video di un creator. È fatto di file: Claude lavora da
+Mango Animation è l'archivio e il banco di montaggio dei video di un creator. È fatto di file: un motore (Claude Code, Codex) lavora da
 terminale nella cartella di lavoro (regole in `CLAUDE.md`, `.claude/rules/`, `.claude/skills/`), l'interfaccia
-nel browser mostra gli stessi file e li ritocca, e ha una chat con Claude Code o con Mango Code, un progetto a parte (`docs/CHAT.md`), che lavora sugli stessi file.
+nel browser mostra gli stessi file e li ritocca, e ha una chat con Claude Code, con Codex o con Mango Code, un progetto a parte (`docs/CHAT.md`), che lavora sugli stessi file.
 
 ## I pezzi
 
@@ -10,11 +10,12 @@ nel browser mostra gli stessi file e li ritocca, e ha una chat con Claude Code o
 |---|---|---|
 | `motore/` | prepara il girato, risolve un piano in tratti, monta, controlla, fa la copertina | Python 3.12, ffmpeg, torch (la scheda del profilo) |
 | `animazioni/` | le scene animate e gli elementi standard, resi fotogramma per fotogramma | React, Vite, Playwright, Bun |
-| `server/` | serve l'interfaccia, legge e scrive l'archivio, osserva i file, tiene la coda dei lavori, riceve dal telefono, registra lo schermo, scarica dal web nel girato, tiene le conversazioni con Claude Code (`src/chat/`, `docs/CHAT.md`) | Bun, ffmpeg, Agent SDK di Claude Code |
+| `server/` | serve l'interfaccia, legge e scrive l'archivio, osserva i file, tiene la coda dei lavori, riceve dal telefono, registra lo schermo, scarica dal web nel girato, tiene le conversazioni con i motori della chat (`src/chat/`, `docs/CHAT.md`) | Bun, ffmpeg, Agent SDK di Claude Code, `codex app-server` |
 | `studio/` | l'interfaccia nel browser | React, Vite, TypeScript, CSS a moduli |
 | `app/` | l'app desktop Mango Animation: una finestra con lo studio a tutta pagina, accende il server e chiude tutto con sé (`docs/APP.md`) | Rust, Tauri 2 |
+| `suite/` | ciò che è uguale in tutte le app Mango: i colori, i caratteri e le misure dell'interfaccia (`tokens.css`, `fonts/`) e i marchi (`marks/`: la sagoma del mango e il mango di ogni app). Lo studio la importa, l'app la copia in `app/ui/suite/` quando si costruisce, il server ne legge i colori per le pagine che manda al telefono (`server/src/arrivi/pagine.ts`), l'installatore la porta insieme al server; una prova ne tiene l'impronta (`server/test/suite.test.ts`), perché non cambi in un'app sola | CSS |
 | `strumenti/` | la lettura del canale TikTok, gli sticker | Python |
-| `.claude-plugin/`, `plugin/` | il metodo (skill, strumento «video», regole) come plugin di Claude Code (sotto, «Come il metodo arriva a Claude») | Bun |
+| `.claude-plugin/`, `plugin/` | il metodo (skill, strumento «video», regole) come plugin di Claude Code e lanciatore di Codex (`docs/METODO.md`) | Bun |
 | `stile.json` | lo stile di serie: formati, colori, quadri, sottotitoli, titolo, copertina, voce; quello del creator ci si sovrappone (sotto) | — |
 | `archivio/` | i dati: girato, video, arrivi. Sta nella cartella di lavoro, non qui | `docs/ARCHIVIO.md` |
 
@@ -26,7 +27,8 @@ Il prodotto vive in due cartelle. Il **codice** (questa: motore, strumenti, serv
 | dentro la cartella di lavoro | cosa |
 |---|---|
 | `archivio/` | i dati: girato, video, preparati, arrivi, canali (`docs/ARCHIVIO.md`) |
-| `CLAUDE.md`, `.claude/` | le regole e le skill del creator, e le conversazioni con Claude; si sommano al metodo del codice |
+| `CLAUDE.md`, `.claude/` | le regole e le skill del creator; si sommano al metodo del codice |
+| `.agents/skills/` | i collegamenti alle skill che il lanciatore di Codex da terminale vi mette (`docs/METODO.md`) |
 | `profilo.json` | i dati del creator che leggono il codice e le skill, e la sua macchina (sotto) |
 | `stile.json` | lo stile del creator, che si sovrappone a quello di serie del codice (sotto) |
 | `animazioni/scene/<slug>/` | le scene animate dei suoi video: il catalogo di `animazioni/` le trova accanto a quelle del prodotto (`animazioni/LEGGIMI.md`, «Le scene del creator») |
@@ -38,7 +40,7 @@ frase che dice cosa fare. L'app invece la prepara da sola (riga sotto), e la var
 | chi | dove la legge | cosa fa |
 |---|---|---|
 | l'app | `app/src/lavoro.rs` | la variabile, che vince su tutto; se manca, la scelta ricordata in `%APPDATA%\dev.mango.animation\lavoro.json`; se manca anche quella (primo avvio), l'app chiede dove tenere i video e ricorda la scelta; dallo studio si può spostare (tutto in `docs/app/cartella-dei-dati.md`). La passa al server che accende |
-| il server | `server/src/configurazione.ts` (`cartellaDiLavoro`) | `archivio` è `<lavoro>/archivio`. Passa la variabile ai lavori del motore, allo strumento «video» e a Claude |
+| il server | `server/src/configurazione.ts` (`cartellaDiLavoro`) | `archivio` è `<lavoro>/archivio`. Passa la variabile ai lavori del motore, allo strumento «video» e ai motori della chat |
 | il motore e gli strumenti | `motore/archivio.py` (`cartella_di_lavoro`) | `Archivio()` e ogni comando in `strumenti/` cercano i dati lì |
 
 **Lo stile.** Il codice ha il suo `stile.json` di serie (e `stili-di-partenza.json`, i tre stili che il primo giro propone), valido per tutti; la cartella di lavoro può averne uno suo, con solo ciò che cambia, e quello che vale è la somma dei due: la regola (`unisci_stile` in `motore/archivio.py`, `unisciStile` in `strumenti/stile.mjs`) è in `docs/PROFILO.md`. Lo leggono tutti con `leggi_stile` / `leggiStile`: motore e strumenti, il server (che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza, `docs/API.md`), le animazioni (`animazioni/LEGGIMI.md`) e, tramite il server, lo studio.
@@ -47,9 +49,9 @@ frase che dice cosa fare. L'app invece la prepara da sola (riga sotto), e la var
 
 **Le variabili d'ambiente** (le imposta l'app, o chi sviluppa) sono tutte in `docs/VARIABILI.md`.
 
-Il motore e il server si lanciano dalla cartella del **codice**; Claude Code, nella chat, lavora nella cartella di **lavoro**.
+Il motore e il server si lanciano dalla cartella del **codice**; i motori della chat lavorano nella cartella di **lavoro**.
 
-**Come il metodo arriva a Claude.** Il metodo (`CLAUDE.md`, regole, skill, lo strumento «video») è una versione sola, quella del codice: la chat dell'app lo passa a Claude Code come cartella in più, da terminale è un plugin. Come: `docs/METODO.md`.
+**Come il metodo arriva a Claude Code e a Codex.** Il metodo (`CLAUDE.md`, regole, skill, lo strumento «video») è una versione sola, quella del codice: la chat dell'app lo passa a Claude Code e a Mango Code come cartella in più e a Codex come istruzioni e cartella di skill, da terminale è un plugin per Claude Code e un lanciatore per Codex. Come: `docs/METODO.md`.
 
 Ogni pacchetto (`animazioni/`, `server/`, `studio/`) ha il suo `package.json`, l'app (`app/`) il suo `Cargo.toml`; il motore si lancia dalla
 radice con `python -m motore`.
@@ -57,13 +59,12 @@ radice con `python -m motore`.
 ## Chi scrive cosa
 
 - **Il piano** (`archivio/video/<slug>/piano.json`, `docs/PIANO.md`) è l'unica verità di un montaggio. Lo
-  scrive Claude da terminale, oppure l'interfaccia quando il creator ritocca a mano (`PATCH` sul server, che applica solo i ritocchi al piano del file, valida
+  scrive un motore (dalla chat o da terminale), oppure l'interfaccia quando il creator ritocca a mano (`PATCH` sul server, che applica solo i ritocchi al piano del file, valida
   e tiene la versione di prima in `storia/`, che lo studio elenca e da cui rimette in uso una versione: «Versioni»).
 - **Il motore** legge piano e `stile.json` e scrive solo in `lavoro/` e `uscite/` del video e in
   `archivio/preparati/`; `pagina` scrive in `materiali/`, perché una pagina del web cambia e la sua cattura non si
   rifà uguale. Non scrive mai il piano né la scheda.
-- **Il server** non monta e non decide: valida, salva, osserva, mette in coda i comandi del motore. Ricava dai file, senza che nessuno li scriva, a che passo del metodo è ogni video (`server/src/fasi.ts`) e cerca nel parlato già trascritto (`server/src/parlato.ts`). Le conversazioni della chat sono di `server/src/chat/` (un solo proprietario in memoria); i conti del lavoro di Claude per video, ricavati dai file di quelle
-conversazioni, di `server/src/consumi/` (un altro, che osserva la stessa cartella: `docs/api/consumi.md`); gli allegati e le conversazioni di Mango Code (`docs/CHAT.md`) stanno in `archivio/.chat/`, fuori da git.
+- **Il server** non monta e non decide: valida, salva, osserva, mette in coda i comandi del motore. Ricava dai file, senza che nessuno li scriva, a che passo del metodo è ogni video (`server/src/fasi.ts`) e cerca nel parlato già trascritto (`server/src/parlato.ts`). Le conversazioni della chat sono di `server/src/chat/` (un solo proprietario in memoria); i conti del lavoro in chat per video, ricavati dai file delle conversazioni di Claude Code e dai thread di Codex, di `server/src/consumi/` (un altro, che osserva la stessa cartella e tiene il cliente di Codex della chat: `docs/api/consumi.md`); gli allegati, le conversazioni di Mango Code (`docs/CHAT.md`) e i token dei giri di Codex stanno in `archivio/.chat/`, fuori da git.
 - **L'interfaccia** non legge mai il disco: passa dal server (`docs/API.md`).
 
 ## Il giro
@@ -73,7 +74,7 @@ conversazioni, di `server/src/consumi/` (un altro, che osserva la stessa cartell
    mette il file e la scheda al loro posto) o viene messo in `archivio/grezzo/`. Il server ne ricava subito la miniatura; per una foto HEIC mette in coda `prepara-file`, che fa la foto intera e la miniatura.
 2. `python -m motore prepara <slug>`: parole coi tempi, copia leggera, onda, miniatura. Una volta per file, in
    `archivio/preparati/`. La sagoma la fa `monta`, dei soli tratti montati: mai la ripresa intera.
-3. Claude scrive il piano. A ogni cambio del piano (di Claude o dell'interfaccia), e all'avvio per i piani il cui risolto manca o è
+3. Il motore scrive il piano. A ogni cambio del piano (del motore o dell'interfaccia), e all'avvio per i piani il cui risolto manca o è
    più vecchio, il server mette in coda `risolvi`, che scrive `lavoro/risolto.json`: i tratti veri, ogni parola col suo istante, gli avvisi.
    L'interfaccia mostra quello.
 4. `python -m motore monta <slug>` scrive `uscite/finale.mp4`; `controlla` riascolta il montato.
@@ -108,7 +109,7 @@ conversazioni, di `server/src/consumi/` (un altro, che osserva la stessa cartell
   (`server/src/arrivi/studio.ts`, `docs/api/rete.md`, «Lo studio sulla rete»): chiave a parte, sessione in un cookie, indirizzo e `Origin`
   controllati; il server interno non sa chi c'è fuori e non cambia. Chi ha una sessione comanda la chat, quindi il computer.
 - Testi a schermo in italiano e in inglese, scritti nelle due lingue dove nascono (come si sceglie la lingua: `docs/LINGUA.md`), senza gergo interno, senza percorsi né nomi di comandi tranne dove servono
-  al creator per darli a Claude (il percorso della cartella di un video).
+  al creator per darli al motore (il percorso della cartella di un video).
 - Un video grande non si copia, si collega (hard link): il disco può essere quasi pieno; i test usano video
   sintetici di pochi secondi in una cartella temporanea.
 

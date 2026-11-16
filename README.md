@@ -6,12 +6,12 @@
   <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
   <a href="https://github.com/Federico-Anastasi/mango-animation/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Federico-Anastasi/mango-animation?label=release&color=FFA61F"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%C2%B7%2011-0078d4">
-  <img alt="Works with Claude Code" src="https://img.shields.io/badge/works%20with-Claude%20Code-d97757">
+  <img alt="Chat engines: Claude Code, Codex, Mango Code" src="https://img.shields.io/badge/chat-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Mango%20Code-d97757">
   <img alt="Footage stays on your PC" src="https://img.shields.io/badge/footage-stays%20on%20your%20PC-2ea44f">
 </p>
 
 <p align="center">
-  <b>You talk, Claude writes and edits, your footage never leaves your computer.</b>
+  <b>You talk, the chat writes and edits, your footage never leaves your computer.</b>
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 ## What it does
 
 Mango Animation is a Windows app for people who make short vertical videos: explainers, opinions, news, tutorials, for
-TikTok, Reels, Shorts or YouTube. You bring an idea or some footage; Claude, in a chat inside the app, proposes the angle
+TikTok, Reels, Shorts or YouTube. You bring an idea or some footage; a chat inside the app, run by Claude Code, Codex or Mango Code, proposes the angle
 and the script, prepares a rehearsal to record against, picks your best takes, and edits the video: your silhouette cut
 out over animated scenes or real pages, word-by-word subtitles, cuts that never fall in the middle of a word, the title
 and the cover. Then it watches and listens to the result again before calling it done.
@@ -44,7 +44,7 @@ the edit on a timeline you can drag, the checks, the cover. The app is in Englis
 
 ## How a video is made
 
-Every video follows the same eight steps; you skip one only if you say so. You speak in plain words, Claude does the work
+Every video follows the same eight steps; you skip one only if you say so. You speak in plain words, the chat does the work
 and shows you the result in the studio.
 
 | | step | you say | you get |
@@ -101,7 +101,7 @@ and shows you the result in the studio.
 
 | | |
 |---|---|
-| ![The Videos page: every video by status, with its preview](docs/images/videos.png) | ![The card of a video: hook, center and close of the script](docs/images/script.png) |
+| ![The Videos page: the published videos, each with its preview, length and views](docs/images/videos.png) | ![The card of a video: hook, center and close of the script](docs/images/script.png) |
 | Every video by status, with its preview. | The script on the video's card: hook, center, close. |
 | ![The check of an edited video: silences, misplaced words, cuts in the speech, differences between script and voice](docs/images/check.png) | ![Three finished videos, with their covers](docs/images/covers.png) |
 | The check after every edit: silences, misplaced words, cuts in the speech, script against voice. | Covers made by the app: the title over your silhouette or over a scene. |
@@ -111,9 +111,10 @@ The videos in these pictures are real ones, in Italian; the app itself is shown 
 ## What you need
 
 - **Windows 10 or 11, 64-bit** (tested on Windows 11).
-- **Claude Code**, installed and signed in with your own Claude account: Mango Animation uses it, it does not ship it.
-  The chat's work counts against your subscription's limits, which are meant for ordinary, individual use. If Claude Code
-  is missing, the app guides you through installing it.
+- **One chat engine: Claude Code, Codex or Mango Code**, installed and signed in with your own account (Claude for
+  Claude Code, ChatGPT for Codex): Mango Animation uses it, it does not ship it. The chat's work counts against your
+  subscription's limits, which are meant for ordinary, individual use. If none is ready, the app guides you through
+  installing and signing in to one.
 - **An NVIDIA graphics card is recommended, not required.** Transcription, cut-out and rendering are much faster with
   one; without it everything works, more slowly.
 - **Disk space and internet for the first start**: the app downloads only the programs and models for the features you
@@ -133,8 +134,8 @@ The full guide, from installing to releasing a first video: [English](docs/guida
 
 ## Privacy
 
-- **Your footage, edits and archive stay on your computer.** Only the chat with Claude goes online, through your own
-  Claude Code.
+- **Your footage, edits and archive stay on your computer.** Only the chat goes online, through the engine you chose
+  (Claude Code or Codex); Mango Code runs on your computer.
 - Dictation is transcribed on your computer; the audio does not leave it.
 - The phone features are off until you turn them on, and need a key.
 - "Report a problem" sends nothing until you press Send, and removes your user name, computer name, emails, network
@@ -143,14 +144,14 @@ The full guide, from installing to releasing a first video: [English](docs/guida
 ## Good to know
 
 - **Word alignment uses a model licensed for non-commercial use only** (MMS, CC-BY-NC-4.0). If you earn money from your
-  videos, turn off "Precise cuts on words" in the studio's Engines page: cuts then follow the transcription, less
+  videos, turn off "Precise cuts on words" in Settings › Computer: cuts then follow the transcription, less
   precisely. See [`AVVISI-DI-TERZI.md`](AVVISI-DI-TERZI.md).
 - Reading TikTok and downloading videos from the web are meant for your own accounts and for content you have the right
   to use.
 
-> Mango Animation is an independent project. It is not a product of Anthropic and is not approved or endorsed by
-> Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic and are used here only to name the program the app
-> works with.
+> Mango Animation is an independent project. It is not a product of Anthropic or OpenAI and is not approved or endorsed
+> by them. "Claude" and "Claude Code" are trademarks of Anthropic; "OpenAI", "ChatGPT" and "Codex" are trademarks of
+> OpenAI. They are used here only to name the programs the app works with.
 
 ## For developers
 
@@ -159,8 +160,8 @@ map of the repository and of the documents is in [`LEGGIMI.md`](LEGGIMI.md); bui
 [`CONTRIBUTING.md`](CONTRIBUTING.md); reporting a vulnerability in [`SECURITY.md`](SECURITY.md).
 
 The parts: a Python editing engine (`motore/`), a Bun server (`server/`), the React studio (`studio/`), the animated
-scenes in React and three.js (`animazioni/`), the Tauri desktop app (`app/`), and the method (rules and skills that Claude
-follows) in `.claude/`, which also works as a Claude Code plugin.
+scenes in React and three.js (`animazioni/`), the Tauri desktop app (`app/`), and the method (rules and skills that the
+chat follows) in `.claude/`, which also works as a Claude Code plugin and, with a launcher, for Codex in a terminal.
 
 ## License
 

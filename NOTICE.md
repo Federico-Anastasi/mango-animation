@@ -18,6 +18,11 @@ repository, and both keep Anthropic's terms. As an additional permission under s
 you to combine Mango Animation with the Claude Agent SDK and Claude Code, and to convey the result: the AGPL applies to Mango
 Animation's code, not to those components.
 
+## Codex
+
+Mango Animation works with the Codex that the user has installed, by starting its program and talking to it. Codex is
+not part of this repository and keeps OpenAI's terms; nothing of it is combined with Mango Animation's code.
+
 ## Third-party files in this repository
 
 These files keep their original licenses.
@@ -27,7 +32,8 @@ These files keep their original licenses.
 | [Archivo](https://github.com/Omnibus-Type/Archivo) font | `font/Archivo-700.ttf` | SIL Open Font License 1.1, see `font/OFL-Archivo.txt` |
 | [Metropolis](https://github.com/dw5/Metropolis) font | `font/Metropolis-Medium.ttf` | Unlicense, see `font/Metropolis-UNLICENSE.txt` |
 | Typeface derived from [Space Grotesk](https://github.com/floriankarsten/space-grotesk) | `animazioni/src/scene/sigla/caratteri/` | SIL Open Font License 1.1, see `OFL-SpaceGrotesk.txt` there |
-| [Archivo](https://github.com/Omnibus-Type/Archivo), [Chivo Mono](https://github.com/Omnibus-Type/Chivo) and [Instrument Sans](https://github.com/Instrument/instrument-sans) fonts (web format) | `studio/src/assets/fonts/*.woff2` | SIL Open Font License 1.1, see `OFL-*.txt` there |
+| [Archivo](https://github.com/Omnibus-Type/Archivo), [Instrument Sans](https://github.com/Instrument/instrument-sans) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) fonts (web format) | `suite/fonts/*.woff2` | SIL Open Font License 1.1, see `OFL-*.txt` there |
+| [Lucide](https://github.com/lucide-icons/lucide) icons (paths copied into the code) | `studio/src/comuni/icone.tsx`, `studio/src/chat/icone.tsx` | ISC License (some icons MIT, from Feather), see `studio/src/comuni/ISC-Lucide.txt` |
 | Logos of other products | `animazioni/src/standard/loghi/` | trademarks of their owners; the `.txt` next to each says where it comes from |
 
 Programs, models and packages that the app downloads at first start or that package managers install have their own licenses.

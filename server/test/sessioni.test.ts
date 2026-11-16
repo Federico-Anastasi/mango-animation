@@ -3,8 +3,8 @@ import type { SDKSessionInfo } from "@anthropic-ai/claude-agent-sdk"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { messaggiDaSessione } from "../src/chat/storico"
-import { cartellaDelleSessioni, sessioniDiClaudeCode, vociDaSessioni } from "../src/chat/sessioni"
+import { cartellaDelleSessioni, sessioniDiClaudeCode, vociDaSessioni } from "../src/chat/claude/sessioni"
+import { messaggiDaSessione } from "../src/chat/claude/storico"
 
 const RADICE = "C:/progetto"
 const sessione = (id: string, campi: Partial<SDKSessionInfo>): SDKSessionInfo => ({ sessionId: id, summary: "", lastModified: 1, ...campi })

@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react"
+import { CardDiRighe, Riga } from "../comuni/CardDiRighe"
+import { Interruttore } from "../comuni/Interruttore"
 import { Vuoto } from "../comuni/Stati"
 import { t } from "../lingua"
 import { dataOra, istante, numero, tempoLeggibile } from "../testo"
@@ -121,21 +123,20 @@ export function ControlloVideo({ video, salvaScheda }: PropsScheda) {
         </>
       )}
 
-      <Elenco
-        titolo={t("Da verificare ({n} aperte)", "To verify ({n} open)", { n: verificare.filter((v) => v.stato === "aperto").length })}
-        vuoto={t("Il controllo dei contenuti non ha segnato niente da verificare.", "The content check has not marked anything to verify.")}
-        voci={verificare.map((v, i) => (
-          <li key={v.cosa}>
-            <label className={styles.spunta}>
-              <input type="checkbox" checked={v.stato === "a posto"} onChange={() => spunta(i)} />
-              <span>
-                <span className={v.stato === "a posto" ? styles.fatto : undefined}>{v.cosa}</span>
-                {v.perche && <span className={styles.tenue}> {v.perche}</span>}
-              </span>
-            </label>
-          </li>
-        ))}
-      />
+      {verificare.length === 0 ? (
+        <section className={styles.sezione}>
+          <h3>{t("Da verificare ({n} aperte)", "To verify ({n} open)", { n: 0 })}</h3>
+          <Vuoto>{t("Il controllo dei contenuti non ha segnato niente da verificare.", "The content check has not marked anything to verify.")}</Vuoto>
+        </section>
+      ) : (
+        <CardDiRighe nome={t("Da verificare ({n} aperte)", "To verify ({n} open)", { n: verificare.filter((v) => v.stato === "aperto").length })}>
+          {verificare.map((v, i) => (
+            <Riga key={v.cosa} nome={v.cosa} spiegazione={v.perche}>
+              <Interruttore etichetta={v.cosa} acceso={v.stato === "a posto"} onCambia={() => spunta(i)} />
+            </Riga>
+          ))}
+        </CardDiRighe>
+      )}
     </div>
   )
 }

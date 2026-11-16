@@ -4,13 +4,13 @@ Il metodo è uguale per tutti; ciò che è del creator (voce, pubblico, canali, 
 
 | cosa | dove | chi lo legge |
 |---|---|---|
-| chi è il creator e dove stanno le sue regole | `CLAUDE.md` | Claude Code, che parte dalla cartella di lavoro |
-| le sue regole (voce, struttura dei video, canali, vocabolario) e le sue skill | `.claude/rules/`, `.claude/skills/` | Claude Code, in aggiunta a quelle del prodotto |
-| i difetti già visti nei suoi video, con i nomi dei video (facoltativo) | `storia.md` | Claude Code, accanto ai difetti già visti del metodo (`.claude/metodo/taglio-e-voce.md`, `quadro-e-sagoma.md`, `animazioni.md`) |
+| chi è il creator e dove stanno le sue regole | `CLAUDE.md` | il motore della chat, che parte dalla cartella di lavoro |
+| le sue regole (voce, struttura dei video, canali, vocabolario) e le sue skill | `.claude/rules/`, `.claude/skills/` | il motore della chat, in aggiunta a quelle del prodotto |
+| i difetti già visti nei suoi video, con i nomi dei video (facoltativo) | `storia.md` | il motore della chat, accanto ai difetti già visti del metodo (`.claude/metodo/taglio-e-voce.md`, `quadro-e-sagoma.md`, `animazioni.md`) |
 | i dati che leggono codice e skill | `profilo.json` | motore, server, app, skill |
 | lo stile | `stile.json` | motore, animazioni, server, studio |
 
-Le regole e le skill del creator sono prosa: il prodotto non le conosce e non le valida. Il resto di questa pagina riguarda i due file JSON. Lo studio mostra il profilo in Impostazioni › Profilo (`docs/INTERFACCIA.md`): dopo il primo giro il creator vi corregge a mano `creator`, `pubblico`, `canali` e `non_si_dice` (prima, la sezione propone solo il giro), e la chat scrive lo stesso file, quindi ognuno vede ciò che ha scritto l'altro. Il primo giro, con cui Claude li scrive insieme al `CLAUDE.md`, è in `docs/CHAT.md`.
+Le regole e le skill del creator sono prosa: il prodotto non le conosce e non le valida. Il resto di questa pagina riguarda i due file JSON. Lo studio mostra il profilo in Impostazioni › Profilo (`docs/INTERFACCIA.md`): dopo il primo giro il creator vi corregge a mano `creator`, `pubblico`, `canali` e `non_si_dice` (prima, la sezione propone solo il giro), e la chat scrive lo stesso file, quindi ognuno vede ciò che ha scritto l'altro. Il primo giro, con cui la chat li scrive insieme al `CLAUDE.md`, è in `docs/CHAT.md`.
 
 ## `profilo.json`
 
@@ -29,12 +29,12 @@ Lo schema è `motore/schemi/profilo.schema.json`. Il file è facoltativo e ogni 
 
 | sezione | campi | chi la usa |
 |---|---|---|
-| `creator` | `nome` (obbligatorio), `lingua` (due lettere: la lingua in cui il creator parla e scrive) | skill e regole; Claude risponde in quella lingua |
+| `creator` | `nome` (obbligatorio), `lingua` (due lettere: la lingua in cui il creator parla e scrive) | skill e regole; il motore risponde in quella lingua |
 | `pubblico` | `livello` (per esempio «non tecnico»: decide sigle e numeri a schermo), `lingua`, `testate` (le testate i cui articoli compaiono a schermo; testo o lista) | skill e regole |
 | `canali[]` | `piattaforma` (`tiktok`, `instagram`, `youtube`, `x`; obbligatoria), `nome`, `formato` (`verticale` o `orizzontale`) | le regole di una piattaforma valgono solo se è fra i canali; skill e strumenti di lettura del canale |
 | `non_si_dice[]` | ciò che il creator non dice nei video: proposte, copioni, didascalie e risposte lo rispettano | skill e regole |
 | `fonti_delle_idee[]` | cartelle da cui nascono le proposte: `percorso` (obbligatorio), `principali`, `esclusi` | skill e regole |
-| `macchina` | `scheda_video` (l'indice di `nvidia-smi` della scheda per i lavori pesanti; `null` per il processore), `scheda_registrazione` (la scheda che codifica lo schermo registrato; `null` per il processore), `profilo_chrome` (la cartella del profilo di Chrome da cui leggere TikTok), `disco_quasi_pieno` (se è vero, un video grande si collega e non si copia mai: lo legge Claude, non il codice). Non ammette chiavi sconosciute | motore, server, app |
+| `macchina` | `scheda_video` (l'indice di `nvidia-smi` della scheda per i lavori pesanti; `null` per il processore), `scheda_registrazione` (la scheda che codifica lo schermo registrato; `null` per il processore), `profilo_chrome` (la cartella del profilo di Chrome da cui leggere TikTok), `disco_quasi_pieno` (se è vero, un video grande si collega e non si copia mai: lo legge il motore della chat, non il codice). Non ammette chiavi sconosciute | motore, server, app |
 | `motori` | per funzione (`trascrizione`, `allineamento`, `sagoma`, `segui`, `dettatura`, `pulizia_voce`) `attiva` e, dove ha senso, `dove` (`scheda` o `processore`); per la trascrizione anche `modello` e `calcolo`. Non ammette chiavi sconosciute | motore, app; si cambia da Impostazioni › Computer (`docs/MOTORI.md`, `docs/api/impostazioni.md`) |
 
 Una scheda indicata che non c'è, o `dove: "scheda"` senza una scheda utilizzabile, è un errore che dice cosa correggere: il motore non ripiega in silenzio sul processore.
@@ -53,4 +53,4 @@ Il prodotto ha il suo `stile.json` di serie, **neutro** (formato, colori sobri, 
 
 Esempio: un creator che vuole il titolo più lungo scrive `{ "titolo": { "durata": 4 } }` e tutto il resto del titolo resta com'è. Una soglia nuova del prodotto arriva a tutti senza toccare lo stile di nessuno.
 
-La regola è scritta una volta per linguaggio (`unisci_stile` in `motore/archivio.py`, `unisciStile` in `strumenti/stile.mjs`); la usano motore, strumenti, animazioni e server, che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza (`docs/api/impostazioni.md`). Dallo studio si ritocca in Impostazioni › Stile (`docs/INTERFACCIA.md`). Nel primo giro (`docs/CHAT.md`, «Il primo giro») lo stile del creator lo scrive Claude, partendo dai suoi video o da uno dei tre stili di `stili-di-partenza.json` (che lo studio mostra come cartoline in Impostazioni › Stile). Un video che si discosta dagli standard lo dichiara nel suo piano (`docs/PIANO.md`), non nel codice.
+La regola è scritta una volta per linguaggio (`unisci_stile` in `motore/archivio.py`, `unisciStile` in `strumenti/stile.mjs`); la usano motore, strumenti, animazioni e server, che serve lo stile unito su `GET /api/stile` e salva su `PUT /api/stile` solo la differenza (`docs/api/impostazioni.md`). Dallo studio si ritocca in Impostazioni › Stile (`docs/INTERFACCIA.md`). Nel primo giro (`docs/CHAT.md`, «Il primo giro») lo stile del creator lo scrive la chat, partendo dai suoi video o da uno dei tre stili di `stili-di-partenza.json` (che lo studio mostra come cartoline in Impostazioni › Stile). Un video che si discosta dagli standard lo dichiara nel suo piano (`docs/PIANO.md`), non nel codice.

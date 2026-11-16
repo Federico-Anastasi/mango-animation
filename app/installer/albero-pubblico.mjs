@@ -1,10 +1,12 @@
 // Builds the public tree of a Mango app from the private repo: the committed tree of a ref minus the private files,
-// which are the paths marked `export-ignore` in the repo's .gitattributes (the one list, the one `git archive` obeys).
+// which are the paths with the attribute `export-ignore` (the one list, the one `git archive` obeys). A private folder
+// carries its own `.gitattributes` with `* export-ignore`, so no public file names it.
 // It stops before any commit or push: it prints what it found and the commands that would follow. Copy it into each repo.
-// Usage: node <this file> [--ref HEAD] [--out <empty or missing folder>] [--base <git repo of the public tree>] [--base-ref <ref in it>]
+// Usage: node <this file> [--ref HEAD] [--out <empty or missing folder>] [--base <git repo of the public tree>] [--base-ref <ref in it>] [--forbidden <file>]
 //   --base: the repo whose last commit is the previous public one (default: this repo); --base-ref: default public-release.
-//   The public clone of Mango Animation is `--base ../mango-animation-pubblico --base-ref HEAD`.
-// Exits with 1 when a private path is still in the tree or a file carries something that must not be public.
+//   --forbidden: a file of the maintainer's own patterns that must not be in a public tree (the paths and names of their
+//   computer), one per line as `regular expression<TAB>what it is`. Keys and tokens are always looked for.
+// Exits with 1 when the ref has no private file at all or a file carries something that must not be public.
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
@@ -21,20 +23,17 @@ const base = path.resolve(arg("base", repo))
 const baseRef = arg("base-ref", "public-release")
 const out = path.resolve(arg("out", path.join(os.tmpdir(), `albero-pubblico-${path.basename(repo)}`)))
 
-// What must not be in a public tree: the maintainer's paths and credentials. Fake data in tests uses other names.
+// What must not be in a public tree: credentials, and what the maintainer lists. Fake data in tests uses other names.
+const forbiddenFile = arg("forbidden", null)
 const FORBIDDEN = [
-  [/Dev_F[A]/, "path of the maintainer's PC"],
-  [/Users[\\/]+Mango\b/, "user name of the maintainer's PC"],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, "private key"],
   [/\b(?:sk-[A-Za-z0-9]{20,}|hf_[A-Za-z0-9]{30,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sntry[su]_[A-Za-z0-9]{20,})/, "token"],
+  ...(forbiddenFile === null ? [] : fs.readFileSync(forbiddenFile, "utf8").split(/\r?\n/).filter((l) => l.trim() && !l.startsWith("#")).map((l) => [new RegExp(l.split("\t")[0]), l.split("\t")[1] ?? "listed by the maintainer"])),
 ]
 
 // Tokens made up for the tests of the anonymization (the standard asks for them): runs like 0123456789 or abcdefghij.
 const INVENTED = /0123456789|abcdefghij|ABCDEFGH|xxxxxxxx|EXAMPLE/
 
-const attributes = git(repo, "show", `${ref}:.gitattributes`)
-const privatePaths = attributes.split("\n").filter((l) => /\sexport-ignore\b/.test(l)).map((l) => l.trim().split(/\s+/)[0].replace(/\/$/, ""))
-if (!privatePaths.length) throw new Error(`${ref}:.gitattributes marks no path export-ignore: the list of private files is empty`)
 if (fs.existsSync(out) && fs.readdirSync(out).length) throw new Error(`${out} is not empty: choose another --out`)
 
 fs.mkdirSync(out, { recursive: true })
@@ -54,8 +53,12 @@ const walk = (dir) => {
 }
 walk(out)
 
+// What the archive left out, by its first folder: a ref that leaves nothing out has lost its list of private files.
+const published = new Set(files)
+const privatePaths = [...new Set(git(repo, "ls-tree", "-r", "--name-only", "-z", ref).split("\0").filter((f) => f && !published.has(f)).map((f) => f.split("/")[0]))]
+if (!privatePaths.length) throw new Error(`${ref} has no path with the attribute export-ignore: the list of private files is empty`)
+
 const problems = []
-for (const p of privatePaths) if (files.some((f) => f === p || f.startsWith(`${p}/`))) problems.push(`${p}: private, but in the tree`)
 for (const f of files) {
   const full = path.join(out, f)
   if (fs.statSync(full).size > 2 << 20) continue
@@ -81,6 +84,7 @@ const removed = [...before.keys()].filter((f) => !after.has(f))
 const show = (title, list) => console.log(`${title}: ${list.length}${list.length ? `\n  ${list.slice(0, 15).join("\n  ")}${list.length > 15 ? "\n  …" : ""}` : ""}`)
 
 console.log(`Public tree of ${ref} in ${out}: ${files.length} files, without ${privatePaths.join(", ")}.`)
+if (forbiddenFile === null) console.log("No --forbidden list: only keys and tokens were looked for.")
 show("Added", added)
 show("Changed", changed)
 show("Removed", removed)

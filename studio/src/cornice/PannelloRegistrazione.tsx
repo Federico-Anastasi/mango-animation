@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import { api } from "../api"
+import { Bottone } from "../comuni/Bottone"
+import { Segmenti } from "../comuni/Segmenti"
 import { useChiudiFuori } from "../comuni/useChiudiFuori"
 import { registrazione, useCopia } from "../dati"
 import { t } from "../lingua"
 import { istante, nomeFile, tempoLeggibile } from "../testo"
 import type { ModoRegistrazione } from "../tipi"
 import { dispositivoDaUsare, ricorda, type TipoDispositivo } from "./dispositivi"
+import { Punto } from "./Punto"
 import base from "./PannelloLavori.module.css"
 import styles from "./PannelloRegistrazione.module.css"
 
@@ -94,7 +97,7 @@ export function PannelloRegistrazione({ onChiudi }: { onChiudi: () => void }) {
       ) : inCorso ? (
         <div className={styles.blocco}>
           <p className={styles.inCorso}>
-            <span className={styles.punto} aria-hidden="true" />
+            <Punto tono="registra" />
             {modi().find((m) => m.modo === inCorso.modo)?.nome ?? t("Registrazione", "Recording")} · <Trascorso da={inCorso.iniziata} />
           </p>
           <ul className={base.elenco}>
@@ -104,34 +107,28 @@ export function PannelloRegistrazione({ onChiudi }: { onChiudi: () => void }) {
               </li>
             ))}
           </ul>
-          <button type="button" className={styles.principale} disabled={occupato} onClick={() => fai(api.fermaRegistrazione)}>
-            {t("Ferma la registrazione", "Stop recording")}
-          </button>
+          <div className={styles.azioni}>
+            <Bottone variante="principale" disabled={occupato} onClick={() => fai(api.fermaRegistrazione)}>
+              {t("Ferma la registrazione", "Stop recording")}
+            </Bottone>
+          </div>
           <p className={base.piccolo}>{t("Quando la fermi, i file compaiono nel girato di oggi.", "When you stop it, the files appear in today's footage.")}</p>
         </div>
       ) : (
         <div className={styles.blocco}>
-          <fieldset className={styles.scelte}>
-            <legend>{t("Cosa registro", "What to record")}</legend>
-            {modi().map((m) => (
-              <label key={m.modo} className={styles.scelta}>
-                <input type="radio" name="modo-registrazione" aria-label={m.nome} checked={modo === m.modo} onChange={() => setModo(m.modo)} />
-                <span>
-                  <strong>{m.nome}</strong>
-                  <span className={base.piccolo}>{m.cosa}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <div className={styles.scelte}>
+            <Segmenti etichetta={t("Cosa registro", "What to record")} valori={modi().map((m) => ({ id: m.modo, nome: m.nome }))} scelta={modo} onScegli={setModo} />
+            <p className={base.piccolo}>{modi().find((m) => m.modo === modo)?.cosa}</p>
+          </div>
           {conMicrofono && <ScegliDispositivo etichetta={t("Microfono", "Microphone")} nessuno={t("nessuno trovato", "none found")} trovati={microfoni} scelto={microfono} onScegli={(nome) => scegli("microfono", nome)} />}
           {conCamera && <ScegliDispositivo etichetta={t("Webcam", "Webcam")} nessuno={t("nessuna trovata", "none found")} trovati={camere} scelto={camera} onScegli={(nome) => scegli("camera", nome)} />}
           <div className={styles.azioni}>
-            <button type="button" className={styles.principale} disabled={occupato} onClick={() => fai(richiesta)}>
+            <Bottone variante="principale" disabled={occupato} onClick={() => fai(richiesta)}>
               {t("Avvia la registrazione", "Start recording")}
-            </button>
-            <button type="button" className={base.azione} disabled={occupato} onClick={() => fai(api.cercaDispositivi)}>
+            </Bottone>
+            <Bottone variante="minore" disabled={occupato} onClick={() => fai(api.cercaDispositivi)}>
               {t("Cerca di nuovo i dispositivi", "Look for devices again")}
-            </button>
+            </Bottone>
           </div>
           {stato?.ultima && (
             <p className={stato.ultima.errore ? base.fallito : base.piccolo}>

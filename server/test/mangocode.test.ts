@@ -4,137 +4,35 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { MangoCode, nomeDelloStrumento, RegistroMangoCode, risposteDi, righeDi, statoDiMangoCode } from "../src/chat/mangocode"
-import type { FunzioneQuery, Sessioni } from "../src/chat/tipi"
+import { ClaudeCode } from "../src/chat/claude/claude"
+import type { FunzioneQuery } from "../src/chat/claude/query"
+import { MangoCode, nomeDelloStrumento, risposteDi, statoDiMangoCode } from "../src/chat/mangocode"
+import type { Apertura } from "../src/chat/motore"
+import { RegistroDelMotore } from "../src/chat/registro"
 import { VociSpente } from "../src/chat/vociSpente"
 import { ascolta, aspetta, avviaAmbiente, chiama, fermaTutti, type Ambiente } from "./aiuti"
+import { fermaIServerFinti, FintoMangoCode, SENZA_CLAUDE, SENZA_SESSIONI, SESSIONE, SOLO_I_MODELLI_DI_CLAUDE } from "./aiuti-chat"
 
 const cartelle: string[] = []
-const serverFinti: { stop: (subito?: boolean) => void }[] = []
+
+/** L'apertura di una conversazione di Mango Code senza chat intorno: gli eventi e le richieste non interessano. */
+const apertura = (id: string, lavoro: string, resto: Partial<Apertura> = {}): Apertura => ({
+  id,
+  esiste: false,
+  codice: lavoro,
+  lavoro,
+  modello: null,
+  effort: null,
+  evento: () => undefined,
+  chiedi: () => new Promise(() => undefined),
+  lingua: () => "it",
+  ...resto,
+})
 afterEach(async () => {
   await fermaTutti()
-  serverFinti.splice(0).forEach((s) => s.stop(true))
+  fermaIServerFinti()
   await Promise.all(cartelle.splice(0).map((c) => rm(c, { recursive: true, force: true })))
 })
-
-const SESSIONE = "ses_finta1"
-
-class FintoMangoCode {
-  readonly richieste: { metodo: string; percorso: string; directory: string | null; corpo: unknown; agente: string | null }[] = []
-  private readonly flussi: ReadableStreamDefaultController<Uint8Array>[] = []
-  messaggi: unknown[] = []
-  mcpGiaCollegati: Record<string, { status: string }> = {}
-  /** Se è vero, Mango Code risponde 500 al messaggio. */
-  rifiutaIlMessaggio = false
-  /** Se è scritto, `PUT /mango/extra-folders` risponde con questo stato. */
-  statoCartelle: number | null = null
-  readonly url: string
-
-  constructor() {
-    const server = Bun.serve({
-      port: 0,
-      hostname: "127.0.0.1",
-      idleTimeout: 0,
-      fetch: async (req) => {
-        const u = new URL(req.url)
-        const corpo = req.method === "POST" || req.method === "PUT" ? await req.text().then((t) => (t ? (JSON.parse(t) as unknown) : null)) : null
-        const corpoLetto = corpo
-        this.richieste.push({ metodo: req.method, percorso: u.pathname, directory: u.searchParams.get("directory"), corpo: corpoLetto, agente: req.headers.get("user-agent") })
-        if (u.pathname === "/global/health") return Response.json({ healthy: true })
-        if (u.pathname === "/event") {
-          // Come il server vero, il primo evento arriva subito: così le intestazioni partono.
-          const flusso = new ReadableStream<Uint8Array>({
-            start: (c) => {
-              this.flussi.push(c)
-              c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: "server.connected", properties: {} })}\n\n`))
-            },
-          })
-          return new Response(flusso, { headers: { "content-type": "text/event-stream" } })
-        }
-        if (u.pathname === "/session" && req.method === "POST") return Response.json({ id: SESSIONE })
-        if (u.pathname === "/mcp" && req.method === "GET") return Response.json(this.mcpGiaCollegati)
-        if (u.pathname === "/mango/extra-folders" && req.method === "PUT" && this.statoCartelle !== null) return new Response("no", { status: this.statoCartelle })
-        if (u.pathname === "/mango/extra-folders" && req.method === "PUT") return Response.json({ ...(corpo as object), changed: true })
-        if (u.pathname === "/mcp" && req.method === "POST" && typeof corpo === "object" && corpo !== null && "name" in corpo) this.mcpGiaCollegati[String(corpo.name)] = { status: "connected" }
-        if (u.pathname === `/session/${SESSIONE}/message`) return Response.json(this.messaggi)
-        if (u.pathname === "/config/providers")
-          return Response.json({ providers: [{ id: "mango", models: { toq: { id: "toq", name: "TOQ-v1", limit: { context: 65536 }, capabilities: { input: { image: false } } } } }] })
-        if (this.rifiutaIlMessaggio && u.pathname.endsWith("/prompt_async")) return new Response("errore interno del gestore: stack...", { status: 500 })
-        if (req.method === "POST") return new Response(null, { status: 204 })
-        return new Response("non c'è", { status: 404 })
-      },
-    })
-    serverFinti.push(server)
-    this.url = `http://127.0.0.1:${server.port}`
-  }
-
-  get collegati(): number {
-    return this.flussi.length
-  }
-
-  evento(type: string, properties: object): void {
-    const riga = new TextEncoder().encode(`data: ${JSON.stringify({ type, properties })}\n\n`)
-    this.flussi.forEach((c) => c.enqueue(riga))
-  }
-
-  di(percorso: string) {
-    return this.richieste.filter((r) => r.percorso === percorso)
-  }
-
-  /** Un passo come lo manda Mango Code: nasce a zero, e finito porta i token e `finish` nello stesso messaggio, che arriva due volte identico. */
-  passo(id: string, tokens: { input: number; output: number; reasoning: number; read: number; write: number }, finish = "tool-calls", extra: object = {}): void {
-    const info = (conTokens: boolean) => ({
-      id,
-      sessionID: SESSIONE,
-      role: "assistant",
-      ...extra,
-      tokens: conTokens
-        ? { input: tokens.input, output: tokens.output, reasoning: tokens.reasoning, cache: { read: tokens.read, write: tokens.write }, total: tokens.input + tokens.output + tokens.reasoning + tokens.read + tokens.write }
-        : { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 }, total: 0 },
-      ...(conTokens ? { finish, time: { created: 1, completed: 2 } } : {}),
-    })
-    this.evento("message.updated", { info: info(false) })
-    this.evento("message.updated", { info: info(true) })
-    this.evento("message.updated", { info: info(true) })
-  }
-
-  /** L'ordine del riassunto del contratto: la parte `compaction`, il messaggio a zero, lo stesso finito coi token della richiesta che lo scrive, `session.compacted`. */
-  riassunto(id: string, tokensDellaRichiesta: number): void {
-    const info = (finito: boolean) => ({ id, sessionID: SESSIONE, role: "assistant", mode: "compaction", summary: true, tokens: { input: finito ? tokensDellaRichiesta : 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 }, total: finito ? tokensDellaRichiesta : 0 }, ...(finito ? { finish: "stop", time: { created: 1, completed: 2 } } : {}) })
-    this.evento("message.part.updated", { part: { id: "prt_compaction", messageID: "msg_u", sessionID: SESSIONE, type: "compaction", auto: true } })
-    this.evento("message.updated", { info: info(false) })
-    this.evento("message.part.updated", { part: { id: `${id}_testo`, messageID: id, sessionID: SESSIONE, type: "text", text: "" } })
-    this.evento("message.part.delta", { sessionID: SESSIONE, messageID: id, partID: `${id}_testo`, field: "text", delta: "RIASSUNTO della conversazione" })
-    this.evento("message.part.updated", { part: { id: `${id}_testo`, messageID: id, sessionID: SESSIONE, type: "text", text: "RIASSUNTO della conversazione", time: { start: 1, end: 2 } } })
-    this.evento("message.updated", { info: info(true) })
-    this.evento("session.compacted", { sessionID: SESSIONE })
-  }
-
-  /** `session.idle` si ripete: più volte per lo stesso giro. */
-  idle(): void {
-    for (let n = 0; n < 3; n++) this.evento("session.idle", { sessionID: SESSIONE })
-  }
-}
-
-const SENZA_CLAUDE: FunzioneQuery = () => {
-  throw new Error("in questa prova Claude Code non c'è")
-}
-
-/** Un Claude Code che dà solo l'elenco dei suoi modelli. */
-const SOLO_I_MODELLI_DI_CLAUDE: FunzioneQuery = () =>
-  ({
-    [Symbol.asyncIterator]: () => ({ next: async () => ({ value: undefined, done: true }) }),
-    interrupt: async () => undefined,
-    close: () => undefined,
-    setModel: async () => undefined,
-    applyFlagSettings: async () => undefined,
-    supportedModels: async () => [{ value: "opus", resolvedModel: "claude-opus-5-5", displayName: "Opus 5.5", description: "", supportsEffort: true, supportedEffortLevels: ["high"] }],
-    supportedCommands: async () => [],
-    stopTask: async () => undefined,
-    backgroundTasks: async () => false,
-    getContextUsage: async () => ({ totalTokens: 0, rawMaxTokens: 0 }),
-  }) as never
-const SENZA_SESSIONI: Sessioni = { elenca: async () => [], leggi: async () => null, osserva: async () => ({ chiudi: () => undefined }) }
 
 async function prepara(acceso = true, claude: FunzioneQuery = SENZA_CLAUDE): Promise<{ a: Ambiente; mc: FintoMangoCode; archivio: string; codice: string; dati: string }> {
   const radice = await mkdtemp(join(tmpdir(), "mango-code-prova-"))
@@ -144,7 +42,7 @@ async function prepara(acceso = true, claude: FunzioneQuery = SENZA_CLAUDE): Pro
   const mc = new FintoMangoCode()
   if (acceso) await Bun.write(join(dati, "service.json"), JSON.stringify({ version: 1, pid: process.pid, agent: mc.url, engine: mc.url, window: false }))
   const mangoCode = new MangoCode({ dati, archivio, adesso: () => new Date() })
-  const a = await avviaAmbiente({ chat: { query: claude, sessioni: SENZA_SESSIONI, mangoCode } })
+  const a = await avviaAmbiente({ chat: { motori: [new ClaudeCode(claude, SENZA_SESSIONI), mangoCode] } })
   const codice = a.codice
   await Bun.write(join(codice, "CLAUDE.md"), "# Il metodo\nLa parola del metodo è MANDARINO.\n")
   await Bun.write(join(codice, ".claude", "rules", "montaggio.md"), "regole")
@@ -175,11 +73,23 @@ describe("Mango Code nella chat", () => {
     ascolto.chiudi()
   })
 
+  test("un service.json riscritto uguale non è un'accensione: nessun avviso finché non cambia davvero", async () => {
+    const { a, dati } = await prepara()
+    const ascolto = await ascolta(a)
+    const avvisi = () => ascolto.messaggi.filter((m) => (m as { tipo: string }).tipo === "modelli").length
+    await Bun.write(join(dati, "service.json"), await Bun.file(join(dati, "service.json")).text())
+    await Bun.sleep(600)
+    expect(avvisi()).toBe(0)
+    await rm(join(dati, "service.json"))
+    await aspetta(() => avvisi() === 1)
+    ascolto.chiudi()
+  })
+
   test("i suoi modelli si offrono accanto a quelli di Claude Code, solo se è acceso", async () => {
     const { a } = await prepara()
-    const r = await chiama<{ id: string; nome: string; effort: string[] }[]>(a, "GET", "/api/chat/modelli")
+    const r = await chiama<{ id: string; nome: string; effort: unknown[] }[]>(a, "GET", "/api/chat/modelli")
     expect(r.stato).toBe(200)
-    expect(r.corpo).toEqual([{ id: "mango-code/toq", nome: "Mango Code · TOQ-v1", descrizione: "Mango Code, sul computer · 64k di contesto · non vede le immagini", effort: [], reale: "mango-code/toq" }] as never)
+    expect(r.corpo).toEqual([{ id: "mango-code/toq", nome: "Mango Code · TOQ-v1", descrizione: "Mango Code, sul computer · 64k di contesto · non vede le immagini", motore: "mango-code", effort: [], reale: "mango-code/toq" }] as never)
     const spento = await prepara(false)
     const nonSiLegge = await chiama<{ errore: string }>(spento.a, "GET", "/api/chat/modelli")
     expect(nonSiLegge.stato).toBe(502)
@@ -271,12 +181,10 @@ describe("Mango Code nella chat", () => {
         [500, "Mango Code non ha preso il metodo del prodotto: riprova."],
       ] as const) {
         mc.statoCartelle = stato
-        const prompt = (async function* () {
-          yield { type: "user" as const, message: { role: "user" as const, content: "ciao" }, parent_tool_use_id: null }
-        })()
-        const query = new MangoCode({ dati, archivio, adesso: () => new Date() }).query({ prompt, options: { cwd: archivio, additionalDirectories: [codice], sessionId: "00000000-0000-4000-8000-000000000002" } })
-        await expect((async () => { for await (const _ of query) void _ })()).rejects.toThrow(new Error(frase))
-        query.close()
+        const sessione = new MangoCode({ dati, archivio, adesso: () => new Date() }).apri(apertura("00000000-0000-4000-8000-000000000002", archivio, { codice }))
+        sessione.scrivi({ testo: "ciao", immagini: [] })
+        await expect(sessione.finita).rejects.toThrow(new Error(frase))
+        sessione.chiudi()
       }
     } finally {
       registro.mockRestore()
@@ -286,12 +194,10 @@ describe("Mango Code nella chat", () => {
   test("a Mango Code spento il messaggio dice di aprirlo, senza ripetere il collegamento né il comando", async () => {
     const { dati, archivio } = await prepara(false)
     const mangoCode = new MangoCode({ dati, archivio, adesso: () => new Date() })
-    const prompt = (async function* () {
-      yield { type: "user" as const, message: { role: "user" as const, content: "ciao" }, parent_tool_use_id: null }
-    })()
-    const query = mangoCode.query({ prompt, options: { cwd: archivio, sessionId: "00000000-0000-4000-8000-000000000001" } })
-    await expect((async () => { for await (const _ of query) void _ })()).rejects.toThrow(new Error("Mango Code è spento: aprilo dalla sua icona e riscrivi il messaggio."))
-    query.close()
+    const sessione = mangoCode.apri(apertura("00000000-0000-4000-8000-000000000001", archivio))
+    sessione.scrivi({ testo: "ciao", immagini: [] })
+    await expect(sessione.finita).rejects.toThrow(new Error("Mango Code è spento: aprilo dalla sua icona e riscrivi il messaggio."))
+    sessione.chiudi()
   })
 
   test("un permesso di Mango Code nomina Mango Code, senza JSON grezzo", async () => {
@@ -319,8 +225,8 @@ describe("Mango Code nella chat", () => {
     expect((await chiama(a, "POST", `/api/chat/${id}/ferma`)).stato).toBe(200)
     expect(mc.di(`/session/${SESSIONE}/abort`)).toHaveLength(1)
     const effort = await chiama<{ errore: string }>(a, "POST", `/api/chat/${id}/impostazioni`, { effort: "high" })
-    expect(effort.stato).toBe(400)
-    expect(effort.corpo.errore).toContain("non ha livelli di effort")
+    expect(effort.stato).toBe(409)
+    expect(effort.corpo.errore).toBe("Mango Code non ha livelli di effort.")
     const claude = await chiama<{ errore: string }>(a, "POST", `/api/chat/${id}/impostazioni`, { modello: "opus" })
     expect(claude.stato).toBe(400)
     expect(claude.corpo.errore).toBe("Questa conversazione è di Mango Code: per un modello di Claude aprine una nuova.")
@@ -405,7 +311,7 @@ describe("Mango Code nella chat", () => {
     await aspetta(async () => (await dettaglio(a, id)).corpo.stato === "pronta")
     await a.ferma()
 
-    const dopo = await avviaAmbiente({ chat: { query: SENZA_CLAUDE, sessioni: SENZA_SESSIONI, mangoCode: new MangoCode({ dati, archivio, adesso: () => new Date() }) } })
+    const dopo = await avviaAmbiente({ chat: { motori: [new ClaudeCode(SENZA_CLAUDE, SENZA_SESSIONI), new MangoCode({ dati, archivio, adesso: () => new Date() })] } })
     const elenco = await chiama<{ id: string; titolo: string; attiva: boolean }[]>(dopo, "GET", "/api/chat")
     expect(elenco.corpo).toEqual([expect.objectContaining({ id, titolo: "Primo messaggio", attiva: false })])
     mc.messaggi = [
@@ -444,7 +350,7 @@ describe("Mango Code nella chat", () => {
     const id = await nuova(a, mc)
     await a.ferma()
     await rm(join(dati, "service.json"))
-    const dopo = await avviaAmbiente({ chat: { query: SENZA_CLAUDE, sessioni: SENZA_SESSIONI, mangoCode: new MangoCode({ dati, archivio, adesso: () => new Date() }) } })
+    const dopo = await avviaAmbiente({ chat: { motori: [new ClaudeCode(SENZA_CLAUDE, SENZA_SESSIONI), new MangoCode({ dati, archivio, adesso: () => new Date() })] } })
     const r = await chiama<{ errore: string }>(dopo, "GET", `/api/chat/${id}`)
     expect(r.stato).toBe(502)
     expect(r.corpo.errore).toBe("Questa conversazione è di Mango Code, che è spento: apri Mango Code per rileggerla.")
@@ -461,7 +367,7 @@ describe("Mango Code acceso ma non pronto", () => {
     const id = await nuova(a, mc)
     await a.ferma()
     const acceso = await Bun.file(join(dati, "service.json")).text()
-    const dopo = await avviaAmbiente({ chat: { query: SOLO_I_MODELLI_DI_CLAUDE, sessioni: SENZA_SESSIONI, mangoCode: new MangoCode({ dati, archivio, adesso: () => new Date() }) } })
+    const dopo = await avviaAmbiente({ chat: { motori: [new ClaudeCode(SOLO_I_MODELLI_DI_CLAUDE, SENZA_SESSIONI), new MangoCode({ dati, archivio, adesso: () => new Date() })] } })
     await Bun.write(join(dati, "service.json"), JSON.stringify({ version: 1, pid: process.pid, reason: "Il modello non è ancora stato scelto.", window: true }))
     return { dopo, id, mc, ripristina: () => Bun.write(join(dati, "service.json"), acceso) }
   }
@@ -469,12 +375,10 @@ describe("Mango Code acceso ma non pronto", () => {
   test("un messaggio che parte dice di guardare la finestra di Mango Code, senza dirlo spento né toccarlo", async () => {
     const { mc, dati, archivio } = await prepara()
     await Bun.write(join(dati, "service.json"), JSON.stringify({ version: 1, pid: process.pid, reason: "Il modello non è ancora stato scelto.", window: true }))
-    const prompt = (async function* () {
-      yield { type: "user" as const, message: { role: "user" as const, content: "ciao" }, parent_tool_use_id: null }
-    })()
-    const query = new MangoCode({ dati, archivio, adesso: () => new Date() }).query({ prompt, options: { cwd: archivio, sessionId: "00000000-0000-4000-8000-000000000003" } })
-    await expect((async () => { for await (const _ of query) void _ })()).rejects.toThrow(new Error("Mango Code si sta preparando o non è pronto: guarda la sua finestra e riscrivi il messaggio."))
-    query.close()
+    const sessione = new MangoCode({ dati, archivio, adesso: () => new Date() }).apri(apertura("00000000-0000-4000-8000-000000000003", archivio))
+    sessione.scrivi({ testo: "ciao", immagini: [] })
+    await expect(sessione.finita).rejects.toThrow(new Error("Mango Code si sta preparando o non è pronto: guarda la sua finestra e riscrivi il messaggio."))
+    sessione.chiudi()
     expect(mc.richieste).toEqual([])
   })
 
@@ -562,17 +466,33 @@ describe("le forme", () => {
     expect(risposteDi(domande, { "A?": "uno, due", "B?": "forse" })).toEqual([["uno", "due"], ["forse"]])
   })
 
-  test("un messaggio di Mango Code come righe del file di Claude Code", () => {
-    expect(righeDi({ info: { id: "m1", role: "user", time: { created: 0 } }, parts: [{ type: "text", text: "ciao" }] })).toEqual([{ type: "user", uuid: "m1", timestamp: "1970-01-01T00:00:00.000Z", message: { role: "user", content: "ciao" } }])
-    const righe = righeDi({ info: { id: "m2", role: "assistant" }, parts: [{ type: "reasoning", text: "penso" }, { type: "tool", callID: "c1", tool: "read", state: { status: "error", input: {}, error: "manca" } }] })
-    expect(righe.map((r) => r.type)).toEqual(["assistant", "user"])
-    expect(righe[1]?.message).toEqual({ role: "user", content: [{ type: "tool_result", tool_use_id: "c1", content: "manca", is_error: true }] })
-    const passo = (info: object) => righeDi({ info: { id: "m3", role: "assistant", tokens: { input: 1, output: 2, reasoning: 5, cache: { read: 3, write: 4 } }, ...info }, parts: [{ type: "text", text: "ok" }] })
-    expect(passo({ finish: "stop" })[0]?.message).toEqual({ role: "assistant", content: [{ type: "text", text: "ok" }], usage: { input_tokens: 1, output_tokens: 7, cache_read_input_tokens: 3, cache_creation_input_tokens: 4 } })
+  test("un messaggio di Mango Code riletto: il testo del creator, i blocchi di Mango Code con gli esiti, e il contesto del passo", async () => {
+    const { a, mc, archivio, dati } = await prepara()
+    const id = await nuova(a, mc)
+    await a.ferma()
+    const rileggi = async (messaggi: unknown[]) => {
+      mc.messaggi = messaggi
+      return new MangoCode({ dati, archivio, adesso: () => new Date() }).leggi(id, { lavoro: a.radice, archivio, lingua: "it" })
+    }
+    const utente = await rileggi([{ info: { id: "m1", role: "user", time: { created: 0 } }, parts: [{ type: "text", text: "ciao" }] }])
+    expect(utente?.messaggi).toEqual([{ id: "m1", ruolo: "utente", quando: "1970-01-01T00:00:00.000Z", parti: [{ tipo: "testo", testo: "ciao" }] }])
+    const errore = await rileggi([{ info: { id: "m2", role: "assistant" }, parts: [{ type: "reasoning", text: "penso" }, { type: "tool", callID: "c1", tool: "read", state: { status: "error", input: {}, error: "manca" } }] }])
+    expect(errore?.messaggi.map((m) => m.ruolo)).toEqual(["claude"])
+    expect(errore?.messaggi[0]?.parti).toEqual([
+      { tipo: "pensiero", testo: "penso" },
+      { tipo: "strumento", id: "c1", nome: "Read", ingresso: {}, errore: "manca" },
+    ])
+    const passo = (info: object) => rileggi([{ info: { id: "m3", role: "assistant", tokens: { input: 1, output: 2, reasoning: 5, cache: { read: 3, write: 4 } }, ...info }, parts: [{ type: "text", text: "ok" }] }])
+    const finito = await passo({ finish: "stop" })
+    expect(finito?.messaggi[0]?.parti).toEqual([{ tipo: "testo", testo: "ok" }])
+    expect(finito?.contestoUsato).toEqual({ usati: 15, totale: 65_536 })
     // Senza `finish` il passo non è finito; il riassunto ha i token della sua richiesta: nessuno dei due dice il contesto.
-    expect(passo({})[0]?.message).toEqual({ role: "assistant", content: [{ type: "text", text: "ok" }] })
-    const riassunto = passo({ finish: "stop", mode: "compaction", summary: true })
-    expect(riassunto.map((r) => [r.type, r.subtype])).toEqual([["system", "compact_boundary"]])
+    const incorso = await passo({})
+    expect(incorso?.messaggi[0]?.parti).toEqual([{ tipo: "testo", testo: "ok" }])
+    expect(incorso?.contestoUsato).toBeNull()
+    const riassunto = await passo({ finish: "stop", mode: "compaction", summary: true })
+    expect(riassunto?.messaggi).toEqual([])
+    expect(riassunto?.contestoUsato).toBeNull()
   })
 
   test("rileggendo una conversazione appena riassunta il contesto non si sa; col passo dopo sì", async () => {
@@ -582,7 +502,7 @@ describe("le forme", () => {
     const passo = { info: { id: "msg_a", role: "assistant", finish: "stop", time: { created: 2 }, tokens: { input: 100, output: 20, reasoning: 0, cache: { read: 3_000, write: 0 } } }, parts: [{ type: "text", text: "Ecco." }] }
     const riassunto = { info: { id: "msg_s", role: "assistant", mode: "compaction", summary: true, finish: "stop", time: { created: 3 }, tokens: { input: 60_000, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } }, parts: [{ type: "text", text: "Riassunto." }] }
     const riprende = { info: { id: "msg_b", role: "assistant", finish: "stop", time: { created: 4 }, tokens: { input: 900, output: 30, reasoning: 0, cache: { read: 0, write: 0 } } }, parts: [{ type: "text", text: "Riprendo." }] }
-    const riapri = () => avviaAmbiente({ chat: { query: SENZA_CLAUDE, sessioni: SENZA_SESSIONI, mangoCode: new MangoCode({ dati, archivio, adesso: () => new Date() }) } })
+    const riapri = () => avviaAmbiente({ chat: { motori: [new ClaudeCode(SENZA_CLAUDE, SENZA_SESSIONI), new MangoCode({ dati, archivio, adesso: () => new Date() })] } })
     mc.messaggi = [passo, riassunto]
     const prima = await riapri()
     expect((await dettaglio(prima, id)).corpo.contesto_usato).toBeNull()
@@ -604,7 +524,7 @@ describe("il legame fra conversazioni e sessioni di Mango Code", () => {
     await writeFile(percorso, '{"c1": {"sessione": "ses_1", ')
     const errori = spyOn(console, "error").mockImplementation(() => {})
     try {
-      const registro = new RegistroMangoCode(archivio)
+      const registro = new RegistroDelMotore(archivio, "mango-code", "Mango Code")
       expect(await registro.tutti()).toEqual({})
       expect(errori.mock.calls.flat().join(" ")).toContain("non si legge")
       await registro.cambia("c2", () => ({ sessione: "ses_2", modello: "m", titolo: "t", aggiornata: 1 }))

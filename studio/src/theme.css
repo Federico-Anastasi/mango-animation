@@ -1,87 +1,11 @@
-/* I caratteri sono impacchettati in src/assets/fonts/ (woff2, latino, licenza OFL): l'interfaccia gira anche senza rete. */
-@font-face {
-  font-family: "Archivo";
-  src: url("./assets/fonts/Archivo-700.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Instrument Sans";
-  src: url("./assets/fonts/InstrumentSans-400.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Instrument Sans";
-  src: url("./assets/fonts/InstrumentSans-500.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Instrument Sans";
-  src: url("./assets/fonts/InstrumentSans-600.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Chivo Mono";
-  src: url("./assets/fonts/ChivoMono-400.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+@import "../../suite/tokens.css";
 
 :root {
-  color-scheme: light;
-  --carta: #f1f0eb;
-  --carta-scura: #e4e2d9;
-  --inchiostro: #17171b;
-  --rosso: #e03a1e;
-  --blu: #1f4b99;
-  --grigio: #5f5d56;
-  --filo: #cbc8bd;
-  --verde: #1f6f3f;
-  --font-display: "Archivo", sans-serif;
-  --font-testo: "Instrument Sans", sans-serif;
-  --font-mono: "Chivo Mono", monospace;
   /* La larghezza di ogni pagina: una sola, così titolo e schede stanno nello stesso punto passando dall'una all'altra. Dentro, tabelle e griglie la riempiono, testo e moduli stanno a sinistra con il loro tetto. */
   --cornice: 96rem;
   --moduli: 62rem;
-}
-
-/* Al buio vale una tavolozza sola, con gli stessi ruoli: i colori di carta e inchiostro non si rovesciano a occhio. */
-:root[data-tema="scuro"] {
-  color-scheme: dark;
-  --carta: #151518;
-  --carta-scura: #26262b;
-  --inchiostro: #eceae3;
-  --rosso: #f06a52;
-  --blu: #86a7e3;
-  --grigio: #a29f96;
-  --filo: #36363c;
-  --verde: #7db88a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-tema="chiaro"]) {
-    color-scheme: dark;
-    --carta: #151518;
-    --carta-scura: #26262b;
-    --inchiostro: #eceae3;
-    --rosso: #f06a52;
-    --blu: #86a7e3;
-    --grigio: #a29f96;
-    --filo: #36363c;
-    --verde: #7db88a;
-  }
+  /* Il colore del prodotto: solo il suo nome dentro la scritta della barra. */
+  --mango-product: var(--mango-action-text);
 }
 
 * {
@@ -100,31 +24,37 @@ html {
 
 body {
   margin: 0;
-  background: var(--carta);
-  color: var(--inchiostro);
-  font-family: var(--font-testo);
-  font-size: 15px;
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font-family: var(--mango-font-text);
+  font-size: 14px;
   line-height: 1.5;
+  /* Nel carattere del codice `=>` e `!==` si leggono come sono scritti. */
+  font-variant-ligatures: none;
 }
 
 h1,
 h2,
 h3 {
-  font-family: var(--font-display);
+  font-family: var(--mango-font-title);
   font-weight: 700;
   margin: 0 0 0.5rem;
 }
 
 h1 {
-  font-size: 1.6rem;
+  font-size: 23px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 h2 {
-  font-size: 1.2rem;
+  font-size: 14px;
+  letter-spacing: -0.01em;
 }
 
 h3 {
-  font-size: 1rem;
+  font-size: 13px;
+  letter-spacing: -0.01em;
 }
 
 [role="alert"] {
@@ -142,11 +72,11 @@ textarea {
 
 code,
 .mono {
-  font-family: var(--font-mono);
+  font-family: var(--mango-font-code);
 }
 
 a {
-  color: var(--blu);
+  color: var(--mango-action-text);
 }
 
 :focus:not(:focus-visible) {
@@ -154,17 +84,17 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--blu);
+  outline: 2px solid var(--mango-action-text);
   outline-offset: 2px;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--filo) transparent;
+  scrollbar-color: var(--mango-line) transparent;
 }
 
 *:hover {
-  scrollbar-color: var(--grigio) transparent;
+  scrollbar-color: var(--mango-text-muted) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -177,12 +107,12 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--filo);
+  background: var(--mango-line);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--grigio);
+  background: var(--mango-text-muted);
 }
 
 ::-webkit-scrollbar-button {
@@ -193,10 +123,18 @@ a {
 .scorri-con-segno {
   overflow-x: auto;
   background:
-    linear-gradient(to right, var(--carta) 30%, transparent) left / 2rem 100% no-repeat local,
-    linear-gradient(to left, var(--carta) 30%, transparent) right / 2rem 100% no-repeat local,
-    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--inchiostro) 22%, transparent), transparent) left / 0.7rem 100% no-repeat scroll,
-    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--inchiostro) 22%, transparent), transparent) right / 0.7rem 100% no-repeat scroll;
+    linear-gradient(to right, var(--fondo-segno, var(--mango-ground)) 30%, transparent) left / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--fondo-segno, var(--mango-ground)) 30%, transparent) right / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--mango-text) 22%, transparent), transparent) left / 0.7rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--mango-text) 22%, transparent), transparent) right / 0.7rem 100% no-repeat scroll;
+}
+
+/* A schermo stretto si tocca col dito: un bottone, un campo o un menu è alto almeno 44 px, qualunque misura gli dia il suo foglio.
+   Fuori restano l'interruttore, che ha la sua area di tocco, e il banco di montaggio: le parole del parlato e i pezzi della timeline. */
+@media (max-width: 639px) {
+  :is(button, select, textarea, input:not([type="radio"]):not([type="checkbox"]):not([type="color"]):not([type="file"])):not([role="switch"]):not([data-parola]):not([data-tratto]):not([data-scena]):not([data-timeline] *) {
+    min-height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

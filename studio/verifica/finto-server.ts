@@ -515,29 +515,44 @@ const QR = (() => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges"><rect width="${n}" height="${n}" fill="#fff"/><g fill="#000">${rettangoli.join("")}</g></svg>`
 })()
 
-// I conti del lavoro di Claude (`GET /api/consumi`) e le letture del canale (`GET /api/canale/tiktok`), per la pagina della produzione.
-const conto = (ore: number, scritti: number, giri: number, giorniFa: number) => ({
-  tempo: Math.round(ore * 3600),
-  giri,
-  token: { scritti, riletti: scritti * 420, nuovi: scritti * 4 },
-  dal: new Date(Date.now() - (giorniFa + 3) * 86_400_000).toISOString(),
-  al: new Date(Date.now() - giorniFa * 86_400_000).toISOString(),
-})
-const CONSUMI = {
+// I conti del lavoro in chat (`GET /api/consumi`) e le letture del canale (`GET /api/canale/tiktok`), per la pagina della produzione.
+// Con Codex fra i motori alcuni video hanno anche la sua parte, con i token se i giri sono stati fatti con l'app accesa e senza altrimenti;
+// `POST /finto/consumi` con `{ codex: false }` toglie Codex, con `{ token: false }` Codex non ha i token di nessun giro.
+let codexAcceso = true
+let tokenDiCodex = true
+const conto = (ore: number, scritti: number, giri: number, giorniFa: number, oreDiCodex = 0, scrittiDiCodex: number | null = null) => {
+  const claude = { tempo: Math.round(ore * 3600), giri, giri_con_token: giri, token: { scritti, riletti: scritti * 420, nuovi: scritti * 4 } }
+  const giriDiCodex = Math.ceil(giri / 3)
+  const conTokenDiCodex = scrittiDiCodex !== null && tokenDiCodex
+  const codex =
+    codexAcceso && oreDiCodex > 0
+      ? { tempo: Math.round(oreDiCodex * 3600), giri: giriDiCodex, giri_con_token: conTokenDiCodex ? giriDiCodex : 0, token: conTokenDiCodex ? { scritti: scrittiDiCodex, riletti: scrittiDiCodex * 90, nuovi: scrittiDiCodex * 7 } : null }
+      : null
+  return {
+    tempo: claude.tempo + (codex?.tempo ?? 0),
+    giri: claude.giri + (codex?.giri ?? 0),
+    token: { scritti: claude.token.scritti + (codex?.token?.scritti ?? 0), riletti: claude.token.riletti + (codex?.token?.riletti ?? 0), nuovi: claude.token.nuovi + (codex?.token?.nuovi ?? 0) },
+    dal: new Date(Date.now() - (giorniFa + 3) * 86_400_000).toISOString(),
+    al: new Date(Date.now() - giorniFa * 86_400_000).toISOString(),
+    motori: { "claude-code": claude, ...(codex === null ? {} : { codex }) },
+  }
+}
+const consumi = () => ({
   pronto: true,
+  contati: codexAcceso ? ["claude-code", "codex"] : ["claude-code"],
   video: {
     "pentole-nel-cassetto": conto(0.4, 36_594, 10, 3),
-    "pane-veloce": conto(1.1, 115_576, 10, 1),
-    "tre-forni-in-casa": conto(0.6, 80_927, 3, 9),
+    "pane-veloce": conto(1.1, 115_576, 10, 1, 0.3),
+    "tre-forni-in-casa": conto(0.6, 80_927, 3, 9, 0.5, 9_200),
     "cucina-di-casa": conto(1.2, 181_733, 12, 17),
     "torta-contro-tiramisu": conto(0.45, 161_367, 4, 26),
     "dentro-una-torta": conto(3.2, 2_265_734, 70, 45),
     "primo-video-pubblicato": conto(0.8, 90_000, 6, 30),
-    "ricetta-in-diretta": conto(0.3, 40_000, 3, 1),
-    "pasta-fresca": conto(2.4, 310_000, 22, 2),
+    "ricetta-in-diretta": conto(0.3, 40_000, 3, 1, 0.2),
+    "pasta-fresca": conto(2.4, 310_000, 22, 2, 0.9, 41_000),
   },
-  senza_video: conto(22, 3_431_805, 700, 0),
-}
+  senza_video: (({ dal, al, ...resto }) => resto)(conto(22, 3_431_805, 700, 0, 4, 120_000)),
+})
 const NUMERI_DEL_CANALE: Array<[slug: string, visualizzazioni: number, miPiace: number, nuoviFollower: number]> = [
   ["pentole-nel-cassetto", 18_400, 1200, 41],
   ["tre-forni-in-casa", 40_200, 3100, 200],
@@ -553,7 +568,7 @@ const CANALE = {
   video: NUMERI_DEL_CANALE.map(([slug, visualizzazioni, miPiace, nuoviFollower]) => ({ id: slug, slug, visualizzazioni, mi_piace: miPiace, nuovi_follower: nuoviFollower, commenti_letti: 0, variazione: null })),
 }
 
-const chatFinta = creaChatFinta({ archivio: ARCHIVIO, emetti, mettiInCoda })
+const chatFinta = creaChatFinta({ archivio: ARCHIVIO, emetti, mettiInCoda, codexAcceso: () => codexAcceso })
 
 async function porta(richiesta: Request): Promise<Response> {
   const url = new URL(richiesta.url)
@@ -599,6 +614,14 @@ async function porta(richiesta: Request): Promise<Response> {
     problemiDelProfilo = problemi ?? []
     profiloDelCreator = vuoto ? {} : structuredClone(PROFILO_DI_PROVA)
     emetti({ tipo: "profilo" })
+    return json({})
+  }
+  if (percorso === "/finto/consumi" && metodo === "POST") {
+    const { codex, token } = await corpo<{ codex?: boolean; token?: boolean }>()
+    codexAcceso = codex ?? codexAcceso
+    tokenDiCodex = token ?? tokenDiCodex
+    emetti({ tipo: "consumi" })
+    emetti({ tipo: "modelli" })
     return json({})
   }
   if (percorso === "/finto/canale" && metodo === "POST") {
@@ -834,7 +857,7 @@ async function porta(richiesta: Request): Promise<Response> {
     const stato: StatoRegistrazione = { disponibile: true, motivo: null, dispositivi: { microfoni: ["Microfono"], camere: ["Webcam"] }, in_corso: null, ultima: null }
     return json(stato)
   }
-  if (percorso === "/api/consumi" && metodo === "GET") return json(CONSUMI)
+  if (percorso === "/api/consumi" && metodo === "GET") return json(consumi())
   if (percorso === "/api/canale/tiktok" && metodo === "GET") return json(canaleLetto ? CANALE : { ultima: null, letture: [], profilo: null, video: [] })
   // Classifica, strategia e commenti non ancora letti: le viste mostrano cosa chiedere nella chat.
   if (percorso === "/api/canale/tiktok/classifica" && metodo === "GET") return json({ quando: null, io: null, quando_io: null, come: [], righe: [] })

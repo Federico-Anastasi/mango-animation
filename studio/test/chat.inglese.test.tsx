@@ -8,11 +8,10 @@ import { PannelloChat } from "../src/chat/PannelloChat"
 import { descriviStrumento } from "../src/chat/strumenti"
 import type { DettaglioConversazione, Messaggio, ModelloChat, Richiesta } from "../src/chat/tipi"
 import { scegliLingua } from "../src/lingua"
+import { CINQUE, CLAUDE, MOTORI, modello } from "./motoriChat"
 import { installaEventi, installaRete } from "./rete"
 
-const MODELLI: ModelloChat[] = [
-  { id: "default", nome: "Default (Sonnet 5.5)", descrizione: "", effort: ["low", "medium", "high", "xhigh", "max"], reale: "claude-sonnet-5-5" },
-]
+const MODELLI: ModelloChat[] = [modello(CLAUDE, "default", "Default (Sonnet 5.5)", CINQUE, "claude-sonnet-5-5")]
 
 const conversazione = (extra: Partial<DettaglioConversazione> = {}): DettaglioConversazione => ({
   id: "c1",
@@ -21,6 +20,7 @@ const conversazione = (extra: Partial<DettaglioConversazione> = {}): DettaglioCo
   stato: "pronta",
   lavora_da: null,
   lavoro: { ms: 0, da: null },
+  motore: "claude-code",
   modello: null,
   effort: null,
   messaggi: [],
@@ -36,6 +36,7 @@ const rete = (rotte: Record<string, unknown> = {}) =>
     "GET /api/video": [],
     "GET /api/chat": [{ id: "c1", titolo: "Carousel slides", aggiornata: "2026-11-02T10:00:00", attiva: false }],
     "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
+    "GET /api/chat/motori": MOTORI,
     "GET /api/chat/modelli": MODELLI,
     "GET /api/chat/c1": conversazione(),
     ...rotte,

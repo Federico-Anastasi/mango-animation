@@ -131,10 +131,10 @@ export function Versioni({ video }: { video: DettaglioVideo }) {
                 <span className={styles.tenue}>{cosaScrive(v)}</span>
                 {!v.in_uso && v.n !== null && (
                   <span className={styles.gesti}>
-                    <Bottone variante="vuoto" onClick={() => guarda(v.n!)} titolo={t("Mostra com'era questa versione, senza cambiare niente", "Shows what this version was like, without changing anything")}>
+                    <Bottone onClick={() => guarda(v.n!)} titolo={t("Mostra com'era questa versione, senza cambiare niente", "Shows what this version was like, without changing anything")}>
                       {guardata?.n === v.n ? t("Chiudi", "Close") : t("Guarda", "Look")}
                     </Bottone>
-                    <Bottone variante="vuoto" onClick={() => setConferma(v.n)} disabled={invio}>
+                    <Bottone onClick={() => setConferma(v.n)} disabled={invio}>
                       {t("Torna a questa", "Go back to this one")}
                     </Bottone>
                   </span>
@@ -146,7 +146,7 @@ export function Versioni({ video }: { video: DettaglioVideo }) {
                   <Bottone onClick={() => torna(conferma)} disabled={invio}>
                     {t("Sì, torna a questa", "Yes, go back to this one")}
                   </Bottone>
-                  <Bottone variante="vuoto" onClick={() => setConferma(null)}>
+                  <Bottone variante="minore" onClick={() => setConferma(null)}>
                     {t("No, lascia com'è", "No, leave it")}
                   </Bottone>
                 </div>

@@ -7,6 +7,7 @@ import { dirname, join } from "node:path"
 import type { Messaggio } from "../src/eventi"
 import { creaServer, type Server } from "../src/server"
 import type { Opzioni } from "../src/configurazione"
+import { ClaudeCode } from "../src/chat/claude/claude"
 import { MangoCode } from "../src/chat/mangocode"
 import type { OpzioniChat } from "../src/chat/tipi"
 
@@ -165,11 +166,15 @@ const ambienti: Ambiente[] = []
  */
 function chatSenzaClaude(radice: string, archivio: string): OpzioniChat {
   return {
-    query: () => {
-      throw new Error("in questa prova Claude Code non c'è: passa una chat finta")
-    },
-    sessioni: { elenca: async () => [], leggi: async () => null, osserva: async () => ({ chiudi: () => undefined }) },
-    mangoCode: new MangoCode({ dati: join(radice, "mango-code-finto"), archivio, adesso: () => new Date() }),
+    motori: [
+      new ClaudeCode(
+        () => {
+          throw new Error("in questa prova Claude Code non c'è: passa una chat finta")
+        },
+        { elenca: async () => [], leggi: async () => null, osserva: async () => ({ chiudi: () => undefined }) },
+      ),
+      new MangoCode({ dati: join(radice, "mango-code-finto"), archivio, adesso: () => new Date() }),
+    ],
   }
 }
 

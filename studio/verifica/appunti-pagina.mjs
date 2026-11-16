@@ -62,7 +62,7 @@ try {
   }
   const browser = await chromium.launch({ channel: "msedge" })
   const problemi = []
-  for (const larghezza of [1400, 1000, 430]) {
+  for (const larghezza of [1400, 1000, 390]) {
     const pagina = await (await browser.newContext({ viewport: { width: larghezza, height: 900 } })).newPage()
     pagina.on("pageerror", (e) => problemi.push(`${larghezza}: ${e.message}`))
     // Il ponte finto: ciò che gli appunti di Windows "contengono" lo decide la prova.

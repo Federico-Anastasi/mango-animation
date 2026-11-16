@@ -1,83 +1,71 @@
 .modulo {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  margin-top: 0.6rem;
+  gap: 12px;
+  max-width: 100%;
+  margin-top: 8px;
   text-align: left;
 }
 
 .etichetta {
-  font-size: 0.9rem;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .nota {
   width: 100%;
-  min-height: 4.5rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--filo);
-  border-radius: 4px;
-  background: var(--carta);
-  color: var(--inchiostro);
-  font: inherit;
-  font-size: 0.9rem;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font: 400 14px/1.45 var(--mango-font-text);
   resize: vertical;
+}
+
+.nota:focus {
+  border-color: var(--mango-action-text);
 }
 
 .interruttore {
   display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
 }
 
-.interruttore input {
-  margin-top: 0.2rem;
-  accent-color: var(--inchiostro);
+.testo {
+  min-width: 0;
 }
 
 .nome {
   display: block;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .piccolo {
   display: block;
   margin: 0;
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .azioni {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.invia {
-  height: 1.9rem;
-  padding: 0 0.9rem;
-  border: 1px solid var(--inchiostro);
-  border-radius: 6px;
-  background: none;
-  color: var(--inchiostro);
-  font: inherit;
-  font-size: 0.88rem;
-  cursor: pointer;
-}
-
-.invia:disabled {
-  opacity: 0.5;
-  cursor: default;
+  gap: 12px;
 }
 
 .esito {
-  font-size: 0.88rem;
+  font-size: 13px;
+  color: var(--mango-ready);
 }
 
 .errore {
   margin: 0;
-  font-size: 0.88rem;
-  color: var(--rosso);
+  font-size: 13px;
+  color: var(--mango-error);
 }

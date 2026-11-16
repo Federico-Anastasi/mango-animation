@@ -46,7 +46,7 @@ pub fn porta_per_il_server(voluta: u16, scelta_dal_creator: bool) -> u16 {
 }
 
 /// Il comando che accende il server: parte dal codice e riceve la cartella di lavoro, che passa a motore e chat, il pid dell'app che lo accende, la porta e le variabili
-/// in più che l'app ha preparato (il Claude Code del creator). `bun` è l'eseguibile con gli argomenti che gli servono per partire (`risolvi_bun`).
+/// in più che l'app ha preparato (i programmi dei motori della chat del creator). `bun` è l'eseguibile con gli argomenti che gli servono per partire (`risolvi_bun`).
 pub fn comando_server(bun: (PathBuf, Vec<OsString>), radice: &Path, lavoro: &Path, app_pid: u32, porta: u16, ambiente: Vec<(OsString, OsString)>) -> Comando {
     let (exe, mut args) = bun;
     args.extend(["run", "--cwd", "server", "avvia"].map(OsString::from));

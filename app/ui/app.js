@@ -8,9 +8,19 @@ const $ = (id) => document.getElementById(id);
 let lingua = "it";
 const t = (it, en) => (lingua === "en" ? en : it);
 
+// La versione la dice l'app con ogni stato; la pagina la tiene per le risposte che si dà da sola.
+let versione = "";
+
+// Le tappe dell'avvio (quante ne ha fatte, su quante) le dice l'app con ogni stato; la pagina le tiene allo stesso modo.
+let tappe = { fatte: 0, su: 0 };
+
 // Le frasi fisse della pagina (index.html non ha testo): si riscrivono a ogni stato, nella lingua che l'app dice.
 function testiFissi() {
   document.documentElement.lang = lingua;
+  $("marchio-mango").textContent = "mango";
+  $("marchio-prodotto").textContent = "animation";
+  $("versione").textContent = versione ? `Mango Animation ${versione}` : "Mango Animation";
+  $("motori-titolo").textContent = t("Motori della chat", "Chat engines");
   $("funzioni-titolo").textContent = t("Funzioni", "Features");
   $("comuni-titolo").textContent = t("Componenti comuni", "Shared components");
   $("dettagli-titolo").textContent = t("Cosa scarico e da dove", "What I download and from where");
@@ -19,13 +29,6 @@ function testiFissi() {
     "Niente di tutto questo è dentro l'app: si scarica dalla fonte di ciascuno, con la sua licenza accanto. Ogni file è verificato prima di usarlo.",
     "None of this is inside the app: each item is downloaded from its own source, with its licence next to it. Every file is checked before it is used.",
   );
-  $("guida-link").textContent = t("La guida di Anthropic per installare Claude Code", "Anthropic's guide to installing Claude Code");
-  $("abbonamento-testo").textContent = t(
-    "Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.",
-    "Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.",
-  );
-  $("piani-link").textContent = t("Guarda i piani", "See the plans");
-  $("alternativa-testo").textContent = t("Se preferisci, incolla questo comando in PowerShell:", "If you prefer, paste this command into PowerShell:");
   $("riprova").textContent = t("Riprova", "Try again");
   $("ricrea").textContent = t("Ricrea in Documenti", "Recreate in Documents");
   $("scegli").textContent = t("Scegli un'altra cartella", "Choose another folder");
@@ -33,7 +36,6 @@ function testiFissi() {
   $("usa-cartella").textContent = t("Usa questa cartella", "Use this folder");
   $("sposta-riprova").textContent = t("Riprova", "Try again");
   $("cartella-altre-titolo").textContent = t("Altre cartelle", "Other folders");
-  $("accedi").textContent = t("Accedi a Claude Code", "Sign in to Claude Code");
   $("ricontrolla").textContent = t("Ricontrolla", "Check again");
   $("avanti").textContent = t("Non ora", "Not now");
   testiDellaSegnalazione();
@@ -65,9 +67,8 @@ function titoloDi(s) {
       errore: t("L'aggiornamento non è andato", "The update failed"),
     }[s.aggiornamento.fase];
   }
-  if (s.fase === "claude") {
-    if (s.claude.trovato) return t("Collega Claude Code al tuo account", "Connect Claude Code to your account");
-    return s.claude.percorso ? t("Claude Code non parte", "Claude Code won't start") : t("Per cominciare serve Claude Code", "To get started you need Claude Code");
+  if (s.fase === "motori") {
+    return s.motori.some((m) => m.trovato) ? t("Collega un motore della chat", "Connect a chat engine") : t("Per cominciare serve un motore per la chat", "To get started you need a chat engine");
   }
   if (s.fase === "cartella") return t("Dove tengo i tuoi video?", "Where should I keep your videos?");
   if (s.fase === "spostamento") {
@@ -98,7 +99,12 @@ function titoloDi(s) {
 
 function dettaglioDi(s) {
   if (s.fase === "aggiornamento") return dettaglioDiAggiornamento(s.aggiornamento);
-  if (s.fase === "claude") return dettaglioDiClaude(s.claude);
+  if (s.fase === "motori") {
+    return t(
+      "Mango Animation lavora con Claude Code, Codex o Mango Code. Ne basta uno, installato e collegato.",
+      "Mango Animation works with Claude Code, Codex or Mango Code. One is enough, installed and connected.",
+    );
+  }
   if (s.fase === "cartella") return dettaglioDellaCartella(s.cartella);
   if (s.fase === "spostamento") return dettaglioDelloSpostamento(s.spostamento);
   if (s.fase === "computer") return dettaglioDelComputer(s.computer);
@@ -126,18 +132,83 @@ function dettaglioDiAggiornamento(a) {
   return uscita + note;
 }
 
-function dettaglioDiClaude(c) {
-  if (c.trovato) {
-    const frase = c.messaggio || t("Serve l'accesso con il tuo account Claude: si apre una finestra, e poi il browser per entrare.", "You need to sign in with your Claude account: a window opens, and then the browser to sign in.");
-    const trovato = t(`Ho trovato Claude Code ${c.versione}.`, `Found Claude Code ${c.versione}.`);
-    return `${trovato} ${frase}`;
+// Ogni motore che non è pronto, in una riga: com'è messo, cosa dice di sé, cosa si può fare.
+const NOTE_DEI_MOTORI = {
+  "claude-code": () =>
+    t(
+      "Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.",
+      "Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.",
+    ),
+  codex: () => t("Si accede con il tuo account ChatGPT.", "You sign in with your ChatGPT account."),
+  "mango-code": (m) =>
+    m.installabile
+      ? t("Si scarica da GitHub: installalo, aprilo, poi premi «Ricontrolla».", "Download it from GitHub: install it, open it, then press “Check again”.")
+      : t("Si apre dalla sua icona; poi premi «Ricontrolla».", "Open it from its icon, then press “Check again”."),
+};
+
+function statoDelMotore(m) {
+  if (m.id === "mango-code") {
+    if (m.trovato) return t("Acceso, non ancora pronto", "On, not ready yet");
+    return m.installabile ? t("Non installato", "Not installed") : t("Spento", "Off");
   }
-  const riprova = t("Puoi riprovare, o seguire la guida di Anthropic.", "You can try again, or follow Anthropic's guide.");
-  if (c.messaggio) return `${c.messaggio} ${riprova}`;
-  return t(
-    "Mango Animation lavora insieme a Claude. Prima serve Claude Code: lo installo io con un clic.",
-    "Mango Animation works together with Claude. First you need Claude Code: I install it for you with one click.",
-  );
+  if (!m.trovato) return m.percorso ? t("Non parte", "Won't start") : t("Non installato", "Not installed");
+  return t(`Versione ${m.versione} · da collegare`, `Version ${m.versione} · not connected`);
+}
+
+const attesaDellInstallazione = {
+  "claude-code": (m) => t(`Installo ${m.nome} nella finestra che si è aperta`, `Installing ${m.nome} in the window that just opened`),
+  codex: () => t("Apro la pagina di Codex nel Microsoft Store", "Opening the Codex page in the Microsoft Store"),
+  "mango-code": () => t("Apro la pagina di Mango Code su GitHub", "Opening the Mango Code page on GitHub"),
+};
+
+const attesaDelMotore = {
+  installa: (m) => attesaDellInstallazione[m.id](m),
+  accedi: (m) => t(`Aspetto che finisci l'accesso a ${m.nome}`, `Waiting for you to finish signing in to ${m.nome}`),
+};
+
+function tonoDelMotore(m) {
+  if (m.id === "mango-code" && m.trovato) return "in-corso";
+  return !m.trovato && m.percorso ? "errore" : "neutra";
+}
+
+function bottoneDelMotore(m, cosa, testo, principale) {
+  const bottone = nodo("button", principale ? "principale" : "", testo);
+  bottone.type = "button";
+  bottone.addEventListener("click", () => rispondi({ [cosa]: m.id }, attesaDelMotore[cosa](m)));
+  return bottone;
+}
+
+// Per chi preferisce incollare da sé il comando di installazione, con la guida del produttore: sta chiuso finché non lo si apre.
+function alternativaDelMotore(m) {
+  const copia = nodo("button", "", t("Copia il comando", "Copy the command"));
+  copia.type = "button";
+  copia.addEventListener("click", () => {
+    navigator.clipboard.writeText(m.comando).then(
+      () => (copia.textContent = t("Copiato", "Copied")),
+      () => (copia.textContent = t("Non riesco a copiare: selezionalo e copialo a mano", "I can't copy it: select it and copy it by hand")),
+    );
+  });
+  const guida = Object.assign(nodo("a", "", t("La guida di Anthropic per installare Claude Code", "Anthropic's guide to installing Claude Code")), { href: "https://code.claude.com/docs/en/setup", target: "_blank" });
+  const alternativa = nodo("details", "alternativa");
+  alternativa.append(nodo("summary", "", t("Installa con un comando", "Install with a command")), nodo("p", "", t("Incolla questo comando in PowerShell:", "Paste this command into PowerShell:")), nodo("pre", "", m.comando), copia, guida);
+  return alternativa;
+}
+
+const daCollegare = (m) => m.accedibile && m.trovato && !m.collegato;
+
+// Il bottone principale dei motori è «Accedi» quando è l'unica cosa che porta avanti; con più scelte alla pari nessuna lo è.
+function motoreDi(m, accediPrincipale) {
+  const riga = nodo("li", ["riga", "motore"]);
+  const testo = nodo("div", "testo");
+  testo.append(nodo("span", "nome", m.nome), nodo("span", `etichetta ${tonoDelMotore(m)}`, statoDelMotore(m)));
+  if (m.messaggio) testo.append(nodo("span", "messaggio", m.messaggio));
+  testo.append(nodo("span", "cosa", NOTE_DEI_MOTORI[m.id](m)));
+  const bottoni = nodo("div", "lato");
+  if (m.installabile && !m.trovato) bottoni.append(bottoneDelMotore(m, "installa", m.messaggio ? t("Riprova", "Try again") : t("Installa", "Install"), false));
+  if (daCollegare(m)) bottoni.append(bottoneDelMotore(m, "accedi", t("Accedi", "Sign in"), accediPrincipale));
+  riga.append(testo, bottoni);
+  if (m.comando) riga.append(alternativaDelMotore(m));
+  return riga;
 }
 
 // Una cartella per i video: lo spazio del suo disco, e a chi non ha scelto niente come si fa.
@@ -203,7 +274,7 @@ function mostraCartella(c) {
 
 // Una cartella da prendere con un clic: dove sta e quanto spazio ha il suo disco.
 function sceltaRapida(a) {
-  const bottone = nodo("button", ["secondario", "scelta"]);
+  const bottone = nodo("button", "scelta");
   bottone.type = "button";
   bottone.append(nodo("span", "nome", a.percorso), nodo("span", "peso", t(`${grandezza(a.libero_mb)} liberi`, `${grandezza(a.libero_mb)} free`)));
   bottone.addEventListener("click", () => {
@@ -260,41 +331,45 @@ function barra(fatti, peso) {
 
 // Sotto il nome di una funzione: quanto scarica, oppure «Pronta» o «Spenta»; mentre scarica, la sua barra.
 function costoDi(f, voci, scarico) {
-  if (!f.attiva) return nodo("span", ["costo", "spenta"], t("Spenta", "Off"));
+  if (!f.attiva) return nodo("span", ["etichetta", "neutra"], t("Spenta", "Off"));
   const a = avanzamentoDi(voci);
-  if (voci.length === 0 || a.finito) return nodo("span", ["costo", "pronta"], t("✓ Pronta", "✓ Ready"));
+  if (voci.length === 0 || a.finito) return nodo("span", ["etichetta", "pronta"], t("Pronta", "Ready"));
   if (scarico && a.iniziato) {
-    const riga = nodo("span", ["costo", "scarica"]);
+    const riga = nodo("span", "costo");
     riga.append(barra(a.fatti, a.peso), ` ${grandezza(a.fatti)} / ${grandezza(a.peso)}`);
     return riga;
   }
-  return nodo("span", ["costo", "scarica"], t(`${grandezza(a.peso)} da scaricare`, `${grandezza(a.peso)} to download`));
+  return nodo("span", "costo", t(`${grandezza(a.peso)} da scaricare`, `${grandezza(a.peso)} to download`));
 }
 
 function funzioneDi(f, c, scarico) {
-  const etichetta = nodo("label", "funzione");
+  const etichetta = nodo("label", ["riga", "interruttore"]);
   const casella = nodo("input");
   casella.type = "checkbox";
+  casella.setAttribute("role", "switch");
   casella.checked = f.attiva;
   casella.disabled = scarico;
   casella.addEventListener("change", () => {
     invoke("azione", { azione: { funzioni: { [f.id]: casella.checked } } }).catch(() => {});
   });
-  etichetta.append(casella, nodo("span", "nome", f.nome), nodo("span", "cosa", f.cosa_fa), costoDi(f, c.voci.filter((v) => v.funzione === f.id), scarico));
+  const testo = nodo("span", "testo");
+  testo.append(nodo("span", "nome", f.nome), nodo("span", "cosa", f.cosa_fa), costoDi(f, c.voci.filter((v) => v.funzione === f.id), scarico));
+  etichetta.append(testo, casella);
   return etichetta;
 }
 
 function comuneDi(v, scarico) {
-  const riga = nodo("li");
+  const riga = nodo("li", "riga");
   const testo = nodo("span", "testo");
   // Prima a cosa serve, poi il nome del programma: chi non programma riconosce la prima, non il secondo.
-  testo.append(nodo("span", "nome", v.scopo.charAt(0).toUpperCase() + v.scopo.slice(1)), nodo("span", "scopo", v.nome));
-  riga.append(testo);
-  if (v.necessaria) riga.append(nodo("span", "etichettina", t("Serve sempre", "Always needed")));
-  if (v.stato === "fatta") riga.append(nodo("span", ["peso", "costo", "pronta"], t("✓ Fatto", "✓ Done")));
-  else if (scarico && v.stato === "in corso" && v.totale_mb > 0) riga.append(barra(v.fatti_mb, v.totale_mb));
-  else if (scarico && v.stato === "in corso") riga.append(nodo("span", "peso", t("in corso…", "in progress…")));
-  else riga.append(nodo("span", "peso", grandezza(v.peso_mb)));
+  testo.append(nodo("span", "nome", v.scopo.charAt(0).toUpperCase() + v.scopo.slice(1)), nodo("span", "cosa", v.nome));
+  const lato = nodo("span", "lato");
+  if (v.necessaria) lato.append(nodo("span", ["etichetta", "neutra"], t("Serve sempre", "Always needed")));
+  if (v.stato === "fatta") lato.append(nodo("span", ["etichetta", "pronta"], t("Fatto", "Done")));
+  else if (scarico && v.stato === "in corso" && v.totale_mb > 0) lato.append(barra(v.fatti_mb, v.totale_mb));
+  else if (scarico && v.stato === "in corso") lato.append(nodo("span", ["etichetta", "in-corso"], t("In corso", "In progress")));
+  else lato.append(nodo("span", "peso", grandezza(v.peso_mb)));
+  riga.append(testo, lato);
   return riga;
 }
 
@@ -353,21 +428,43 @@ function erroreDi(s) {
   return testo ? `${titoloDi(s)}\n${testo}` : null;
 }
 
+const BOTTONI_DI_STATO = ["riprova", "ricrea", "scegli", "sposta-riprova", "sposta-continua", "usa-cartella", "scegli-altra", "ricontrolla", "prepara", "aggiorna", "dopo", "annulla", "avanti"];
+
+// Il bottone principale è uno solo, ciò che porta avanti; gli altri sono normali, o minori se si possono ignorare.
+function ruoliDelleAzioni(s) {
+  if (s.fase === "errore") return { principale: "riprova", minori: [] };
+  if (s.fase === "mancante") return { principale: s.predefinita ? "ricrea" : "scegli", minori: [] };
+  if (s.fase === "cartella") return { principale: "usa-cartella", minori: [] };
+  if (s.fase === "spostamento") {
+    const fase = s.spostamento.fase;
+    return { principale: fase === "avanzi" ? "sposta-continua" : ["errore", "annullato"].includes(fase) ? "sposta-riprova" : null, minori: ["annulla"] };
+  }
+  if (s.fase === "computer") return { principale: "prepara", minori: ["avanti", "annulla"] };
+  if (s.fase === "aggiornamento") return { principale: "aggiorna", minori: ["dopo"] };
+  return { principale: null, minori: [] };
+}
+
 function mostra(s) {
   lingua = s.lingua || lingua;
+  versione = s.versione || versione;
+  if (s.tappe) tappe = { fatte: s.tappa, su: s.tappe };
   ultimoStato = s;
   testiFissi();
   const errore = s.fase === "errore";
   const mancante = s.fase === "mancante";
-  const claude = s.fase === "claude";
+  const motori = s.fase === "motori";
   const cartella = s.fase === "cartella";
   const spostamento = s.fase === "spostamento";
   const computer = s.fase === "computer";
   const aggiornamento = s.fase === "aggiornamento";
-  $("giro").hidden = errore || mancante || claude || cartella || spostamento || computer || aggiornamento;
-  document.querySelector(".corpo").classList.toggle("largo", computer);
+  const inAttesa = !(errore || mancante || motori || cartella || spostamento || computer) && !(aggiornamento && s.aggiornamento.fase !== "scarico");
+  $("corpo").className = ["corpo", inAttesa ? "attesa" : "scelta", ...(computer ? ["largo"] : [])].join(" ");
+  const { principale, minori } = ruoliDelleAzioni(s);
+  for (const id of BOTTONI_DI_STATO) $(id).className = id === principale ? "principale" : minori.includes(id) ? "minore" : "";
   $("titolo").textContent = titoloDi(s);
-  $("dettaglio").textContent = dettaglioDi(s);
+  const dettaglio = dettaglioDi(s);
+  $("dettaglio").textContent = dettaglio;
+  $("dettaglio").className = dettaglio?.includes("\n") ? "lungo" : "";
   const log = $("log");
   log.hidden = !errore;
   log.textContent = errore ? s.messaggio + (s.log ? t(`\n\nDettagli in: ${s.log}`, `\n\nDetails in: ${s.log}`) : "") : "";
@@ -376,16 +473,13 @@ function mostra(s) {
   $("ricrea").hidden = !(mancante && s.predefinita);
   $("scegli").hidden = !mancante;
 
-  const daInstallare = claude && !s.claude.trovato;
-  $("abbonamento").hidden = !claude;
-  $("installa").hidden = !daInstallare;
-  $("installa").textContent = s.claude?.messaggio ? t("Riprova", "Try again") : t("Installa Claude Code", "Install Claude Code");
-  $("alternativa").hidden = !daInstallare;
-  $("comando").textContent = daInstallare ? s.claude.comando : "";
-  $("guida").hidden = !daInstallare;
-  if (daInstallare) $("copia").textContent = t("Copia il comando", "Copy the command");
-  $("accedi").hidden = !(claude && s.claude.trovato);
-  $("ricontrolla").hidden = !claude;
+  $("motori-gruppo").hidden = !motori;
+  $("motori").hidden = !motori;
+  if (motori) {
+    const accediPrincipale = s.motori.filter(daCollegare).length === 1;
+    $("motori").replaceChildren(...s.motori.map((m) => motoreDi(m, accediPrincipale)));
+  }
+  $("ricontrolla").hidden = !motori;
 
   $("cartella").hidden = !cartella;
   $("usa-cartella").hidden = !cartella;
@@ -415,6 +509,14 @@ function mostra(s) {
   $("dopo").hidden = !sceltaDiAggiornamento;
   $("aggiorna").textContent = dopoUnErrore ? t("Riprova", "Try again") : t("Aggiorna ora", "Update now");
   $("dopo").textContent = dopoUnErrore ? t("Continua con la versione che hai", "Continue with the version you have") : t("Più tardi", "Later");
+  const barraDelleTappe = $("tappe");
+  barraDelleTappe.hidden = !(s.fase === "attesa" && tappe.su > 0);
+  if (!barraDelleTappe.hidden) {
+    barraDelleTappe.max = tappe.su;
+    barraDelleTappe.value = tappe.fatte;
+    barraDelleTappe.style.setProperty("--tappe", String(tappe.su));
+    barraDelleTappe.setAttribute("aria-label", t(`Avvio: tappa ${tappe.fatte} di ${tappe.su}`, `Startup: step ${tappe.fatte} of ${tappe.su}`));
+  }
   $("avanzamento").hidden = !scarico;
   if (scarico) {
     // Senza il totale la barra resta «in corso» invece di riempirsi.
@@ -427,7 +529,7 @@ function mostra(s) {
   }
 }
 
-// La pagina dell'aggiornamento è in errore: «Aggiorna» vuol dire riprovare.
+// La pagina dell'aggiornamento è in errore: il bottone che aggiorna dice «Riprova».
 let dopoUnErrore = false;
 
 const rispondi = (azione, attesa) => {
@@ -448,18 +550,9 @@ $("riprova").addEventListener("click", () => {
   invoke("riprova").catch(() => {});
 });
 
-$("copia").addEventListener("click", () => {
-  navigator.clipboard.writeText($("comando").textContent).then(
-    () => ($("copia").textContent = t("Copiato", "Copied")),
-    () => ($("copia").textContent = t("Non riesco a copiare: selezionalo e copialo a mano", "I can't copy it: select it and copy it by hand")),
-  );
-});
-
 const vadoAvanti = () => t("Vado avanti", "Continuing");
 const comincio = () => t("Comincio", "Starting");
-$("ricontrolla").addEventListener("click", () => rispondi("ricontrolla", t("Controllo Claude Code", "Checking Claude Code")));
-$("accedi").addEventListener("click", () => rispondi("accedi", t("Aspetto che finisci l'accesso a Claude Code", "Waiting for you to finish signing in to Claude Code")));
-$("installa").addEventListener("click", () => rispondi("installa", t("Installo Claude Code nella finestra che si è aperta", "Installing Claude Code in the window that just opened")));
+$("ricontrolla").addEventListener("click", () => rispondi("ricontrolla", t("Controllo i motori della chat", "Checking the chat engines")));
 // Scegliere una cartella non cambia la pagina: arriva da sé lo stato nuovo, con la cartella scelta.
 $("scegli-altra").addEventListener("click", () => {
   invoke("azione", { azione: "scegli_cartella" }).catch(() => {});

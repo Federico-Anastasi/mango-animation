@@ -204,7 +204,7 @@ export function Timeline(p: PropsTimeline) {
   const tacche = Array.from({ length: Math.floor(durata / passo) + 1 }, (_, i) => i * passo)
 
   return (
-    <div className={styles.timeline} data-bloccata={bloccata ? "" : undefined}>
+    <div className={styles.timeline} data-timeline="" data-bloccata={bloccata ? "" : undefined}>
       <div className={styles.barra}>
         <span className={styles.durata}>{tempoLeggibile(durata)}</span>
         <label className={styles.zoom}>

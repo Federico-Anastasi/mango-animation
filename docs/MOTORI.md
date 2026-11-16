@@ -1,5 +1,7 @@
 # I motori
 
+Qui «motori» sono le funzioni pesanti del prodotto, non i motori della chat (Claude Code, Codex, Mango Code: `docs/app/motori.md`, `docs/CHAT.md`).
+
 Le funzioni pesanti del prodotto (trascrizione, allineamento, sagoma, ...) usano modelli grandi che girano sulla scheda video o sul processore. Ognuna ha un interruttore e un «dove» nella sezione `motori` del profilo
 (`profilo.json`, `docs/PROFILO.md`); la sezione Computer delle impostazioni dello studio li cambia (`docs/INTERFACCIA.md`, `docs/api/impostazioni.md`), e l'app scarica solo ciò che le funzioni accese richiedono (`docs/app/computer-pronto.md`).
 
@@ -46,7 +48,7 @@ E sul processore: `sagoma` con meno di 8 thread è lenta (avviso), e con meno di
 
 ## 3. Come l'app sceglie e scarica
 
-L'app legge il computer, calcola ciò che le funzioni accese richiedono e lo scarica all'avvio, quando il server lo accende lei (`docs/app/computer-pronto.md`). Cambiare una funzione nella pagina «Motori» riscrive `motori.<funzione>.attiva` nel profilo, lasciando il resto com'è, e ciò che si accende lo scarica l'app al prossimo avvio. Nel browser senza l'app il ponte con cui lo studio vede il computer non c'è, e la pagina non può dire se una scelta è possibile.
+L'app legge il computer, calcola ciò che le funzioni accese richiedono e lo scarica all'avvio, quando il server lo accende lei (`docs/app/computer-pronto.md`). Cambiare una funzione in Impostazioni › Computer riscrive `motori.<funzione>.attiva` nel profilo, lasciando il resto com'è, e ciò che si accende lo scarica l'app al prossimo avvio. Nel browser senza l'app il ponte con cui lo studio vede il computer non c'è, e la pagina non può dire se una scelta è possibile.
 
 ## 4. La sezione `motori` del profilo
 

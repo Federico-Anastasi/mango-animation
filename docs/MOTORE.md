@@ -1,6 +1,6 @@
 # Il motore
 
-Il motore (`python -m motore`) monta, controlla e compone. Come si lancia: `docs/motore/struttura.md`. Il documento è diviso per argomento in `docs/motore/`; ogni sezione qui sotto dice dove sta adesso.
+Il motore (`python -m motore`) monta, controlla e compone. Come si lancia: `docs/motore/struttura.md`. Il documento è diviso per argomento in `docs/motore/`; ogni sezione qui sotto dice dove sta.
 
 | comandi | dove |
 |---|---|

@@ -1,9 +1,10 @@
 .riquadro {
   margin: 0;
   padding: 0.6rem 1rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  font-size: 0.9rem;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+  font-size: 13px;
 }
 
 .riquadro p {
@@ -11,12 +12,12 @@
 }
 
 .spento {
-  color: var(--rosso);
+  color: var(--mango-text-muted);
 }
 
 .tenue {
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .ultimi {
@@ -26,7 +27,7 @@
   margin: 0.4rem 0 0;
   padding: 0;
   list-style: none;
-  font-size: 0.88rem;
+  font-size: 13px;
 }
 
 .ultimi li {

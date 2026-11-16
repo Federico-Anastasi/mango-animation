@@ -4,7 +4,7 @@ Parte di `docs/APP.md`.
 
 Nel campo della chat c'è un microfono (`docs/INTERFACCIA.md`) che nel browser non compare: lo mostra lo studio solo se l'app gli ha messo
 nella pagina `window.__MANGO_ANIMATION__.voce`. Il microfono si registra in Rust (cpal, il predefinito di Windows, ricampionato a 16 kHz
-mono) e il testo lo dà un motore locale, faster-whisper: l'audio non lascia il computer, e l'app non legge né usa il login di Claude Code
+mono) e il testo lo dà un motore locale, faster-whisper: l'audio non lascia il computer, e l'app non legge né usa l'accesso di nessun motore della chat
 (`app/src/voce/`: `locale.rs` il motore, `audio.rs` microfono e ricampionamento).
 
 - **Il motore** è un processo che parla a righe JSON (il protocollo è in `docs/MOTORE.md`, «La dettatura»). Di base `python -m motore detta`,

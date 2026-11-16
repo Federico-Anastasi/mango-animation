@@ -208,11 +208,11 @@ function conZoomDiviso(uno: Pezzo, due: Pezzo, zoom: Zoom | undefined, frazione:
 
 const dicePerParole = (parole: Array<{ parola: ParolaRisolta }>): string => parole.map((x) => x.parola.p).join(" ")
 
-/** Dividere il pezzo sotto la linea rossa al secondo `t` del video. */
+/** Dividere il pezzo sotto la linea verticale al secondo `t` del video. */
 export function dividi(ctx: Contesto, secondo: number): Esito {
   const indice = trattoA(ctx.risolto, secondo)
   const tratto = ctx.risolto.tratti[indice]
-  if (!tratto) return no(t("La linea rossa non è su un pezzo del montaggio: portala su uno e riprova.", "The red line is not on a clip of the edit: move it onto one and try again."))
+  if (!tratto) return no(t("La linea verticale non è su un pezzo del montaggio: portala su uno e riprova.", "The vertical line is not on a clip of the edit: move it onto one and try again."))
   if (tratto.sorgente === null) return no(motivoSenzaVoce())
   const b = bersaglio(ctx, tratto.scena, tratto.pezzo)
   if (typeof b === "string") return no(b)
@@ -223,7 +223,7 @@ export function dividi(ctx: Contesto, secondo: number): Esito {
 
   if (aTempo(b.pezzo)) {
     const s = arrotonda(tratto.da + (secondo - tratto.esce), 100)
-    if (s - tratto.da < DIVISIONE_DAL_BORDO_S || fineTratto(tratto) - s < DIVISIONE_DAL_BORDO_S) return no(t("La linea rossa è troppo vicina al bordo del pezzo: spostala un po' e riprova.", "The red line is too close to the edge of the clip: move it a little and try again."))
+    if (s - tratto.da < DIVISIONE_DAL_BORDO_S || fineTratto(tratto) - s < DIVISIONE_DAL_BORDO_S) return no(t("La linea verticale è troppo vicina al bordo del pezzo: spostala un po' e riprova.", "The vertical line is too close to the edge of the clip: move it a little and try again."))
     const uno: Pezzo = { ...copia(b.pezzo), a: s }
     const due: Pezzo = { ...copia(b.pezzo), da: s }
     const via = b.pezzo.via ?? []

@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react"
+import { Bottone } from "../comuni/Bottone"
 import { useCopia } from "../dati"
 import { ascoltaProposte, leggiBozza, ricordaBozza } from "./bozza"
 import { comandoDelloStudio, elencoComandi, filtra, nomeInScrittura, type ComandoDelloStudio, type VoceComando } from "./comandi"
@@ -7,8 +8,8 @@ import { fraseDelRifiuto, ponteAppunti } from "./appunti"
 import { Dettato, type Posizione, type Scritto } from "./dettatura"
 import { IconaChat } from "./icone"
 import { apriMenu } from "./Impostazioni"
-import { comandiChat, livelloScritto, modelliChat, modelliOfferti, modelloScelto, nomeEffort } from "./modelli"
-import { MOTORE_CHAT, motoreDellaChat } from "./motore"
+import { comandiDelMotore, livelloScritto, modelliChat, modelliOfferti, modelloScelto, nomeLivello } from "./modelli"
+import { useMotoreDellaChat } from "./motore"
 import { useMicrofono } from "./Microfono"
 import { negozio, type StatoNegozio } from "./negozio"
 import { idOpzione, Tendina } from "./Tendina"
@@ -52,13 +53,14 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
   // Il testo per cui il creator ha chiuso la tendina con Esc: finché non cambia resta chiusa.
   const [serrata, setSerrata] = useState<string | null>(null)
   const modelli = useCopia(modelliChat).dato
-  const comandi = useCopia(comandiChat)
+  const motore = useMotoreDellaChat(chat)
+  const copiaComandi = comandiDelMotore(motore)
+  const comandi = useCopia(copiaComandi)
 
   const scelta = useRef<HTMLInputElement>(null)
   const sguardo = useSguardo()
   const lavora = chat.stato === "lavora" || chat.stato === "aspetta"
-  const motore = motoreDellaChat(chat)
-  const chi = motore?.corto ?? undefined
+  const chi = motore?.nelle_frasi ?? undefined
   const segnaposto =
     chat.stato === "lavora"
       ? chi
@@ -73,7 +75,7 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
           : t("Scrivi un messaggio", "Write a message")
   const pronti = allegati.allegati.flatMap((a) => (a.percorso ? [{ percorso: a.percorso }] : []))
   const puoMandare = (daMandare: string) => (daMandare.trim() !== "" || pronti.length > 0) && !allegati.staSalendo
-  const conServer = motore?.id === MOTORE_CHAT.id
+  const conServer = motore?.capacita.comandi === true
   const nomeScritto = nomeInScrittura(testo)
   const voci = nomeScritto === null ? [] : filtra(elencoComandi(comandi.dato, conServer), nomeScritto)
   const tendina = nomeScritto !== null && voci.length > 0 && serrata !== testo ? { nome: nomeScritto, voci, attiva: sceltaTendina?.nome === nomeScritto ? Math.min(sceltaTendina.indice, voci.length - 1) : 0 } : null
@@ -112,7 +114,7 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
   const scegliModello = async (argomento: string): Promise<string | null> => {
     if (argomento === "") return apriMenu("modello") ? null : modelliNonLetti()
     if (!modelli) return modelliNonLetti()
-    const offerti = modelliOfferti(modelli, chat)
+    const offerti = modelliOfferti(modelli, chat, motore)
     const cercato = come(argomento)
     const trovato = offerti.find((m) => come(m.id) === cercato || come(m.nome) === cercato)
     if (!trovato) return t("Non trovo il modello «{nome}». Quelli che ci sono: {elenco}.", "I can't find the model “{nome}”. The ones available are: {elenco}.", { nome: argomento, elenco: offerti.map((m) => m.nome).join(", ") })
@@ -121,17 +123,17 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
 
   const scegliEffort = async (argomento: string): Promise<string | null> => {
     if (!modelli) return modelliNonLetti()
-    const livelli = modelloScelto(modelliOfferti(modelli, chat), chat.modello)?.effort ?? []
+    const livelli = motore?.capacita.effort ? (modelloScelto(modelliOfferti(modelli, chat, motore), chat.modello)?.effort ?? []) : []
     if (livelli.length === 0) return t("Questo modello non ha l'effort.", "This model has no effort setting.")
     if (argomento === "") return apriMenu("effort") ? null : modelliNonLetti()
-    const livello = livelloScritto(argomento)
-    if (livello === undefined || (livello !== null && !livelli.includes(livello))) {
-      return t("Non conosco il livello «{nome}». Quelli che ci sono: {elenco}.", "I don't know the level “{nome}”. The ones available are: {elenco}.", { nome: argomento, elenco: livelli.map((l) => nomeEffort(l)).join(", ") })
+    const livello = livelloScritto(livelli, argomento)
+    if (livello === undefined) {
+      return t("Non conosco il livello «{nome}». Quelli che ci sono: {elenco}.", "I don't know the level “{nome}”. The ones available are: {elenco}.", { nome: argomento, elenco: livelli.map(nomeLivello).join(", ") })
     }
     return negozio.scegli({ effort: livello })
   }
 
-  /** Un comando dello studio non arriva a Claude: si fa. Torna `null` se è andato, altrimenti la frase che dice perché no. */
+  /** Un comando dello studio non arriva al motore: si fa. Torna `null` se è andato, altrimenti la frase che dice perché no. */
   const eseguiComando = async (comando: ComandoDelloStudio): Promise<string | null> => {
     try {
       switch (comando.nome) {
@@ -238,59 +240,63 @@ export function Compositore({ chat, allegati, onLista }: { chat: StatoNegozio; a
 
   return (
     <div className={styles.compositore}>
-      {tendina && <Tendina voci={tendina.voci} attiva={tendina.attiva} id={idTendina} nota={notaTendina} onScegli={completa} onRiprova={() => void comandiChat.rileggi()} />}
-      {allegati.allegati.length > 0 && (
-        <ul className={styles.allegati} aria-label={t("Allegati", "Attachments")}>
-          {allegati.allegati.map((a) => (
-            <li key={a.chiave} className={styles.allegato} data-stato={a.errore ? "errore" : a.percorso ? "pronto" : "sale"} title={a.errore ?? a.nome}>
-              {a.anteprima ? <img src={a.anteprima} alt={a.nome} /> : <IconaChat nome="file" dimensione={22} />}
-              <span className={styles.nomeAllegato}>{a.errore ? t("Non caricato: {errore}", "Not uploaded: {errore}", { errore: a.errore }) : a.percorso ? a.nome : `${a.nome}…`}</span>
-              <button type="button" onClick={() => allegati.togli(a.chiave)} aria-label={t("Togli l'allegato {nome}", "Remove attachment {nome}", { nome: a.nome })}>
-                <IconaChat nome="croce" dimensione={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className={styles.riga}>
-        <textarea
-          ref={campo}
-          className={styles.campo}
-          rows={2}
-          value={testo}
-          onChange={(e) => (dettato.current.tocca(), setTesto(e.target.value))}
-          onKeyDown={tasto}
-          onPaste={incolla}
-          placeholder={segnaposto}
-          aria-label={chi ? t("Messaggio per {chi}", "Message to {chi}", { chi }) : t("Messaggio", "Message")}
-          aria-autocomplete={tendina ? "list" : undefined}
-          aria-controls={tendina ? idTendina : undefined}
-          aria-activedescendant={tendina ? idOpzione(idTendina, tendina.attiva) : undefined}
-        />
-      </div>
-      {microfono.striscia}
-      <div className={styles.barra}>
-        <input ref={scelta} type="file" multiple hidden onChange={(e) => (allegati.aggiungi([...(e.target.files ?? [])]), (e.target.value = ""))} aria-label={t("Scegli i file da allegare", "Choose files to attach")} />
-        <button type="button" className={styles.icona} onClick={() => scelta.current?.click()} aria-label={t("Allega un file", "Attach a file")} title={t("Allega un file (o incollalo, o trascinalo qui)", "Attach a file (or paste it, or drag it here)")}>
-          <IconaChat nome="allegato" />
-        </button>
-        {microfono.bottone}
-        <span className={styles.aiuto}>{allegati.staSalendo ? t("Sto caricando i file…", "Uploading files…") : tastieraSulloSchermo() ? t("Il pulsante manda, Invio va a capo", "The button sends, Enter adds a line") : t("Invio manda, Maiusc+Invio va a capo", "Enter sends, Shift+Enter adds a line")}</span>
-        {lavora && (
-          <button type="button" className={styles.ferma} onClick={ferma}>
-            <IconaChat nome="ferma" dimensione={16} />
-            {t("Ferma", "Stop")}
-          </button>
+      {tendina && <Tendina voci={tendina.voci} attiva={tendina.attiva} id={idTendina} nota={notaTendina} onScegli={completa} onRiprova={() => void copiaComandi.rileggi()} />}
+      <div className={styles.scrivi}>
+        {allegati.allegati.length > 0 && (
+          <ul className={styles.allegati} aria-label={t("Allegati", "Attachments")}>
+            {allegati.allegati.map((a) => (
+              <li key={a.chiave} className={styles.allegato} data-stato={a.errore ? "errore" : a.percorso ? "pronto" : "sale"} title={a.errore ?? a.nome}>
+                {a.anteprima ? <img src={a.anteprima} alt={a.nome} /> : <IconaChat nome="file" dimensione={22} />}
+                <span className={styles.nomeAllegato}>{a.errore ? t("Non caricato: {errore}", "Not uploaded: {errore}", { errore: a.errore }) : a.percorso ? a.nome : `${a.nome}…`}</span>
+                <button type="button" onClick={() => allegati.togli(a.chiave)} aria-label={t("Togli l'allegato {nome}", "Remove attachment {nome}", { nome: a.nome })}>
+                  <IconaChat nome="croce" dimensione={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
-        <button type="button" className={styles.invia} onClick={() => invia()} disabled={!puoMandare(testo)} aria-label={t("Manda", "Send")} title={lavora ? t("Va in coda", "It will be queued") : t("Manda", "Send")}>
-          <IconaChat nome="invio" />
-        </button>
+        <div className={styles.riga}>
+          <textarea
+            ref={campo}
+            className={styles.campo}
+            rows={2}
+            value={testo}
+            onChange={(e) => (dettato.current.tocca(), setTesto(e.target.value))}
+            onKeyDown={tasto}
+            onPaste={incolla}
+            placeholder={segnaposto}
+            aria-label={chi ? t("Messaggio per {chi}", "Message to {chi}", { chi }) : t("Messaggio", "Message")}
+            aria-autocomplete={tendina ? "list" : undefined}
+            aria-controls={tendina ? idTendina : undefined}
+            aria-activedescendant={tendina ? idOpzione(idTendina, tendina.attiva) : undefined}
+          />
+        </div>
+        {microfono.striscia}
+        <div className={styles.barra}>
+          <input ref={scelta} type="file" multiple hidden onChange={(e) => (allegati.aggiungi([...(e.target.files ?? [])]), (e.target.value = ""))} aria-label={t("Scegli i file da allegare", "Choose files to attach")} />
+          <button type="button" className={styles.icona} onClick={() => scelta.current?.click()} aria-label={t("Allega un file", "Attach a file")} title={t("Allega un file (o incollalo, o trascinalo qui)", "Attach a file (or paste it, or drag it here)")}>
+            <IconaChat nome="allegato" />
+          </button>
+          {microfono.bottone}
+          <span className={styles.aiuto}>{allegati.staSalendo ? t("Sto caricando i file…", "Uploading files…") : tastieraSulloSchermo() ? t("Il pulsante manda, Invio va a capo", "The button sends, Enter adds a line") : t("Invio manda, Maiusc+Invio va a capo", "Enter sends, Shift+Enter adds a line")}</span>
+          <span className={styles.azioni}>
+            {lavora && (
+              <Bottone onClick={ferma}>
+                <IconaChat nome="ferma" dimensione={16} />
+                {t("Ferma", "Stop")}
+              </Bottone>
+            )}
+            <Bottone variante={chat.stato === "aspetta" ? "normale" : "principale"} onClick={() => invia()} disabled={!puoMandare(testo)} etichetta={t("Manda", "Send")} titolo={lavora ? t("Va in coda", "It will be queued") : t("Manda", "Send")}>
+              <IconaChat nome="invio" />
+            </Bottone>
+          </span>
+        </div>
+        {errore && (
+          <p className={styles.errore} role="alert">
+            {errore}
+          </p>
+        )}
       </div>
-      {errore && (
-        <p className={styles.errore} role="alert">
-          {errore}
-        </p>
-      )}
     </div>
   )
 }

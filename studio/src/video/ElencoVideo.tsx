@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { urlVersionato } from "../api"
+import { EtichettaDiStato } from "../comuni/EtichettaDiStato"
 import { GuardaDalTelefono } from "../comuni/GuardaDalTelefono"
 import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
 import { elencoVideo, useCopia } from "../dati"
@@ -41,10 +42,14 @@ function CartaVideo({ voce }: { voce: VoceElenco }) {
         <span className={styles.titolo}>{scheda.titolo}</span>
         <span className={styles.meta}>
           {scheda.formato === "carosello" ? <span>{t("carosello", "carousel")}</span> : voce.durata !== null && <span className="mono">{durata(voce.durata)}</span>}
-          {voce.fase && voce.fase.azione !== "fatto" && <span>{passoCorto(voce.fase)}</span>}
           {scheda.serie && <span>{t("serie {serie}", "series {serie}", { serie: scheda.serie })}</span>}
-          {senzaAnteprima && <span className={styles.mancante}>{t("senza anteprima", "no preview")}</span>}
         </span>
+        {((voce.fase && voce.fase.azione !== "fatto") || senzaAnteprima) && (
+          <span className={styles.stati}>
+            {voce.fase && voce.fase.azione !== "fatto" && <EtichettaDiStato stato={scheda.stato === "in lavorazione" ? "in-corso" : undefined}>{passoCorto(voce.fase)}</EtichettaDiStato>}
+            {senzaAnteprima && <EtichettaDiStato>{t("senza anteprima", "no preview")}</EtichettaDiStato>}
+          </span>
+        )}
         {scheda.stato === "pubblicato" && (
           <span className={styles.meta}>
             {pubblicata && <span>{t("uscito il {data}", "out on {data}", { data: data(pubblicata.data) })}</span>}

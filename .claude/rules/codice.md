@@ -50,7 +50,7 @@ Default: none. At most one or two lines on a non-obvious why. Never the what, ne
 - **TypeScript**: no `any`, no aliased imports or star imports; `const`, early return, functional methods; Bun APIs in the
   server. Typecheck from the package folder.
 - **Python**: the `motore` package, launched from the root, no `sys.path`.
-- **Interface**: texts in Italian and in English, plain, without jargon; the sentences the server and the engine send to it too (`frase(it, en)`, `Errore(it, en)`, `docs/API.md`, «La lingua delle frasi»); three widths (1400, 1000, 430) with no horizontal scrolling;
+- **Interface**: texts in Italian and in English, plain, without jargon; the sentences the server and the engine send to it too (`frase(it, en)`, `Errore(it, en)`, `docs/API.md`, «La lingua delle frasi»); three widths (1400, 1000, 390) with no horizontal scrolling;
   colors only from the tokens; numbers and dates from `src/testo.ts`. Whoever touches a view looks at the screenshots of all of
   them (`studio/verifica/fotografa.mjs`).
 

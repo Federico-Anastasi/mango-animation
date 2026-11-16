@@ -8,5 +8,7 @@ export default defineConfig({
   build: { outDir: "dist", emptyOutDir: true },
   server: {
     proxy: { "/api": SERVER, "/media": SERVER, "/font": SERVER },
+    // I caratteri stanno in `suite/`, accanto a `studio/`: in sviluppo Vite serve solo ciò che gli si apre.
+    fs: { allow: [".."] },
   },
 })

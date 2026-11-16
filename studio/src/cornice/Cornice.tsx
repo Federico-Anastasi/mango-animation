@@ -1,8 +1,9 @@
-// La barra in alto: le voci, e a destra solo ciò che serve in quel momento (lavori, telefono, chat, registrare, segnalare un problema).
+// La barra in alto: la scritta, le pagine, a destra gli stati (telefono, chat, registrare, lavori, segnalare un problema) e per ultimo l'ingranaggio delle impostazioni.
 import { useState } from "react"
 import { BottoneChat } from "../chat/BottoneChat"
 import { usePannelloChat } from "../chat/pannello"
 import { arrivi, canaleTiktok, lavori, registrazione, useCopia } from "../dati"
+import marchio from "../../../suite/marks/mango-animation.svg"
 import { AvvisoProfilo } from "./AvvisoProfilo"
 import { Icona } from "../comuni/icone"
 import type { NomeIcona } from "../comuni/icone"
@@ -13,6 +14,7 @@ import { eUnMontaggio, SegnoMontaggio } from "./MontaggioSuperato"
 import { PannelloLavori } from "./PannelloLavori"
 import { PannelloRegistrazione, Trascorso } from "./PannelloRegistrazione"
 import { PannelloSegnalazione } from "./PannelloSegnalazione"
+import { Punto } from "./Punto"
 import styles from "./Cornice.module.css"
 
 interface Voce {
@@ -27,7 +29,6 @@ const voci = (conCanale: boolean): Voce[] => [
   // I numeri del canale hanno una voce solo quando c'è un canale letto.
   ...(conCanale ? [{ vista: "canale", nome: t("Canale", "Channel"), icona: "crescita" } satisfies Voce] : []),
   { vista: "produzione", nome: t("Produzione", "Production"), icona: "produzione" },
-  { vista: "impostazioni", nome: t("Impostazioni", "Settings"), icona: "impostazioni" },
 ]
 
 export function Cornice({ vista }: { vista: VistaApp }) {
@@ -47,11 +48,16 @@ export function Cornice({ vista }: { vista: VistaApp }) {
     <>
       <header className={styles.cornice} data-chat={chat.aperta ? "aperta" : "chiusa"}>
         <div className={styles.dentro}>
-          <span className={styles.marchio}>Mango Animation</span>
+          <span className={styles.marchio} data-testid="marchio">
+            <img src={marchio} alt="" className={styles.mango} />
+            <span className={styles.scritta}>
+              mango <i>animation</i>
+            </span>
+          </span>
           <nav className={styles.menu} aria-label={t("Sezioni", "Sections")}>
             {voci(canaleLetto || vista === "canale").map((v) => (
               <a key={v.vista} href={`#/${v.vista}`} className={styles.voce} aria-current={v.vista === vista ? "page" : undefined}>
-                <Icona nome={v.icona} />
+                <Icona nome={v.icona} dimensione={16} />
                 <span>{v.nome}</span>
               </a>
             ))}
@@ -59,30 +65,30 @@ export function Cornice({ vista }: { vista: VistaApp }) {
           <div className={styles.stati}>
             {telefono?.pronto && (
               <a href="#/girato" className={styles.stato} title={t("Il telefono può mandare i file", "Your phone can send files")}>
-                <Icona nome="telefono" />
+                <span className={styles.icona}><Icona nome="telefono" dimensione={16} /></span>
                 <span className={styles.solo}>{t("Telefono pronto", "Phone ready")}</span>
-                <span className={styles.puntoVerde} aria-hidden="true" />
+                <Punto tono="pronto" />
               </a>
             )}
             <BottoneChat />
             <div className={styles.lavori}>
               <button type="button" className={styles.stato} aria-expanded={aperto === "registrazione"} aria-label={registra ? t("Sto registrando", "Recording") : t("Registra", "Record")} onClick={() => setAperto(aperto === "registrazione" ? null : "registrazione")}>
-                <Icona nome="video" />
+                <span className={styles.icona}><Icona nome="video" dimensione={16} /></span>
                 <span className={styles.solo}>{registra ? <Trascorso da={registra.iniziata} /> : t("Registra", "Record")}</span>
-                <span className={registra ? styles.puntoRosso : styles.puntoGrigio} aria-hidden="true" />
+                <Punto tono={registra ? "registra" : "spento"} />
               </button>
               {aperto === "registrazione" && <PannelloRegistrazione onChiudi={() => setAperto(null)} />}
             </div>
             {mostraLavori && (
               <div className={styles.lavori}>
                 <button type="button" className={styles.stato} aria-expanded={aperto === "lavori"} onClick={() => setAperto(aperto === "lavori" ? null : "lavori")}>
-                  <Icona nome="lavori" />
+                  <span className={styles.icona}><Icona nome="lavori" dimensione={16} /></span>
                   {eUnMontaggio(inCorso) ? (
                     <SegnoMontaggio lavoro={inCorso} />
                   ) : (
                     <>
                       <span className={styles.solo}>{etichetta}</span>
-                      <span className={inCorso ? styles.puntoRosso : styles.puntoGrigio} aria-hidden="true" />
+                      <Punto tono={inCorso ? "in-corso" : "spento"} />
                     </>
                   )}
                 </button>
@@ -91,12 +97,15 @@ export function Cornice({ vista }: { vista: VistaApp }) {
             )}
             {ponteSegnalazione() && (
               <div className={styles.lavori}>
-                <button type="button" className={styles.tema} aria-expanded={aperto === "segnala"} aria-label={t("Segnala un problema", "Report a problem")} title={t("Segnala un problema", "Report a problem")} onClick={() => setAperto(aperto === "segnala" ? null : "segnala")}>
-                  <Icona nome="segnala" />
+                <button type="button" className={styles.soloIcona} aria-expanded={aperto === "segnala"} aria-label={t("Segnala un problema", "Report a problem")} title={t("Segnala un problema", "Report a problem")} onClick={() => setAperto(aperto === "segnala" ? null : "segnala")}>
+                  <Icona nome="segnala" dimensione={16} />
                 </button>
                 {aperto === "segnala" && <PannelloSegnalazione onChiudi={() => setAperto(null)} />}
               </div>
             )}
+            <a href="#/impostazioni" className={styles.soloIcona} aria-current={vista === "impostazioni" ? "page" : undefined} aria-label={t("Impostazioni", "Settings")} title={t("Impostazioni", "Settings")}>
+              <Icona nome="impostazioni" dimensione={16} />
+            </a>
           </div>
         </div>
         <span className={styles.rientro} aria-hidden="true" />

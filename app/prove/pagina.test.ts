@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 // La pagina d'attesa senza finestra: un finto documento con gli elementi di index.html, e lo script vero.
-type Elemento = { hidden: boolean; disabled: boolean; checked: boolean; className: string; placeholder: string; textContent: string; value: number | string; max: number; focus: () => void; replaceChildren: (...figli: Elemento[]) => void; append: (...figli: unknown[]) => void; figli: Elemento[]; type: string; title: string; click: () => void; addEventListener: (tipo: string, f: () => void) => void; setAttribute: () => void; removeAttribute: () => void; classList: { toggle: () => void } }
+type Elemento = { tag: string; open: boolean; hidden: boolean; disabled: boolean; checked: boolean; className: string; placeholder: string; textContent: string; value: number | string; max: number; focus: () => void; replaceChildren: (...figli: Elemento[]) => void; append: (...figli: unknown[]) => void; figli: Elemento[]; type: string; title: string; click: () => void; addEventListener: (tipo: string, f: () => void) => void; setAttribute: () => void; removeAttribute: () => void; classList: { toggle: () => void }; style: { setProperty: () => void } }
 
 const elementi = new Map<string, Elemento>()
 const chiamate: { comando: string; argomenti: unknown }[] = []
@@ -11,7 +11,7 @@ let nuovoStato: (payload: unknown) => void = () => {}
 
 const elemento = (): Elemento => {
   const ascoltatori: (() => void)[] = []
-  const nuovo: Elemento = { hidden: false, disabled: false, checked: true, className: "", placeholder: "", textContent: "", value: 0, max: 0, focus: () => {}, replaceChildren: (...figli) => void (nuovo.figli = figli), append: () => {}, figli: [], type: "", title: "", click: () => ascoltatori.forEach((f) => f()), addEventListener: (_, f) => void ascoltatori.push(f), setAttribute: () => {}, removeAttribute: () => {}, classList: { toggle: () => {} } }
+  const nuovo: Elemento = { tag: "", open: false, hidden: false, disabled: false, checked: true, className: "", placeholder: "", textContent: "", value: 0, max: 0, focus: () => {}, replaceChildren: (...figli) => void (nuovo.figli = figli), append: (...figli) => void nuovo.figli.push(...(figli as Elemento[])), figli: [], type: "", title: "", click: () => ascoltatori.forEach((f) => f()), addEventListener: (_, f) => void ascoltatori.push(f), setAttribute: () => {}, removeAttribute: () => {}, classList: { toggle: () => {} }, style: { setProperty: () => {} } }
   return nuovo
 }
 
@@ -20,7 +20,7 @@ beforeAll(async () => {
   for (const [, id] of html.matchAll(/id="([^"]+)"/g)) elementi.set(id, elemento())
   Object.assign(globalThis, {
     window: globalThis,
-    document: { getElementById: (id: string) => elementi.get(id), createElement: () => elemento(), documentElement: {}, querySelector: () => elemento() },
+    document: { getElementById: (id: string) => elementi.get(id), createElement: (tag: string) => Object.assign(elemento(), { tag }), documentElement: {}, querySelector: () => elemento() },
     requestAnimationFrame: (f: () => void) => void queueMicrotask(f),
     navigator: { clipboard: { writeText: () => Promise.resolve() } },
     __TAURI__: {
@@ -45,7 +45,7 @@ describe("la pagina dell'aggiornamento", () => {
     expect(el("titolo").textContent).toBe("L'aggiornamento non è andato")
     expect(el("dettaglio").textContent).toBe("Non è arrivata intera.")
     expect([el("aggiorna").hidden, el("aggiorna").textContent, el("dopo").hidden, el("dopo").textContent]).toEqual([false, "Riprova", false, "Continua con la versione che hai"])
-    expect([el("avanzamento").hidden, el("giro").hidden]).toEqual([true, true])
+    expect([el("avanzamento").hidden, el("corpo").className]).toEqual([true, "corpo scelta"])
 
     nuovoStato(aggiornamento("errore", "en", "It did not arrive in full."))
     expect(el("titolo").textContent).toBe("The update failed")
@@ -78,75 +78,254 @@ describe("la pagina dell'aggiornamento", () => {
 })
 
 const COMANDO = "irm https://claude.ai/install.ps1 | iex"
-const claude = (c: Record<string, unknown>, lingua = "it") => ({ fase: "claude", lingua, claude: { trovato: false, percorso: null, versione: null, collegato: false, messaggio: null, comando: COMANDO, ...c } })
+type Motore = { id: string; nome: string; trovato: boolean; percorso: string | null; versione: string | null; collegato: boolean; messaggio: string | null; comando: string | null; installabile: boolean; accedibile: boolean }
+const motore = (id: string, nome: string, c: Partial<Motore> = {}): Motore => ({ id, nome, trovato: false, percorso: null, versione: null, collegato: false, messaggio: null, comando: null, installabile: id !== "mango-code", accedibile: id !== "mango-code", ...c })
+const claude = (c: Partial<Motore> = {}) => motore("claude-code", "Claude Code", { comando: COMANDO, ...c })
+const codex = (c: Partial<Motore> = {}) => motore("codex", "Codex", c)
+const mango = (c: Partial<Motore> = {}) => motore("mango-code", "Mango Code", c)
+const motori = (stati: Motore[], lingua = "it") => ({ fase: "motori", lingua, motori: stati })
+const nessuno = () => [claude(), codex(), mango()]
+
+// Le righe della lista: i testi della colonna a sinistra, i bottoni, e l'eventuale blocco del comando.
+const riga = (i: number) => el("motori").figli[i] as Elemento
+const testi = (i: number) => (riga(i).figli[0] as Elemento).figli.map((f) => f.textContent)
+const bottoniDi = (i: number) => (riga(i).figli[1] as Elemento).figli
 const html = readFileSync(join(import.meta.dir, "..", "ui", "index.html"), "utf8")
 
-describe("la pagina di Claude Code", () => {
-  test("senza Claude Code dice che serve un abbonamento e offre di installarlo con un clic, e non c'è modo di andare avanti senza", () => {
-    nuovoStato(claude({}))
-    expect(el("titolo").textContent).toBe("Per cominciare serve Claude Code")
-    expect([el("installa").hidden, el("installa").textContent, el("accedi").hidden, el("ricontrolla").hidden]).toEqual([false, "Installa Claude Code", true, false])
-    expect(el("abbonamento").hidden).toBe(false)
-    expect(el("abbonamento-testo").textContent).toBe("Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.")
-    expect(el("piani-link").textContent).toBe("Guarda i piani")
-    expect(html).toContain('id="piani-link" href="https://claude.com/pricing"')
-    expect(html).not.toContain('id="senza"')
-    expect(el("giro").hidden).toBe(true)
+describe("la pagina dei motori della chat", () => {
+  test("senza nessun motore li elenca tutti, con cosa si può fare per ciascuno, e non c'è modo di andare avanti senza", () => {
+    nuovoStato(motori(nessuno()))
+    expect(el("titolo").textContent).toBe("Per cominciare serve un motore per la chat")
+    expect(el("dettaglio").textContent).toBe("Mango Animation lavora con Claude Code, Codex o Mango Code. Ne basta uno, installato e collegato.")
+    expect([el("motori").hidden, el("ricontrolla").hidden, el("corpo").className, el("motori").figli.length]).toEqual([false, false, "corpo scelta", 3])
+    expect(testi(0).slice(0, 2)).toEqual(["Claude Code", "Non installato"])
+    expect(testi(0)[2]).toBe("Claude Code richiede un account Claude con un abbonamento: Pro, Max, Ultra, Team o Enterprise. Il piano gratuito non lo include.")
+    expect(testi(1)).toEqual(["Codex", "Non installato", "Si accede con il tuo account ChatGPT."])
+    expect(testi(2)).toEqual(["Mango Code", "Spento", "Si apre dalla sua icona; poi premi «Ricontrolla»."])
+    expect([bottoniDi(0).map((b) => b.textContent), bottoniDi(1).map((b) => b.textContent), bottoniDi(2).length]).toEqual([["Installa"], ["Installa"], 0])
+    expect(html).not.toContain('id="continua"')
   })
 
-  test("il comando di Anthropic resta come alternativa, con la guida ufficiale, e si copia", async () => {
-    nuovoStato(claude({}))
-    expect([el("alternativa").hidden, el("comando").textContent, el("guida").hidden, el("copia").textContent]).toEqual([false, COMANDO, false, "Copia il comando"])
-    expect(html).toContain('id="guida-link" href="https://code.claude.com/docs/en/setup"')
+  test("il comando di Anthropic resta come alternativa per Claude Code, con la guida ufficiale, e si copia; gli altri motori non lo hanno", async () => {
+    nuovoStato(motori(nessuno()))
+    expect([riga(0).figli.length, riga(1).figli.length, riga(2).figli.length]).toEqual([3, 2, 2])
+    const dettagli = riga(0).figli[2] as Elemento
+    expect([dettagli.tag, dettagli.open]).toEqual(["details", false])
+    const [titolo, istruzione, comando, copia, guida] = dettagli.figli as Elemento[]
+    expect([titolo?.tag, titolo?.textContent]).toEqual(["summary", "Installa con un comando"])
+    expect([istruzione?.textContent, comando?.textContent, copia?.textContent, guida?.textContent]).toEqual(["Incolla questo comando in PowerShell:", COMANDO, "Copia il comando", "La guida di Anthropic per installare Claude Code"])
+    expect((guida as unknown as { href: string }).href).toBe("https://code.claude.com/docs/en/setup")
     const copiati: string[] = []
     ;(globalThis as unknown as { navigator: { clipboard: { writeText: (t: string) => Promise<void> } } }).navigator.clipboard.writeText = (t) => (copiati.push(t), Promise.resolve())
-    el("copia").click()
+    copia?.click()
     await aspetta()
     expect(copiati).toEqual([COMANDO])
-    expect(el("copia").textContent).toBe("Copiato")
+    expect(copia?.textContent).toBe("Copiato")
   })
 
-  test("«Installa Claude Code» lo chiede all'app e la pagina aspetta la finestra", () => {
-    nuovoStato(claude({}))
+  test("«Installa» chiede all'app di installare quel motore e la pagina aspetta: la finestra per Claude Code, lo Store per Codex", () => {
+    nuovoStato(motori(nessuno()))
     chiamate.length = 0
-    el("installa").click()
-    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "installa" } }])
+    bottoniDi(0)[0]?.click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: { installa: "claude-code" } } }])
     expect(el("dettaglio").textContent).toBe("Installo Claude Code nella finestra che si è aperta…")
-    expect([el("installa").hidden, el("abbonamento").hidden, el("alternativa").hidden]).toEqual([true, true, true])
-  })
+    expect(el("motori").hidden).toBe(true)
 
-  test("se l'installazione non va lo dice e offre «Riprova» e la guida", () => {
-    nuovoStato(claude({ messaggio: "L'installazione di Claude Code non è andata a buon fine." }))
-    expect(el("dettaglio").textContent).toBe("L'installazione di Claude Code non è andata a buon fine. Puoi riprovare, o seguire la guida di Anthropic.")
-    expect([el("installa").hidden, el("installa").textContent, el("guida").hidden]).toEqual([false, "Riprova", false])
-  })
-
-  test("trovato ma non collegato chiede l'accesso, con lo stesso avviso sull'abbonamento e senza il comando", () => {
-    nuovoStato(claude({ trovato: true, percorso: "C:\\claude.exe", versione: "2.1.318", comando: null }))
-    expect(el("titolo").textContent).toBe("Collega Claude Code al tuo account")
-    expect(el("dettaglio").textContent).toBe("Ho trovato Claude Code 2.1.318. Serve l'accesso con il tuo account Claude: si apre una finestra, e poi il browser per entrare.")
-    expect([el("accedi").hidden, el("accedi").textContent, el("installa").hidden, el("alternativa").hidden, el("guida").hidden, el("abbonamento").hidden]).toEqual([false, "Accedi a Claude Code", true, true, true, false])
+    nuovoStato(motori(nessuno()))
     chiamate.length = 0
-    el("accedi").click()
-    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "accedi" } }])
+    bottoniDi(1)[0]?.click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: { installa: "codex" } } }])
+    expect(el("dettaglio").textContent).toBe("Apro la pagina di Codex nel Microsoft Store…")
   })
 
-  test("in inglese le stesse frasi, con il piano gratuito escluso", () => {
-    nuovoStato(claude({}, "en"))
-    expect(el("titolo").textContent).toBe("To get started you need Claude Code")
-    expect([el("installa").textContent, el("piani-link").textContent, el("alternativa-testo").textContent]).toEqual(["Install Claude Code", "See the plans", "If you prefer, paste this command into PowerShell:"])
-    expect(el("abbonamento-testo").textContent).toBe("Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it.")
+  test("se l'installazione non va, o continua nello Store, la frase sta sotto il suo motore e il bottone diventa «Riprova»", () => {
+    nuovoStato(motori([claude({ messaggio: "L'installazione di Claude Code non è andata a buon fine." }), codex({ messaggio: "Ho aperto la pagina di Codex nel Microsoft Store: installalo da lì, poi premi «Ricontrolla»." }), mango()]))
+    expect(testi(0)[2]).toBe("L'installazione di Claude Code non è andata a buon fine.")
+    expect(testi(1)[2]).toContain("Ho aperto la pagina di Codex nel Microsoft Store")
+    expect([bottoniDi(0)[0]?.textContent, bottoniDi(1)[0]?.textContent]).toEqual(["Riprova", "Riprova"])
+    expect(testi(2).length).toBe(3)
   })
 
-  test("la pagina non parla di Mango Code: fra i motori della chat lo offre il server", () => {
-    expect(html).not.toContain("mango-code")
-    expect(readFileSync(join(import.meta.dir, "..", "ui", "app.js"), "utf8")).not.toContain("Mango Code")
+  test("un motore trovato ma non collegato chiede l'accesso, senza installazione né comando, e dice la versione", () => {
+    nuovoStato(motori([claude(), codex({ trovato: true, percorso: "C:\\codex.exe", versione: "0.167.0" }), mango()]))
+    expect(el("titolo").textContent).toBe("Collega un motore della chat")
+    expect(testi(1).slice(0, 2)).toEqual(["Codex", "Versione 0.167.0 · da collegare"])
+    expect(bottoniDi(1).map((b) => b.textContent)).toEqual(["Accedi"])
+    expect(riga(1).figli.length).toBe(2)
+    chiamate.length = 0
+    bottoniDi(1)[0]?.click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: { accedi: "codex" } } }])
+    expect(el("dettaglio").textContent).toBe("Aspetto che finisci l'accesso a Codex…")
   })
 
-  test("le altre pagine non mostrano niente di Claude Code", () => {
-    nuovoStato(claude({}))
+  test("un programma che non parte dice «Non parte» e il suo messaggio, e offre di riprovare l'installazione", () => {
+    nuovoStato(motori([claude({ percorso: "C:\\claude.exe", messaggio: "Claude Code non parte: errore" }), codex(), mango()]))
+    expect(testi(0).slice(0, 3)).toEqual(["Claude Code", "Non parte", "Claude Code non parte: errore"])
+    expect(bottoniDi(0)[0]?.textContent).toBe("Riprova")
+  })
+
+  test("Mango Code acceso ma non pronto lo dice e non offre niente da premere: si sistema nella sua finestra", () => {
+    nuovoStato(motori([claude(), codex(), mango({ trovato: true, messaggio: "Mango Code è acceso ma non è ancora pronto: guarda la sua finestra." })]))
+    expect(testi(2).slice(0, 3)).toEqual(["Mango Code", "Acceso, non ancora pronto", "Mango Code è acceso ma non è ancora pronto: guarda la sua finestra."])
+    expect(bottoniDi(2).length).toBe(0)
+    expect(el("titolo").textContent).toBe("Collega un motore della chat")
+  })
+
+  test("Mango Code non installato lo dice e offre «Installa», che apre la sua pagina; installato e spento rimanda alla sua icona", () => {
+    nuovoStato(motori([claude(), codex(), mango({ installabile: true })]))
+    expect(testi(2)).toEqual(["Mango Code", "Non installato", "Si scarica da GitHub: installalo, aprilo, poi premi «Ricontrolla»."])
+    expect(bottoniDi(2).map((b) => b.textContent)).toEqual(["Installa"])
+    expect(riga(2).figli.length).toBe(2)
+    chiamate.length = 0
+    bottoniDi(2)[0]?.click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: { installa: "mango-code" } } }])
+    expect(el("dettaglio").textContent).toBe("Apro la pagina di Mango Code su GitHub…")
+
+    nuovoStato(motori([claude(), codex(), mango({ installabile: true, messaggio: "Ho aperto la pagina di Mango Code." })]))
+    expect([testi(2)[2], bottoniDi(2)[0]?.textContent]).toEqual(["Ho aperto la pagina di Mango Code.", "Riprova"])
+
+    nuovoStato(motori([claude(), codex(), mango()]))
+    expect(testi(2)).toEqual(["Mango Code", "Spento", "Si apre dalla sua icona; poi premi «Ricontrolla»."])
+    expect(bottoniDi(2).length).toBe(0)
+
+    nuovoStato(motori([claude(), codex(), mango({ installabile: true })], "en"))
+    expect(testi(2)).toEqual(["Mango Code", "Not installed", "Download it from GitHub: install it, open it, then press “Check again”."])
+    bottoniDi(2)[0]?.click()
+    expect(el("dettaglio").textContent).toBe("Opening the Mango Code page on GitHub…")
+  })
+
+  test("«Ricontrolla» lo chiede all'app e la pagina lo dice", () => {
+    nuovoStato(motori(nessuno()))
+    chiamate.length = 0
+    el("ricontrolla").click()
+    expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "ricontrolla" } }])
+    expect(el("dettaglio").textContent).toBe("Controllo i motori della chat…")
+  })
+
+  test("in inglese le stesse frasi, con il piano gratuito di Claude escluso", () => {
+    nuovoStato(motori(nessuno(), "en"))
+    expect(el("titolo").textContent).toBe("To get started you need a chat engine")
+    expect(el("dettaglio").textContent).toBe("Mango Animation works with Claude Code, Codex or Mango Code. One is enough, installed and connected.")
+    expect(testi(0)).toEqual(["Claude Code", "Not installed", "Claude Code needs a Claude account with a subscription: Pro, Max, Ultra, Team or Enterprise. The free plan does not include it."])
+    expect(testi(1)).toEqual(["Codex", "Not installed", "You sign in with your ChatGPT account."])
+    expect(testi(2)).toEqual(["Mango Code", "Off", "Open it from its icon, then press “Check again”."])
+    expect([bottoniDi(0)[0]?.textContent, el("ricontrolla").textContent]).toEqual(["Install", "Check again"])
+    nuovoStato(motori([claude(), codex({ trovato: true, versione: "0.1.0" }), mango()], "en"))
+    expect([testi(1)[1], bottoniDi(1)[0]?.textContent]).toEqual(["Version 0.1.0 · not connected", "Sign in"])
+    expect((riga(0).figli[2] as Elemento).figli.map((f) => f.textContent)).toEqual(expect.arrayContaining(["Install with a command", "Copy the command"]))
+  })
+
+  test("le altre pagine non mostrano niente dei motori", () => {
+    nuovoStato(motori(nessuno()))
     nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "Accendo il server" })
-    expect([el("installa").hidden, el("accedi").hidden, el("ricontrolla").hidden, el("abbonamento").hidden, el("alternativa").hidden, el("guida").hidden]).toEqual([true, true, true, true, true, true])
+    expect([el("motori").hidden, el("ricontrolla").hidden]).toEqual([true, true])
+  })
+})
+
+const computer = (fase: string, c: Record<string, unknown> = {}) => ({
+  fase: "computer",
+  lingua: "it",
+  computer: {
+    fase,
+    funzioni: [{ id: "capire", nome: "Capire cosa dico", cosa_fa: "Trascrive la voce.", attiva: true }],
+    voci: [{ funzione: "capire", nome: "Modello", scopo: "trascrivere", licenza: "MIT", fonte: "https://esempio.it", peso_mb: 6400, stato: "attesa", fatti_mb: 0, totale_mb: 0, necessaria: false }],
+    avvisi: [],
+    messaggio: null,
+    libero_mb: 400 * 1024,
+    servono_mb: 6400,
+    spazio_ok: true,
+    computer: { schede: [], ram_mb: 32 * 1024 },
+    ...c,
+  },
+})
+
+// I bottoni che si vedono in una pagina: quelli fissi di index.html (fuori dal riquadro della segnalazione) e quelli che l'app disegna nelle liste.
+const bottoniVisibili = (): Elemento[] => {
+  const fissi = [...html.matchAll(/<button id="([^"]+)"/g)].map(([, id]) => id as string).filter((id) => !id.startsWith("segnala-")).map(el)
+  const dellaLista = el("motori").hidden ? [] : el("motori").figli.flatMap((r) => [...(r.figli[1] as Elemento).figli, ...(r.figli[2]?.figli ?? []).filter((f) => f.tag === "button")])
+  const dellaCartella = el("cartella-altre-gruppo").hidden ? [] : el("cartella-altre").figli
+  return [...fissi, ...dellaLista, ...dellaCartella].filter((b) => !b.hidden)
+}
+const principali = () => bottoniVisibili().filter((b) => b.className.split(" ").includes("principale")).length
+
+describe("l'aspetto della pagina", () => {
+  test("l'attesa è il mango grande con una riga, e la barra c'è solo se si sa quanto manca; ogni scelta ha il mango piccolo in alto", () => {
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 3, messaggio: "Accendo il server" })
+    expect([el("marchio-mango").textContent, el("marchio-prodotto").textContent]).toEqual(["mango", "animation"])
+    expect([el("corpo").className, el("dettaglio").textContent, el("avanzamento").hidden]).toEqual(["corpo attesa", "Accendo il server… 3 s", true])
+    nuovoStato(aggiornamento("scarico"))
+    expect([el("corpo").className, el("avanzamento").hidden]).toEqual(["corpo attesa", false])
+    nuovoStato(aggiornamento("proposta"))
+    expect(el("corpo").className).toBe("corpo scelta")
+    nuovoStato(computer("piano"))
+    expect(el("corpo").className).toBe("corpo scelta largo")
+  })
+
+  test("in attesa la barra dice a che tappa è l'avvio, anche dopo una risposta della pagina stessa; nelle scelte e durante uno scarico non c'è", () => {
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "Controllo i motori della chat", tappa: 3, tappe: 5 })
+    expect([el("tappe").hidden, el("tappe").value, el("tappe").max]).toEqual([false, 3, 5])
+    nuovoStato({ ...motori(nessuno()), tappa: 3, tappe: 5 })
+    expect(el("tappe").hidden).toBe(true)
+    el("ricontrolla").click()
+    expect([el("corpo").className, el("tappe").hidden, el("tappe").value, el("tappe").max]).toEqual(["corpo attesa", false, 3, 5])
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 2, messaggio: "Accendo il server", tappa: 5, tappe: 5 })
+    expect([el("tappe").value, el("tappe").max]).toEqual([5, 5])
+    nuovoStato({ ...aggiornamento("scarico"), tappa: 2, tappe: 5 })
+    expect([el("tappe").hidden, el("avanzamento").hidden]).toEqual([true, false])
+  })
+
+  test("il mango si muove solo mentre l'app parte, e sta fermo per chi ha chiesto meno movimento", () => {
+    const css = readFileSync(join(import.meta.dir, "..", "ui", "stile.css"), "utf8")
+    expect(css).toMatch(/\.corpo\.attesa \.mango \{[^}]*animation:/)
+    expect(css).not.toMatch(/^\.mango \{[^}]*animation:/m)
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{[^}]*animation: none !important/)
+  })
+
+  test("il piede dice la versione dell'app in ogni pagina, anche dopo una risposta della pagina stessa, e «Segnala un problema» è lì", () => {
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    expect(el("versione").textContent).toBe("Mango Animation")
+    nuovoStato({ ...motori(nessuno()), versione: "0.1.6" })
+    expect([el("versione").textContent, el("segnala").textContent, el("segnala").hidden]).toEqual(["Mango Animation 0.1.6", "Segnala un problema", false])
+    el("ricontrolla").click()
+    expect(el("versione").textContent).toBe("Mango Animation 0.1.6")
+    nuovoStato({ fase: "errore", lingua: "en", messaggio: "x", log: null, versione: "0.1.7" })
+    expect([el("versione").textContent, el("segnala").textContent]).toEqual(["Mango Animation 0.1.7", "Report a problem"])
+  })
+
+  test("ogni pagina ha un bottone principale solo dove una cosa porta avanti, e mai due", () => {
+    const attesi: [string, unknown, number][] = [
+      ["attesa", { fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" }, 0],
+      ["errore", { fase: "errore", lingua: "it", messaggio: "x", log: "server.log" }, 1],
+      ["errore sulla radice", { fase: "errore", lingua: "it", messaggio: "x", radice: true }, 0],
+      ["cartella mancante da ricreare", { fase: "mancante", lingua: "it", messaggio: "x", predefinita: "C:\\Documenti" }, 1],
+      ["cartella mancante da scegliere", { fase: "mancante", lingua: "it", messaggio: "x" }, 1],
+      ["nessun motore", motori(nessuno()), 0],
+      ["un motore da collegare", motori([claude(), codex({ trovato: true, versione: "0.1.0" }), mango()]), 1],
+      ["due motori da collegare", motori([claude({ trovato: true, versione: "2.0.0" }), codex({ trovato: true, versione: "0.1.0" }), mango()]), 0],
+      ["cartella", cartella({ alternative: [{ percorso: "D:\\Mango Animation", libero_mb: 1024 }] }), 1],
+      ["spostamento in corso", spostamento({}), 0],
+      ["spostamento non riuscito", spostamento({ fase: "errore", messaggio: "x" }), 1],
+      ["spostamento finito", spostamento({ fase: "avanzi" }), 1],
+      ["computer, il piano", computer("piano"), 1],
+      ["computer, lo scarico", computer("scarico"), 0],
+      ["computer, un errore", computer("errore", { messaggio: "x" }), 1],
+      ["aggiornamento proposto", aggiornamento("proposta"), 1],
+      ["aggiornamento non riuscito", aggiornamento("errore", "it", "x"), 1],
+      ["aggiornamento in corso", aggiornamento("scarico"), 0],
+    ]
+    for (const [pagina, stato, quanti] of attesi) {
+      nuovoStato(stato)
+      expect([pagina, principali()]).toEqual([pagina, quanti])
+      for (const b of bottoniVisibili()) expect([pagina, ["", "principale", "minore", "scelta"].includes(b.className)]).toEqual([pagina, true])
+    }
+  })
+
+  test("lo stato di un motore è un'etichetta: neutra se non è né pronto né rotto, in corso se si sta accendendo, rossa se non parte", () => {
+    nuovoStato(motori([claude({ percorso: "C:\\claude.exe", messaggio: "x" }), codex({ trovato: true, versione: "0.1.0" }), mango({ trovato: true, messaggio: "y" })]))
+    const stati = [0, 1, 2].map((i) => ((riga(i).figli[0] as Elemento).figli[1] as Elemento).className)
+    expect(stati).toEqual(["etichetta errore", "etichetta neutra", "etichetta in-corso"])
+    nuovoStato(motori(nessuno()))
+    expect(((riga(0).figli[0] as Elemento).figli[1] as Elemento).className).toBe("etichetta neutra")
   })
 })
 
@@ -159,7 +338,7 @@ describe("la pagina «Dove tengo i tuoi video?»", () => {
     expect(el("dettaglio").textContent).toBe("Qui vanno i tuoi video, il girato e tutto il lavoro. Pesano molto: scegli un disco con spazio.")
     expect([el("cartella").hidden, el("cartella-percorso").textContent, el("cartella-spazio").textContent]).toEqual([false, "C:\\Users\\Alice\\Documents\\Mango Animation", "Spazio libero sul disco: 412,0 GB"])
     expect([el("usa-cartella").hidden, el("usa-cartella").textContent, el("usa-cartella").disabled, el("scegli-altra").hidden, el("scegli-altra").textContent]).toEqual([false, "Usa questa cartella", false, false, "Scegli un'altra cartella"])
-    expect([el("cartella-onedrive").hidden, el("cartella-altre-gruppo").hidden, el("cartella-errore").hidden, el("giro").hidden, el("ricontrolla").hidden, el("installa").hidden]).toEqual([true, true, true, true, true, true])
+    expect([el("cartella-onedrive").hidden, el("cartella-altre-gruppo").hidden, el("cartella-errore").hidden, el("corpo").className, el("ricontrolla").hidden, el("motori").hidden]).toEqual([true, true, true, "corpo scelta", true, true])
   })
 
   test("una cartella dentro OneDrive porta l'avviso, e fuori da OneDrive non c'è", () => {
@@ -220,7 +399,7 @@ describe("la pagina dello spostamento della cartella dei dati", () => {
     expect(el("dettaglio").textContent).toContain("Non chiudere l'app")
     expect([el("spostamento-da").textContent, el("spostamento-a").textContent, el("spostamento-conti").textContent]).toEqual(["Da: C:\\Vecchia", "A: D:\\Nuova", "12,0 GB / 80,0 GB · 120 / 540 file"])
     expect([el("spostamento-barra").max, el("spostamento-barra").value, el("spostamento-barra").hidden]).toEqual([80 * 1024, 12 * 1024, false])
-    expect([el("annulla").hidden, el("annulla").textContent, el("sposta-riprova").hidden, el("sposta-continua").hidden, el("giro").hidden]).toEqual([false, "Annulla lo spostamento", true, true, true])
+    expect([el("annulla").hidden, el("annulla").textContent, el("sposta-riprova").hidden, el("sposta-continua").hidden, el("corpo").className]).toEqual([false, "Annulla lo spostamento", true, true, "corpo scelta"])
     chiamate.length = 0
     el("annulla").click()
     expect(chiamate).toEqual([{ comando: "azione", argomenti: { azione: "annulla" } }])
@@ -260,7 +439,7 @@ describe("la pagina dello spostamento della cartella dei dati", () => {
   test("in inglese le stesse frasi, e le altre pagine non mostrano i bottoni dello spostamento", () => {
     nuovoStato(spostamento({ fase: "errore", messaggio: "x" }, "en"))
     expect([el("titolo").textContent, el("dettaglio").textContent, el("sposta-continua").textContent]).toEqual(["The move did not work", "x Your files are where they were.", "Continue with the previous folder"])
-    nuovoStato(claude({}))
+    nuovoStato(motori(nessuno()))
     expect([el("spostamento").hidden, el("sposta-riprova").hidden, el("sposta-continua").hidden]).toEqual([true, true, true])
   })
 })

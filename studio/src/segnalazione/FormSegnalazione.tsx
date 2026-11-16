@@ -1,4 +1,6 @@
 import { useEffect, useId, useState } from "react"
+import { Bottone } from "../comuni/Bottone"
+import { Interruttore } from "../comuni/Interruttore"
 import { t } from "../lingua"
 import { dopoIlDisegno, fraseDelRifiuto, ponteSegnalazione, type EsitoSegnalazione } from "./ponte"
 import styles from "./FormSegnalazione.module.css"
@@ -11,7 +13,7 @@ const fraseDelFatto = (esito: EsitoSegnalazione): string =>
     : t("Salvato in {file}. Si è aperta la pagina di GitHub per mandarlo.", "Saved to {file}. The GitHub page is open so you can send it.", { file: esito.file ?? "" })
 
 /**
- * Il modulo di «Segnala un problema»: un campo facoltativo, l'interruttore della schermata e «Invia». Non parte niente senza il clic.
+* Il modulo di «Segnala un problema»: un campo facoltativo, l'interruttore della schermata e «Invia». Non parte niente senza il clic.
  * Con la schermata la finestra va ripresa senza il modulo, che coprirebbe la pagina di cui si parla: mentre l'app la riprende il modulo si nasconde
  * (`onNascosto` lo dice anche a chi lo contiene).
  */
@@ -59,13 +61,13 @@ export function FormSegnalazione({ errore, onNascosto }: { errore?: string; onNa
       </label>
       <textarea id={idNota} className={styles.nota} rows={3} value={nota} placeholder={t("Facoltativo", "Optional")} onChange={(e) => setNota(e.target.value)} />
       {schermataPossibile && (
-        <label className={styles.interruttore}>
-          <input type="checkbox" role="switch" checked={schermata} onChange={(e) => setSchermata(e.target.checked)} />
-          <span>
+        <div className={styles.interruttore}>
+          <span className={styles.testo}>
             <span className={styles.nome}>{t("Includi una schermata della finestra", "Include a screenshot of the window")}</span>
             <span className={styles.piccolo}>{t("La schermata può mostrare contenuti tuoi, come i titoli dei video o i nomi dei file.", "The screenshot may show your own content, such as video titles or file names.")}</span>
           </span>
-        </label>
+          <Interruttore etichetta={t("Includi una schermata della finestra", "Include a screenshot of the window")} acceso={schermata} onCambia={setSchermata} />
+        </div>
       )}
       <p className={styles.piccolo}>
         {t(
@@ -74,9 +76,9 @@ export function FormSegnalazione({ errore, onNascosto }: { errore?: string; onNa
         )}
       </p>
       <div className={styles.azioni}>
-        <button type="button" className={styles.invia} disabled={invio.fase === "invio"} onClick={() => void invia()}>
+        <Bottone variante="principale" disabled={invio.fase === "invio"} onClick={() => void invia()}>
           {invio.fase === "invio" ? t("Invio…", "Sending…") : t("Invia", "Send")}
-        </button>
+        </Bottone>
         {invio.fase === "fatto" && (
           <span className={styles.esito} role="status">
             {fraseDelFatto(invio.esito)}

@@ -1,7 +1,7 @@
-// I conti della produzione: quali video sono fatti, quanto lavoro di Claude è costato ognuno e cosa ha reso. Ogni cifra passa di qui:
+// I conti della produzione: quali video sono fatti, quanto lavoro in chat è costato ognuno e cosa ha reso. Ogni cifra passa di qui:
 // il conto sta in un posto solo e si può provare.
 import { GIORNO, istante } from "../testo"
-import type { ConsumoDiUnVideo, VideoDelCanale, VoceElenco } from "../tipi"
+import type { ConsumoDelMotore, ConsumoDiUnVideo, VideoDelCanale, VoceElenco } from "../tipi"
 
 export interface VideoFatto {
   slug: string
@@ -27,48 +27,75 @@ export function videoFatti(elenco: VoceElenco[]): VideoFatto[] {
 export const negliUltimiGiorni = (fatti: VideoFatto[], giorni: number, adesso: number): VideoFatto[] => fatti.filter((f) => f.quando >= adesso - giorni * GIORNO)
 
 export interface Medie {
-  /** I video su cui si è fatta la media: quelli di cui Claude ha un conto. */
+  /** I video su cui si è fatta la media: quelli di cui c'è un conto. */
   video: number
   senzaConti: number
   tempo: number
-  scritti: number
-  riletti: number
-  nuovi: number
+  /** La parte di ogni motore che ha lavorato: sommate danno `tempo`. */
+  motori: Record<string, number>
+  /** La media dei token sui video di cui qualche motore dice i token; `null` se nessuno li dice. */
+  scritti: number | null
+  riletti: number | null
+  nuovi: number | null
 }
+
+const conToken = (c: ConsumoDiUnVideo): boolean => Object.values(c.motori).some((parte) => parte.token !== null)
+
+const mediaDi = <T>(elementi: T[], prendi: (e: T) => number): number => elementi.reduce((tot, e) => tot + prendi(e), 0) / elementi.length
 
 /** La media per video; `null` se nessuno dei video ha un conto. */
 export function medie(fatti: VideoFatto[], conti: Record<string, ConsumoDiUnVideo>): Medie | null {
   const con = fatti.flatMap((f) => conti[f.slug] ?? [])
   if (con.length === 0) return null
-  const media = (prendi: (c: ConsumoDiUnVideo) => number): number => con.reduce((tot, c) => tot + prendi(c), 0) / con.length
+  const dicono = con.filter(conToken)
+  const token = (prendi: (c: ConsumoDiUnVideo) => number): number | null => (dicono.length === 0 ? null : mediaDi(dicono, prendi))
+  const motori = [...new Set(con.flatMap((c) => Object.keys(c.motori)))]
   return {
     video: con.length,
     senzaConti: fatti.length - con.length,
-    tempo: media((c) => c.tempo),
-    scritti: media((c) => c.token.scritti),
-    riletti: media((c) => c.token.riletti),
-    nuovi: media((c) => c.token.nuovi),
+    tempo: mediaDi(con, (c) => c.tempo),
+    motori: Object.fromEntries(motori.map((id) => [id, mediaDi(con, (c) => c.motori[id]?.tempo ?? 0)])),
+    scritti: token((c) => c.token.scritti),
+    riletti: token((c) => c.token.riletti),
+    nuovi: token((c) => c.token.nuovi),
   }
 }
+
+const partiDelMotore = (conti: ConsumoDiUnVideo[]): Map<string, ConsumoDelMotore[]> => {
+  const parti = new Map<string, ConsumoDelMotore[]>()
+  for (const [id, parte] of conti.flatMap((c) => Object.entries(c.motori))) parti.set(id, [...(parti.get(id) ?? []), parte])
+  return parti
+}
+
+const motoriDove = (conti: ConsumoDiUnVideo[], prova: (parti: ConsumoDelMotore[]) => boolean): string[] => [...partiDelMotore(conti)].flatMap(([id, parti]) => (prova(parti) ? id : []))
+
+/** I motori di cui nessun conto dice i token. */
+export const motoriSenzaToken = (conti: ConsumoDiUnVideo[]): string[] => motoriDove(conti, (parti) => parti.every((p) => p.token === null))
+
+/** I motori di cui i token mancano per qualche giro: dentro una voce, o in alcune voci e non in altre. */
+export const motoriConTokenInParte = (conti: ConsumoDiUnVideo[]): string[] =>
+  motoriDove(conti, (parti) => parti.some((p) => p.giri_con_token > 0 && p.giri_con_token < p.giri) || (parti.some((p) => p.giri_con_token > 0) && parti.some((p) => p.giri_con_token === 0)))
 
 export interface RigaProduzione {
   slug: string
   titolo: string
   miniatura: string | null
   tempo: number
+  /** La parte di ogni motore che ha lavorato. */
+  motori: Record<string, number>
   scritti: number
   riletti: number
   nuovi: number
   visualizzazioni: number | null
   mi_piace: number | null
   nuovi_follower: number | null
-  /** Minuti di lavoro di Claude ogni mille visualizzazioni; `null` se il canale non ha le visualizzazioni. */
+  /** Minuti di lavoro in chat ogni mille visualizzazioni; `null` se il canale non ha le visualizzazioni. */
   minutiOgniMille: number | null
 }
 
 const numeroOppure = (valore: number | undefined): number | null => (valore === undefined ? null : valore)
 
-/** Una riga per ogni video fatto di cui Claude ha un conto, con i numeri che il canale ha dato allo stesso video. */
+/** Una riga per ogni video fatto di cui c'è un conto, con i numeri che il canale ha dato allo stesso video. */
 export function righeDellaProduzione(fatti: VideoFatto[], conti: Record<string, ConsumoDiUnVideo>, dalCanale: VideoDelCanale[]): RigaProduzione[] {
   return fatti.flatMap((f) => {
     const conto = conti[f.slug]
@@ -80,6 +107,7 @@ export function righeDellaProduzione(fatti: VideoFatto[], conti: Record<string, 
       titolo: f.titolo,
       miniatura: f.miniatura,
       tempo: conto.tempo,
+      motori: Object.fromEntries(Object.entries(conto.motori).map(([id, parte]) => [id, parte.tempo])),
       scritti: conto.token.scritti,
       riletti: conto.token.riletti,
       nuovi: conto.token.nuovi,

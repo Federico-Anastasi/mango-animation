@@ -19,13 +19,23 @@ export function GruppoPassi({ gruppo, lavora }: { gruppo: Extract<Voce, { tipo: 
     <div className={styles.strumento} data-stato={inCorso ? "corso" : "fatto"}>
       <button type="button" className={styles.riga} aria-expanded={aperto} onClick={() => setAperto(!aperto)}>
         <span className={styles.icona}>
-          <IconaChat nome="ingranaggio" dimensione={16} />
+          <IconaChat nome="chiave" dimensione={16} />
         </span>
         <span className={styles.etichetta}>
           {inCorso ? t("Sta lavorando", "Working") : t("Ha lavorato", "Worked")} · {pluralizza(gruppo.passi.length, t("passo", "step"), t("passi", "steps"))}
           {!inCorso && secondi !== null && secondi >= DA_QUANDO_SI_DICE && ` · ${durataAlSecondo(secondi)}`}
         </span>
-        {inCorso && <span className={styles.stato}>{t("in corso…", "in progress…")}</span>}
+        {inCorso ? (
+          <span className={styles.esito} data-esito="corso">
+            {t("in corso…", "in progress…")}
+          </span>
+        ) : (
+          <span className={styles.esito} data-esito="riuscito">
+            <span role="img" aria-label={t("riuscito", "succeeded")} className={styles.segno}>
+              <IconaChat nome="spunta" dimensione={14} />
+            </span>
+          </span>
+        )}
         <span className={styles.freccia}>
           <IconaChat nome={aperto ? "su" : "giu"} dimensione={14} />
         </span>

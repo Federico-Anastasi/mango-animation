@@ -87,7 +87,7 @@ describe("le scene del creator, nella sua cartella dei dati", () => {
     const mio = await mkdtemp(join(tmpdir(), "lavoro-carattere-"));
     const uscita = await mkdtemp(join(tmpdir(), "pagina-carattere-"));
     try {
-      const sorgente = join(CODICE, "studio", "src", "assets", "fonts", "ChivoMono-400.woff2");
+      const sorgente = join(CODICE, "suite", "fonts", "JetBrainsMono-Regular.woff2");
       await mkdir(join(mio, "font"));
       await copyFile(sorgente, join(mio, "font", "mio.woff2"));
       await writeFile(join(mio, "stile.json"), '{"caratteri":{"titoli":"font/mio.woff2"}}');

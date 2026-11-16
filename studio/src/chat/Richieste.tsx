@@ -1,4 +1,6 @@
 import { useState } from "react"
+import { Bottone } from "../comuni/Bottone"
+import { Casella } from "../comuni/Casella"
 import { IconaChat } from "./icone"
 import { descriviStrumento, ingressoComeTesto } from "./strumenti"
 import type { DomandaChat, Richiesta, SceltaRisposta } from "./tipi"
@@ -22,7 +24,7 @@ function useRisposta(rispondi: Rispondi) {
   return { occupato, errore, manda }
 }
 
-function Permesso({ chi, richiesta, rispondi }: { chi: string | undefined; richiesta: Extract<Richiesta, { tipo: "permesso" }>; rispondi: Rispondi }) {
+function Permesso({ chi, richiesta, principale, rispondi }: { chi: string | undefined; richiesta: Extract<Richiesta, { tipo: "permesso" }>; principale: boolean; rispondi: Rispondi }) {
   const { occupato, errore, manda } = useRisposta(rispondi)
   const [motivo, setMotivo] = useState("")
   const { etichetta, icona } = descriviStrumento(richiesta.strumento, richiesta.ingresso)
@@ -38,15 +40,15 @@ function Permesso({ chi, richiesta, rispondi }: { chi: string | undefined; richi
       </details>
       <input className={styles.motivo} type="text" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder={t("Se rifiuti, puoi dirgli perché (facoltativo)", "If you refuse, you can tell it why (optional)")} aria-label={t("Perché no (facoltativo)", "Why not (optional)")} disabled={occupato} />
       <div className={styles.bottoni}>
-        <button type="button" className={styles.pieno} disabled={occupato} onClick={() => manda({ scelta: "consenti" })}>
+        <Bottone variante={principale ? "principale" : "normale"} disabled={occupato} onClick={() => manda({ scelta: "consenti" })}>
           {t("Consenti", "Allow")}
-        </button>
-        <button type="button" className={styles.vuoto} disabled={occupato} onClick={() => manda({ scelta: "sempre" })} title={t("Vale per questo strumento fino alla fine della conversazione", "Applies to this tool until the end of the conversation")}>
+        </Bottone>
+        <Bottone disabled={occupato} onClick={() => manda({ scelta: "sempre" })} titolo={t("Vale per questo strumento fino alla fine della conversazione", "Applies to this tool until the end of the conversation")}>
           {t("Consenti sempre", "Always allow")}
-        </button>
-        <button type="button" className={styles.vuoto} disabled={occupato} onClick={() => manda(motivo.trim() === "" ? { scelta: "no" } : { scelta: "no", motivo: motivo.trim() })}>
+        </Bottone>
+        <Bottone disabled={occupato} onClick={() => manda(motivo.trim() === "" ? { scelta: "no" } : { scelta: "no", motivo: motivo.trim() })}>
           {t("No", "No")}
-        </button>
+        </Bottone>
       </div>
       {errore && (
         <p className={styles.errore} role="alert">
@@ -90,23 +92,21 @@ function Domanda({ domanda, scelta, cambia, disabilitata }: { domanda: DomandaCh
       <div className={styles.opzioni}>
         {domanda.opzioni.map((o) => (
           <button key={o.etichetta} type="button" className={styles.opzione} aria-pressed={scelta.etichette.includes(o.etichetta)} onClick={() => scegli(o.etichetta)}>
-            <span className={styles.segno} aria-hidden="true" data-multipla={domanda.multipla ? "" : undefined}>
-              {scelta.etichette.includes(o.etichetta) && <IconaChat nome="spunta" dimensione={12} />}
-            </span>
+            {domanda.multipla && <Casella spuntata={scelta.etichette.includes(o.etichetta)} />}
             <span className={styles.testoOpzione}>
               <strong>{o.etichetta}</strong>
               {o.descrizione && <span>{o.descrizione}</span>}
             </span>
+            {!domanda.multipla && scelta.etichette.includes(o.etichetta) && <IconaChat nome="spunta" dimensione={16} />}
           </button>
         ))}
         <button type="button" className={styles.opzione} aria-pressed={scelta.altro} onClick={scegliAltro}>
-          <span className={styles.segno} aria-hidden="true" data-multipla={domanda.multipla ? "" : undefined}>
-            {scelta.altro && <IconaChat nome="spunta" dimensione={12} />}
-          </span>
+          {domanda.multipla && <Casella spuntata={scelta.altro} />}
           <span className={styles.testoOpzione}>
             <strong>{t("Altro", "Other")}</strong>
             <span>{t("Lo scrivi tu.", "You write it.")}</span>
           </span>
+          {!domanda.multipla && scelta.altro && <IconaChat nome="spunta" dimensione={16} />}
         </button>
         {scelta.altro && <input className={styles.motivo} type="text" autoFocus value={scelta.testo} onChange={(e) => cambia({ ...scelta, testo: e.target.value })} placeholder={t("Scrivi la tua risposta", "Write your answer")} aria-label={t("Altro: {domanda}", "Other: {domanda}", { domanda: domanda.domanda })} />}
       </div>
@@ -114,7 +114,7 @@ function Domanda({ domanda, scelta, cambia, disabilitata }: { domanda: DomandaCh
   )
 }
 
-function Domande({ chi, richiesta, rispondi }: { chi: string | undefined; richiesta: Extract<Richiesta, { tipo: "domanda" }>; rispondi: Rispondi }) {
+function Domande({ chi, richiesta, principale, rispondi }: { chi: string | undefined; richiesta: Extract<Richiesta, { tipo: "domanda" }>; principale: boolean; rispondi: Rispondi }) {
   const { occupato, errore, manda } = useRisposta(rispondi)
   const [scelte, setScelte] = useState<Scelta[]>(() => richiesta.domande.map(vuota))
   const risposte = richiesta.domande.map((_, i) => rispostaDi(scelte[i] ?? vuota()))
@@ -126,9 +126,9 @@ function Domande({ chi, richiesta, rispondi }: { chi: string | undefined; richie
         <Domanda key={`${i}-${d.domanda}`} domanda={d} scelta={scelte[i] ?? vuota()} cambia={(s) => setScelte(scelte.map((v, k) => (k === i ? s : v)))} disabilitata={occupato} />
       ))}
       <div className={styles.bottoni}>
-        <button type="button" className={styles.pieno} disabled={!completa || occupato} onClick={invia}>
+        <Bottone variante={principale ? "principale" : "normale"} disabled={!completa || occupato} onClick={invia}>
           {richiesta.domande.length > 1 ? t("Invia le risposte", "Send the answers") : t("Invia la risposta", "Send the answer")}
-        </button>
+        </Bottone>
         {!completa && <span className={styles.aiuto}>{richiesta.domande.length > 1 ? t("Rispondi a tutte le domande.", "Answer all the questions.") : t("Scegli una risposta.", "Choose an answer.")}</span>}
       </div>
       {errore && (
@@ -140,11 +140,11 @@ function Domande({ chi, richiesta, rispondi }: { chi: string | undefined; richie
   )
 }
 
-/** Ciò che Claude chiede e aspetta: un permesso o delle domande. Finché non si risponde la conversazione sta ferma. */
+/** Ciò che il motore chiede e aspetta: un permesso o delle domande. Finché non si risponde la conversazione sta ferma. */
 export function Richieste({ chi, richieste, rispondi }: { chi: string | undefined; richieste: Richiesta[]; rispondi: (richiesta: string, scelta: SceltaRisposta) => Promise<void> }) {
   return (
     <div className={styles.richieste}>
-      {richieste.map((r) => (r.tipo === "permesso" ? <Permesso key={r.id} chi={chi} richiesta={r} rispondi={(s) => rispondi(r.id, s)} /> : <Domande key={r.id} chi={chi} richiesta={r} rispondi={(s) => rispondi(r.id, s)} />))}
+      {richieste.map((r, i) => (r.tipo === "permesso" ? <Permesso key={r.id} chi={chi} richiesta={r} principale={i === 0} rispondi={(s) => rispondi(r.id, s)} /> : <Domande key={r.id} chi={chi} richiesta={r} principale={i === 0} rispondi={(s) => rispondi(r.id, s)} />))}
     </div>
   )
 }

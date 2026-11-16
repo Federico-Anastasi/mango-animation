@@ -1,4 +1,4 @@
-// Dove il testo di Claude dà un tempo che il creator aspetta («circa 3 minuti», «~40 s», «verso le 15:42»), in italiano e in inglese.
+// Dove il testo del motore dà un tempo che il creator aspetta («circa 3 minuti», «~40 s», «verso le 15:42»), in italiano e in inglese.
 // Una durata senza altro («fatto in 6 minuti», «un video di 40 secondi») è un fatto, non un'attesa: si segna solo se è approssimata
 // o se la frase parla di ciò che manca.
 

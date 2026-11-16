@@ -5,8 +5,8 @@ Parte di `docs/APP.md`.
 Chi usa l'app può mandare a chi la sistema ciò che sta andando storto, con un clic e senza dati personali. Il codice è `app/src/segnalazione/`
 (`mod.rs` i comandi e la pagina «nuova issue», `rapporto.rs` l'evento e il testo, `registro.rs` `ui.log`, `anonimizza.rs`, `schermata.rs`, `ponte.js` lo script delle pagine).
 
-- **Dove sta «Segnala un problema»**: nello studio, il bottone con la bandierina nella barra in alto (fra i segni di stato, raggiungibile da ogni vista) e, nella vista d'errore comune, «Segnala il problema»
-  (porta con sé il messaggio e il dettaglio dell'errore); nelle pagine dell'app (`app/ui/`), un bottone in fondo a ogni pagina, d'attesa e d'errore comprese (nelle pagine d'errore porta il titolo e il messaggio). Nel browser,
+- **Dove sta «Segnala un problema»**: nello studio, il bottone con la bandierina nella barra in alto (fra i segni di stato, raggiungibile da ogni vista), la riga «Segnala un problema» di Impostazioni › Aiuto e, nella vista d'errore comune, «Segnala il problema»
+  (porta con sé il messaggio e il dettaglio dell'errore); nelle pagine dell'app (`app/ui/`), il bottone «Segnala un problema» nel piede di ogni pagina (a destra, con la versione dell'app a sinistra), d'attesa e d'errore comprese (nelle pagine d'errore porta il titolo e il messaggio). Nel browser,
   senza l'app, il ponte `window.__MANGO_ANIMATION__.segnalazione` non c'è e il bottone dello studio non compare.
 - **Il dialogo**: «Cosa è successo?» (facoltativo); l'interruttore «Includi una schermata della finestra», spento di base (la finestra può mostrare i video e la chat), con la spiegazione che può mostrare contenuti del creator; una frase che dice che i registri allegati
   possono contenere i nomi dei suoi video e dei suoi file, che nome utente, nome del computer, email, indirizzi di rete e chiavi vengono tolti, e che trascrizioni, chat e file della cartella di lavoro non partono mai; «Invia» →

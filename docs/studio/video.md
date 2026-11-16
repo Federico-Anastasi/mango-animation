@@ -6,7 +6,7 @@ Una carta per video, in gruppi per stato (gli scartati stanno chiusi): copertina
 
 ## La pagina di un video
 
-Testata con titolo e stato che si cambiano sul posto, la cartella da copiare per Claude e «Dal telefono». Sotto, **la riga dei passi** (`src/video/RigaDeiPassi.tsx`): gli otto passi del metodo e una frase su cosa dire nella chat per andare avanti, con **«Scrivila nella chat»**, che apre la chat e mette la frase nel campo (dopo ciò che c'è già scritto, senza ripeterla se c'è) senza mandarla (`proponiNellaChat`, `src/chat/bozza.ts`). Il passo lo dice il server, `fase` di `GET /api/video/:slug` (`docs/API.md`): lo studio mostra e basta. Sotto i 700 px di pagina (la chat accanto, il telefono) restano i segni e il passo corrente; un video uscito ha tutti i passi fatti e non ha frase; un carosello e uno scartato non hanno la riga. Sotto la testata, se la scheda o il piano scritti nel file non passano i controlli, un avviso dice con una frase semplice di chiederne la correzione nella chat, e il perché preciso (per chi la sistema) sta in un riquadro che si apre a richiesta (la scheda mostrata è l'ultima valida); sparisce da solo appena il file è corretto. Sotto, cinque schede, e davanti a tutte la **Prova** se c'è. Il video si apre sulla scheda che gli serve: la **Slide** per un carosello, la Prova se non ha ancora un piano, la **Scheda** (il copione) se non ha né piano né file finito, altrimenti il Montaggio.
+Testata con titolo e stato che si cambiano sul posto, la cartella da copiare per il motore e «Dal telefono». Sotto, **la riga dei passi** (`src/video/RigaDeiPassi.tsx`): gli otto passi del metodo e una frase su cosa dire nella chat per andare avanti, con **«Scrivila nella chat»**, che apre la chat e mette la frase nel campo (dopo ciò che c'è già scritto, senza ripeterla se c'è) senza mandarla (`proponiNellaChat`, `src/chat/bozza.ts`). Il passo lo dice il server, `fase` di `GET /api/video/:slug` (`docs/API.md`): lo studio mostra e basta. Sotto i 700 px di pagina (la chat accanto, il telefono) restano i segni e il passo corrente; un video uscito ha tutti i passi fatti e non ha frase; un carosello e uno scartato non hanno la riga. Sotto la testata, se la scheda o il piano scritti nel file non passano i controlli, un avviso dice con una frase semplice di chiederne la correzione nella chat, e il perché preciso (per chi la sistema) sta in un riquadro che si apre a richiesta (la scheda mostrata è l'ultima valida); sparisce da solo appena il file è corretto. Sotto, cinque schede, e davanti a tutte la **Prova** se c'è. Il video si apre sulla scheda che gli serve: la **Slide** per un carosello, la Prova se non ha ancora un piano, la **Scheda** (il copione) se non ha né piano né file finito, altrimenti il Montaggio.
 
 Un carosello ha tre schede sole: **Slide**, Scheda, File.
 
@@ -22,7 +22,7 @@ La scheda Montaggio (l'anteprima, il pannello, la timeline, i gesti sui pezzi, l
 
 ### Scheda — «cosa so di questo video?»
 
-Il copione (aggancio, centro, chiusa, note; una riga dice che si corregge lì, anche a mano, e che la chat lo rilegge), la scaletta, didascalia e hashtag con «Copia», dove deve uscire, le pubblicazioni, i numeri per data in una tabella e il loro andamento, e le note.
+Il copione (aggancio, centro, chiusa, note; una riga dice che si corregge lì, anche a mano, e che la chat lo rilegge), la scaletta, didascalia e hashtag con «Copia», dove deve uscire (un interruttore per canale), le pubblicazioni, i numeri per data in una tabella e il loro andamento, e le note.
 
 Si scrivono tutti dalla pagina, e ogni cambio manda la scheda intera al server (`PUT /api/video/:slug/scheda`, validata sullo schema; se la rifiuta la frase dice perché e ciò che era scritto resta nel campo). I testi si salvano uscendo dal campo.
 
@@ -30,7 +30,7 @@ Gli elenchi (la scaletta, gli hashtag, i canali, le pubblicazioni) si cambiano s
 
 ### Controllo — «c'è qualcosa che non va?»
 
-L'esito dell'ultimo controllo: silenzi rimasti, parole fuori posto, tagli nel parlato, differenze fra voluto e sentito; ogni riga porta l'anteprima a quel secondo. Sotto, le cose da verificare segnate dal controllo dei contenuti, da spuntare. Se c'è un montato, sotto la data una riga dice che per controllarlo di nuovo si chiede nella chat. Se il montato è più nuovo del controllo, lo dice.
+L'esito dell'ultimo controllo: silenzi rimasti, parole fuori posto, tagli nel parlato, differenze fra voluto e sentito; ogni riga porta l'anteprima a quel secondo. Sotto, le cose da verificare segnate dal controllo dei contenuti, ognuna con un interruttore che la segna a posto. Se c'è un montato, sotto la data una riga dice che per controllarlo di nuovo si chiede nella chat. Se il montato è più nuovo del controllo, lo dice.
 
 ### Copertina — «con che faccia esce?»
 

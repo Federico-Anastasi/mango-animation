@@ -4,10 +4,6 @@
   gap: 1.5rem;
 }
 
-.pagina h2 {
-  margin: 0 0 0.5rem;
-}
-
 .testata {
   display: flex;
   flex-wrap: wrap;
@@ -18,8 +14,8 @@
 
 .sotto {
   margin: 0.4rem 0 0;
-  color: var(--grigio);
-  font-size: 0.85rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .numeri {
@@ -34,23 +30,24 @@
 }
 
 .valore {
-  font-family: var(--font-mono);
-  font-size: 1.6rem;
+  font-family: var(--mango-font-code);
+  font-size: 23px;
   line-height: 1.1;
 }
 
 .nome {
-  color: var(--grigio);
-  font-size: 0.8rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .avviso {
   margin: 0 0 0.75rem;
   padding: 0.6rem 0.9rem;
-  border: 1px solid var(--filo);
-  border-left: 3px solid var(--rosso);
-  border-radius: 4px;
-  font-size: 0.9rem;
+  border: 1px solid var(--mango-line);
+  border-left: 3px solid var(--mango-error);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+  font-size: 13px;
 }
 
 .avviso summary {
@@ -60,27 +57,27 @@
 .avviso ul {
   margin: 0.5rem 0 0;
   padding-left: 1.2rem;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .tabella {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .tabella th,
 .tabella td {
   padding: 0.45rem 0.7rem;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
   text-align: left;
   white-space: nowrap;
 }
 
 .tabella th {
-  font-size: 0.78rem;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .tabella tbody tr {
@@ -89,7 +86,7 @@
 
 .tabella tbody tr:hover,
 .scelta {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .tabella .immagine {
@@ -104,7 +101,7 @@
   aspect-ratio: 9 / 16;
   object-fit: cover;
   border-radius: 4px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .tabella .titolo {
@@ -115,12 +112,12 @@
 
 .tabella .num {
   text-align: right;
-  font-family: var(--font-mono);
+  font-family: var(--mango-font-code);
 }
 
 .piu {
-  color: var(--blu);
-  font-size: 0.8rem;
+  color: var(--mango-ready);
+  font-size: 12px;
 }
 
 .tabella tbody tr.medie {
@@ -132,7 +129,7 @@
 }
 
 .medie td {
-  border-bottom: 2px solid var(--inchiostro);
+  border-bottom: 2px solid var(--mango-text);
   font-weight: 600;
 }
 
@@ -162,8 +159,9 @@
   flex-direction: column;
   gap: 0.2rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
   overflow-wrap: anywhere;
 }
 
@@ -172,7 +170,7 @@
 }
 
 .mio {
-  border-left: 3px solid var(--inchiostro);
+  border-left: 3px solid var(--mango-text);
 }
 
 .autore {
@@ -181,38 +179,38 @@
   align-items: baseline;
   gap: 0.2rem 0.7rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 13px;
 }
 
 .quando {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
   font-weight: 400;
-  font-size: 0.78rem;
+  font-size: 12px;
 }
 
 .nuovo {
-  color: var(--rosso);
-  font-size: 0.75rem;
+  color: var(--mango-text);
+  font-size: 12px;
 }
 
 .nota,
 .riassunto {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
   white-space: pre-line;
 }
 
 .suoMessaggio,
 .mioMessaggio {
   padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: var(--carta-scura);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-raised);
   max-width: 90%;
 }
 
 .mioMessaggio {
   align-self: flex-end;
   background: none;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
 }
 
 @media (max-width: 900px) {

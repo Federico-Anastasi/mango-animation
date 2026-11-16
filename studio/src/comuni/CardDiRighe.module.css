@@ -1,0 +1,58 @@
+.gruppo {
+  min-width: 0;
+}
+
+.nomeDelGruppo {
+  margin: 0 0 8px;
+  color: var(--mango-text-muted);
+  font: 600 11px/1 var(--mango-font-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+}
+
+.riga {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 13px 16px;
+}
+
+.riga + .riga {
+  border-top: 1px solid var(--mango-line);
+}
+
+/* Il controllo va sotto il nome quando accanto non ci sta. */
+.testo {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nome {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.spiegazione {
+  color: var(--mango-text-muted);
+  font-size: 13px;
+}
+
+.controllo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

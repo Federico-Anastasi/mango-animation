@@ -58,13 +58,13 @@ export function paginaGuarda(video: VideoDaGuardare[], chiave: string, lingua: L
 <meta name="referrer" content="no-referrer"><title>${t("titolo")}</title>
 <style>
 ${STILE_BASE}
-h1{font-size:26px;margin:0 0 12px}ul{list-style:none;margin:0;padding:0}
-li a{display:flex;flex-direction:column;gap:2px;padding:14px 0;border-top:1px solid var(--filo);color:inherit;text-decoration:none}
-li span,p{color:var(--grigio);font-size:15px}
+ul{list-style:none;margin:0;padding:0}
+li a{display:flex;flex-direction:column;justify-content:center;gap:2px;min-height:44px;padding:14px 0;border-top:1px solid var(--mango-line);color:inherit;text-decoration:none}
+li span{color:var(--mango-text-muted);font-size:14px}
 </style></head><body>
 <h1>${t("titolo")}</h1>
-${righe ? `<ul>${righe}</ul>` : `<p>${t("nessuno")}</p>`}
-${copioni ? `<h1>${t("daRegistrare")}</h1><p>${t("frasiDaDire")}</p><ul>${copioni}</ul>` : ""}
-${prove ? `<h1>${t("prove")}</h1><p>${t("primaDiRegistrare")}</p><ul>${prove}</ul>` : ""}
+${righe ? `<ul>${righe}</ul>` : `<p class="piccolo">${t("nessuno")}</p>`}
+${copioni ? `<h2>${t("daRegistrare")}</h2><p class="piccolo">${t("frasiDaDire")}</p><ul>${copioni}</ul>` : ""}
+${prove ? `<h2>${t("prove")}</h2><p class="piccolo">${t("primaDiRegistrare")}</p><ul>${prove}</ul>` : ""}
 </body></html>`
 }

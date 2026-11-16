@@ -32,7 +32,12 @@ export interface StatoLavoro {
   /** Di un lavoro finito che dà qualcosa a chi l'aspettava (`scene-foto`). */
   risultato?: unknown
   righe: string[]
+  /** L'attesa si è chiusa prima della fine perché il creator ha scritto: la frase dice al modello cosa fare. */
+  messaggio_del_creator?: string
 }
+
+const IL_CREATOR_HA_SCRITTO =
+  "Il creator ha scritto un messaggio mentre aspettavi: leggilo e rispondigli prima di tornare ad aspettare. Il lavoro continua da solo. Se il messaggio non ti è ancora arrivato, chiudi qui la risposta dicendo a che punto è il lavoro: lo ricevi subito dopo."
 
 const oraLocale = (iso: string): string => {
   const d = new Date(iso)
@@ -54,8 +59,22 @@ export async function statoDelLavoro(api: Api, id: string): Promise<StatoLavoro>
   throw new ErroreStrumento(`Non trovo il lavoro «${id}»: non è in corso né in coda, e non è fra gli ultimi 20 finiti. Controlla l'id che ti ha dato lo strumento «lavoro».`)
 }
 
-/** Aspetta la fine del lavoro per al massimo `secondi`; allo scadere dà lo stato di quel momento. */
-export async function aspettaFine(api: Api, id: string, secondi: number): Promise<StatoLavoro> {
+/** Risponde quando il creator ha scritto nella conversazione un messaggio che il motore non ha ancora letto; se la chat non lo sa dire, mai. */
+function quandoIlCreatorScrive(api: Api, conversazione: string, fermo: AbortSignal): Promise<"scritto"> {
+  return chiamaApi<unknown>(api, "GET", `/api/chat/${encodeURIComponent(conversazione)}/in-coda`, undefined, fermo).then(
+    () => "scritto" as const,
+    (errore: unknown) => {
+      if (!fermo.aborted) console.error(`L'attesa non saprà se il creator scrive nella conversazione ${conversazione}: ${errore instanceof Error ? errore.message : String(errore)}`)
+      return new Promise<never>(() => undefined)
+    },
+  )
+}
+
+/**
+ * Aspetta la fine del lavoro per al massimo `secondi`; allo scadere dà lo stato di quel momento. Con la `conversazione` a cui appartiene
+ * chi aspetta, l'attesa si chiude anche appena il creator scrive lì: lo stato dice `messaggio_del_creator`.
+ */
+export async function aspettaFine(api: Api, id: string, secondi: number, conversazione: string | null): Promise<StatoLavoro> {
   const fermo = new AbortController()
   const timer = setTimeout(() => fermo.abort(), secondi * 1000)
   try {
@@ -63,17 +82,23 @@ export async function aspettaFine(api: Api, id: string, secondi: number): Promis
     const eventi = await apriEventi(api, fermo.signal)
     const prima = await statoDelLavoro(api, id)
     if (prima.stato === "finito") return prima
-    try {
+    const fine = (async (): Promise<StatoLavoro> => {
       for await (const messaggio of eventi) {
         if (messaggio.tipo !== "lavori") continue
         const stato = await statoDelLavoro(api, id)
         if (stato.stato === "finito") return stato
       }
+      throw new ErroreStrumento("Il server si è fermato mentre aspettavo il lavoro: riaccendilo con `bun run --cwd server avvia`, poi chiedi `lavoro_stato` con lo stesso id (un lavoro interrotto dalla chiusura del server risulta finito con esito «interrotto»).")
+    })()
+    try {
+      const primo = await Promise.race([fine, ...(conversazione === null ? [] : [quandoIlCreatorScrive(api, conversazione, fermo.signal)])])
+      if (primo !== "scritto") return primo
+      const stato = await statoDelLavoro(api, id)
+      return stato.stato === "finito" ? stato : { ...stato, messaggio_del_creator: IL_CREATOR_HA_SCRITTO }
     } catch (errore) {
       if (fermo.signal.aborted) return await statoDelLavoro(api, id)
       throw errore
     }
-    throw new ErroreStrumento("Il server si è fermato mentre aspettavo il lavoro: riaccendilo con `bun run --cwd server avvia`, poi chiedi `lavoro_stato` con lo stesso id (un lavoro interrotto dalla chiusura del server risulta finito con esito «interrotto»).")
   } finally {
     clearTimeout(timer)
     fermo.abort()

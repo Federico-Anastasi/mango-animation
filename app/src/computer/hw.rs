@@ -1,5 +1,5 @@
 //! Cosa c'è in questo computer: le schede NVIDIA con la loro memoria, il processore, la memoria e lo spazio sul disco dove si scarica.
-//! Lo legge l'app in Rust, senza accendere Python: è ciò che decide cosa proporre di scaricare, e che la pagina «Motori» dello studio mostra.
+//! Lo legge l'app in Rust, senza accendere Python: è ciò che decide cosa proporre di scaricare, e che lo studio mostra in Impostazioni › Computer.
 
 use serde::Serialize;
 use std::os::windows::process::CommandExt;

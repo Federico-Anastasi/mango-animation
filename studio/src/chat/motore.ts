@@ -1,24 +1,41 @@
-// Con cosa parla la chat: il Claude Code installato sul computer, o Mango Code coi modelli sul computer (i suoi modelli hanno l'id `mango-code/…`).
-// Il segno e il nome nella testata e nelle frasi sono solo di Mango Code: l'assistente di Claude non ha un nome suo, e «Claude» compare solo nel menu dei motori.
+// Con cosa parla la chat: i motori li dà il server (`GET /api/chat/motori`), lo studio non ne conosce nessuno.
+// Il segno e il nome nella testata e nelle frasi sono dei motori che le frasi nominano (`nelle_frasi`): gli altri non hanno nome suo.
+import { creaCopia, lettaUnaVolta, useCopia } from "../dati"
+import { apiChat } from "./api"
 import type { NomeIconaChat } from "./icone"
+import { modelliChat } from "./modelli"
 import type { StatoNegozio } from "./negozio"
+import type { ModelloChat, MotoreChat } from "./tipi"
 
-export interface MotoreChat {
-  id: string
-  /** Come si chiama nel menu dei motori. */
-  nome: string
-  /** Come lo chiama il creator nelle frasi: «Mango Code sta lavorando»; `null` se le frasi non lo nominano. */
-  corto: string | null
-  /** Il segno piccolo accanto al nome nella testata; `null` se la testata non dice con chi si parla. */
-  icona: NomeIconaChat | null
+/** L'elenco dei motori, nell'ordine in cui il server li dà. Cambia quando un motore si accende o si spegne: come i modelli. */
+export const motoriChat = creaCopia<MotoreChat[]>(apiChat.motori, (e) => e.tipo === "modelli")
+
+/** I motori, aspettando che la prima lettura sia finita; `null` se non si sono potuti leggere. */
+export const motoriLetti = (): Promise<MotoreChat[] | null> => lettaUnaVolta(motoriChat)
+
+/** Il segno piccolo accanto al nome nella testata; `null` se la testata non dice con chi si parla. */
+export const iconaDelMotore = (motore: MotoreChat): NomeIconaChat | null => (motore.nelle_frasi === null ? null : "agente")
+
+/** Il motore a cui va una scelta senza modello: quello i cui modelli non hanno prefisso, altrimenti il primo dell'elenco. */
+const motorePredefinito = (motori: MotoreChat[]): MotoreChat | undefined => motori.find((m) => m.prefisso === null) ?? motori[0]
+
+/** Il motore di un modello: quello che l'elenco dei modelli gli dà; per un modello fuori elenco, quello il cui prefisso lo apre. */
+export function motoreDelModello(motori: MotoreChat[], modelli: ModelloChat[], modello: string | null): MotoreChat | undefined {
+  if (modello === null) return motorePredefinito(motori)
+  const dalModello = (modelli.find((m) => m.id === modello) ?? modelli.find((m) => m.reale === modello))?.motore
+  if (dalModello !== undefined) return motori.find((m) => m.id === dalModello)
+  return motori.find((m) => m.prefisso !== null && modello.startsWith(m.prefisso)) ?? motorePredefinito(motori)
 }
 
-export const MOTORE_CHAT: MotoreChat = { id: "claude-code", nome: "Claude", corto: null, icona: null }
-const MANGO_CODE: MotoreChat = { id: "mango-code", nome: "Mango Code", corto: "Mango Code", icona: "agente" }
-
-/** Il motore di una conversazione dal suo modello. */
-export const motoreDi = (modello: string | null): MotoreChat => (modello?.startsWith("mango-code/") ? MANGO_CODE : MOTORE_CHAT)
-
 /** Il motore della conversazione aperta; `null` finché non si sa (una conversazione che si sta ancora aprendo, o che non si apre). */
-export const motoreDellaChat = (chat: Pick<StatoNegozio, "id" | "caricato" | "errore" | "modello">): MotoreChat | null =>
-  chat.id !== null && chat.modello === null && (!chat.caricato || chat.errore !== null) ? null : motoreDi(chat.modello)
+export function motoreDellaChat(chat: Pick<StatoNegozio, "id" | "motore" | "modello">, motori: MotoreChat[], modelli: ModelloChat[]): MotoreChat | null {
+  if (chat.id === null) return motoreDelModello(motori, modelli, chat.modello) ?? null
+  return motori.find((m) => m.id === chat.motore) ?? null
+}
+
+/** Il motore della conversazione aperta, riletto quando il server cambia i motori o i modelli. */
+export function useMotoreDellaChat(chat: Pick<StatoNegozio, "id" | "motore" | "modello">): MotoreChat | null {
+  const motori = useCopia(motoriChat).dato
+  const modelli = useCopia(modelliChat).dato
+  return motoreDellaChat(chat, motori ?? [], modelli ?? [])
+}

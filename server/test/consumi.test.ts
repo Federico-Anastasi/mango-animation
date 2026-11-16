@@ -239,7 +239,7 @@ test("senza cartella delle conversazioni i conti sono vuoti e pronti; quando la 
   const consumi = new Consumi(progetto, { quietoMs: 30 }, () => undefined)
   await consumi.avvia()
   await aspetta(() => consumi.vista().pronto)
-  expect(consumi.vista()).toEqual({ pronto: true, video: {}, senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } } })
+  expect(consumi.vista()).toEqual({ pronto: true, contati: ["claude-code"], video: {}, senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 }, motori: {} } })
   await mkdir(progetto, { recursive: true })
   await writeFile(join(progetto, `${SESSIONE}.jsonl`), `${[prompt(0, CONTESTO("orto-balcone")), risposta(10, "m1", [1, 10, 0, 0])].join("\n")}\n`)
   await aspetta(() => consumi.vista().video["orto-balcone"]?.token.scritti === 10)
@@ -286,7 +286,14 @@ test("GET /api/consumi risponde dalla memoria e annuncia sul canale degli eventi
     return (await risposta.json()) as { pronto: boolean; video: Record<string, unknown> }
   }
   const corpo = await aspetta(async () => ((await leggi()).pronto ? await leggi() : null))
-  expect(corpo.video["orto-balcone"]).toEqual({ tempo: 90, giri: 1, token: { scritti: 10, riletti: 100, nuovi: 6 }, dal: "2026-11-03T10:00:00.000Z", al: "2026-11-03T10:01:30.000Z" })
+  expect(corpo.video["orto-balcone"]).toEqual({
+    tempo: 90,
+    giri: 1,
+    token: { scritti: 10, riletti: 100, nuovi: 6 },
+    dal: "2026-11-03T10:00:00.000Z",
+    al: "2026-11-03T10:01:30.000Z",
+    motori: { "claude-code": { tempo: 90, giri: 1, giri_con_token: 1, token: { scritti: 10, riletti: 100, nuovi: 6 } } },
+  })
   await aspetta(() => eventi.messaggi.some((m) => m.tipo === "consumi"))
   eventi.chiudi()
 })

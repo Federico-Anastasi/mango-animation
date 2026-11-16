@@ -2,39 +2,39 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.3rem;
-  color: var(--grigio);
-  font-size: 0.76rem;
+  gap: 6px;
+  color: var(--mango-text-muted);
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .barra {
   display: inline-block;
-  width: 2.2rem;
-  height: 0.3rem;
+  width: 35px;
+  height: 6px;
   overflow: hidden;
-  border-radius: 0.15rem;
-  background: var(--filo);
+  border-radius: var(--mango-radius-full);
+  background: var(--mango-line);
 }
 
 .pieno {
   display: block;
   height: 100%;
-  background: var(--grigio);
+  background: var(--mango-text-muted);
 }
 
 .contesto[data-livello="alto"] {
-  color: var(--inchiostro);
+  color: var(--mango-text);
 }
 
 .contesto[data-livello="alto"] .pieno {
-  background: var(--inchiostro);
+  background: var(--mango-text);
 }
 
 .contesto[data-livello="pieno"] {
-  color: var(--rosso);
+  color: var(--mango-error);
 }
 
 .contesto[data-livello="pieno"] .pieno {
-  background: var(--rosso);
+  background: var(--mango-error);
 }

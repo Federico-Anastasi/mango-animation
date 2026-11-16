@@ -35,7 +35,7 @@ che non va, salvo `carosello` e `prova`, che il piano non lo usano.
 
 **La storia.** Ogni sostituzione del piano salva la versione di prima in `storia/<n>.json` (le ultime 200) e
 `storia/cursore.json` ricorda dove si è tornati con `annulla`; un piano nuovo dopo un `annulla` cancella i
-«rifai». Vale anche per ciò che Claude scrive da terminale in `piano.json`: il server salva la versione che
+«rifai». Vale anche per ciò che un motore scrive da terminale in `piano.json`: il server salva la versione che
 aveva visto prima.
 
 **Le versioni** (`GET …/versioni`) sono i file di `storia/` più il piano di adesso. `n` è il numero del file (`null` per il piano di adesso quando non ha un file suo, cioè in testa alla storia);

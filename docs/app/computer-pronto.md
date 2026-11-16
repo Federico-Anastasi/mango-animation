@@ -3,7 +3,7 @@
 Parte di `docs/APP.md`.
 
 Al primo avvio (e a ogni avvio in cui manca qualcosa) l'app vede cosa c'è nel computer e scarica, con avanzamento e verifica, ciò che le funzioni accese richiedono
-(`docs/MOTORI.md`). Lo fa solo quando il server lo accende lei, dopo il passo di Claude Code; se non manca niente non mostra niente. Il codice sta in `app/src/computer/`.
+(`docs/MOTORI.md`). Lo fa solo quando il server lo accende lei, dopo il passo dei motori della chat; se non manca niente non mostra niente. Il codice sta in `app/src/computer/`.
 
 - **Cosa legge** (`hw.rs`, in Rust, senza accendere Python): le schede NVIDIA con memoria, memoria libera e capacità di calcolo (`nvidia-smi`), il processore e i suoi thread, la RAM, lo spazio
   libero sul disco dove scarica (`%LOCALAPPDATA%\dev.mango.animation\computer\`). Le funzioni accese sono `motori.<funzione>.attiva` del profilo (`docs/MOTORI.md`, §4; una funzione che il profilo
@@ -40,8 +40,8 @@ Al primo avvio (e a ogni avvio in cui manca qualcosa) l'app vede cosa c'è nel c
   (un computer che ha già tutto non scarica niente); altrimenti l'app prepara il suo. Il controllo a ogni avvio cerca i moduli senza importarli; dopo aver installato li importa davvero.
 - **Senza chiedere** si preparano i pacchetti del codice (`bun install`): quando mancano solo loro (il primo avvio dopo un aggiornamento che cambia un lockfile) non c'è niente da scegliere, e la pagina mostra
   solo l'avanzamento («Preparo l'app»). Se non riesce, si apre la pagina con l'errore.
-- **La pagina** (`app/ui/`), «Scegli cosa vuoi fare»: una riga sul computer (quante schede NVIDIA e quanta memoria; i nomi nel suggerimento); le funzioni come schede con un interruttore, il nome e la frase di
-  «Motori» (`FUNZIONI` e `COSA_FA` in `manifesto.rs`) e quanto scaricano, oppure «Pronta» o «Spenta» (cambiandole si ricalcola cosa serve); i componenti comuni (le voci senza funzione: prima a cosa servono,
+- **La pagina** (`app/ui/`), «Scegli cosa vuoi fare»: una riga sul computer (quante schede NVIDIA e quanta memoria; i nomi nel suggerimento); le funzioni come righe di una card con un interruttore, il nome e la frase che hanno
+  in Impostazioni › Computer (`FUNZIONI` e `COSA_FA` in `manifesto.rs`) e quanto scaricano, oppure «Pronta» o «Spenta» (cambiandole si ricalcola cosa serve); i componenti comuni (le voci senza funzione: prima a cosa servono,
   poi il nome del programma), con «Serve sempre» su quelle senza cui il server non parte (`necessaria`: Bun e i pacchetti del codice); licenze e fonti dentro «Cosa scarico e da dove», chiuso. In fondo,
   fissi, quanto si scarica, lo spazio libero e i bottoni: se lo spazio non basta (i pacchetti Python contano due volte, per la cache di `uv`, più un gigabyte) «Scarica e comincia» resta spento. «Scarica e
   comincia» scrive nel profilo le funzioni che il creator ha cambiato (`motori.<funzione>.attiva`, il resto del profilo com'è) e comincia; «Ferma» torna al piano; un errore dice quale voce e perché e si può
@@ -50,6 +50,6 @@ Al primo avvio (e a ogni avvio in cui manca qualcosa) l'app vede cosa c'è nel c
 - **Al server** arrivano il PATH con davanti le cartelle di ciò che ha scaricato l'app e, se è quello da usare, `MANGO_ANIMATION_PYTHON`; la dettatura prende lo stesso Python (`Voce::usa_python`).
 - **Per lo studio** (Impostazioni › Computer), il ponte `window.__MANGO_ANIMATION__.computer`: `leggi()` → `{ schede: [{ indice, nome, memoria_mb, libera_mb, capacita }], processore, thread, ram_mb, disco_libero_mb }`
   (un comando del ponte, come la dettatura: `app/src/computer/ponte.rs`). Le schede sono quelle NVIDIA nell'ordine di `nvidia-smi` (`macchina.scheda_video` del profilo è questo indice); senza scheda l'elenco è vuoto.
-  Ciò che si accende nei Motori lo scarica l'app al prossimo avvio.
+  Ciò che si accende in Impostazioni › Computer lo scarica l'app al prossimo avvio.
 - **Prove**: `cargo test` (con un server di prova locale: scarico, ripresa, impronta sbagliata, annullo, archivi; installatori finti); dalla rete vera, in una cartella temporanea, `cargo test il_computer_vero -- --ignored --nocapture`
   (uv, Bun, ffmpeg, DeepFilterNet, YuNet, Python con un pacchetto).

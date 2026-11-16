@@ -1,4 +1,4 @@
-// Gli allegati di un messaggio e il testo che arriva a Claude: il contesto davanti, i percorsi degli allegati dietro.
+// Gli allegati di un messaggio e il testo che arriva al motore: il contesto davanti, i percorsi degli allegati dietro.
 // Le stesse righe si riconoscono quando la conversazione si rilegge dal suo file.
 import { link, mkdir, symlink } from "node:fs/promises"
 import { basename, isAbsolute, join, parse, relative } from "node:path"
@@ -6,13 +6,12 @@ import { eOggetto, scrivi, statistica } from "../disco"
 import { dettaglioDi, frase } from "../lingua"
 import { percorsoSicuro } from "../media"
 import { eComando } from "./comandi"
-
+import type { MessaggioPerIlMotore, TipoImmagine } from "./motore"
 import { ErroreChat, type Parte } from "./tipi"
 
 export const CARTELLA_ALLEGATI = ".chat/allegati"
-type TipoImmagine = "image/png" | "image/jpeg" | "image/gif" | "image/webp"
 const TIPI_IMMAGINE: Record<string, TipoImmagine> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp" }
-/** Oltre questa grandezza l'API rifiuta l'immagine: arriva a Claude solo come percorso. */
+/** Oltre questa grandezza l'API rifiuta l'immagine: arriva al motore solo come percorso. */
 const LIMITE_IMMAGINE_BYTE = 5 * 1024 ** 2
 
 export interface Contesto {
@@ -27,8 +26,6 @@ export interface Allegato {
   tipoImmagine: TipoImmagine | null
   byte: number
 }
-
-export type BloccoDiIngresso = { type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: TipoImmagine; data: string } }
 
 const tipoImmagineDi = (percorso: string): TipoImmagine | null => TIPI_IMMAGINE[parse(percorso).ext.toLowerCase()] ?? null
 
@@ -114,7 +111,7 @@ export function leggiContesto(valore: unknown): Contesto | undefined {
 
 const senzaParentesi = (testo: string): string => testo.replaceAll("[", "(").replaceAll("]", ")").replace(/\s+/g, " ")
 
-/** La riga che Claude legge davanti al messaggio, e che il creator non vede. */
+/** La riga che il motore legge davanti al messaggio, e che il creator non vede. */
 export function rigaDiContesto(contesto: Contesto | undefined, titoloDelVideo: (slug: string) => string | undefined): string | null {
   if (!contesto?.video && !contesto?.vista) return null
   const video = contesto.video ? `the video «${senzaParentesi(titoloDelVideo(contesto.video) ?? contesto.video)}» (${contesto.video})` : null
@@ -123,19 +120,15 @@ export function rigaDiContesto(contesto: Contesto | undefined, titoloDelVideo: (
 }
 
 /**
- * Ciò che Claude riceve: il contesto, il testo, i percorsi degli allegati; le immagini piccole anche come immagini.
- * Un comando con la barra arriva com'è scritto, perché Claude Code lo riconosce solo all'inizio: senza contesto davanti né immagini.
+ * Ciò che il motore riceve: il contesto, il testo, i percorsi degli allegati; le immagini piccole anche come immagini.
+ * Un comando con la barra arriva com'è scritto, perché il motore lo riconosce solo all'inizio: senza contesto davanti né immagini.
  */
-export async function ingressoPerClaude(testo: string, riga: string | null, allegati: Allegato[]): Promise<string | BloccoDiIngresso[]> {
+export async function messaggioPerIlMotore(testo: string, riga: string | null, allegati: Allegato[]): Promise<MessaggioPerIlMotore> {
   const comando = eComando(testo)
   const completo = [comando ? null : riga, testo, ...allegati.map((a) => `[Allegato: ${a.assoluto}]`)].filter((p): p is string => p !== null && p !== "").join("\n\n")
-  if (comando) return completo
+  if (comando) return { testo: completo, immagini: [] }
   const immagini = allegati.flatMap((a) => (a.tipoImmagine !== null && a.byte <= LIMITE_IMMAGINE_BYTE ? [{ assoluto: a.assoluto, tipo: a.tipoImmagine }] : []))
-  if (immagini.length === 0) return completo
-  const blocchi = await Promise.all(
-    immagini.map(async ({ assoluto, tipo }): Promise<BloccoDiIngresso> => ({ type: "image", source: { type: "base64", media_type: tipo, data: Buffer.from(await Bun.file(assoluto).arrayBuffer()).toString("base64") } })),
-  )
-  return [...blocchi, { type: "text", text: completo }]
+  return { testo: completo, immagini: await Promise.all(immagini.map(async ({ assoluto, tipo }) => ({ tipo, dati: Buffer.from(await Bun.file(assoluto).arrayBuffer()).toString("base64") }))) }
 }
 
 /** Le Parti con cui la chat mostra il messaggio del creator: gli allegati, poi il testo. */
@@ -148,7 +141,7 @@ export const partiDelCreator = (testo: string, allegati: Allegato[]): Parte[] =>
 const CONTESTO = /^\[(?:Context|Contesto): [^\]]*\]\s*/
 const ALLEGATO = /\s*\[Allegato: ([^\]\n]+)\]/g
 
-/** Il contrario di `ingressoPerClaude`, per un messaggio del creator letto dal file di una conversazione. */
+/** Il contrario di `messaggioPerIlMotore`, per un messaggio del creator riletto. */
 export function daTestoDelCreator(testo: string, archivio: string): Parte[] {
   const senzaContesto = testo.replace(CONTESTO, "")
   const percorsi = [...senzaContesto.matchAll(ALLEGATO)].map((m) => m[1] ?? "")

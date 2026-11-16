@@ -63,14 +63,11 @@ export function paginaInstallazione(d: DatiPagina, lingua: Lingua): string {
 <meta name="referrer" content="no-referrer"><title>${t("titolo")}</title>
 <style>
 ${STILE_BASE}
-h1{font-size:26px;margin:0 0 4px}p{margin:8px 0}.piccolo{color:var(--grigio);font-size:15px}
 ol{padding:0;margin:20px 0;list-style:none;counter-reset:passo}
-li{counter-increment:passo;border-top:1px solid var(--filo);padding:14px 0 14px 40px;position:relative}
-li::before{content:counter(passo);position:absolute;left:0;top:14px;width:28px;height:28px;border-radius:50%;background:var(--inchiostro);color:var(--carta);font-weight:600;text-align:center;line-height:28px;font-size:15px}
+li{counter-increment:passo;border-top:1px solid var(--mango-line);padding:14px 0 14px 40px;position:relative}
+li::before{content:counter(passo);position:absolute;left:0;top:14px;width:28px;height:28px;border:1px solid var(--mango-line);border-radius:var(--mango-radius-full);background:var(--mango-raised);color:var(--mango-text);font-weight:600;text-align:center;line-height:26px;font-size:14px}
 .campo{display:flex;gap:8px;margin-top:8px}
-.campo input{flex:1;min-width:0;font:15px ui-monospace,monospace;padding:10px;border:1px solid var(--filo);background:var(--scura);color:var(--inchiostro);border-radius:6px}
-button{font:inherit;font-weight:600;padding:10px 14px;border:0;border-radius:6px;background:var(--rosso);color:#fff;cursor:pointer}
-button.fatto{background:var(--grigio)}
+.campo input{flex:1;min-width:0;min-height:44px;font:16px ui-monospace,monospace;padding:0 12px;border:1px solid var(--mango-line);background:var(--mango-ground);color:var(--mango-text);border-radius:var(--mango-radius-control)}
 b{font-weight:600}
 </style></head><body>
 <h1>${t("titolo")}</h1>
@@ -80,9 +77,9 @@ b{font-weight:600}
 <li>${t("passo1")}</li>
 <li>${t("passo2")}</li>
 <li>${t("passo3")}
-<div class="campo"><input id="url" readonly value="${url}"><button data-copia="url">${t("copia")}</button></div></li>
+<div class="campo"><input id="url" readonly value="${url}"><button class="bottone" data-copia="url">${t("copia")}</button></div></li>
 <li>${t("passo4")}
-<div class="campo"><input id="campo" readonly value="file"><button data-copia="campo">${t("copia")}</button></div>
+<div class="campo"><input id="campo" readonly value="file"><button class="bottone" data-copia="campo">${t("copia")}</button></div>
 ${t("passo4b")}</li>
 <li>${t("passo5")}</li>
 <li>${t("passo6")}</li>
@@ -93,7 +90,7 @@ var T = ${nelloScript};
 document.querySelectorAll("[data-copia]").forEach(function(b){b.addEventListener("click",function(){
 var i=document.getElementById(b.getAttribute("data-copia"));i.focus();i.select();i.setSelectionRange(0,i.value.length);
 var ok=false;try{ok=document.execCommand("copy")}catch(e){}
-b.textContent=ok?T.copiato:T.tienilo;b.className="fatto";})});
+b.textContent=ok?T.copiato:T.tienilo;b.className=ok?"bottone fatto":"bottone";})});
 </script>
 </body></html>`
 }

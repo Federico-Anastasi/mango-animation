@@ -2,26 +2,26 @@
 
 ## Mango Code
 
-Al posto di Claude Code una conversazione può parlare con **Mango Code**, che lavora coi modelli sul computer (Mango Code è un progetto a parte;
-il contratto è in [`docs/INTEGRATION.md`](https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md)). Il server lo usa attraverso `server/src/chat/mangocode.ts`, che dà alla
-conversazione la stessa `query` di Claude Code: gli eventi di Mango Code diventano i messaggi dell'SDK, così messaggi, Parti, eventi e
-richieste sono gli stessi di Claude Code (`docs/chat/api.md`, `docs/chat/messaggi.md`).
+Una conversazione può parlare con **Mango Code**, che lavora coi modelli sul computer (Mango Code è un progetto a parte;
+il contratto è in [`docs/INTEGRATION.md`](https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md)). Il server lo usa attraverso `server/src/chat/mangocode.ts`, che realizza
+per la conversazione il contratto di un motore (`server/src/chat/motore.ts`, `docs/chat/sessione.md`): gli eventi di Mango Code diventano gli eventi del motore, e le sue conversazioni si rileggono nelle stesse righe (`RigaLetta`) degli altri motori, così messaggi, Parti, eventi e
+richieste sono gli stessi (`docs/chat/api.md`, `docs/chat/messaggi.md`).
 
 - **Quando c'è.** Se Mango Code è pronto (`service.json` nella sua cartella dei dati, `MANGO_DATA`, di base `%LOCALAPPDATA%\MangoCode`, col
   processo `pid` vivo e `agent` che risponde),
-  `GET /api/chat/modelli` aggiunge i suoi modelli dopo quelli di Claude Code: `id` `mango-code/<chiave>` (la chiave è quella che Mango Code dà al modello, per esempio `mango-code/toq`),
+  `GET /api/chat/modelli` aggiunge i suoi modelli a quelli degli altri motori: `id` `mango-code/<chiave>` (la chiave è quella che Mango Code dà al modello, per esempio `mango-code/toq`),
   `nome` «Mango Code · <nome>», nessun effort. L'elenco si rilegge a ogni richiesta, perché Mango Code si accende e si spegne per conto suo: il
   server osserva il suo `service.json` e, quando compare, cambia o sparisce, annuncia l'evento `modelli`, a cui lo studio rilegge il menu.
-  Se Claude Code non risponde, bastano quelli di Mango Code. Il server non accende Mango Code: lo si apre dalla sua icona. Acceso ma non
+  Se un altro motore non risponde, restano quelli di Mango Code. Il server non accende Mango Code: lo si apre dalla sua icona. Acceso ma non
   pronto (il file c'è con `reason` al posto di `agent` e `engine`: si sta preparando, o aspetta una scelta nella sua finestra) non offre
   modelli, e una sua conversazione dice «Mango Code si sta preparando o non è pronto: guarda la sua finestra e riscrivi il messaggio.»
   (alla lettura: «… che non è ancora pronto: guarda la sua finestra e riprova.»); il testo di `reason` non si legge né si ripete.
-- **Una conversazione è dell'uno o dell'altro.** Nasce di Mango Code con un suo modello (`POST /api/chat` con `modello: "mango-code/…"`);
-  poi cambia modello solo fra quelli di Mango Code (400 per uno di Claude, e viceversa). La testata dello studio dice «Mango Code».
+- **Una conversazione è di un motore solo.** Nasce di Mango Code con un suo modello (`POST /api/chat` con `modello: "mango-code/…"`);
+  poi cambia modello solo fra quelli di Mango Code (400 per quello di un altro motore, e viceversa per una conversazione degli altri: «Questa conversazione è di Mango Code: per un modello di Claude aprine una nuova»). La testata dello studio dice «Mango Code».
 - **Cosa riceve.** Lo strumento «video» (aggiunto alla cartella di lavoro con `POST /mcp` se non è già collegato, finché Mango Code
   resta acceso); il metodo del prodotto come cartella in più (`PUT /mango/extra-folders` `{ folders }`, la cartella del codice, a ogni
   avvio della conversazione): Mango Code ne legge `CLAUDE.md`, regole e skill come quelli della cartella di lavoro, che legge da sé (il `CLAUDE.md` e
-  le regole del creator); le istruzioni dell'app, con ciò che Claude Code sa dall'ambiente (dove sono i dati, che il codice si legge
+  le regole del creator); le istruzioni dell'app, con ciò che gli altri motori sanno dall'ambiente (dove sono i dati, che il codice si legge
   e basta, come si lancia il motore). Ogni chiamata si presenta come «Mango Animation» (`User-Agent`), come la scrive il registro del
   suo gestore. Un Mango Code senza le cartelle in più non apre la conversazione: «Questa versione di Mango Code è troppo vecchia: aggiornala.»
 - **Cosa entra nel prompt.** Le app non possono spegnere voci dalla rotta (`PUT /mango/settings` dà 403 senza `Origin`), ma Mango Code
@@ -41,7 +41,7 @@ richieste sono gli stessi di Claude Code (`docs/chat/api.md`, `docs/chat/messagg
   domanda le etichette scelte, o il testo scritto); i permessi, se le sue regole li chiedono, la Richiesta `permesso`; «Ferma» ferma
   il giro (`abort`). Un errore del giro è la Parte `fine` con `errore`.
 - **Le conversazioni.** Quale sessione di Mango Code è di quale conversazione, col suo modello, titolo e data, sta in
-  `archivio/.chat/mango-code.json`: la conversazione resta nell'elenco anche a Mango Code spento, e si rilegge dai suoi messaggi
+  `archivio/.chat/mango-code.json` (il registro di un motore che dà lui l'identificativo alle sue conversazioni, `docs/chat/sessione.md`, «Com'è fatta»): la conversazione resta nell'elenco anche a Mango Code spento, e si rilegge dai suoi messaggi
   quando è acceso (502 se è spento). Un messaggio nuovo continua la stessa sessione. Un `mango-code.json` che non si legge si mette da parte come `mango-code.json.illeggibile` alla prima scrittura, e il registro del server lo dice.
-- **Cosa non c'è** (scritto nel contratto di Mango Code): effort, sottoagenti, Claude in Chrome, fermare o mandare in background un lavoro da solo, le immagini nei risultati degli strumenti.
+- **Cosa non c'è** (scritto nel contratto di Mango Code, e dichiarato fra le sue capacità, `GET /api/chat/motori`): effort, sottoagenti, Claude in Chrome, fermare o mandare in background un lavoro da solo, le immagini nei risultati degli strumenti. Chi li chiede riceve 409 con «Mango Code non ha …».
 - **Errori.** Ogni errore di Mango Code arriva al creator come una frase completa (sono in `server/src/chat/mangocode.ts`), mai incapsulata in un'altra; il dettaglio tecnico (lo stato e il corpo della risposta) va nel registro del server (`chat di Mango Code: …`). Gli errori di un solo motore portano il suo nome, quelli che valgono per entrambi no; le frasi che dicono cosa il motore vuole fare non riportano mai l'ingresso grezzo dello strumento: quello sta in `ingresso`.

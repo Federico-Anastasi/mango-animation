@@ -17,11 +17,13 @@ export function leggiTema(): Tema {
 
 const ascoltatori = new Set<() => void>()
 let corrente: Tema = leggiTema()
+// L'attributo che fissa il tema è quello di `suite/tokens.css`, uguale in ogni app Mango.
+const FISSO = { chiaro: "light", scuro: "dark" } as const
 
 export function applicaTema(tema: Tema): void {
   corrente = tema
-  if (tema === "sistema") document.documentElement.removeAttribute("data-tema")
-  else document.documentElement.dataset.tema = tema
+  if (tema === "sistema") document.documentElement.removeAttribute("data-mango-theme")
+  else document.documentElement.dataset.mangoTheme = FISSO[tema]
   ascoltatori.forEach((a) => a())
 }
 

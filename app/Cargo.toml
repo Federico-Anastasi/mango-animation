@@ -1,6 +1,6 @@
 [package]
 name = "mango-animation"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 description = "Mango Animation: the archive and editing bench for your videos"
 license = "AGPL-3.0-or-later"
@@ -34,7 +34,7 @@ tauri-plugin-window-state = "2"
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 uuid = { version = "1", features = ["v4"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
-windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "Win32_UI_WindowsAndMessaging", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security", "Win32_Networking_WinHttp"] }
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Storage_Packaging_Appx", "Win32_Storage_Xps", "Win32_UI_WindowsAndMessaging", "Win32_System_JobObjects", "Win32_System_Registry", "Win32_System_Threading", "Win32_Security", "Win32_Networking_WinHttp"] }
 tauri-plugin-updater = "2"
 
 [dev-dependencies]

@@ -9,7 +9,7 @@ percorsi dei file nelle risposte sono relativi all'archivio.
 (`/api/…`, `/media/…`, `/font/…`, lo studio, gli eventi) vuole la chiave, altrimenti è 401. La chiave è una per cartella di lavoro e sta in
 `archivio/arrivi/chiave-api.json` (la fa il server al primo avvio; la legge chi può leggere la cartella, e `/media/` non la serve). Si porta in un modo di questi:
 
-- l'intestazione `X-Chiave-Api: <chiave>`, o `Authorization: Bearer <chiave>`: lo strumento «video» la rilegge dal file a ogni richiesta; Claude e gli script da terminale la leggono dallo stesso file;
+- l'intestazione `X-Chiave-Api: <chiave>`, o `Authorization: Bearer <chiave>`: lo strumento «video» la rilegge dal file a ogni richiesta; i motori della chat e gli script da terminale la leggono dallo stesso file;
 - il cookie `mango_api_<porta>` (`HttpOnly`, `SameSite=Strict`, un anno), che mette `GET /entra?chiave=<chiave>` e rimanda a `dopo` (di base lo studio: `/entra?chiave=…&dopo=/media/video/<slug>/uscite/finale.mp4`
   apre quel file; `dopo` è solo un percorso di questo sito). Così la pagina dello studio, le immagini, i video e gli eventi la portano da soli: l'app apre lo studio da questo indirizzo; da terminale, `bun run avvia`
   scrive il link intero e con `--apri` lo apre nel browser.
@@ -30,10 +30,10 @@ all'avvio e si tiene al passo osservando i file. Lo stesso vale per ciò che i f
 e i due `stile.json` si rileggono da soli quando cambiano, senza riavviare il server (`docs/api/eventi.md`). Le sole letture dal disco di una `GET` sono: il dettaglio di
 un video (rilegge i suoi `risolto`, `controllo` e `materiali`) e i file dei commenti e dei messaggi del canale
 (grandi: se ne tengono in memoria solo i conti e gli identificatori). Anche la chat legge dal disco: una conversazione chiusa
-dal suo file, e l'elenco delle conversazioni, rifatto solo quando un loro file cambia. I conti del lavoro di Claude (`GET /api/consumi`) si tengono in
-memoria e si aggiornano dai file delle conversazioni, di cui si legge solo ciò che si è aggiunto.
+dal suo file, e l'elenco delle conversazioni, rifatto solo quando un loro file cambia. I conti del lavoro in chat (`GET /api/consumi`) si tengono in
+memoria e si aggiornano dai file delle conversazioni di Claude Code, di cui si legge solo ciò che si è aggiunto, e dai thread di Codex che sono cambiati.
 
-Ogni sezione qui sotto sta in un file della cartella `docs/api/`; i titoli sono quelli di sempre, così i rimandi esistenti restano validi.
+Ogni sezione qui sotto sta in un file della cartella `docs/api/`; i titoli restano qui perché il codice e gli altri documenti li citano.
 
 ## Video
 
@@ -61,11 +61,11 @@ Le letture di TikTok e degli altri canali: `docs/api/canale.md`.
 
 ## Consumi
 
-Quanto lavoro di Claude è andato in ogni video: `docs/api/consumi.md`.
+Quanto lavoro in chat, per motore, è andato in ogni video: `docs/api/consumi.md`.
 
 ## La chat
 
-Le rotte `/api/chat` sono in `docs/CHAT.md` (conversazioni con Claude Code, messaggi, richieste di permesso, allegati).
+Le rotte `/api/chat` sono in `docs/chat/api.md` (conversazioni con i motori della chat, messaggi, richieste di permesso, allegati).
 
 ## File
 
@@ -89,7 +89,7 @@ Come si accende e si chiude il server: `docs/api/file-e-avvio.md`.
 
 ## Strumenti MCP
 
-Gli strumenti «video» di Claude: `docs/api/strumenti-mcp.md`.
+Gli strumenti «video» dei motori della chat: `docs/api/strumenti-mcp.md`.
 
 ## Variabili d'ambiente
 

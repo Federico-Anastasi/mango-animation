@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react"
 import { api } from "./api"
 import { ascoltaCanale } from "./canale"
-import type { AnimazioneDisponibile, ConsumiDiClaude, DettaglioVideo, Evento, GiornoGrezzo, StatoArrivi, StatoCanale, StatoLavori, StatoProfilo, StatoRegistrazione, StatoStudioRemoto, Stile, StileDiPartenza, VoceElenco, Carattere } from "./tipi"
+import type { AnimazioneDisponibile, ConsumiInChat, DettaglioVideo, Evento, GiornoGrezzo, StatoArrivi, StatoCanale, StatoLavori, StatoProfilo, StatoRegistrazione, StatoStudioRemoto, Stile, StileDiPartenza, VoceElenco, Carattere } from "./tipi"
 
 export interface StatoCopia<T> {
   dato: T | null
@@ -83,6 +83,18 @@ export function useCopia<T>(copia: Copia<T>): StatoCopia<T> {
   return useSyncExternalStore(copia.iscriviti, copia.stato)
 }
 
+/** Il dato di una copia, aspettando che la prima lettura sia finita; `null` se non si è potuto leggere. */
+export function lettaUnaVolta<T>(copia: Copia<T>): Promise<T | null> {
+  if (copia.stato().caricato) return Promise.resolve(copia.stato().dato)
+  return new Promise((risolvi) => {
+    const smetti = copia.iscriviti(() => {
+      if (!copia.stato().caricato) return
+      smetti()
+      risolvi(copia.stato().dato)
+    })
+  })
+}
+
 export const elencoVideo = creaCopia<VoceElenco[]>(api.elencoVideo, (e) => e.tipo === "video")
 export const grezzo = creaCopia<GiornoGrezzo[]>(api.grezzo, (e) => e.tipo === "grezzo")
 export const stile = creaCopia<Stile>(api.stile, (e) => e.tipo === "stile")
@@ -96,7 +108,7 @@ export const registrazione = creaCopia<StatoRegistrazione>(api.registrazione, (e
 /** Le letture del canale TikTok: le guardano Pubblico, Crescita e Produzione. */
 export const canaleTiktok = creaCopia<StatoCanale>(() => api.canale("tiktok"), (e) => e.tipo === "canale" || (e.tipo === "video" && (e.cosa === "scheda" || e.cosa === "nuovo" || e.cosa === "tolto")))
 export const profilo = creaCopia<StatoProfilo>(api.profilo, (e) => e.tipo === "profilo")
-export const consumi = creaCopia<ConsumiDiClaude>(api.consumi, (e) => e.tipo === "consumi")
+export const consumi = creaCopia<ConsumiInChat>(api.consumi, (e) => e.tipo === "consumi")
 export const animazioni = creaCopia<Record<string, AnimazioneDisponibile[]>>(api.animazioni, (e) => e.tipo === "animazioni")
 
 const dettagli = new Map<string, Copia<DettaglioVideo>>()

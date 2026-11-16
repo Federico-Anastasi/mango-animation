@@ -4,26 +4,27 @@
   gap: 0.9rem;
   min-width: 0;
   padding: 0.9rem 1rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
 }
 
 .nome {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 
 .meta {
   margin: 0;
-  font-size: 0.86rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .errore {
   margin: 0;
-  font-size: 0.9rem;
-  color: var(--rosso);
+  font-size: 13px;
+  color: var(--mango-error);
 }
 
 .lettore {
@@ -31,9 +32,9 @@
   width: 100%;
   max-width: 18rem;
   max-height: 60vh;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 4px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .foto {
@@ -42,9 +43,9 @@
   height: auto;
   max-width: min(100%, 24rem);
   max-height: 60vh;
-  border: 1px solid var(--filo);
+  border: 1px solid var(--mango-line);
   border-radius: 4px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .azioni {
@@ -58,17 +59,17 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.82rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .campoSelect select {
   height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  color: var(--inchiostro);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
+  color: var(--mango-text);
 }
 
 .coppia {
@@ -90,8 +91,9 @@
   margin: 0;
   padding: 0.5rem;
   overflow-y: auto;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
   list-style: none;
 }
 
@@ -106,9 +108,9 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--blu);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+  color: var(--mango-action-text);
+  font-family: var(--mango-font-code);
+  font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -119,12 +121,12 @@
   border: 0;
   border-radius: 3px;
   background: none;
-  font-size: 0.9rem;
+  font-size: 13px;
   cursor: pointer;
 }
 
 .parola:hover:not(:disabled) {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .parola:disabled,

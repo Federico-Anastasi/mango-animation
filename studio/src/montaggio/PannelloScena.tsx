@@ -27,7 +27,7 @@ export function PannelloScena({ azione, indice, stile, animazioni }: { azione: A
       {inEredita && (
         <div className={styles.avviso}>
           <p>{t("Questa scena viene dal video «{base}»: da qui non si cambia.", "This scene comes from the video «{base}»: it cannot be changed from here.", { base: ctx.proprio.base ?? "" })}</p>
-          <Bottone variante="vuoto" onClick={() => esegui(staccaDallaBase(ctx))} disabled={bloccato}>
+          <Bottone onClick={() => esegui(staccaDallaBase(ctx))} disabled={bloccato}>
             {t("Stacca dalla base", "Detach from base")}
           </Bottone>
         </div>
@@ -58,11 +58,11 @@ export function PannelloScena({ azione, indice, stile, animazioni }: { azione: A
       </label>
 
       <div className={styles.azioni}>
-        <Bottone variante="vuoto" onClick={() => esegui(spostaScena(ctx, indice, -1))} disabled={bloccato || nonStaccata || indice === 0} titolo={nonStaccata ? t("Con una base le scene non si riordinano: stacca prima il video", "With a base the scenes cannot be reordered: detach the video first") : undefined}>
+        <Bottone onClick={() => esegui(spostaScena(ctx, indice, -1))} disabled={bloccato || nonStaccata || indice === 0} titolo={nonStaccata ? t("Con una base le scene non si riordinano: stacca prima il video", "With a base the scenes cannot be reordered: detach the video first") : undefined}>
           <Icona nome="sinistra" />
           {t("Sposta prima", "Move earlier")}
         </Bottone>
-        <Bottone variante="vuoto" onClick={() => esegui(spostaScena(ctx, indice, 1))} disabled={bloccato || nonStaccata || indice >= ctx.effettivo.scene.length - 1} titolo={nonStaccata ? t("Con una base le scene non si riordinano: stacca prima il video", "With a base the scenes cannot be reordered: detach the video first") : undefined}>
+        <Bottone onClick={() => esegui(spostaScena(ctx, indice, 1))} disabled={bloccato || nonStaccata || indice >= ctx.effettivo.scene.length - 1} titolo={nonStaccata ? t("Con una base le scene non si riordinano: stacca prima il video", "With a base the scenes cannot be reordered: detach the video first") : undefined}>
           {t("Sposta dopo", "Move later")}
           <Icona nome="destra" />
         </Bottone>

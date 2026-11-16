@@ -13,57 +13,45 @@
 .sotto {
   margin: 0;
   max-width: 75ch;
-  color: var(--grigio);
-  font-size: 0.88rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .avviso {
   margin: 0.75rem 0 0;
   padding: 0.6rem 0.9rem;
-  border: 1px solid var(--filo);
-  border-left: 3px solid var(--rosso);
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
-.sezione {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  min-width: 0;
-  padding-top: 1rem;
-  border-top: 2px solid var(--inchiostro);
-}
-
-.sezione h2,
-.sezione h3 {
-  margin: 0;
+  border: 1px solid var(--mango-line);
+  border-left: 3px solid var(--mango-action);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+  font-size: 13px;
 }
 
 .sezione h3 {
-  color: var(--grigio);
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+  color: var(--mango-text-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .tabella {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
 .tabella th,
 .tabella td {
   padding: 0.45rem 0.7rem;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
   text-align: left;
   white-space: nowrap;
 }
 
 .tabella thead th {
-  color: var(--grigio);
-  font-size: 0.75rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -73,7 +61,7 @@
 
 .tabella .num {
   text-align: right;
-  font-family: var(--font-mono);
+  font-family: var(--mango-font-code);
 }
 
 .tabella .titolo {
@@ -83,8 +71,13 @@
 }
 
 .tabella small {
-  color: var(--grigio);
-  font-size: 0.75rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
+}
+
+.tabella .parti {
+  display: block;
+  white-space: nowrap;
 }
 
 .misura {
@@ -103,7 +96,7 @@
   display: block;
   height: 10px;
   border-radius: 0 4px 4px 0;
-  background: var(--blu);
+  background: var(--mango-text);
 }
 
 .dueColonne {
@@ -126,7 +119,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
   min-width: 0;
 }
 
@@ -138,12 +131,12 @@
 
 .tempo {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: 0.88rem;
+  font-family: var(--mango-font-code);
+  font-size: 13px;
 }
 
 .tabella thead th.num {
-  font-family: var(--font-testo);
+  font-family: var(--mango-font-text);
 }
 
 .valoreMisura {
@@ -174,6 +167,10 @@
     min-width: 0;
   }
 
+  .tabella .parti {
+    white-space: normal;
+  }
+
   .impilata thead {
     display: none;
   }
@@ -183,7 +180,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.25rem 1rem;
     padding: 0.55rem 0;
-    border-bottom: 1px solid var(--filo);
+    border-bottom: 1px solid var(--mango-line);
   }
 
   .tabella.impilata tbody th,
@@ -200,8 +197,8 @@
   .impilata tbody td::before {
     content: attr(data-etichetta);
     display: block;
-    color: var(--grigio);
-    font-family: var(--font-testo);
-    font-size: 0.72rem;
+    color: var(--mango-text-muted);
+    font-family: var(--mango-font-text);
+    font-size: 11px;
   }
 }

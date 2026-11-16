@@ -29,7 +29,7 @@ export function PannelloVideo({ azione, stile, onVaiA }: { azione: Azione; stile
       {nomeBase && (
         <div className={styles.avviso}>
           <p>{t("Questo video parte dal video «{base}»: ciò che non dichiara lo prende da lì.", "This video starts from the video «{base}»: what it does not declare it takes from there.", { base: nomeBase })}</p>
-          <Bottone variante="vuoto" onClick={() => esegui(staccaDallaBase(ctx))} disabled={bloccato}>
+          <Bottone onClick={() => esegui(staccaDallaBase(ctx))} disabled={bloccato}>
             {t("Stacca dalla base", "Detach from base")}
           </Bottone>
         </div>

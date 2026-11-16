@@ -20,9 +20,11 @@ async function fetchDelServer(api: Api, percorso: string, init: RequestInit = {}
   }
 }
 
-export async function chiamaApi<T>(api: Api, metodo: string, percorso: string, corpo?: unknown): Promise<T> {
+/** Con `segnale`, la richiesta si chiude quando scatta: così il server sa che chi chiede non aspetta più. */
+export async function chiamaApi<T>(api: Api, metodo: string, percorso: string, corpo?: unknown, segnale?: AbortSignal): Promise<T> {
   const risposta = await fetchDelServer(api, percorso, {
     method: metodo,
+    signal: segnale,
     headers: corpo === undefined ? {} : { "Content-Type": "application/json" },
     body: corpo === undefined ? undefined : JSON.stringify(corpo),
   })

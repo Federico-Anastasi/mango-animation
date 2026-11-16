@@ -27,7 +27,7 @@ export function RigaDeiPassi({ fase }: { fase: Fase }) {
       {adesso && (
         <div className={styles.adesso}>
           <p>{adesso.dire}</p>
-          <Bottone variante="vuoto" onClick={() => proponiNellaChat(adesso.scrivi)} titolo={t("Mette la frase nel campo della chat, senza mandarla", "Puts the sentence in the chat box, without sending it")}>
+          <Bottone variante="principale" onClick={() => proponiNellaChat(adesso.scrivi)} titolo={t("Mette la frase nel campo della chat, senza mandarla", "Puts the sentence in the chat box, without sending it")}>
             {t("Scrivila nella chat", "Write it in the chat")}
           </Bottone>
         </div>

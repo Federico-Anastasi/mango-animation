@@ -338,7 +338,7 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
   server.registerTool(
     "slide",
     {
-      description: `The slides of a carousel (uscite/slide-<n>.png, produced by the «carosello» job), as shrunk but readable images, in number order: all of them, or the requested ones. At most ${FOTO_MASSIME} at a time. If the render of that carousel is queued or running, it first waits for it to finish: the slides returned are always those of the latest render.`,
+      description: `The slides of a carousel (uscite/slide-<n>.png, produced by the «carosello» job), as shrunk but readable images, in number order: all of them, or the requested ones. At most ${FOTO_MASSIME} at a time. If the render of that carousel is queued or running, it first waits for it to finish: the slides returned are always those of the latest render. If the creator writes in the chat while it waits, it stops waiting and says so: answer their message first, then call it again.`,
       inputSchema: {
         slug,
         numeri: z.array(z.number().int().min(1)).min(1).max(FOTO_MASSIME).optional().describe("The numbers of the slides to look at (from 1); if missing, all of them."),
@@ -351,7 +351,8 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
         let v = await leggi()
         // Chiesta insieme a lavoro_aspetta (di sola lettura, quindi in parallelo), leggerebbe i PNG della resa di prima.
         if (v.lavoro?.comando === "carosello") {
-          const fine = await aspettaFine(o.api, v.lavoro.id, ATTESA_MASSIMA)
+          const fine = await aspettaFine(o.api, v.lavoro.id, ATTESA_MASSIMA, o.conversazione)
+          if (fine.messaggio_del_creator) throw new ErroreStrumento(`${fine.messaggio_del_creator} La resa delle slide di «${slug}» è ancora ${fine.stato}: richiama «slide» dopo avergli risposto.`)
           if (fine.stato !== "finito") throw new ErroreStrumento(`La resa delle slide di «${slug}» è ancora ${fine.stato} dopo ${ATTESA_MASSIMA} secondi: richiama «slide» quando è finita.`)
           v = await leggi()
         }
@@ -372,7 +373,7 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     "scene_foto",
     {
       description:
-        `The key frames of an animated scene (scenes live in animazioni/), as shrunk images, with the outcome of the automatic checks: text under 40 px, text or drawings outside the usable band, a background that stays still. controlli: "falliti" is a result, not an error: each report says what to fix in the scene. It draws the scene in a browser on the graphics card: it takes from a few tens of seconds to a few minutes, plus the wait if another job is running (it goes through the same queue as the engine jobs, one at a time, and shows in the creator's jobs panel). If it runs out of time (${ATTESA_MASSIMA} seconds) it answers with the id of the job: call it again with that lavoro to collect the result without drawing the scene again.`,
+        `The key frames of an animated scene (scenes live in animazioni/), as shrunk images, with the outcome of the automatic checks: text under 40 px, text or drawings outside the usable band, a background that stays still. controlli: "falliti" is a result, not an error: each report says what to fix in the scene. It draws the scene in a browser on the graphics card: it takes from a few tens of seconds to a few minutes, plus the wait if another job is running (it goes through the same queue as the engine jobs, one at a time, and shows in the creator's jobs panel). If it runs out of time (${ATTESA_MASSIMA} seconds) it answers with the id of the job: call it again with that lavoro to collect the result without drawing the scene again. It answers the same way, before the time runs out, if the creator writes in the chat while it waits: answer their message first.`,
       inputSchema: {
         sigla: z.string().regex(SIGLA, "La sigla ha solo lettere, numeri, trattini e trattini bassi.").describe("The scene code, as in the plan (e.g. «l1», «a3»)."),
         lavoro: z.string().min(1).optional().describe("The id of the job from a previous call that ran out of time."),
@@ -381,7 +382,8 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     ({ sigla, lavoro }) =>
       comeStrumento(async () => {
         const id = lavoro ?? (await chiamaApi<{ id: string }>(o.api, "POST", "/api/animazioni/foto", { sigla })).id
-        const fine = await aspettaFine(o.api, id, ATTESA_MASSIMA)
+        const fine = await aspettaFine(o.api, id, ATTESA_MASSIMA, o.conversazione)
+        if (fine.messaggio_del_creator) throw new ErroreStrumento(`${fine.messaggio_del_creator} La resa della scena «${sigla}» è ancora ${fine.stato}: dopo avergli risposto richiama «scene_foto» con lavoro «${id}» per averla.`)
         if (fine.stato !== "finito") throw new ErroreStrumento(`La resa della scena «${sigla}» è ancora ${fine.stato} dopo ${ATTESA_MASSIMA} secondi: richiama «scene_foto» con lavoro «${id}» per averla quando è finita.`)
         if (fine.esito !== "riuscito") throw new ErroreStrumento(fine.errore ?? `La resa della scena «${sigla}» non è riuscita (${fine.esito}).`)
         const { png, segnalazioni } = fine.risultato as RisultatoSceneFoto
@@ -476,15 +478,60 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
   server.registerTool(
     "lavoro_aspetta",
     {
-      description: `Waits for a job to finish, for at most the given time (default ${ATTESA_PREDEFINITA} seconds, at most ${ATTESA_MASSIMA}), and returns the outcome and the last lines. If the time runs out first, it answers with the state of that moment (in corso): call it again. There is no need to poll the state at intervals.`,
+      description: `Waits for a job to finish, for at most the given time (default ${ATTESA_PREDEFINITA} seconds, at most ${ATTESA_MASSIMA}), and returns the outcome and the last lines. If the time runs out first, it answers with the state of that moment (in corso): call it again. There is no need to poll the state at intervals. If the creator writes in the chat while it waits, it answers right away with the state of that moment and \`messaggio_del_creator\`: read their message and answer it first; the job keeps running, and you wait for it again afterwards.`,
       inputSchema: {
         id: z.string().min(1).describe("The id returned by the «lavoro» tool."),
         secondi: z.number().min(1).max(ATTESA_MASSIMA).default(ATTESA_PREDEFINITA).describe("How long to wait at most."),
       },
       annotations: SOLA_LETTURA,
     },
-    ({ id, secondi }) => comeStrumento(async () => json(await aspettaFine(o.api, id, secondi))),
+    ({ id, secondi }) => comeStrumento(async () => json(await aspettaFine(o.api, id, secondi, o.conversazione))),
   )
+
+  if (o.conversazione !== null && o.domande) {
+    const conversazione = o.conversazione
+    server.registerTool(
+      "domanda",
+      {
+        description:
+          "Asks the creator one to four questions and waits for the answers. In the chat the creator sees each question with buttons, one for each option, and can also write an answer of their own instead of choosing one. Use it every time you need a choice from the creator (an angle, a take, a title, a yes or no before a long job) instead of writing the question in your message: the creator answers with a click and you get the answer back as text. Put your recommended option first. It waits as long as the creator takes; if the creator declines to answer, you get that as an error.",
+        inputSchema: {
+          domande: z
+            .array(
+              z
+                .object({
+                  domanda: z.string().trim().min(1).describe("The question, complete and ending with a question mark."),
+                  intestazione: z.string().trim().min(1).describe("A very short label for the question, one or two words (e.g. «Angle», «Channels»)."),
+                  opzioni: z
+                    .array(
+                      z
+                        .object({
+                          etichetta: z.string().trim().min(1).describe("The answer as the button shows it: short, a few words."),
+                          descrizione: z.string().trim().min(1).describe("One sentence on what this choice means or leads to."),
+                        })
+                        .strict(),
+                    )
+                    .min(2)
+                    .max(4)
+                    .describe("The choices, two to four. Do not add an «Other» option: the creator can always write their own answer."),
+                  multipla: z.boolean().default(false).describe("True if the creator may choose more than one option; false (the default) for a single choice."),
+                })
+                .strict(),
+            )
+            .min(1)
+            .max(4)
+            .describe("The questions, one to four, asked together."),
+        },
+      },
+      ({ domande }, { signal }) =>
+        comeStrumento(async () => {
+          const esito = await chiamaApi<{ risposte: Record<string, string> } | { rifiutata: string }>(o.api, "POST", `/api/chat/${encodeURIComponent(conversazione)}/domande`, { domande }, signal)
+          if ("rifiutata" in esito) throw new ErroreStrumento(esito.rifiutata)
+          if (!("risposte" in esito)) throw new ErroreStrumento("Il server non ha dato né le risposte né un rifiuto: richiama «domanda» o scrivi la domanda nel messaggio.")
+          return testo(Object.entries(esito.risposte).map(([domanda, risposta]) => `«${domanda}» → ${risposta}`).join("\n"))
+        }),
+    )
+  }
 
   return server
 }

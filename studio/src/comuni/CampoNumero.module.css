@@ -6,8 +6,8 @@
 }
 
 .etichetta {
-  font-size: 0.78rem;
-  color: var(--grigio);
+  font-size: 12px;
+  color: var(--mango-text-muted);
 }
 
 .riga {
@@ -22,26 +22,26 @@
   max-width: 7rem;
   height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-ground);
   text-align: right;
 }
 
 .campo input:focus {
-  border-color: var(--inchiostro);
+  border-color: var(--mango-text);
 }
 
 .campo input[aria-invalid="true"] {
-  border-color: var(--rosso);
+  border-color: var(--mango-error);
 }
 
 .unita {
-  font-size: 0.82rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .errore {
-  font-size: 0.78rem;
-  color: var(--rosso);
+  font-size: 12px;
+  color: var(--mango-error);
 }

@@ -3,9 +3,9 @@
   position: relative;
   flex: 0 0 auto;
   display: flex;
-  padding: 0.55rem 0 0.55rem 1.5rem;
-  border-bottom: 1px solid var(--filo);
-  background: var(--carta);
+  padding: 9px 0 9px 24px;
+  border-bottom: 1px solid var(--mango-line);
+  background: var(--mango-ground);
 }
 
 .dentro {
@@ -41,42 +41,61 @@
 }
 
 .marchio {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+  color: var(--mango-text);
+  font: 700 17px/1 var(--mango-font-title);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.mango {
+  flex: none;
+  width: 1.45em;
+  height: 1.45em;
+}
+
+.scritta i {
+  font-style: normal;
+  color: var(--mango-product);
 }
 
 .menu {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
   min-width: 0;
 }
 
 .voce,
 .stato,
-.tema {
+.soloIcona {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  height: 2rem;
-  padding: 0 0.7rem;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--mango-radius-control);
   background: none;
-  color: var(--inchiostro);
+  color: var(--mango-text-muted);
   text-decoration: none;
-  font-size: 0.9rem;
+  font: 500 13px/1 var(--mango-font-text);
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .voce:hover,
 .stato:hover,
-.tema:hover {
-  border-color: var(--filo);
+.soloIcona:hover {
+  color: var(--mango-text);
 }
 
-.voce[aria-current="page"] {
-  border-color: var(--inchiostro);
+.voce[aria-current="page"],
+.soloIcona[aria-current="page"] {
+  background: var(--mango-raised);
+  color: var(--mango-text);
   font-weight: 600;
 }
 
@@ -84,39 +103,20 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-}
-
-.stato {
-  color: var(--grigio);
+  gap: 4px;
 }
 
 .lavori {
   position: relative;
 }
 
-.puntoVerde,
-.puntoRosso,
-.puntoGrigio {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.puntoVerde {
-  background: var(--verde);
-}
-
-.puntoRosso {
-  background: var(--rosso);
-}
-
-.puntoGrigio {
-  background: var(--filo);
+/* L'icona di uno stato serve solo quando il nome non c'è: sotto i 640 px. */
+.icona {
+  display: none;
 }
 
 .segno {
-  color: var(--rosso);
+  color: var(--mango-error);
   font-weight: 700;
   line-height: 1;
 }
@@ -157,18 +157,27 @@
     gap: 0.25rem 0.75rem;
   }
 
-  .marchio {
-    font-size: 0.95rem;
+  .scritta {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   .solo {
     display: none;
   }
 
+  .icona {
+    display: inline-flex;
+  }
+
+  .voce,
   .stato,
-  .tema {
-    gap: 0.3rem;
-    padding: 0 0.3rem;
+  .soloIcona {
+    min-height: 44px;
+    padding: 0 8px;
   }
 
   .stati {
@@ -177,10 +186,6 @@
 
   .menu {
     flex-wrap: wrap;
-  }
-
-  .voce {
-    padding: 0 0.4rem;
   }
 
   .voce svg {

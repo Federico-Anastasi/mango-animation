@@ -1,20 +1,21 @@
-// Mango Code al posto di Claude Code nella chat (`docs/CHAT.md`, «Mango Code»): la stessa `query` che la conversazione conosce,
-// tradotta sul contratto di Mango Code (https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md). Gli eventi di Mango Code diventano i
-// messaggi dell'SDK di Claude Code, così trascrizione, richieste e studio restano gli stessi.
-import type { Options, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk"
+// Mango Code come motore della chat (`docs/CHAT.md`, «Mango Code»): il contratto di Mango Code
+// (https://github.com/Federico-Anastasi/mango-code/blob/master/docs/INTEGRATION.md) tradotto negli eventi del prodotto.
 import { join } from "node:path"
-import { eOggetto, jsonDaTesto, leggiTesto, rinomina, scrivi, testoJson } from "../disco"
-import { frase, type Frase } from "../lingua"
+import { eOggetto, jsonDaTesto, leggiTesto } from "../disco"
+import { frase, type Frase, type Lingua } from "../lingua"
 import { osserva } from "../osservatore"
-import { cartellaDellaChat } from "./allegati"
+import type { ComandoChat } from "./comandi"
+import { istruzioniDelMetodo, serverVideo, stessaCartella } from "./metodo"
+import { istruzioniDellApp, type Apertura, type CapacitaDelMotore, type ConversazioneLetta, type EsitoDelloStrumento, type MessaggioPerIlMotore, type Motore, type NomiDelMotore, type RispostaAlMotore, type SessioneMotore } from "./motore"
 import { eAvvio } from "./primoGiro"
-import { contestoDaUsage, type Oggetto } from "./traduzione"
+import { RegistroDelMotore } from "./registro"
+import { messaggiDalleRighe, partiDelTestoDelCreator, type RigaLetta } from "./storico"
+import type { Oggetto } from "./traduzione"
 import { VociSpente } from "./vociSpente"
-import { ErroreChat, type FunzioneQuery, type MessaggioSessione, type MisuraDelContesto, type ModelloChat, type QueryChat, type VoceSessione } from "./tipi"
+import { ErroreChat, type ContestoUsato, type DomandaChat, type ModelloChat, type Parte, type VoceSessione } from "./tipi"
 
 /** Il prefisso dei modelli di Mango Code fra quelli della chat: `mango-code/toq`. */
 export const PREFISSO = "mango-code/"
-export const eDiMangoCode = (modello: string | null | undefined): boolean => typeof modello === "string" && modello.startsWith(PREFISSO)
 
 /** Come si presenta a Mango Code ogni chiamata, che il suo registro scrive. */
 export const CHI_CHIAMA = { "user-agent": "Mango Animation" }
@@ -71,68 +72,6 @@ export async function trovaMangoCode(dati: string): Promise<Servizio | null> {
   return s.stato === "pronto" ? s.servizio : null
 }
 
-interface Ricordo {
-  sessione: string
-  modello: string
-  titolo: string
-  aggiornata: number
-}
-
-/** Quale sessione di Mango Code è di quale conversazione della chat (`archivio/.chat/mango-code.json`). */
-export class RegistroMangoCode {
-  private scrittura: Promise<void> = Promise.resolve()
-  private readonly percorso: string
-
-  constructor(private readonly archivio: string) {
-    this.percorso = join(archivio, ".chat", "mango-code.json")
-  }
-
-  /** Il file com'è, `{}` se non c'è; `null` se c'è ma non è un oggetto JSON. */
-  private async leggi(): Promise<Oggetto | null> {
-    const testo = await leggiTesto(this.percorso)
-    if (testo === null) return {}
-    const letto = jsonDaTesto(testo)
-    return letto && eOggetto(letto.valore) ? letto.valore : null
-  }
-
-  async tutti(): Promise<Record<string, Ricordo>> {
-    const valore = await this.leggi()
-    if (valore === null) {
-      console.error(`chat di Mango Code: ${this.percorso} non si legge: le conversazioni di Mango Code non compaiono nell'elenco finché non si scrive di nuovo.`)
-      return {}
-    }
-    return Object.fromEntries(
-      Object.entries(valore).flatMap(([id, r]) =>
-        eOggetto(r) && typeof r["sessione"] === "string" && typeof r["modello"] === "string" && typeof r["titolo"] === "string" && typeof r["aggiornata"] === "number"
-          ? [[id, { sessione: r["sessione"], modello: r["modello"], titolo: r["titolo"], aggiornata: r["aggiornata"] }]]
-          : [],
-      ),
-    )
-  }
-
-  async di(id: string): Promise<Ricordo | undefined> {
-    return (await this.tutti())[id]
-  }
-
-  /** Un errore di scrittura va nel registro del server e non blocca le scritture dopo. */
-  cambia(id: string, cambio: (vecchio: Ricordo | undefined) => Ricordo): Promise<void> {
-    this.scrittura = this.scrittura
-      .then(async () => {
-        await cartellaDellaChat(this.archivio)
-        // Un file che non si legge non si riscrive in silenzio: resta accanto, con un altro nome.
-        if ((await this.leggi()) === null) {
-          const messo = `${this.percorso}.illeggibile`
-          await rinomina(this.percorso, messo)
-          console.error(`chat di Mango Code: ${this.percorso} non si leggeva ed è stato messo da parte in ${messo}.`)
-        }
-        const tutti = await this.tutti()
-        await scrivi(this.percorso, testoJson({ ...tutti, [id]: cambio(tutti[id]) }))
-      })
-      .catch((errore) => console.error(`chat di Mango Code: non riesco a scrivere ${this.percorso}: ${errore instanceof Error ? errore.message : String(errore)}`))
-    return this.scrittura
-  }
-}
-
 export interface OpzioniMangoCode {
   /** La cartella dei dati di Mango Code (`MANGO_DATA`, di base `%LOCALAPPDATA%\MangoCode`). */
   dati: string
@@ -149,31 +88,23 @@ export function nomeDelloStrumento(nome: string): string {
   return mcp ? `mcp__${mcp[1]}__${mcp[2]}` : nome
 }
 
-/**
- * Ciò che Claude Code sa dall'ambiente e Mango Code no: dove sono i dati e cosa è il metodo. Il metodo stesso (CLAUDE.md, regole,
- * skill) Mango Code lo legge dalla cartella in più che la conversazione gli dichiara.
- */
-export function istruzioniDelMetodo(lavoro: string, codice: string, aggiunte: string): string {
-  return [
-    `You work in ${lavoro}: the creator's data folder, where every relative path of the method starts (archivio/grezzo/<day>/ the footage, archivio/video/<slug>/ the videos, profilo.json and .claude/ the creator's profile and rules). Look for files there and with the tools, not elsewhere on the computer.`,
-    `The product's method (its CLAUDE.md, rules and skills, which you already have) lives in ${codice}: read it, never write there.`,
-    `The engine runs as \`python -m motore\` with PYTHONPATH=${codice}.`,
-    aggiunte,
-  ]
-    .filter((r) => r !== "")
-    .join("\n")
-}
-
-const messaggio = (m: Oggetto): SDKMessage => m as unknown as SDKMessage
-
 /** Il testo e le immagini di un messaggio del creator, come parti di Mango Code. */
-function partiDelMessaggio(contenuto: SDKUserMessage["message"]["content"]): Oggetto[] {
-  if (typeof contenuto === "string") return [{ type: "text", text: contenuto }]
-  return contenuto.flatMap((b): Oggetto[] => {
-    if (b.type === "text") return [{ type: "text", text: b.text }]
-    if (b.type === "image" && b.source.type === "base64") return [{ type: "file", mime: b.source.media_type, filename: `immagine.${b.source.media_type.split("/")[1] ?? "png"}`, url: `data:${b.source.media_type};base64,${b.source.data}` }]
-    return []
+const partiDelMessaggio = (messaggio: MessaggioPerIlMotore): Oggetto[] => [
+  ...messaggio.immagini.map((i): Oggetto => ({ type: "file", mime: i.tipo, filename: `immagine.${i.tipo.split("/")[1] ?? "png"}`, url: `data:${i.tipo};base64,${i.dati}` })),
+  { type: "text", text: messaggio.testo },
+]
+
+/** Le domande di Mango Code come le mostra la chat; `null` se non ce n'è nessuna o una non ha il testo. */
+function domandeDa(domande: Oggetto[]): DomandaChat[] | null {
+  if (domande.length === 0) return null
+  const lette = domande.map((d): DomandaChat | null => {
+    if (typeof d["question"] !== "string") return null
+    const opzioni = (Array.isArray(d["options"]) ? d["options"].filter(eOggetto) : []).flatMap((o) =>
+      typeof o["label"] === "string" ? [{ etichetta: o["label"], descrizione: typeof o["description"] === "string" ? o["description"] : "" }] : [],
+    )
+    return { domanda: d["question"], intestazione: typeof d["header"] === "string" ? d["header"] : "", opzioni, multipla: d["multiple"] === true }
   })
+  return lette.every((d): d is DomandaChat => d !== null) ? lette : null
 }
 
 /** Le risposte della chat (`answers`: domanda → «a, b») nella forma di Mango Code: per ogni domanda le etichette scelte. */
@@ -189,56 +120,50 @@ export function risposteDi(domande: Oggetto[], answers: unknown): string[][] {
   })
 }
 
-class QueryMangoCode implements QueryChat {
-  private readonly uscita: SDKMessage[] = []
-  private sveglia: (() => void) | null = null
+class SessioneDiMangoCode implements SessioneMotore {
+  private readonly conclusione = Promise.withResolvers<void>()
+  readonly finita = this.conclusione.promise
+  private readonly coda: MessaggioPerIlMotore[] = []
+  private sveglia: ((messaggio: MessaggioPerIlMotore | null) => void) | null = null
   private chiusa = false
-  private errore: Error | null = null
   private readonly fine = new AbortController()
   private servizio: Servizio | null = null
   private sessione: string | null = null
   private modello: string
+  /** La cartella da cui arriva il metodo: quella di lavoro, o il codice del prodotto se sta altrove. */
+  private readonly metodo: string
   private inizioDelGiro = 0
   private readonly ruoli = new Map<string, string>()
-  private readonly indici = new Map<string, number>()
   private readonly avviati = new Set<string>()
   private readonly scritto = new Map<string, number>()
+  private readonly tipi = new Map<string, string>()
   private messaggioCorrente: string | null = null
+  /** Quante volte il messaggio di Mango Code in corso è cambiato: con l'identificativo della parte fa la voce di ogni pezzo. */
+  private messaggi = 0
+  private erroreDelGiro: string | null = null
+  private ultimoContesto = 0
+  private contestoDelModello: { modello: string; contesto: number } | null = null
 
   constructor(
     private readonly o: OpzioniMangoCode,
-    private readonly registro: RegistroMangoCode,
+    private readonly registro: RegistroDelMotore,
     private readonly voci: VociSpente,
-    private readonly opzioni: Options,
-    prompt: AsyncIterable<SDKUserMessage>,
+    private readonly a: Apertura,
   ) {
-    this.modello = (opzioni.model ?? "").slice(PREFISSO.length)
-    void this.lavora(prompt).catch((errore: unknown) => this.rompi(errore instanceof Error ? errore : new Error(String(errore))))
-  }
-
-  private get id(): string {
-    return this.opzioni.resume ?? this.opzioni.sessionId ?? ""
-  }
-
-  private get cartella(): string {
-    return this.opzioni.cwd ?? ""
-  }
-
-  private emetti(m: Oggetto): void {
-    this.uscita.push(messaggio(m))
-    this.sveglia?.()
+    this.modello = (a.modello ?? "").slice(PREFISSO.length)
+    this.metodo = stessaCartella(a.codice, a.lavoro) ? a.lavoro : a.codice
+    void this.lavora().catch((errore: unknown) => this.rompi(errore instanceof Error ? errore : new Error(String(errore))))
   }
 
   private rompi(errore: Error): void {
-    this.errore = errore
-    this.sveglia?.()
+    this.conclusione.reject(errore)
   }
 
   /** `nonRiuscito` è la frase per il creator se Mango Code risponde con un errore (secondo lo stato); ciò che ha risposto va nel registro. */
   private async chiama(metodo: string, percorso: string, corpo?: unknown, nonRiuscito: (stato: number) => Frase = () => frase("Mango Code non ha preso il messaggio: riprova.", "Mango Code did not take the message: try again.")): Promise<unknown> {
     if (!this.servizio) throw new ErroreChat(502, frase("Mango Code non è collegato.", "Mango Code is not connected."))
     const separatore = percorso.includes("?") ? "&" : "?"
-    const r = await fetch(`${this.servizio.agente}${percorso}${separatore}directory=${encodeURIComponent(this.cartella)}`, {
+    const r = await fetch(`${this.servizio.agente}${percorso}${separatore}directory=${encodeURIComponent(this.a.lavoro)}`, {
       method: metodo,
       headers: corpo === undefined ? CHI_CHIAMA : { ...CHI_CHIAMA, "content-type": "application/json" },
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
@@ -251,71 +176,71 @@ class QueryMangoCode implements QueryChat {
     return testo ? (JSON.parse(testo) as unknown) : null
   }
 
-  private async lavora(prompt: AsyncIterable<SDKUserMessage>): Promise<void> {
+  private prossimo(): Promise<MessaggioPerIlMotore | null> {
+    const primo = this.coda.shift()
+    if (primo) return Promise.resolve(primo)
+    if (this.chiusa) return Promise.resolve(null)
+    return new Promise((risolvi) => {
+      this.sveglia = risolvi
+    })
+  }
+
+  private async lavora(): Promise<void> {
     const stato = await statoDiMangoCode(this.o.dati)
     if (stato.stato !== "pronto") throw new ErroreChat(502, stato.stato === "nonPronto" ? FRASE_NON_PRONTO : FRASE_SPENTO)
     this.servizio = stato.servizio
     await this.aggiungiGliStrumenti()
     await this.dichiaraIlMetodo()
-    await this.voci.spegni(this.cartella)
+    await this.voci.spegni(this.a.lavoro)
     await this.ascolta()
-    const vecchio = this.opzioni.resume ? await this.registro.di(this.opzioni.resume) : undefined
+    const vecchio = this.a.esiste ? await this.registro.di(this.a.id) : undefined
     this.sessione = vecchio?.sessione ?? null
     if (vecchio && this.modello === "") this.modello = vecchio.modello
-    this.emetti({ type: "system", subtype: "init", model: `${PREFISSO}${this.modello}`, session_id: this.id })
-    const append = this.opzioni.systemPrompt && typeof this.opzioni.systemPrompt === "object" && "append" in this.opzioni.systemPrompt ? (this.opzioni.systemPrompt.append ?? "") : ""
-    // Il metodo è la cartella in più che la conversazione dà a Claude Code (`aperturaDelMetodo`).
-    const sistema = istruzioniDelMetodo(this.cartella, this.metodo, append)
-    for await (const m of prompt) {
-      if (this.chiusa) return
-      const parti = partiDelMessaggio(m.message.content)
+    this.a.evento({ tipo: "avvio", modello: `${PREFISSO}${this.modello}`, effort: null })
+    const sistema = istruzioniDelMetodo(this.a.lavoro, this.metodo, istruzioniDellApp({ immaginiNegliEsiti: false, strumentoDelleDomande: "question" }))
+    for (;;) {
+      const messaggio = await this.prossimo()
+      if (messaggio === null || this.chiusa) return
       if (this.sessione === null) {
-        const titolo = parti.flatMap((p) => (p["type"] === "text" && typeof p["text"] === "string" ? [eAvvio(p["text"]) ? "" : p["text"].replace(/^\[Context:[^\]]*\]\s*/, "")] : [])).join(" ").slice(0, 60)
+        const titolo = (eAvvio(messaggio.testo) ? "" : messaggio.testo.replace(/^\[Context:[^\]]*\]\s*/, "")).slice(0, 60)
         const creata = await this.chiama("POST", "/session", { title: titolo || "Mango Animation" })
         if (!eOggetto(creata) || typeof creata["id"] !== "string") throw new ErroreChat(502, frase("Mango Code non ha aperto la conversazione: riprova.", "Mango Code did not open the conversation: try again."))
         this.sessione = creata["id"]
         const sessione = this.sessione
-        await this.registro.cambia(this.id, () => ({ sessione, modello: this.modello, titolo: titolo || "Mango Animation", aggiornata: this.o.adesso().getTime() }))
+        await this.registro.cambia(this.a.id, () => ({ sessione, modello: this.modello, titolo: titolo || "Mango Animation", aggiornata: this.o.adesso().getTime() }))
       }
       this.inizioDelGiro ||= Date.now()
-      await this.chiama("POST", `/session/${this.sessione}/prompt_async`, { parts: parti, system: sistema, ...(this.modello ? { model: { providerID: "mango", modelID: this.modello } } : {}) })
+      await this.chiama("POST", `/session/${this.sessione}/prompt_async`, { parts: partiDelMessaggio(messaggio), system: sistema, ...(this.modello ? { model: { providerID: "mango", modelID: this.modello } } : {}) })
       const modello = this.modello
-      await this.registro.cambia(this.id, (r) => ({ sessione: r?.sessione ?? this.sessione ?? "", modello, titolo: r?.titolo ?? "Mango Animation", aggiornata: this.o.adesso().getTime() }))
+      await this.registro.cambia(this.a.id, (r) => ({ sessione: r?.sessione ?? this.sessione ?? "", modello, titolo: r?.titolo ?? "Mango Animation", aggiornata: this.o.adesso().getTime() }))
     }
-  }
-
-  /** Il metodo è la cartella in più che la conversazione dà a Claude Code (`aperturaDelMetodo`). */
-  private get metodo(): string {
-    return this.opzioni.additionalDirectories?.[0] ?? this.cartella
   }
 
   /** La cartella del metodo come cartella in più di Mango Code: vale finché è acceso, e dichiararla di nuovo non cambia niente. */
   private async dichiaraIlMetodo(): Promise<void> {
-    if (this.metodo === this.cartella) return
+    if (this.metodo === this.a.lavoro) return
     // Un Mango Code senza le cartelle in più non ha la rotta: è vecchio. Ogni altro errore è di quel momento.
     await this.chiama("PUT", "/mango/extra-folders", { folders: [this.metodo] }, (stato) =>
-        stato === 404 || stato === 405
-          ? frase("Questa versione di Mango Code è troppo vecchia: aggiornala.", "This version of Mango Code is too old: update it.")
-          : frase("Mango Code non ha preso il metodo del prodotto: riprova.", "Mango Code did not take the method of the product: try again."))
+      stato === 404 || stato === 405
+        ? frase("Questa versione di Mango Code è troppo vecchia: aggiornala.", "This version of Mango Code is too old: update it.")
+        : frase("Mango Code non ha preso il metodo del prodotto: riprova.", "Mango Code did not take the method of the product: try again."),
+    )
   }
 
-  /** Lo strumento «video» passato alla cartella, come a Claude Code (il server MCP resta finché Mango Code è acceso). */
+  /** Lo strumento «video» passato alla cartella (il server MCP resta finché Mango Code è acceso). */
   private async aggiungiGliStrumenti(): Promise<void> {
     // Uno strumento già collegato non si registra di nuovo: per Mango Code sarebbe un client nuovo, e la sessione terrebbe quello chiuso.
     const presenti = await this.chiama("GET", "/mcp")
-    for (const [nome, config] of Object.entries(this.opzioni.mcpServers ?? {})) {
+    for (const [nome, config] of Object.entries(serverVideo(this.a.codice, this.a.lavoro))) {
       const presente = eOggetto(presenti) ? presenti[nome] : undefined
       if (eOggetto(presente) && presente["status"] === "connected") continue
-      if (!("command" in config) || typeof config.command !== "string") continue
-      const args = "args" in config && Array.isArray(config.args) ? config.args : []
-      const environment = "env" in config && config.env ? config.env : {}
-      await this.chiama("POST", "/mcp", { name: nome, config: { type: "local", enabled: true, command: [config.command, ...args], environment } })
+      await this.chiama("POST", "/mcp", { name: nome, config: { type: "local", enabled: true, command: [config.command, ...(config.args ?? [])], environment: config.env ?? {} } })
     }
   }
 
   private async ascolta(): Promise<void> {
     if (!this.servizio) return
-    const r = await fetch(`${this.servizio.agente}/event?directory=${encodeURIComponent(this.cartella)}`, { headers: CHI_CHIAMA, signal: this.fine.signal }).catch((errore: unknown) => {
+    const r = await fetch(`${this.servizio.agente}/event?directory=${encodeURIComponent(this.a.lavoro)}`, { headers: CHI_CHIAMA, signal: this.fine.signal }).catch((errore: unknown) => {
       // Gli eventi chiusi apposta (la conversazione si chiude) non sono un Mango Code che non si raggiunge.
       if (this.fine.signal.aborted) throw errore
       return nonSiRaggiunge(errore)
@@ -339,7 +264,13 @@ class QueryMangoCode implements QueryChat {
           for (const riga of blocco.split("\n")) {
             if (!riga.startsWith("data: ")) continue
             const evento = JSON.parse(riga.slice(6)) as unknown
-            if (eOggetto(evento)) await this.evento(evento)
+            if (!eOggetto(evento)) continue
+            try {
+              this.evento(evento)
+            } catch (errore) {
+              // Un errore di chi riceve gli eventi non è Mango Code che chiude il collegamento: arriva alla conversazione com'è.
+              return this.rompi(errore instanceof Error ? errore : new Error(String(errore)))
+            }
           }
         }
       }
@@ -351,27 +282,22 @@ class QueryMangoCode implements QueryChat {
     })
   }
 
-  private indice(messaggioId: string, parte: string): number {
-    if (this.messaggioCorrente !== messaggioId) {
-      this.messaggioCorrente = messaggioId
-      this.indici.clear()
-      this.emetti({ type: "stream_event", parent_tool_use_id: null, event: { type: "message_start", message: { id: messaggioId } } })
-    }
-    const gia = this.indici.get(parte)
-    if (gia !== undefined) return gia
-    const nuovo = this.indici.size
-    this.indici.set(parte, nuovo)
-    return nuovo
+  /** Mango Code sta scrivendo un messaggio: se è diverso dall'ultimo, la chat lo sa. */
+  private inMessaggio(messaggioId: string): void {
+    if (this.messaggioCorrente === messaggioId) return
+    this.messaggioCorrente = messaggioId
+    this.messaggi++
+    this.a.evento({ tipo: "attivo" })
   }
 
   private pezzo(messaggioId: string, parte: string, tipo: string, testo: string): void {
     if (testo === "") return
-    const delta = tipo === "reasoning" ? { type: "thinking_delta", thinking: testo } : { type: "text_delta", text: testo }
-    this.emetti({ type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_delta", index: this.indice(messaggioId, parte), delta } })
+    this.inMessaggio(messaggioId)
+    this.a.evento({ tipo: tipo === "reasoning" ? "pensiero" : "testo", voce: `${this.messaggi}:${parte}`, pezzo: testo })
     this.scritto.set(parte, (this.scritto.get(parte) ?? 0) + testo.length)
   }
 
-  private async evento(e: Oggetto): Promise<void> {
+  private evento(e: Oggetto): void {
     const p = eOggetto(e["properties"]) ? e["properties"] : {}
     const info = eOggetto(p["info"]) ? p["info"] : null
     const parte = eOggetto(p["part"]) ? p["part"] : null
@@ -380,12 +306,10 @@ class QueryMangoCode implements QueryChat {
     switch (e["type"]) {
       case "message.updated": {
         if (info && typeof info["id"] === "string" && typeof info["role"] === "string") this.ruoli.set(info["id"], eRiassunto(info) ? "riassunto" : info["role"])
-        // I token di un passo finito, nel conto dell'API di Claude che arriva coi pezzi: la conversazione ne ricava il contesto usato.
-        const usage = info?.["role"] === "assistant" ? usageDai(info) : null
-        const usati = contestoDaUsage(usage)
-        if (usage && usati !== null) {
+        const usati = info?.["role"] === "assistant" ? contestoDelPasso(info) : null
+        if (usati !== null) {
           this.ultimoContesto = usati
-          this.emetti({ type: "stream_event", parent_tool_use_id: null, event: { type: "message_delta", usage } })
+          this.a.evento({ tipo: "contesto", usati })
         }
         return
       }
@@ -406,24 +330,18 @@ class QueryMangoCode implements QueryChat {
       case "session.error": {
         const errore = eOggetto(p["error"]) ? p["error"] : {}
         const dati = eOggetto(errore["data"]) ? errore["data"] : {}
-        const frase = typeof dati["message"] === "string" ? dati["message"] : typeof errore["name"] === "string" ? errore["name"] : "errore senza dettagli"
-        this.erroreDelGiro = frase
+        this.erroreDelGiro = typeof dati["message"] === "string" ? dati["message"] : typeof errore["name"] === "string" ? errore["name"] : "errore senza dettagli"
         return
       }
       case "session.compacted":
         // Il contesto nuovo si sa solo a fine del passo dopo: intanto il vecchio non vale più.
-        this.emetti({ type: "system", subtype: "compact_boundary", compact_metadata: { trigger: "auto", pre_tokens: this.ultimoContesto } })
+        this.a.evento({ tipo: "riassunto" })
         this.ultimoContesto = 0
         return
       case "session.idle":
         return this.fineDelGiro()
     }
   }
-
-  private readonly tipi = new Map<string, string>()
-  private erroreDelGiro: string | null = null
-  private ultimoContesto = 0
-  private contestoDelModello: { modello: string; contesto: number } | null = null
 
   private parte(parte: Oggetto): void {
     const id = typeof parte["id"] === "string" ? parte["id"] : ""
@@ -445,13 +363,13 @@ class QueryMangoCode implements QueryChat {
     if (nome === "AskUserQuestion" || stato["status"] === "pending") return
     if (!this.avviati.has(chiamata)) {
       this.avviati.add(chiamata)
-      const indice = this.indice(messaggioId, id)
-      this.emetti({ type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_start", index: indice, content_block: { type: "tool_use", id: chiamata, name: nome, input: eOggetto(stato["input"]) ? stato["input"] : {} } } })
+      this.inMessaggio(messaggioId)
+      this.a.evento({ tipo: "strumento", id: chiamata, nome, ingresso: eOggetto(stato["input"]) ? stato["input"] : {} })
     }
     if (stato["status"] === "completed" || stato["status"] === "error") {
       const errore = stato["status"] === "error"
-      const esito = errore ? String(stato["error"] ?? "errore") : typeof stato["output"] === "string" ? stato["output"] : JSON.stringify(stato["output"] ?? "")
-      this.emetti({ type: "user", parent_tool_use_id: null, message: { role: "user", content: [{ type: "tool_result", tool_use_id: chiamata, content: esito, is_error: errore }] } })
+      const testo = errore ? String(stato["error"] ?? "errore") : typeof stato["output"] === "string" ? stato["output"] : JSON.stringify(stato["output"] ?? "")
+      this.a.evento({ tipo: "esito", id: chiamata, esito: { testo, errore, immagini: [] } })
     }
   }
 
@@ -460,110 +378,117 @@ class QueryMangoCode implements QueryChat {
     if (this.inizioDelGiro === 0) return
     const durata = Date.now() - this.inizioDelGiro
     this.inizioDelGiro = 0
-    const errore = this.erroreDelGiro
+    const causa = this.erroreDelGiro
     this.erroreDelGiro = null
     this.messaggioCorrente = null
-    this.emetti(errore ? { type: "result", subtype: "error_during_execution", is_error: true, errors: [errore], duration_ms: durata } : { type: "result", subtype: "success", is_error: false, result: "", duration_ms: durata })
+    this.a.evento({ tipo: "fine", errore: causa ? { codice: "errore", causa } : null, durata_ms: durata, inCoda: 0 })
   }
 
-  /** Una domanda di Mango Code diventa quella di Claude Code (AskUserQuestion), coi bottoni della chat. */
-  private async domanda(p: Oggetto): Promise<void> {
+  /** Una domanda di Mango Code diventa i bottoni della chat; una scritta male si rifiuta. */
+  private domanda(p: Oggetto): void {
     const id = typeof p["id"] === "string" ? p["id"] : ""
     const domande = Array.isArray(p["questions"]) ? p["questions"].filter(eOggetto) : []
-    const ingresso = {
-      questions: domande.map((d) => ({
-        question: d["question"],
-        header: typeof d["header"] === "string" ? d["header"] : "",
-        multiSelect: d["multiple"] === true,
-        options: (Array.isArray(d["options"]) ? d["options"].filter(eOggetto) : []).map((o) => ({ label: o["label"], description: typeof o["description"] === "string" ? o["description"] : "" })),
-      })),
-    }
-    const chiedi = this.opzioni.canUseTool
-    if (!chiedi) return void (await this.chiama("POST", `/question/${id}/reject`))
-    void chiedi("AskUserQuestion", ingresso, { signal: this.fine.signal, toolUseID: id, requestId: id })
-      .then((r) => (r?.behavior === "allow" ? this.chiama("POST", `/question/${id}/reply`, { answers: risposteDi(domande, r.updatedInput?.["answers"]) }) : this.chiama("POST", `/question/${id}/reject`)))
+    const lette = domandeDa(domande)
+    const risposta: Promise<RispostaAlMotore> = lette === null ? Promise.resolve({ consente: false, motivo: "", ferma: false }) : this.a.chiedi({ tipo: "domanda", id, domande: lette }, this.fine.signal)
+    void risposta
+      .then((r) => (r.consente ? this.chiama("POST", `/question/${id}/reply`, { answers: risposteDi(domande, r.risposte) }) : this.chiama("POST", `/question/${id}/reject`)))
       // Una domanda che non c'è più (risposta dalla finestra di Mango Code, o dopo un suo riavvio) non rompe la conversazione.
-      .catch((errore: unknown) => console.error(`chat di Mango Code: la risposta alla domanda ${id} non è arrivata: ${errore instanceof Error ? errore.message : String(errore)}`))
+      .catch((errore: unknown) => console.error(`chat di Mango Code: la risposta alla domanda ${id} non è arrivata: ${dettaglioDi(errore)}`))
   }
 
   /** Un permesso chiesto da Mango Code (solo se le regole della conversazione lo vogliono): la chat lo mostra coi suoi bottoni. */
-  private async permesso(p: Oggetto): Promise<void> {
+  private permesso(p: Oggetto): void {
     const id = typeof p["id"] === "string" ? p["id"] : ""
-    const chiedi = this.opzioni.canUseTool
     const strumento = nomeDelloStrumento(typeof p["permission"] === "string" ? p["permission"] : "strumento")
-    if (!chiedi) return void (await this.chiama("POST", `/permission/${id}/reply`, { reply: "reject" }))
-    void chiedi(strumento, { patterns: p["patterns"] ?? [] }, { signal: this.fine.signal, toolUseID: id, requestId: id })
-      .then((r) => this.chiama("POST", `/permission/${id}/reply`, r?.behavior === "allow" ? { reply: "once" } : { reply: "reject", ...(r ? { message: r.message } : {}) }))
-      .catch((errore: unknown) => console.error(`chat di Mango Code: la risposta al permesso ${id} non è arrivata: ${errore instanceof Error ? errore.message : String(errore)}`))
+    void this.a
+      .chiedi({ tipo: "permesso", id, strumento, ingresso: { patterns: p["patterns"] ?? [] } }, this.fine.signal)
+      .then((r) => this.chiama("POST", `/permission/${id}/reply`, r.consente ? { reply: "once" } : { reply: "reject", message: r.motivo }))
+      .catch((errore: unknown) => console.error(`chat di Mango Code: la risposta al permesso ${id} non è arrivata: ${dettaglioDi(errore)}`))
   }
 
-  [Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
-    return {
-      next: async (): Promise<IteratorResult<SDKMessage>> => {
-        for (;;) {
-          const primo = this.uscita.shift()
-          if (primo) return { value: primo, done: false }
-          if (this.errore) throw this.errore
-          if (this.chiusa) return { value: undefined, done: true }
-          await new Promise<void>((risolvi) => {
-            this.sveglia = risolvi
-          })
-          this.sveglia = null
-        }
-      },
+  scrivi(messaggio: MessaggioPerIlMotore): void {
+    if (this.chiusa) return
+    if (!this.sveglia) {
+      this.coda.push(messaggio)
+      return
     }
+    const consegna = this.sveglia
+    this.sveglia = null
+    consegna(messaggio)
   }
 
-  interrupt = async (): Promise<unknown> => (this.sessione ? this.chiama("POST", `/session/${this.sessione}/abort`, undefined, () => frase("Mango Code non ha fermato il lavoro: riprova.", "Mango Code did not stop the job: try again.")) : null)
+  async ferma(): Promise<void> {
+    if (this.sessione) await this.chiama("POST", `/session/${this.sessione}/abort`, undefined, () => frase("Mango Code non ha fermato il lavoro: riprova.", "Mango Code did not stop the job: try again."))
+  }
 
-  close = (): void => {
+  chiudi(): void {
     this.chiusa = true
     this.fine.abort()
-    this.sveglia?.()
+    this.sveglia?.(null)
+    this.sveglia = null
+    this.conclusione.resolve()
   }
 
-  setModel = async (modello?: string): Promise<void> => {
-    if (!eDiMangoCode(modello)) throw new ErroreChat(400, frase("Una conversazione di Mango Code resta di Mango Code: per Claude apri una conversazione nuova.", "A Mango Code conversation stays with Mango Code: to use Claude, start a new conversation."))
-    this.modello = (modello ?? "").slice(PREFISSO.length)
+  async cambiaModello(modello: string): Promise<void> {
+    this.modello = modello.slice(PREFISSO.length)
   }
 
-  applyFlagSettings = async (impostazioni: { effortLevel: string | null }): Promise<void> => {
-    if (impostazioni.effortLevel !== null) throw new ErroreChat(400, frase("Mango Code non ha livelli di effort.", "Mango Code has no effort levels."))
-  }
-
-  supportedModels = async (): Promise<never[]> => []
-
-  supportedCommands = async (): Promise<never[]> => []
-
-  stopTask = async (): Promise<void> => {
-    throw new ErroreChat(400, frase("Mango Code non ha lavori da fermare uno per uno: usa «Ferma».", "Mango Code has no jobs to stop one by one: use «Stop»."))
-  }
-
-  backgroundTasks = async (): Promise<boolean> => false
-
-  /** Il contesto dell'ultima risposta e quello del modello acceso, scritto nei modelli di Mango Code (0 se non si sa). */
-  getContextUsage = async (): Promise<MisuraDelContesto> => {
+  /** Il contesto dell'ultima risposta e quello del modello acceso, scritto nei modelli di Mango Code. */
+  async misuraIlContesto(): Promise<ContestoUsato | null> {
     // La misura del modello si chiede una volta per modello: non cambia finché il modello è lo stesso.
     if (this.servizio && this.contestoDelModello?.modello !== this.modello) {
-      this.contestoDelModello = { modello: this.modello, contesto: (await contestiDeiModelli(this.servizio, this.cartella)).get(this.modello) ?? 0 }
+      this.contestoDelModello = { modello: this.modello, contesto: (await contestiDeiModelli(this.servizio, this.a.lavoro)).get(this.modello) ?? 0 }
     }
-    return { totalTokens: this.ultimoContesto, rawMaxTokens: this.contestoDelModello?.contesto ?? 0 }
+    if (this.ultimoContesto === 0) return null
+    const finestra = this.contestoDelModello?.contesto ?? 0
+    return { usati: this.ultimoContesto, totale: finestra > 0 ? finestra : null }
   }
 }
 
-/** Mango Code per la chat: la sua `query`, i suoi modelli e le sue conversazioni come quelle di Claude Code. */
-export class MangoCode {
-  readonly registro: RegistroMangoCode
+const CAPACITA: CapacitaDelMotore = {
+  effort: false,
+  comandi: true,
+  fermaLavoro: false,
+  inBackground: false,
+  immaginiNegliEsiti: false,
+  controlloRemoto: false,
+  sottoagenti: false,
+  browser: false,
+  strumentoDelleDomande: true,
+}
+
+/** Mango Code per la chat: le sue conversazioni, i suoi modelli e le conversazioni che tiene. */
+export class MangoCode implements Motore {
+  readonly id = "mango-code"
+  readonly nomi: NomiDelMotore = { programma: "Mango Code", servizio: "Mango Code", menu: "Mango Code", comando: null, nelleFrasi: "Mango Code" }
+  readonly prefisso = PREFISSO
+  readonly capacita = CAPACITA
+  private readonly registro: RegistroDelMotore
   private readonly voci: VociSpente
 
   constructor(private readonly o: OpzioniMangoCode) {
-    this.registro = new RegistroMangoCode(o.archivio)
+    this.registro = new RegistroDelMotore(o.archivio, this.id, this.nomi.programma)
     this.voci = new VociSpente(o.archivio)
   }
 
-  readonly query: FunzioneQuery = ({ prompt, options }) => new QueryMangoCode(this.o, this.registro, this.voci, options, prompt)
+  async pronto(): Promise<boolean> {
+    return (await statoDiMangoCode(this.o.dati)).stato === "pronto"
+  }
 
-  /** I modelli di Mango Code se è acceso, altrimenti nessuno (la chat offre solo quelli di Claude Code). */
+  apri(apertura: Apertura): SessioneMotore {
+    return new SessioneDiMangoCode(this.o, this.registro, this.voci, apertura)
+  }
+
+  /** Mango Code non ha comandi suoi da mostrare: quelli che scrive il creator arrivano com'è. */
+  async comandi(): Promise<ComandoChat[]> {
+    return []
+  }
+
+  modelloGrande(): null {
+    return null
+  }
+
+  /** I modelli di Mango Code se è acceso, altrimenti nessuno (la chat offre solo quelli degli altri motori). */
   async modelli(cartella: string): Promise<ModelloChat[]> {
     const s = await trovaMangoCode(this.o.dati)
     if (!s) return []
@@ -579,7 +504,7 @@ export class MangoCode {
           unisci(["Mango Code, sul computer", k ? `${k}k di contesto` : null, immagini ? "vede le immagini" : "non vede le immagini"]),
           unisci(["Mango Code, on this computer", k ? `${k}k of context` : null, immagini ? "sees images" : "does not see images"]),
         )
-        return [{ id: `${PREFISSO}${m["id"]}`, nome: `Mango Code · ${nome}`, descrizione, effort: [], reale: `${PREFISSO}${m["id"]}` }]
+        return [{ id: `${PREFISSO}${m["id"]}`, nome: `Mango Code · ${nome}`, descrizione, motore: this.id, effort: [], reale: `${PREFISSO}${m["id"]}` }]
       })
     } catch (errore) {
       console.error(`chat di Mango Code: non riesco a leggere i suoi modelli: ${dettaglioDi(errore)}`)
@@ -591,16 +516,30 @@ export class MangoCode {
    * Avvisa quando Mango Code si accende o si spegne (scrive e toglie `service.json`): i suoi modelli sono da rileggere. `null` se
    * Mango Code non c'è su questo computer (la sua cartella dei dati manca).
    */
-  osserva(alCambio: () => void): { chiudi: () => void } | null {
+  osservaAccensione(alCambio: () => void): { chiudi: () => void } | null {
+    // Una scrittura dà più notifiche, e l'ultima può arrivare a osservatore già partito: avvisa solo se il file è cambiato.
+    // `undefined` è un file che non si è potuto leggere: non si sa, quindi si avvisa.
+    const leggi = (): Promise<string | null | undefined> => leggiTesto(join(this.o.dati, "service.json")).catch(() => undefined)
+    let visto = leggi()
     try {
-      return osserva(this.o.dati, { ricorsivo: false, rimbalzoMs: 200, ignora: (relativo) => relativo !== "service.json", alCambio: async () => alCambio() })
+      return osserva(this.o.dati, {
+        ricorsivo: false,
+        rimbalzoMs: 200,
+        ignora: (relativo) => relativo !== "service.json",
+        alCambio: async () => {
+          const prima = await visto
+          const ora = await leggi()
+          visto = Promise.resolve(ora)
+          if (ora === undefined || ora !== prima) alCambio()
+        },
+      })
     } catch {
       return null
     }
   }
 
   /** La misura del contesto del modello di una sua conversazione; `null` se Mango Code è spento o non la dice. */
-  async contestoDi(id: string, cartella: string): Promise<number | null> {
+  private async contestoDi(id: string, cartella: string): Promise<number | null> {
     const ricordo = await this.registro.di(id)
     const s = ricordo ? await trovaMangoCode(this.o.dati) : null
     if (!ricordo || !s) return null
@@ -612,8 +551,8 @@ export class MangoCode {
     }
   }
 
-  async eSua(id: string): Promise<boolean> {
-    return (await this.registro.di(id)) !== undefined
+  eSua(id: string): Promise<boolean> {
+    return this.registro.eSua(id)
   }
 
   /** Il modello di una sua conversazione (`mango-code/<chiave>`), anche chiusa; `null` se non è sua. */
@@ -623,22 +562,34 @@ export class MangoCode {
   }
 
   /** Le conversazioni di Mango Code, dal registro (si vedono anche a Mango Code spento). */
-  async elenca(): Promise<VoceSessione[]> {
-    return Object.entries(await this.registro.tutti()).map(([id, r]) => ({ id, titolo: r.titolo, aggiornata: r.aggiornata }))
+  elenca(): Promise<VoceSessione[]> {
+    return this.registro.voci()
   }
 
-  /** Una conversazione di Mango Code nella forma dei file di Claude Code, così la chat la rilegge allo stesso modo. */
-  async leggi(id: string, cartella: string): Promise<MessaggioSessione[] | null> {
+  /** Una conversazione di Mango Code riletta da Mango Code; `null` se non è nel registro. */
+  async leggi(id: string, dove: { lavoro: string; archivio: string; lingua: Lingua }): Promise<ConversazioneLetta | null> {
     const ricordo = await this.registro.di(id)
     if (!ricordo) return null
     const stato = await statoDiMangoCode(this.o.dati)
     if (stato.stato === "nonPronto") throw new ErroreChat(502, frase("Questa conversazione è di Mango Code, che non è ancora pronto: guarda la sua finestra e riprova.", "This conversation is with Mango Code, which is not ready yet: look at its window and try again."))
     if (stato.stato !== "pronto") throw new ErroreChat(502, frase("Questa conversazione è di Mango Code, che è spento: apri Mango Code per rileggerla.", "This conversation is with Mango Code, which is off: open Mango Code to read it again."))
     const s = stato.servizio
-    const r = await fetch(`${s.agente}/session/${ricordo.sessione}/message?directory=${encodeURIComponent(cartella)}`, { headers: CHI_CHIAMA })
+    const r = await fetch(`${s.agente}/session/${ricordo.sessione}/message?directory=${encodeURIComponent(dove.lavoro)}`, { headers: CHI_CHIAMA })
     if (!r.ok) throw new ErroreChat(502, frase(`Mango Code non dà i messaggi della conversazione (${r.status}).`, `Mango Code does not return the messages of the conversation (${r.status}).`))
     const messaggi = ((await r.json()) as unknown[]).filter(eOggetto)
-    return messaggi.flatMap((m) => righeDi(m))
+    let usati: number | null = null
+    for (const m of messaggi) {
+      const contesto = contestoDelMessaggio(m)
+      if (contesto !== undefined) usati = contesto
+    }
+    return {
+      messaggi: messaggiDalleRighe(
+        messaggi.flatMap((m) => righeDi(m, dove.archivio)),
+        dove.lingua,
+      ),
+      contestoUsato: usati === null ? null : { usati, totale: await this.contestoDi(id, dove.lavoro) },
+      primoGiro: messaggi.some((m) => eAvvio(testoDelCreator(m) ?? "")),
+    }
   }
 }
 
@@ -664,50 +615,67 @@ async function contestiDeiModelli(s: Servizio, cartella: string): Promise<Map<st
   )
 }
 
+const eRiassunto = (info: Oggetto): boolean => info["summary"] === true || info["mode"] === "compaction"
+
 /**
- * I token di un passo di Mango Code nel conto dell'API di Claude; `null` se il passo non è finito (è a zero) o è il riassunto, i cui
- * token sono quelli della richiesta che lo scrive e non il contesto dopo. Il ragionamento conta con l'uscita, come per Claude.
+ * Quanto contesto occupa la conversazione dopo un passo di Mango Code: ciò che ha letto, anche dalla cache, più ciò che ha scritto
+ * (il ragionamento conta con l'uscita). `null` se il passo non è finito (è a zero), se è il riassunto, i cui token sono quelli della
+ * richiesta che lo scrive, o se non dice cosa ha letto.
  */
-function usageDai(info: Oggetto): Oggetto | null {
+function contestoDelPasso(info: Oggetto): number | null {
   const tokens = info["tokens"]
   if (typeof info["finish"] !== "string" || info["summary"] === true || !eOggetto(tokens)) return null
   const cache = eOggetto(tokens["cache"]) ? tokens["cache"] : {}
   const n = (v: unknown): number => (typeof v === "number" ? v : 0)
-  return { input_tokens: n(tokens["input"]), output_tokens: n(tokens["output"]) + n(tokens["reasoning"]), cache_read_input_tokens: n(cache["read"]), cache_creation_input_tokens: n(cache["write"]) }
+  const letti = n(tokens["input"]) + n(cache["read"]) + n(cache["write"])
+  return letti > 0 ? letti + n(tokens["output"]) + n(tokens["reasoning"]) : null
 }
 
-/** Un messaggio di Mango Code come righe del file di Claude Code: il testo del creator, o i blocchi di Claude e gli esiti. */
-export function righeDi(m: Oggetto): MessaggioSessione[] {
-  const info = eOggetto(m["info"]) ? m["info"] : {}
-  const parti = Array.isArray(m["parts"]) ? m["parts"].filter(eOggetto) : []
+const infoDi = (m: Oggetto): Oggetto => (eOggetto(m["info"]) ? m["info"] : {})
+const partiDi = (m: Oggetto): Oggetto[] => (Array.isArray(m["parts"]) ? m["parts"].filter(eOggetto) : [])
+
+/** Il testo di un messaggio del creator, senza le istruzioni che Mango Code vi aggiunge; `null` se il messaggio non è suo. */
+function testoDelCreator(m: Oggetto): string | null {
+  if (typeof infoDi(m)["id"] !== "string" || infoDi(m)["role"] !== "user") return null
+  return partiDi(m)
+    .flatMap((p) => (p["type"] === "text" && p["synthetic"] !== true && typeof p["text"] === "string" ? [p["text"]] : []))
+    .join("\n")
+}
+
+/**
+ * Cosa un messaggio di Mango Code dice del contesto: i token del passo, se è finito e ha qualcosa da mostrare; `null` se è il riassunto
+ * fatto (dopo di lui il contesto non si sa); `undefined` se non dice niente.
+ */
+function contestoDelMessaggio(m: Oggetto): number | null | undefined {
+  const info = infoDi(m)
+  if (typeof info["id"] !== "string" || info["role"] === "user") return undefined
+  if (eRiassunto(info)) return typeof info["finish"] === "string" ? null : undefined
+  const mostrabile = partiDi(m).some((p) => ((p["type"] === "text" || p["type"] === "reasoning") && typeof p["text"] === "string") || p["type"] === "tool")
+  return mostrabile ? (contestoDelPasso(info) ?? undefined) : undefined
+}
+
+/** Un messaggio di Mango Code come righe di una conversazione riletta: il testo del creator, o ciò che Mango Code ha scritto e gli esiti degli strumenti. */
+function righeDi(m: Oggetto, archivio: string): RigaLetta[] {
+  const info = infoDi(m)
   const id = info["id"]
   if (typeof id !== "string") return []
-  const tempo = eOggetto(info["time"]) && typeof info["time"]["created"] === "number" ? new Date(info["time"]["created"]).toISOString() : undefined
-  const comune = { uuid: id, ...(tempo ? { timestamp: tempo } : {}) }
-  if (info["role"] === "user") {
-    const testo = parti.flatMap((p) => (p["type"] === "text" && p["synthetic"] !== true && typeof p["text"] === "string" ? [p["text"]] : [])).join("\n")
-    return testo === "" ? [] : [{ type: "user", ...comune, message: { role: "user", content: testo } }]
-  }
-  const blocchi: Oggetto[] = []
-  const esiti: Oggetto[] = []
-  for (const p of parti) {
-    if (p["type"] === "text" && typeof p["text"] === "string") blocchi.push({ type: "text", text: p["text"] })
-    if (p["type"] === "reasoning" && typeof p["text"] === "string") blocchi.push({ type: "thinking", thinking: p["text"] })
+  const quando = eOggetto(info["time"]) && typeof info["time"]["created"] === "number" ? new Date(info["time"]["created"]).toISOString() : undefined
+  const tempo = quando === undefined ? {} : { quando }
+  const testo = testoDelCreator(m)
+  if (testo !== null) return testo === "" ? [] : [{ tipo: "creator", id, ...tempo, parti: partiDelTestoDelCreator(testo, archivio) }]
+  // Il riassunto fatto, e il passo che riprende ancora no: il contesto di adesso non si sa. Il suo testo è per il modello, non per la chat.
+  if (eRiassunto(info)) return typeof info["finish"] === "string" ? [{ tipo: "riassunto" }] : []
+  const parti: Parte[] = []
+  const esiti: { id: string; esito: EsitoDelloStrumento }[] = []
+  for (const p of partiDi(m)) {
+    if (p["type"] === "text" && typeof p["text"] === "string" && p["text"] !== "") parti.push({ tipo: "testo", testo: p["text"] })
+    if (p["type"] === "reasoning" && typeof p["text"] === "string" && p["text"] !== "") parti.push({ tipo: "pensiero", testo: p["text"] })
     if (p["type"] !== "tool") continue
     const stato = eOggetto(p["state"]) ? p["state"] : {}
     const chiamata = typeof p["callID"] === "string" ? p["callID"] : String(p["id"])
-    const nome = nomeDelloStrumento(typeof p["tool"] === "string" ? p["tool"] : "strumento")
-    blocchi.push({ type: "tool_use", id: chiamata, name: nome, input: eOggetto(stato["input"]) ? stato["input"] : {} })
-    if (stato["status"] === "completed") esiti.push({ type: "tool_result", tool_use_id: chiamata, content: typeof stato["output"] === "string" ? stato["output"] : "", is_error: false })
-    if (stato["status"] === "error") esiti.push({ type: "tool_result", tool_use_id: chiamata, content: String(stato["error"] ?? "errore"), is_error: true })
+    parti.push({ tipo: "strumento", id: chiamata, nome: nomeDelloStrumento(typeof p["tool"] === "string" ? p["tool"] : "strumento"), ingresso: eOggetto(stato["input"]) ? stato["input"] : {}, ...(quando === undefined ? {} : { iniziato: quando }) })
+    if (stato["status"] === "completed") esiti.push({ id: chiamata, esito: { testo: typeof stato["output"] === "string" ? stato["output"] : "", errore: false, immagini: [] } })
+    if (stato["status"] === "error") esiti.push({ id: chiamata, esito: { testo: String(stato["error"] ?? "errore"), errore: true, immagini: [] } })
   }
-  // Il riassunto fatto, e il passo che riprende ancora no: il contesto di adesso non si sa. Il suo testo è per il modello, non per la chat.
-  if (eRiassunto(info)) return typeof info["finish"] === "string" ? [{ type: "system", subtype: "compact_boundary", uuid: `${id}-riassunto`, message: null }] : []
-  const usage = usageDai(info)
-  return [
-    ...(blocchi.length > 0 ? [{ type: "assistant", ...comune, message: { role: "assistant", content: blocchi, ...(usage ? { usage } : {}) } }] : []),
-    ...(esiti.length > 0 ? [{ type: "user", uuid: `${id}-esiti`, ...(tempo ? { timestamp: tempo } : {}), message: { role: "user", content: esiti } }] : []),
-  ]
+  return [{ tipo: "motore", id, ...tempo, parti }, ...(esiti.length > 0 ? [{ tipo: "esiti" as const, ...tempo, esiti }] : [])]
 }
-
-const eRiassunto = (info: Oggetto): boolean => info["summary"] === true || info["mode"] === "compaction"

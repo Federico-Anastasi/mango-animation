@@ -1,4 +1,4 @@
-// Il metodo come plugin di Claude Code (`docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude»): manifesto, skill, hook di avvio e server MCP «video» fuori dall'app.
+// Il metodo come plugin di Claude Code (`docs/METODO.md`): manifesto, skill, hook di avvio e server MCP «video» fuori dall'app.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { afterAll, describe, expect, test } from "bun:test"

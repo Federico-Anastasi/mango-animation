@@ -4,19 +4,32 @@
   <meta charset="utf-8">
   <title>Mango Animation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="suite/tokens.css">
   <link rel="stylesheet" href="stile.css">
 </head>
 <body>
   <main id="schermo">
-    <div class="corpo">
-      <div id="giro" class="giro" aria-hidden="true"></div>
-      <h1 id="titolo"></h1>
-      <p id="dettaglio"></p>
+    <div id="corpo" class="corpo attesa">
+      <div class="marchio" aria-hidden="true">
+        <span class="mango"></span>
+        <span class="scritta"><span id="marchio-mango"></span><span id="marchio-prodotto"></span></span>
+      </div>
+      <div class="testa">
+        <h1 id="titolo"></h1>
+        <p id="dettaglio"></p>
+      </div>
+      <progress id="tappe" hidden></progress>
+      <progress id="avanzamento" hidden></progress>
       <pre id="log" hidden></pre>
-      <p id="abbonamento" hidden><span id="abbonamento-testo"></span> <a id="piani-link" href="https://claude.com/pricing" target="_blank"></a></p>
-      <section id="cartella" class="cartella" hidden>
-        <p id="cartella-percorso" class="percorso"></p>
-        <p id="cartella-spazio" class="spazio"></p>
+      <section id="motori-gruppo" class="gruppo" hidden>
+        <h2 id="motori-titolo" class="sezione"></h2>
+        <ul id="motori" class="carta" hidden></ul>
+      </section>
+      <section id="cartella" class="gruppo" hidden>
+        <div class="carta">
+          <p id="cartella-percorso" class="percorso"></p>
+          <p id="cartella-spazio" class="spazio"></p>
+        </div>
         <p id="cartella-onedrive" class="avviso" hidden></p>
         <div id="cartella-altre-gruppo" class="gruppo" hidden>
           <h2 id="cartella-altre-titolo" class="sezione"></h2>
@@ -24,9 +37,11 @@
         </div>
         <pre id="cartella-errore" hidden></pre>
       </section>
-      <section id="spostamento" class="cartella" hidden>
-        <p id="spostamento-da" class="percorso"></p>
-        <p id="spostamento-a" class="percorso"></p>
+      <section id="spostamento" class="gruppo" hidden>
+        <div class="carta">
+          <p id="spostamento-da" class="percorso"></p>
+          <p id="spostamento-a" class="percorso"></p>
+        </div>
         <progress id="spostamento-barra"></progress>
         <p id="spostamento-conti" class="spazio"></p>
       </section>
@@ -34,11 +49,11 @@
         <p id="macchina" class="macchina"></p>
         <div id="funzioni-gruppo" class="gruppo">
           <h2 id="funzioni-titolo" class="sezione"></h2>
-          <div id="funzioni" class="funzioni" role="group" aria-labelledby="funzioni-titolo"></div>
+          <div id="funzioni" class="carta" role="group" aria-labelledby="funzioni-titolo"></div>
         </div>
         <div id="comuni-gruppo" class="gruppo" hidden>
           <h2 id="comuni-titolo" class="sezione"></h2>
-          <ul id="comuni" class="comuni" aria-labelledby="comuni-titolo"></ul>
+          <ul id="comuni" class="carta" aria-labelledby="comuni-titolo"></ul>
         </div>
         <ul id="avvisi" class="avvisi"></ul>
         <pre id="errore-computer" hidden></pre>
@@ -48,11 +63,10 @@
           <p id="nota" class="nota"></p>
         </details>
       </section>
-      <progress id="avanzamento" hidden></progress>
       <div class="azioni">
         <div id="riepilogo" class="riepilogo" hidden>
           <div>
-            <span id="totale-etichetta" class="etichetta"></span>
+            <span id="totale-etichetta" class="chiave"></span>
             <strong id="totale"></strong>
           </div>
           <div class="destra">
@@ -64,44 +78,41 @@
           <button id="riprova" type="button" hidden></button>
           <button id="ricrea" type="button" hidden></button>
           <button id="scegli" type="button" hidden></button>
-          <button id="installa" type="button" hidden></button>
-          <button id="accedi" type="button" hidden></button>
           <button id="sposta-riprova" type="button" hidden></button>
-          <button id="sposta-continua" type="button" class="secondario" hidden></button>
+          <button id="sposta-continua" type="button" hidden></button>
           <button id="usa-cartella" type="button" hidden></button>
-          <button id="scegli-altra" type="button" class="secondario" hidden></button>
-          <button id="ricontrolla" type="button" class="secondario" hidden></button>
+          <button id="scegli-altra" type="button" hidden></button>
+          <button id="ricontrolla" type="button" hidden></button>
           <button id="prepara" type="button" hidden></button>
           <button id="aggiorna" type="button" hidden></button>
-          <button id="dopo" type="button" class="secondario" hidden></button>
-          <button id="annulla" type="button" class="secondario" hidden></button>
-          <button id="avanti" type="button" class="secondario" hidden></button>
+          <button id="dopo" type="button" hidden></button>
+          <button id="annulla" type="button" hidden></button>
+          <button id="avanti" type="button" hidden></button>
         </div>
       </div>
-      <div id="alternativa" class="alternativa" hidden>
-        <p id="alternativa-testo"></p>
-        <pre id="comando"></pre>
-        <button id="copia" type="button" class="secondario"></button>
-      </div>
-      <p id="guida" hidden><a id="guida-link" href="https://code.claude.com/docs/en/setup" target="_blank"></a></p>
-      <button id="segnala" type="button" class="secondario"></button>
       <section id="segnalazione" hidden aria-labelledby="segnalazione-titolo">
         <h2 id="segnalazione-titolo" class="sezione"></h2>
         <label for="segnala-nota" id="segnala-nota-etichetta"></label>
         <textarea id="segnala-nota" rows="3"></textarea>
-        <label id="segnala-schermata-riga" class="funzione" hidden>
-          <input id="segnala-schermata" type="checkbox">
-          <span id="segnala-schermata-nome" class="nome"></span>
-          <span id="segnala-schermata-cosa" class="cosa"></span>
+        <label id="segnala-schermata-riga" class="riga interruttore" hidden>
+          <span class="testo">
+            <span id="segnala-schermata-nome" class="nome"></span>
+            <span id="segnala-schermata-cosa" class="cosa"></span>
+          </span>
+          <input id="segnala-schermata" type="checkbox" role="switch">
         </label>
         <p id="segnala-registri" class="nota"></p>
         <p id="segnala-esito" role="status"></p>
         <div class="bottoni">
           <button id="segnala-invia" type="button"></button>
-          <button id="segnala-chiudi" type="button" class="secondario"></button>
+          <button id="segnala-chiudi" type="button" class="minore"></button>
         </div>
       </section>
     </div>
+    <footer class="piede">
+      <span id="versione"></span>
+      <button id="segnala" type="button" class="minore"></button>
+    </footer>
   </main>
   <script src="app.js"></script>
 </body>

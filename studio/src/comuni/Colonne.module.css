@@ -54,7 +54,7 @@
   left: 50%;
   width: 2px;
   transform: translateX(-50%);
-  background: var(--filo);
+  background: var(--mango-line);
   opacity: 0;
   transition: opacity 0.12s;
 }
@@ -67,7 +67,7 @@
 
 .maniglia:focus-visible::before,
 .colonne[data-in-movimento="true"] .maniglia::before {
-  background: var(--inchiostro);
+  background: var(--mango-text);
 }
 
 .colonne[data-in-movimento="true"] {

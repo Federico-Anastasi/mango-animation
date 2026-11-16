@@ -37,19 +37,18 @@ export function paginaCarica(chiave: string, lingua: Lingua): string {
 <meta name="referrer" content="no-referrer"><title>${t("titolo")}</title>
 <style>
 ${STILE_BASE}
-h1{font-size:26px;margin:0 0 12px}p{margin:8px 0}.piccolo{color:var(--grigio);font-size:15px}
-.scegli{position:relative;display:block;width:100%;padding:18px 14px;border-radius:10px;background:var(--rosso);color:#fff;font-weight:600;font-size:20px;text-align:center;cursor:pointer;margin:16px 0}
+.scegli{position:relative;margin:16px 0;width:100%;min-height:56px;font-size:18px}
 .scegli input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 ul{list-style:none;margin:20px 0 0;padding:0}
-li{border-top:1px solid var(--filo);padding:14px 0}
+li{border-top:1px solid var(--mango-line);padding:14px 0}
 li b{display:block;font-weight:600;overflow-wrap:anywhere}
-.barra{height:10px;border-radius:5px;background:var(--scura);overflow:hidden;margin:8px 0 6px}
-.barra i{display:block;height:100%;width:0;background:var(--inchiostro)}
-.dati{color:var(--grigio);font-size:15px}
-.ok .barra i{background:#2E8B57}.no .dati{color:var(--rosso);font-weight:600}
+.barra{height:6px;border-radius:var(--mango-radius-full);background:var(--mango-raised);overflow:hidden;margin:8px 0 6px}
+.barra i{display:block;height:100%;width:0;background:linear-gradient(to right,var(--mango-action),var(--mango-action-end))}
+.dati{color:var(--mango-text-muted);font-size:14px}
+.ok .dati{color:var(--mango-ready)}.no .dati{color:var(--mango-error);font-weight:600}
 </style></head><body>
 <h1>${t("titolo")}</h1>
-<label class="scegli">${t("scegli")}<input id="scelta" type="file" accept="${SCEGLIBILI}" multiple></label>
+<label class="scegli bottone principale">${t("scegli")}<input id="scelta" type="file" accept="${SCEGLIBILI}" multiple></label>
 <p class="piccolo">${t("opzioni")}</p>
 <p class="piccolo">${t("schermo")}</p>
 <ul id="elenco"></ul>

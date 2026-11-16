@@ -136,13 +136,13 @@ export function PaginaVideo({ slug, scheda, parametri }: { slug: string; scheda:
               ))}
             </select>
           </label>
-          <Bottone variante="vuoto" onClick={() => api.apri(`video/${slug}`).catch((e: Error) => setErrore(e.message))}>
+          <Bottone onClick={() => api.apri(`video/${slug}`).catch((e: Error) => setErrore(e.message))}>
             <Icona nome="cartella" />
             {t("Apri la cartella", "Open the folder")}
           </Bottone>
           <GuardaDalTelefono />
           {sidaTogliere && !confermaTogli && (
-            <Bottone variante="vuoto" onClick={() => setConfermaTogli(true)}>
+            <Bottone variante="distrugge" onClick={() => setConfermaTogli(true)}>
               <Icona nome="togli" />
               {t("Togli la proposta", "Remove the proposal")}
             </Bottone>
@@ -155,8 +155,8 @@ export function PaginaVideo({ slug, scheda, parametri }: { slug: string; scheda:
               {nellaCartella.length > 0 && t(", e con lei {cose}", ", and with it {cose}", { cose: nellaCartella.join(t(" e ", " and ")) })}
               {t(". Vuoi toglierla?", ". Do you want to remove it?")}
             </span>
-            <Bottone onClick={() => void togli()}>{t("Sì, toglila", "Yes, remove it")}</Bottone>
-            <Bottone variante="vuoto" onClick={() => setConfermaTogli(false)}>
+            <Bottone variante="distrugge" onClick={() => void togli()}>{t("Sì, toglila", "Yes, remove it")}</Bottone>
+            <Bottone variante="minore" onClick={() => setConfermaTogli(false)}>
               {t("No, tienila", "No, keep it")}
             </Bottone>
           </div>

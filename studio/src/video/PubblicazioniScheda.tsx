@@ -81,7 +81,7 @@ export function PubblicazioniScheda({ video, salvaScheda }: PropsScheda) {
                       {t("Apri l'indirizzo", "Open the address")}
                     </a>
                   )}
-                  <Bottone variante="vuoto" etichetta={t("Togli la pubblicazione {n}", "Remove publication {n}", { n: i + 1 })} onClick={() => nonFallire(salva(pubblicazioni.filter((_, j) => j !== i)))}>
+                  <Bottone etichetta={t("Togli la pubblicazione {n}", "Remove publication {n}", { n: i + 1 })} onClick={() => nonFallire(salva(pubblicazioni.filter((_, j) => j !== i)))}>
                     <Icona nome="togli" />
                     {t("Togli", "Remove")}
                   </Bottone>
@@ -103,7 +103,7 @@ export function PubblicazioniScheda({ video, salvaScheda }: PropsScheda) {
           <input type="text" value={indirizzo} onChange={(e) => setIndirizzo(e.target.value)} />
         </label>
         <div className={styles.azioniRiga}>
-          <Bottone variante="vuoto" onClick={aggiungi} etichetta={t("Aggiungi la pubblicazione", "Add the publication")}>
+          <Bottone onClick={aggiungi} etichetta={t("Aggiungi la pubblicazione", "Add the publication")}>
             <Icona nome="piu" />
             {t("Aggiungi", "Add")}
           </Bottone>

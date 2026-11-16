@@ -15,15 +15,15 @@ Parte di `docs/API.md` (le regole comuni: la chiave, gli errori, la lingua).
     { "tipo": "accesso-studio" }         lo studio dalla rete è stato acceso, spento o ha una chiave nuova
     { "tipo": "registrazione" }          una registrazione è partita o finita, o i dispositivi sono stati cercati
     { "tipo": "canale", "canale": "tiktok" }   è cambiato qualcosa sotto archivio/canali/<canale>/ (letture o classifica)
-    { "tipo": "consumi" }                i conti del lavoro di Claude sono cambiati (`docs/api/consumi.md`)
+    { "tipo": "consumi" }                i conti del lavoro in chat sono cambiati (`docs/api/consumi.md`)
     { "tipo": "modelli" }                Mango Code si è acceso o spento: i modelli della chat sono da rileggere (`docs/CHAT.md`, «Mango Code»)
     { "tipo": "comandi" }                i comandi con la barra della chat sono cambiati: da rileggere (`docs/CHAT.md`, «I comandi con la barra»)
     { "tipo": "vai", "video"?, "scheda"?, "percorso"? }   lo studio porta la finestra su quella pagina o su quel file (`POST /api/apri`, `dove: "browser"`, nell'app)
     { "tipo": "profilo" }                `profilo.json` è cambiato e il server ha il profilo nuovo, oppure ora non passa lo schema (`GET /api/profilo`); anche una scrittura di `PUT /api/motori` o di `PUT /api/profilo`
-    { "tipo": "chat", "id": "…", "evento": … }   una conversazione con Claude Code: messaggi, parti, stato, richieste (`docs/CHAT.md`)
+    { "tipo": "chat", "id": "…", "evento": … }   una conversazione con un motore della chat: messaggi, parti, stato, richieste (`docs/CHAT.md`)
 
 Li genera un osservatore su `archivio/`, sui due `stile.json` (del prodotto e del creator), su `profilo.json`, su `motore/schemi/`, sulle cartelle delle
-scene animate e su quella delle conversazioni di Claude Code (per `consumi`): vale anche per ciò che Claude scrive da terminale.
+scene animate e su quella delle conversazioni di Claude Code (per `consumi`): vale anche per ciò che un motore scrive da terminale. I conti di Codex cambiano quando un suo giro finisce nella chat.
 
 `nuovo` e `tolto` dicono che un video compare o sparisce dall'elenco; `piano` arriva anche per i video che
 hanno come `base` quello cambiato. `uscite` arriva una volta sola, quando i file di `uscite/` hanno smesso di

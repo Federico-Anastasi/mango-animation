@@ -1,104 +1,66 @@
-// Una conversazione letta dal suo file: gli stessi messaggi che la chat mostra in diretta, rifatti dalla trascrizione di Claude Code.
-import { daTestoDelCreator } from "./allegati"
-import { eAvvio } from "./primoGiro"
-import { conEsito, contestoDaUsage, partiDeiBlocchi, risultatiDegliStrumenti, uscitaLocale } from "./traduzione"
-import type { MessaggioChat, MessaggioSessione, Parte } from "./tipi"
-import { eOggetto } from "../disco"
+// Una conversazione riletta: gli stessi messaggi che la chat mostra in diretta, rifatti da ciò che il motore ha tenuto.
+// Ogni motore dà le sue righe nella forma di `RigaLetta`.
 import type { Lingua } from "../lingua"
-/** Ciò che Claude Code scrive come messaggio «utente» ma non è un messaggio del creator. */
-const MARCATORI_INTERNI = /^(<(local-command|system-reminder|task-notification)|\[Request interrupted)/
+import { daTestoDelCreator } from "./allegati"
+import type { EsitoDelloStrumento } from "./motore"
+import { eAvvio } from "./primoGiro"
+import { conEsito } from "./traduzione"
+import type { MessaggioChat, Parte } from "./tipi"
 
-const COMANDO = /^\s*<command-name>\s*(\S+?)\s*<\/command-name>(?:[\s\S]*?<command-args>([\s\S]*?)<\/command-args>)?/
+/** Una riga di una conversazione riletta. `quando` è l'istante scritto dal motore, se c'è. */
+export type RigaLetta =
+  /** Un messaggio del creator, con le Parti che la chat mostra; senza Parti non è un messaggio. */
+  | { tipo: "creator"; id: string; quando?: string; parti: Parte[] }
+  /** Ciò che il motore ha scritto o fatto: si aggiunge al suo messaggio del giro. */
+  | { tipo: "motore"; id: string; quando?: string; parti: Parte[] }
+  | { tipo: "esiti"; quando?: string; esiti: { id: string; esito: EsitoDelloStrumento }[] }
+  /** Ciò che ha scritto un comando locale del motore. */
+  | { tipo: "uscita"; id: string; quando?: string; testo: string }
+  /** Il contesto è stato riassunto: come nel terminale, si vede solo ciò che segue l'ultimo riassunto. */
+  | { tipo: "riassunto" }
 
-/** Un comando con la barra com'è scritto nel file («/model sonnet»); `null` se il testo non è un comando. */
-function testoDelComando(testo: string): string | null {
-  const trovato = COMANDO.exec(testo)
-  if (!trovato?.[1]) return null
-  const nome = trovato[1].startsWith("/") ? trovato[1] : `/${trovato[1]}`
-  const argomenti = (trovato[2] ?? "").trim()
-  return argomenti === "" ? nome : `${nome} ${argomenti}`
-}
+/** Le Parti di un messaggio del creator dal testo com'è arrivato al motore; nessuna se è l'avvio del primo giro, che il creator non ha scritto. */
+export const partiDelTestoDelCreator = (testo: string, archivio: string): Parte[] => (eAvvio(testo) ? [] : daTestoDelCreator(testo, archivio))
 
-function testoDi(contenuto: unknown): string {
-  if (typeof contenuto === "string") return contenuto
-  if (!Array.isArray(contenuto)) return ""
-  return contenuto
-    .flatMap((b) => (eOggetto(b) && b["type"] === "text" && typeof b["text"] === "string" ? [b["text"]] : []))
-    .join("\n")
-}
-
-const eRigaDiAvvio = (riga: MessaggioSessione): boolean => riga.type === "user" && eOggetto(riga.message) && eAvvio(testoDi(riga.message["content"]))
-
-/** La conversazione è cominciata con l'avvio del primo giro (`primoGiro.ts`). */
-export const eDelPrimoGiro = (righe: MessaggioSessione[]): boolean => righe.some(eRigaDiAvvio)
-
-/** I token che la conversazione occupava all'ultima risposta scritta nel file; `null` se nessuna lo dice o se dopo l'ultima il contesto è stato riassunto. */
-export function contestoDaSessione(righe: MessaggioSessione[]): number | null {
-  for (const riga of [...righe].reverse()) {
-    if (riga.type === "system" && riga.subtype === "compact_boundary") return null
-    if (riga.type !== "assistant" || !eOggetto(riga.message)) continue
-    const usati = contestoDaUsage(riga.message["usage"])
-    if (usati !== null) return usati
-  }
-  return null
-}
-
-export function messaggiDaSessione(righe: MessaggioSessione[], archivio: string, lingua: Lingua): MessaggioChat[] {
+export function messaggiDalleRighe(righe: RigaLetta[], lingua: Lingua): MessaggioChat[] {
   const messaggi: MessaggioChat[] = []
   const strumenti = new Map<string, { messaggio: MessaggioChat; indice: number }>()
-  let claude: MessaggioChat | null = null
+  let delMotore: MessaggioChat | null = null
+  const nelGiro = (id: string, quando: string | undefined): MessaggioChat => {
+    if (delMotore) return delMotore
+    delMotore = { id, ruolo: "claude", quando: quando ?? new Date(0).toISOString(), parti: [] }
+    messaggi.push(delMotore)
+    return delMotore
+  }
 
-  // Come il terminale: di una conversazione riassunta si vede solo ciò che segue l'ultimo riassunto.
-  const riassunto = righe.findLastIndex((r) => r.type === "system" && r.subtype === "compact_boundary")
+  const riassunto = righe.findLastIndex((r) => r.tipo === "riassunto")
   for (const riga of righe.slice(riassunto + 1)) {
-    // La risposta di un comando locale è una riga di sistema senza `message`; quella di /compact una riga dell'utente.
-    const testoUtente = riga.type === "user" && eOggetto(riga.message) ? testoDi(riga.message["content"]) : ""
-    const uscita = riga.type === "system" && riga.subtype === "local_command" && typeof riga.content === "string" ? uscitaLocale(riga.content) : testoUtente.trimStart().startsWith("<local-command-std") ? uscitaLocale(testoUtente) : null
-    if (uscita) {
-      if (!claude) {
-        claude = { id: riga.uuid, ruolo: "claude", quando: riga.timestamp ?? new Date(0).toISOString(), parti: [] }
-        messaggi.push(claude)
+    switch (riga.tipo) {
+      case "uscita":
+        nelGiro(riga.id, riga.quando).parti.push({ tipo: "testo", testo: riga.testo })
+        break
+      case "motore": {
+        if (riga.parti.length === 0) break
+        const messaggio = nelGiro(riga.id, riga.quando)
+        riga.parti.forEach((parte) => {
+          const indice = messaggio.parti.push(parte) - 1
+          if (parte.tipo === "strumento") strumenti.set(parte.id, { messaggio, indice })
+        })
+        break
       }
-      claude.parti.push({ tipo: "testo", testo: uscita })
-      continue
+      case "esiti":
+        for (const { id, esito } of riga.esiti) {
+          const dove = strumenti.get(id)
+          const parte = dove?.messaggio.parti[dove.indice]
+          if (dove && parte?.tipo === "strumento") dove.messaggio.parti[dove.indice] = conEsito(parte, esito, lingua, riga.quando)
+        }
+        break
+      case "creator":
+        if (riga.parti.length === 0) break
+        delMotore = null
+        messaggi.push({ id: riga.id, ruolo: "utente", quando: riga.quando ?? new Date(0).toISOString(), parti: riga.parti })
+        break
     }
-    if (!eOggetto(riga.message)) continue
-    const contenuto = riga.message["content"]
-    const quando = riga.timestamp ?? new Date(0).toISOString()
-
-    if (riga.type === "assistant") {
-      const parti = partiDeiBlocchi(contenuto, riga.timestamp)
-      if (parti.length === 0) continue
-      if (!claude) {
-        claude = { id: riga.uuid, ruolo: "claude", quando, parti: [] }
-        messaggi.push(claude)
-      }
-      const messaggio = claude
-      parti.forEach((parte) => {
-        const indice = messaggio.parti.push(parte) - 1
-        if (parte.tipo === "strumento") strumenti.set(parte.id, { messaggio, indice })
-      })
-      continue
-    }
-
-    if (riga.type !== "user") continue
-    const risultati = risultatiDegliStrumenti(contenuto)
-    if (risultati.length > 0) {
-      for (const risultato of risultati) {
-        const dove = strumenti.get(String(risultato["tool_use_id"]))
-        const parte = dove?.messaggio.parti[dove.indice]
-        if (dove && parte?.tipo === "strumento") dove.messaggio.parti[dove.indice] = conEsito(parte, risultato, lingua, riga.timestamp)
-      }
-      continue
-    }
-
-    const testo = testoDi(contenuto)
-    const comando = testoDelComando(testo)
-    const diFa = !riga.isCompactSummary && (riga.origin?.kind === undefined || riga.origin.kind === "human") && !MARCATORI_INTERNI.test(testo.trimStart()) && !eAvvio(testo)
-    const parti: Parte[] = comando !== null ? [{ tipo: "testo", testo: comando }] : diFa ? daTestoDelCreator(testo, archivio) : []
-    if (parti.length === 0) continue
-    claude = null
-    messaggi.push({ id: riga.uuid, ruolo: "utente", quando, parti })
   }
   return messaggi
 }

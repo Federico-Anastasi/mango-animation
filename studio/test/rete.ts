@@ -24,7 +24,7 @@ export function installaRete(rotte: Record<string, Risposta>): { chiamate: Chiam
       const chiave = `${metodo} ${chiamata.percorso}`
       const risposta = tutte[chiave] ?? tutte[`${metodo} ${url.pathname}`]
       if (risposta === undefined) throw new Error(`Rotta non dichiarata nella prova: ${chiave}`)
-      const valore = typeof risposta === "function" ? (risposta as (c: Chiamata) => unknown)(chiamata) : risposta
+      const valore = typeof risposta === "function" ? await (risposta as (c: Chiamata) => unknown)(chiamata) : risposta
       if (valore instanceof Response) return valore
       return new Response(JSON.stringify(valore ?? {}), { status: 200, headers: { "Content-Type": "application/json" } })
     }),

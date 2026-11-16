@@ -23,6 +23,22 @@ pub const SINCRONIA: &str = r#"
 })();
 "#;
 
+/// Lo script che la finestra esegue in ogni pagina: definisce `window.__MANGO_ANIMATION__.grandezza`, per la riga «Grandezza» delle impostazioni dello studio.
+pub const PONTE: &str = r#"
+(() => {
+  if (window.top !== window) return;
+  const chiama = (comando, argomenti) => window.__TAURI_INTERNALS__.invoke("plugin:mango-animation|" + comando, argomenti);
+  // grandezza.leggi(): lo zoom ricordato (1 è il 100%). grandezza.imposta(zoom): lo mette alla finestra e lo ricorda.
+  window.__MANGO_ANIMATION__ = Object.freeze({
+    ...window.__MANGO_ANIMATION__,
+    grandezza: Object.freeze({
+      leggi: () => chiama("zoom_leggi"),
+      imposta: (zoom) => chiama("zoom_imposta", { zoom }),
+    }),
+  });
+})();
+"#;
+
 /// Lo zoom di una pagina: la sua scala sulla scala dello schermo, a due decimali.
 fn zoom_di(scala_pagina: f64, scala_schermo: f64) -> f64 {
     ((scala_pagina / scala_schermo).clamp(MINIMO, MASSIMO) * 100.0).round() / 100.0
@@ -55,9 +71,28 @@ pub(crate) fn ricorda_zoom(finestra: WebviewWindow, scala_pagina: f64) -> Result
         return Err(t(format!("scala della pagina non valida: {scala_pagina}"), format!("invalid page scale: {scala_pagina}")));
     }
     let schermo = finestra.scale_factor().map_err(|e| e.to_string())?;
+    ricorda(&finestra, zoom_di(scala_pagina, schermo))
+}
+
+fn ricorda(finestra: &WebviewWindow, zoom: f64) -> Result<(), String> {
     let dati = finestra.app_handle().path().app_local_data_dir().map_err(|e| e.to_string())?;
     let file = file_dello_zoom(&dati);
-    std::fs::create_dir_all(&dati).and_then(|()| scrivi(&file, zoom_di(scala_pagina, schermo))).map_err(|e| t(format!("non riesco a ricordare lo zoom ({}: {e})", file.display()), format!("I can't remember the zoom ({}: {e})", file.display())))
+    std::fs::create_dir_all(&dati).and_then(|()| scrivi(&file, zoom)).map_err(|e| t(format!("non riesco a ricordare lo zoom ({}: {e})", file.display()), format!("I can't remember the zoom ({}: {e})", file.display())))
+}
+
+#[tauri::command]
+pub(crate) fn zoom_leggi(finestra: WebviewWindow) -> Result<f64, String> {
+    let dati = finestra.app_handle().path().app_local_data_dir().map_err(|e| e.to_string())?;
+    Ok(leggi(&file_dello_zoom(&dati)).unwrap_or(1.0))
+}
+
+#[tauri::command]
+pub(crate) fn zoom_imposta(finestra: WebviewWindow, zoom: f64) -> Result<(), String> {
+    if !(MINIMO..=MASSIMO).contains(&zoom) {
+        return Err(t(format!("zoom non valido: {zoom}"), format!("invalid zoom: {zoom}")));
+    }
+    finestra.set_zoom(zoom).map_err(|e| e.to_string())?;
+    ricorda(&finestra, zoom)
 }
 
 /// Mette alla finestra lo zoom ricordato, se c'è.

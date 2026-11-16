@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Bottone } from "../comuni/Bottone"
 import { Icona } from "../comuni/icone"
+import { Interruttore } from "../comuni/Interruttore"
 import { t } from "../lingua"
 import { pluralizza, tempoLeggibile } from "../testo"
 import type { Azione } from "./azione"
@@ -15,6 +16,9 @@ export function PannelloParole({ azione, da, a, correggi, onDeseleziona }: { azi
   const [testo, setTesto] = useState<string | null>(null)
   const [inRosso, setInRosso] = useState(false)
   const campo = useRef<HTMLInputElement>(null)
+  const applica = () => {
+    if (una) esegui(correggiParola(ctx, primo, testo ?? una.p, inRosso))
+  }
   const eredita = scelte.some((p) => {
     const t = ctx.risolto.tratti[p.tratto]
     return t ? ereditata(ctx.proprio, ctx.effettivo, t.scena) : false
@@ -39,7 +43,7 @@ export function PannelloParole({ azione, da, a, correggi, onDeseleziona }: { azi
       {eredita && <p className={styles.nota}>{t("Alcune parole vengono dal video di base: per toglierle stacca prima il video.", "Some words come from the base video: to remove them, detach the video first.")}</p>}
       <div className={styles.azioni}>
         <Bottone
-          variante="vuoto"
+         
           onClick={() => {
             esegui(togliParole(ctx, primo, ultimo))
             onDeseleziona()
@@ -55,22 +59,22 @@ export function PannelloParole({ azione, da, a, correggi, onDeseleziona }: { azi
           className={styles.blocco}
           onSubmit={(e) => {
             e.preventDefault()
-            esegui(correggiParola(ctx, primo, testo ?? una.p, inRosso))
+            applica()
           }}
         >
           <label className={styles.campo}>
             <span className={styles.etichetta}>{t("Come si scrive", "How it is spelled")}</span>
             <input ref={campo} value={testo ?? una.p} disabled={bloccato} onChange={(e) => setTesto(e.target.value)} />
           </label>
-          <label className={styles.spunta}>
-            <input type="checkbox" checked={inRosso} onChange={(e) => setInRosso(e.target.checked)} />
-            {t("Scrivila in rosso", "Write it in red")}
-          </label>
+          <div className={styles.spunta}>
+            <Interruttore etichetta={t("Scrivila in rosso", "Write it in red")} acceso={inRosso} onCambia={setInRosso} />
+            <span aria-hidden="true">{t("Scrivila in rosso", "Write it in red")}</span>
+          </div>
           <p className={styles.nota}>{t("La correzione vale ogni volta che in questo girato si sente la parola così.", "The correction applies every time this word is heard like this in this footage.")}</p>
           <div className={styles.azioni}>
-            <button type="submit" className={styles.pieno} disabled={bloccato}>
+            <Bottone onClick={applica} disabled={bloccato}>
               {t("Correggi", "Correct")}
-            </button>
+            </Bottone>
           </div>
         </form>
       )}

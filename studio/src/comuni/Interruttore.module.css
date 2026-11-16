@@ -1,0 +1,38 @@
+.interruttore {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mango-radius-full);
+  background: var(--mango-line);
+  cursor: pointer;
+  transition: background var(--mango-motion);
+}
+
+.interruttore::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mango-text);
+  transition: transform var(--mango-motion);
+}
+
+.interruttore[aria-checked="true"] {
+  background: var(--mango-action);
+}
+
+.interruttore[aria-checked="true"]::after {
+  transform: translateX(16px);
+  background: var(--mango-on-action);
+}
+
+.interruttore:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

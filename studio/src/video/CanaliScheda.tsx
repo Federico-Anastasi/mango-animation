@@ -1,7 +1,8 @@
+import { CardDiRighe, Riga } from "../comuni/CardDiRighe"
+import { Interruttore } from "../comuni/Interruttore"
 import { t } from "../lingua"
 import type { PropsScheda } from "./PaginaVideo"
 import { CANALI, conLista, nonFallire } from "./liste"
-import styles from "./SchedaDelVideo.module.css"
 
 export function CanaliScheda({ video, salvaScheda }: PropsScheda) {
   const { scheda } = video
@@ -11,16 +12,12 @@ export function CanaliScheda({ video, salvaScheda }: PropsScheda) {
     nonFallire(salvaScheda(conLista(scheda, "canali", nuovi)))
   }
   return (
-    <section className={styles.blocco}>
-      <h2 id="titolo-canali">{t("Dove deve uscire", "Where it should go out")}</h2>
-      <fieldset className={styles.canali} aria-labelledby="titolo-canali">
-        {CANALI.map((c) => (
-          <label key={c.id}>
-            <input type="checkbox" checked={scelti.includes(c.id)} onChange={() => cambia(c.id)} />
-            {c.nome}
-          </label>
-        ))}
-      </fieldset>
-    </section>
+    <CardDiRighe nome={t("Dove deve uscire", "Where it should go out")}>
+      {CANALI.map((c) => (
+        <Riga key={c.id} nome={c.nome}>
+          <Interruttore etichetta={c.nome} acceso={scelti.includes(c.id)} onCambia={() => cambia(c.id)} />
+        </Riga>
+      ))}
+    </CardDiRighe>
   )
 }

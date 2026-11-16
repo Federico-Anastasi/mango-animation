@@ -40,7 +40,7 @@ The step a video has reached is shown at the top of its page; `video_leggi` give
   takes the app's window there; outside the app it opens the browser. The Windows viewer does not: it stays behind the windows.
 - A version is always the full file: `uscite/con-copertina.mp4`. The light copy only if the creator asks for it. When the creator is on
   the phone, the button «Dal telefono» in the studio's Video list and in the video's page shows the `/guarda` code to scan; if the button is
-  missing, the phone connection is off: the creator presses «Collega un telefono» in Impostazioni › Telefono.
+  missing, the phone connection is off: the creator turns on «Arrivi dal telefono» in Impostazioni › Telefono.
 - A preview declares itself a preview: it is not a version, it does not go through `controlla`.
 - «Open» means only open: open it and wait for the creator.
 

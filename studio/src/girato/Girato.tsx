@@ -3,7 +3,9 @@ import { useMemo, useRef, useState } from "react"
 import { api, urlMedia } from "../api"
 import { Bottone } from "../comuni/Bottone"
 import { Colonne } from "../comuni/Colonne"
+import { EtichettaDiStato } from "../comuni/EtichettaDiStato"
 import { Icona } from "../comuni/icone"
+import { Segmenti } from "../comuni/Segmenti"
 import { Caricamento, Errore, Vuoto } from "../comuni/Stati"
 import { elencoVideo, grezzo, useCopia } from "../dati"
 import { scriviIndirizzo, useIndirizzo, vai } from "../indirizzo"
@@ -50,7 +52,7 @@ export function Girato({ file: scelto }: { file: string | undefined }) {
   if (giorni === null) return copia.errore ? <Errore messaggio={copia.errore} onRiprova={() => void grezzo.rileggi()} /> : <Caricamento />
 
   const bottoneAggiungi = (
-    <Bottone onClick={() => scelta.current?.click()}>
+    <Bottone variante="principale" onClick={() => scelta.current?.click()}>
       <Icona nome="piu" />
       {t("Aggiungi video", "Add video")}
     </Bottone>
@@ -64,10 +66,15 @@ export function Girato({ file: scelto }: { file: string | undefined }) {
       <RisultatiDelParlato valore={cerca} />
       {!cercando && (
         <div className={styles.filtri}>
-          <label className={styles.spunta}>
-            <input type="checkbox" checked={soloMaiUsati} onChange={(e) => setSoloMaiUsati(e.target.checked)} />
-            {t("Solo quelli mai usati", "Only those never used")}
-          </label>
+          <Segmenti
+            etichetta={t("Quali file mostrare", "Which files to show")}
+            valori={[
+              { id: "tutti", nome: t("Tutti i file", "All files") },
+              { id: "mai-usati", nome: t("Solo quelli mai usati", "Only those never used") },
+            ]}
+            scelta={soloMaiUsati ? "mai-usati" : "tutti"}
+            onScegli={(id) => setSoloMaiUsati(id === "mai-usati")}
+          />
           <label className={styles.tipo}>
             <span>{t("Tipo", "Type")}</span>
             <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoGrezzo | "")}>
@@ -86,7 +93,7 @@ export function Girato({ file: scelto }: { file: string | undefined }) {
           <Vuoto>{t("Nel girato non c'è ancora niente. Aggiungi un video dal computer, anche trascinandolo qui, oppure mandalo dal telefono.", "There is nothing in the footage yet. Add a video from your computer, even by dropping it here, or send it from your phone.")}</Vuoto>
           <div className={styles.azioni}>
             {bottoneAggiungi}
-            <Bottone variante="vuoto" onClick={() => api.apri("grezzo").then(() => setErroreCartella(null), (e: Error) => setErroreCartella(e.message))}>
+            <Bottone onClick={() => api.apri("grezzo").then(() => setErroreCartella(null), (e: Error) => setErroreCartella(e.message))}>
               <Icona nome="cartella" />
               {t("Apri la cartella del girato", "Open the footage folder")}
             </Bottone>
@@ -111,7 +118,7 @@ export function Girato({ file: scelto }: { file: string | undefined }) {
                       <> · {peso(f.byte)}</>
                       {f.scheda && f.scheda.origine !== "altro" && <> · {t("da {origine}", "from {origine}", { origine: nomeOrigine(f.scheda.origine).toLowerCase() })}</>}
                     </span>
-                    <span className={f.usato_in.length === 0 ? styles.maiUsato : styles.meta}>{f.usato_in.length === 0 ? t("mai usato", "never used") : t("usato in {quanti}: {titoli}", "used in {quanti}: {titoli}", { quanti: pluralizza(f.usato_in.length, t("video", "video"), t("video", "videos")), titoli: f.usato_in.map(titoloDi).join(", ") })}</span>
+                    <span className={styles.meta}>{f.usato_in.length === 0 ? <EtichettaDiStato>{t("mai usato", "never used")}</EtichettaDiStato> : t("usato in {quanti}: {titoli}", "used in {quanti}: {titoli}", { quanti: pluralizza(f.usato_in.length, t("video", "video"), t("video", "videos")), titoli: f.usato_in.map(titoloDi).join(", ") })}</span>
                   </span>
                 </button>
               </li>

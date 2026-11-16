@@ -6,7 +6,8 @@ import { scegliLingua } from "../src/lingua"
 import { Produzione } from "../src/produzione/Produzione"
 import { Canale } from "../src/pubblico/Canale"
 import { Pubblico } from "../src/pubblico/Pubblico"
-import type { ClassificaCanale, ConsumiDiClaude, Crescita as DatiCrescita, PuntoAndamento, StatoCanale, VoceElenco } from "../src/tipi"
+import type { ClassificaCanale, ConsumiInChat, Crescita as DatiCrescita, PuntoAndamento, StatoCanale, VoceElenco } from "../src/tipi"
+import { CLAUDE, CODEX, MANGO } from "./motoriChat"
 import { installaEventi, installaRete } from "./rete"
 
 beforeEach(() => {
@@ -152,10 +153,12 @@ describe("Production, in English", () => {
       fase: null,
       ultimo_cambio: fa(1),
     })
-    const conti: ConsumiDiClaude = {
+    const token = { scritti: 100_000, riletti: 5_000_000, nuovi: 500_000 }
+    const conti: ConsumiInChat = {
       pronto: true,
-      video: { a: { tempo: 3660, giri: 4, token: { scritti: 100_000, riletti: 5_000_000, nuovi: 500_000 }, dal: fa(30), al: fa(1) } },
-      senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 } },
+      contati: ["claude-code"],
+      video: { a: { tempo: 3660, giri: 4, token, dal: fa(30), al: fa(1), motori: { "claude-code": { tempo: 3660, giri: 4, giri_con_token: 4, token } } } },
+      senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 }, motori: {} },
     }
     installaRete({ "GET /api/video": [voce("a"), voce("b")], "GET /api/consumi": conti, "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] } })
     render(<Produzione />)
@@ -168,5 +171,36 @@ describe("Production, in English", () => {
     expect(screen.getByRole("heading", { name: "Production" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "What it costs and what it returns" })).toBeInTheDocument()
     expect(screen.queryByText("Da sempre")).toBeNull()
+  })
+
+  it("says each engine's share and that Codex's tokens are not known", async () => {
+    const GIORNO = 86_400_000
+    const fa = (giorni: number): string => new Date(Date.now() - giorni * GIORNO).toISOString()
+    const token = { scritti: 100_000, riletti: 5_000_000, nuovi: 500_000 }
+    const voce: VoceElenco = {
+      slug: "a",
+      scheda: { titolo: "Titolo a", stato: "pubblicato", creato: "2026-10-01", pubblicazioni: [{ canale: "tiktok", data: fa(2) }] },
+      durata: 20,
+      miniatura: null,
+      anteprima: null,
+      ha_piano: true,
+      quadri: [],
+      ha_finale: true,
+      fase: null,
+      ultimo_cambio: fa(1),
+    }
+    const conti: ConsumiInChat = {
+      pronto: true,
+      contati: ["claude-code", "codex"],
+      video: { a: { tempo: 5460, giri: 6, token, dal: fa(30), al: fa(1), motori: { "claude-code": { tempo: 3660, giri: 4, giri_con_token: 4, token }, codex: { tempo: 1800, giri: 2, giri_con_token: 0, token: null } } } },
+      senza_video: { tempo: 0, giri: 0, token: { scritti: 0, riletti: 0, nuovi: 0 }, motori: {} },
+    }
+    installaRete({ "GET /api/video": [voce], "GET /api/consumi": conti, "GET /api/chat/motori": [CLAUDE, MANGO, CODEX], "GET /api/canale/tiktok": { ultima: null, letture: [], profilo: null, video: [] } })
+    render(<Produzione />)
+    const tabella = await screen.findByRole("table", { name: "The average of a video, by period" })
+    await waitFor(() => expect(within(tabella).getByRole("row", { name: /Last week/ })).toHaveTextContent("Claude 1 h 1 min · Codex 30 min"))
+    expect(within(tabella).getByRole("columnheader", { name: "Work in chat" })).toBeInTheDocument()
+    expect(screen.getByText(/Tokens are not known for Codex: the counts are those of the other engines\./)).toBeInTheDocument()
+    expect(screen.getByText(/Work done with Mango Code is not counted\./)).toBeInTheDocument()
   })
 })

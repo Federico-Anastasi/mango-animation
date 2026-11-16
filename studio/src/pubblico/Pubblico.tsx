@@ -1,4 +1,5 @@
 // «Cosa dice il pubblico, e come vanno i video usciti?»: ciò che l'ultima lettura del canale ha portato in archivio.
+import { Gruppo } from "../comuni/Gruppo"
 import { useEffect, useState } from "react"
 import { api, ErroreApi, urlMedia } from "../api"
 import { ascoltaCanale } from "../canale"
@@ -231,8 +232,7 @@ export function Pubblico({ video }: { video?: string }) {
         </details>
       )}
 
-      <section>
-        <h2>{t("I video usciti", "Videos out")}</h2>
+      <Gruppo titolo={t("I video usciti", "Videos out")}>
         <div className="scorri-con-segno">
           <table className={styles.tabella}>
             <thead>
@@ -255,11 +255,10 @@ export function Pubblico({ video }: { video?: string }) {
             </tbody>
           </table>
         </div>
-        <p className={styles.sotto}>{t("In blu, quanto è cresciuto dalla lettura precedente. Tocca una riga per leggere i commenti.", "In blue, how much it grew since the previous read. Tap a row to read the comments.")}</p>
-      </section>
+        <p className={styles.sotto}>{t("In verde, quanto è cresciuto dalla lettura precedente. Tocca una riga per leggere i commenti.", "In green, how much it grew since the previous read. Tap a row to read the comments.")}</p>
+      </Gruppo>
 
-      <section>
-        <h2>{t("I rapporti", "The ratios")}</h2>
+      <Gruppo titolo={t("I rapporti", "The ratios")}>
         <p className={styles.sotto}>
           {t("Quante volte ogni cosa è successa ogni 1000 visualizzazioni. La riga in alto è su tutti i video con i numeri", "How many times each thing happened per 1,000 views. The top row covers all videos with numbers")}
           {somme.secondi_per_visualizzazione !== null &&
@@ -294,17 +293,15 @@ export function Pubblico({ video }: { video?: string }) {
             </tbody>
           </table>
         </div>
-      </section>
+      </Gruppo>
 
       <div className={styles.dueColonne}>
-        <section>
-          <h2>{scelto ? t("Commenti: {titolo}", "Comments: {titolo}", { titolo: scelto.titolo ?? t("video scelto", "selected video") }) : t("Commenti", "Comments")}</h2>
+        <Gruppo titolo={scelto ? t("Commenti: {titolo}", "Comments: {titolo}", { titolo: scelto.titolo ?? t("video scelto", "selected video") }) : t("Commenti", "Comments")}>
           {scelto ? <CommentiDi video={scelto} /> : <Vuoto>{t("Scegli un video dalla tabella per leggere i suoi commenti.", "Pick a video from the table to read its comments.")}</Vuoto>}
-        </section>
-        <section>
-          <h2>{t("Messaggi privati", "Private messages")}</h2>
+        </Gruppo>
+        <Gruppo titolo={t("Messaggi privati", "Private messages")}>
           <Messaggi />
-        </section>
+        </Gruppo>
       </div>
     </div>
   )

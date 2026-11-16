@@ -33,7 +33,7 @@ export function App() {
               {indirizzo.vista === "girato" && <Girato file={indirizzo.parametri.get("file") ?? undefined} />}
               {indirizzo.vista === "canale" && <Canale scheda={indirizzo.parte} video={indirizzo.parametri.get("video") ?? undefined} />}
               {indirizzo.vista === "produzione" && <Produzione />}
-              {indirizzo.vista === "impostazioni" && <Impostazioni sezione={indirizzo.parte} />}
+              {indirizzo.vista === "impostazioni" && <Impostazioni sezione={indirizzo.parte} nominata={indirizzo.nominata} />}
               {indirizzo.vista === "video" && (indirizzo.slug ? <PaginaVideo key={indirizzo.slug} slug={indirizzo.slug} scheda={indirizzo.scheda} parametri={indirizzo.parametri} /> : <ElencoVideo />)}
             </Suspense>
           </ConfineErrore>

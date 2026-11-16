@@ -52,6 +52,7 @@ beforeEach(() => {
     "GET /api/video": [],
     "GET /api/chat": [],
     "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
+    "GET /api/chat/motori": [],
     "GET /api/chat/modelli": [],
     "POST /api/chat/allegati/locale": (c: Chiamata) => ({ percorso: `.chat/allegati/${String((c.corpo as { percorso: string }).percorso).split("\\").pop()}` }),
   }).chiamate
@@ -109,6 +110,7 @@ describe("file lasciati sulla chat nell'app", () => {
       "GET /api/video": [],
       "GET /api/chat": [],
       "GET /api/lavori": { in_corso: null, in_coda: [], finiti: [] },
+      "GET /api/chat/motori": [],
       "GET /api/chat/modelli": [],
       "POST /api/chat/allegati/locale": () => new Response(JSON.stringify({ errore: "Il file «C:\\a\\Cartella» non c'è, o è una cartella." }), { status: 400 }),
     }).chiamate

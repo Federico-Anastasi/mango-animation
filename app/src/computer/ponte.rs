@@ -1,4 +1,4 @@
-//! Cosa c'è in questo computer, per la pagina «Motori» dello studio: `window.__MANGO_ANIMATION__.computer.leggi()`. Come la dettatura, passa da un plugin
+//! Cosa c'è in questo computer, per Impostazioni › Computer dello studio: `window.__MANGO_ANIMATION__.computer.leggi()`. Come la dettatura, passa da un plugin
 //! con permessi suoi (`build.rs`, `capabilities/default.json`) perché lo studio è una pagina remota (127.0.0.1).
 
 use super::hw::{self, Computer};

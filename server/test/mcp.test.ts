@@ -112,9 +112,13 @@ beforeAll(async () => {
 
 afterAll(() => rm(immagini, { recursive: true, force: true }))
 
+const STRUMENTI_DEL_PROGETTO = ["apri", "ascolta", "foto", "girato_foto", "girato_parole", "girato_prepara", "girato_scarica", "girato_scheda", "lavoro", "lavoro_aspetta", "lavoro_stato", "parole", "piano_annulla", "piano_ritocca", "piano_scrivi", "scene_foto", "scheda_cambia", "slide", "valida", "video_elenco", "video_leggi", "video_nuovo", "web_testo"]
+
 const clienti: Client[] = []
+const finti: ReturnType<typeof Bun.serve>[] = []
 afterEach(async () => {
   await Promise.all(clienti.splice(0).map((c) => c.close()))
+  await Promise.all(finti.splice(0).map((f) => f.stop(true)))
   await fermaTutti()
 })
 
@@ -144,7 +148,7 @@ async function conVideo(lavori: object[] = []): Promise<Ambiente> {
 interface Collegamento {
   strumenti: () => Promise<{ name: string; description?: string; inputSchema: { properties?: Record<string, unknown> } }[]>
   /** Chiama uno strumento: `testo` è il primo contenuto di testo, `dati` il suo JSON. */
-  chiama: (nome: string, argomenti?: Record<string, unknown>) => Promise<Risposta>
+  chiama: (nome: string, argomenti?: Record<string, unknown>, segnale?: AbortSignal) => Promise<Risposta>
 }
 
 interface Risposta {
@@ -158,22 +162,27 @@ async function collega(a: Ambiente, extra: Partial<OpzioniMcp> = {}): Promise<Co
   const cartella = join(a.radice, "finto-mcp")
   await mkdir(join(cartella, "finto_mcp"), { recursive: true })
   await writeFile(join(cartella, "finto_mcp", "__main__.py"), FINTO_MOTORE_LEGGERO)
-  const opzioni: OpzioniMcp = {
+  return collegaOpzioni({
     api: { indirizzo: a.url, intestazioni: async () => a.accesso },
     codice: a.codice,
     motore: { eseguibile: "python", modulo: "finto_mcp", ambiente: { PYTHONPATH: cartella, FINTO_JPG: jpg, FINTO_ARCHIVIO: a.archivio } },
     ffmpeg: Bun.which("ffmpeg"),
     ytdlp: null,
+    conversazione: null,
+    domande: false,
     ...extra,
-  }
+  })
+}
+
+async function collegaOpzioni(opzioni: OpzioniMcp): Promise<Collegamento> {
   const [lato1, lato2] = InMemoryTransport.createLinkedPair()
   const client = new Client({ name: "prova", version: "1" })
   clienti.push(client)
   await Promise.all([creaServerMcp(opzioni).connect(lato1), client.connect(lato2)])
   return {
     strumenti: async () => (await client.listTools()).tools,
-    chiama: async (nome, argomenti = {}) => {
-      const r = await client.callTool({ name: nome, arguments: argomenti })
+    chiama: async (nome, argomenti = {}, segnale) => {
+      const r = await client.callTool({ name: nome, arguments: argomenti }, undefined, { signal: segnale })
       const contenuto = r.content as Risposta["contenuto"]
       const testo = contenuto.find((c) => c.type === "text")?.text ?? ""
       return { errore: r.isError === true, contenuto, testo, dati: () => JSON.parse(testo) as Record<string, unknown> }
@@ -204,7 +213,7 @@ describe("gli strumenti", () => {
   test("sono quelli del piano, ognuno con la sua descrizione in inglese e senza il nome di chi li usa", async () => {
     const mcp = await collega(await conVideo())
     const strumenti = await mcp.strumenti()
-    expect(strumenti.map((s) => s.name).sort()).toEqual(["apri", "ascolta", "foto", "girato_foto", "girato_parole", "girato_prepara", "girato_scarica", "girato_scheda", "lavoro", "lavoro_aspetta", "lavoro_stato", "parole", "piano_annulla", "piano_ritocca", "piano_scrivi", "scene_foto", "scheda_cambia", "slide", "valida", "video_elenco", "video_leggi", "video_nuovo", "web_testo"])
+    expect(strumenti.map((s) => s.name).sort()).toEqual(STRUMENTI_DEL_PROGETTO)
     for (const s of strumenti) expect((s.description ?? "").length).toBeGreaterThan(60)
     const italiano = /\b(il|della|che|per|quando|dai|solo|un|una|nel|sono)\b/i
     const testi = strumenti.flatMap((s) => [s.description ?? "", ...Object.values(s.inputSchema.properties ?? {}).map((p) => String((p as { description?: string }).description ?? ""))])
@@ -876,6 +885,87 @@ describe("lavoro, lavoro_stato e lavoro_aspetta", () => {
   })
 })
 
+/** Un server davanti a quello vero: gira tutto com'è, tranne `in-coda` della chat, che risponde quando la prova fa scrivere il creator. */
+function conLaChat(a: Ambiente, rispostaDellaChat: () => Response = () => Response.json({ in_coda: true })): { api: OpzioniMcp["api"]; chieste: string[]; scrive: () => void } {
+  const scritto = Promise.withResolvers<void>()
+  const chieste: string[] = []
+  const davanti = Bun.serve({
+    port: 0,
+    idleTimeout: 0,
+    fetch: async (richiesta) => {
+      const { pathname, search } = new URL(richiesta.url)
+      if (!pathname.endsWith("/in-coda")) return fetch(a.url + pathname + search, { method: richiesta.method, headers: richiesta.headers, body: richiesta.body, signal: richiesta.signal })
+      chieste.push(pathname)
+      await scritto.promise
+      return rispostaDellaChat()
+    },
+  })
+  finti.push(davanti)
+  return { api: { indirizzo: `http://127.0.0.1:${davanti.port}`, intestazioni: async () => a.accesso }, chieste, scrive: () => scritto.resolve() }
+}
+
+describe("l'attesa di un lavoro e i messaggi del creator", () => {
+  test("lavoro_aspetta torna appena il creator scrive nella sua conversazione, col lavoro ancora in corso", async () => {
+    const a = await conVideo()
+    const chat = conLaChat(a)
+    const mcp = await collega(a, { api: chat.api, conversazione: "chat 1" })
+    const { id } = (await mcp.chiama("lavoro", { slug: "v", comando: "monta" })).dati() as { id: string }
+    await aspetta(async () => (await righeDelFinto(a)).includes("inizio monta v"))
+    const inizio = Date.now()
+    const attesa = mcp.chiama("lavoro_aspetta", { id, secondi: 30 })
+    await aspetta(() => chat.chieste.length === 1)
+    chat.scrive()
+    const r = await attesa
+    expect(Date.now() - inizio).toBeLessThan(8000)
+    expect(chat.chieste).toEqual(["/api/chat/chat%201/in-coda"])
+    expect(r.errore).toBe(false)
+    expect(r.dati()).toMatchObject({ id, stato: "in corso" })
+    expect(String(r.dati()["messaggio_del_creator"])).toContain("Il creator ha scritto")
+    await sblocca(a, "v")
+  })
+
+  test("un lavoro già finito non chiede niente alla chat, e una chat che risponde male non rompe l'attesa", async () => {
+    const a = await conVideo()
+    const chat = conLaChat(a, () => Response.json({ errore: "La conversazione non è aperta." }, { status: 404 }))
+    const mcp = await collega(a, { api: chat.api, conversazione: "c1" })
+    const fallito = ((await mcp.chiama("lavoro", { slug: "v", comando: "prepara" })).dati() as { id: string }).id
+    await aspetta(async () => (await mcp.chiama("lavoro_stato", { id: fallito })).dati()["stato"] === "finito")
+    expect((await mcp.chiama("lavoro_aspetta", { id: fallito, secondi: 30 })).dati()["esito"]).toBe("fallito")
+    expect(chat.chieste).toEqual([])
+
+    const { id } = (await mcp.chiama("lavoro", { slug: "v", comando: "monta" })).dati() as { id: string }
+    await aspetta(async () => (await righeDelFinto(a)).includes("inizio monta v"))
+    const attesa = mcp.chiama("lavoro_aspetta", { id, secondi: 30 })
+    await aspetta(() => chat.chieste.length === 1)
+    chat.scrive()
+    await Bun.sleep(300)
+    await sblocca(a, "v")
+    const r = await attesa
+    expect(r.dati()).toMatchObject({ id, stato: "finito", esito: "riuscito" })
+    expect(r.dati()["messaggio_del_creator"]).toBeUndefined()
+  })
+
+  test("scene_foto, se il creator scrive mentre la resa aspetta, lo dice e dà il lavoro con cui richiamarla", async () => {
+    const a = await conVideo()
+    const chat = conLaChat(a)
+    const mcp = await collega(a, { api: chat.api, conversazione: "c1" })
+    await mcp.chiama("lavoro", { slug: "v", comando: "monta" })
+    await aspetta(async () => (await righeDelFinto(a)).includes("inizio monta v"))
+    const resa = mcp.chiama("scene_foto", { sigla: "ok" })
+    await aspetta(() => chat.chieste.length === 1)
+    chat.scrive()
+    const r = await resa
+    expect(r.errore).toBe(true)
+    expect(r.testo).toContain("Il creator ha scritto")
+    const lavoro = /lavoro «([0-9a-f]{8})»/.exec(r.testo)?.[1]
+    expect(lavoro).toBeDefined()
+    await sblocca(a, "v")
+    await aspetta(async () => (await mcp.chiama("lavoro_stato", { id: lavoro })).dati()["stato"] === "finito")
+    const dopo = await mcp.chiama("scene_foto", { sigla: "ok", lavoro })
+    expect(dopo.dati()).toEqual({ sigla: "ok", controlli: "superati", segnalazioni: [] })
+  })
+})
+
 describe("girato_prepara e girato_scarica", () => {
   test("girato_prepara mette in coda prepara-file come lavoro e si aspetta con lavoro_aspetta", async () => {
     const a = await conVideo()
@@ -956,6 +1046,169 @@ describe("girato_prepara e girato_scarica", () => {
   })
 })
 
+const DOMANDE = [
+  {
+    domanda: "Quale taglio preferisci?",
+    intestazione: "Taglio",
+    opzioni: [
+      { etichetta: "Stretto", descrizione: "Si toglie ogni pausa." },
+      { etichetta: "Largo", descrizione: "Si lascia respirare la voce." },
+    ],
+    multipla: false,
+  },
+  {
+    domanda: "Dove lo pubblichiamo?",
+    intestazione: "Canali",
+    opzioni: [
+      { etichetta: "TikTok", descrizione: "Il verticale." },
+      { etichetta: "YouTube", descrizione: "Anche il lungo." },
+      { etichetta: "Instagram", descrizione: "Lo stesso del verticale." },
+    ],
+    multipla: true,
+  },
+]
+
+interface RichiestaDomande {
+  metodo: string
+  percorso: string
+  corpo: unknown
+}
+
+/** Un server che risponde solo alla rotta delle domande, come lo farebbe il server vero. */
+function fintoServerDomande(risposta: (richiesta: Request) => Response | Promise<Response>): { api: OpzioniMcp["api"]; richieste: RichiestaDomande[] } {
+  const richieste: RichiestaDomande[] = []
+  const server = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    fetch: async (richiesta) => {
+      richieste.push({ metodo: richiesta.method, percorso: new URL(richiesta.url).pathname, corpo: await richiesta.json() })
+      return risposta(richiesta)
+    },
+  })
+  finti.push(server)
+  return { api: { indirizzo: `http://127.0.0.1:${server.port}`, intestazioni: async () => ({}) }, richieste }
+}
+
+const conFinto = (api: OpzioniMcp["api"], conversazione: string | null = "c1"): Promise<Collegamento> =>
+  collegaOpzioni({ api, codice: "", motore: { eseguibile: "python", modulo: "finto_mcp", ambiente: {} }, ffmpeg: null, ytdlp: null, conversazione, domande: conversazione !== null })
+
+describe("lo strumento domanda", () => {
+  test("c'è solo se l'ambiente lo chiede per una conversazione; senza, l'elenco è quello di sempre", async () => {
+    const { api } = fintoServerDomande(() => Response.json({ risposte: {} }))
+    const senza = await conFinto(api, null)
+    expect((await senza.strumenti()).map((s) => s.name).sort()).toEqual(STRUMENTI_DEL_PROGETTO)
+    const con = await conFinto(api)
+    expect((await con.strumenti()).map((s) => s.name).sort()).toEqual([...STRUMENTI_DEL_PROGETTO, "domanda"].sort())
+    const soloLaConversazione = opzioniMcp({ MANGO_ANIMATION_LAVORO: immagini, MANGO_ANIMATION_CONVERSAZIONE: "c1" })
+    expect([soloLaConversazione.conversazione, soloLaConversazione.domande]).toEqual(["c1", false])
+    expect((await (await collegaOpzioni({ ...soloLaConversazione, api })).strumenti()).map((s) => s.name).sort()).toEqual(STRUMENTI_DEL_PROGETTO)
+    expect(opzioniMcp({ MANGO_ANIMATION_LAVORO: immagini, MANGO_ANIMATION_CONVERSAZIONE: "c1", MANGO_ANIMATION_DOMANDE: "1" }).domande).toBe(true)
+    const niente = opzioniMcp({ MANGO_ANIMATION_LAVORO: immagini, MANGO_ANIMATION_DOMANDE: "1" })
+    expect([niente.conversazione, niente.domande]).toEqual([null, false])
+  })
+
+  test("la descrizione è in inglese e dice al modello che il creator vedrà dei bottoni e potrà scrivere", async () => {
+    const mcp = await conFinto(fintoServerDomande(() => Response.json({ risposte: {} })).api)
+    const domanda = (await mcp.strumenti()).find((s) => s.name === "domanda")!
+    expect(domanda.description).toMatch(/buttons/)
+    expect(domanda.description).toMatch(/write/)
+    const italiano = /\b(il|della|che|per|quando|dai|solo|un|una|nel|sono|quale)\b/i
+    const testi = [domanda.description ?? "", ...(JSON.stringify(domanda.inputSchema).match(/"description":"[^"]*"/g) ?? [])]
+    expect(testi.length).toBeGreaterThan(6)
+    for (const t of testi) expect(t).not.toMatch(italiano)
+  })
+
+  test("manda le domande alla rotta della sua conversazione e dà al modello una riga per domanda", async () => {
+    const { api, richieste } = fintoServerDomande(() => Response.json({ risposte: { "Quale taglio preferisci?": "Stretto", "Dove lo pubblichiamo?": "TikTok, YouTube e poi anche Facebook" } }))
+    const r = await (await conFinto(api, "chat 1")).chiama("domanda", { domande: DOMANDE })
+    expect(richieste).toEqual([{ metodo: "POST", percorso: "/api/chat/chat%201/domande", corpo: { domande: DOMANDE } }])
+    expect(r.errore).toBe(false)
+    expect(r.testo.split("\n")).toEqual(["«Quale taglio preferisci?» → Stretto", "«Dove lo pubblichiamo?» → TikTok, YouTube e poi anche Facebook"])
+  })
+
+  test("`multipla` non data vale falso", async () => {
+    const { api, richieste } = fintoServerDomande(() => Response.json({ risposte: { "Quale?": "A" } }))
+    const { multipla: _, ...senzaMultipla } = { ...DOMANDE[0]!, domanda: "Quale?" }
+    await (await conFinto(api)).chiama("domanda", { domande: [senzaMultipla] })
+    expect(richieste[0]!.corpo).toEqual({ domande: [{ ...senzaMultipla, multipla: false }] })
+  })
+
+  test("aspetta quanto serve: la risposta data dopo un'attesa arriva al modello", async () => {
+    const { api } = fintoServerDomande(async () => {
+      await Bun.sleep(400)
+      return Response.json({ risposte: { "Quale taglio preferisci?": "Largo" } })
+    })
+    const r = await (await conFinto(api)).chiama("domanda", { domande: [DOMANDE[0]] })
+    expect([r.errore, r.testo]).toEqual([false, "«Quale taglio preferisci?» → Largo"])
+  })
+
+  test("se il creator rifiuta, il modello riceve la frase com'è, come errore dello strumento", async () => {
+    const { api } = fintoServerDomande(() => Response.json({ rifiutata: "Il creator ha preferito non rispondere: vai avanti da solo." }))
+    const r = await (await conFinto(api)).chiama("domanda", { domande: DOMANDE })
+    expect([r.errore, r.testo]).toEqual([true, "Il creator ha preferito non rispondere: vai avanti da solo."])
+  })
+
+  test("404 e 400 del server arrivano con la loro frase", async () => {
+    const chiuso = fintoServerDomande(() => Response.json({ errore: "La conversazione non è aperta." }, { status: 404 }))
+    const nonAperta = await (await conFinto(chiuso.api)).chiama("domanda", { domande: DOMANDE })
+    expect([nonAperta.errore, nonAperta.testo]).toEqual([true, "La conversazione non è aperta."])
+    const storto = fintoServerDomande(() => Response.json({ errore: "Le domande non sono scritte bene.", problemi: ["La domanda 2 non ha opzioni."] }, { status: 400 }))
+    const r = await (await conFinto(storto.api)).chiama("domanda", { domande: DOMANDE })
+    expect([r.errore, r.testo]).toEqual([true, "Le domande non sono scritte bene.\nLa domanda 2 non ha opzioni."])
+  })
+
+  test("una risposta del server che non è né risposte né rifiuto è un errore, non una risposta vuota", async () => {
+    const { api } = fintoServerDomande(() => Response.json({}))
+    const r = await (await conFinto(api)).chiama("domanda", { domande: DOMANDE })
+    expect(r.errore).toBe(true)
+  })
+
+  test("il server spento: lo strumento dice come accenderlo", async () => {
+    const r = await (await conFinto({ indirizzo: `http://127.0.0.1:${await portaChiusa()}`, intestazioni: async () => ({}) })).chiama("domanda", { domande: DOMANDE })
+    expect(r.errore).toBe(true)
+    expect(r.testo).toContain("bun run --cwd server avvia")
+  })
+
+  test("domande o opzioni fuori misura non arrivano al server", async () => {
+    const { api, richieste } = fintoServerDomande(() => Response.json({ risposte: {} }))
+    const mcp = await conFinto(api)
+    const una = DOMANDE[0]!
+    const casi: Record<string, unknown>[] = [
+      { domande: [] },
+      { domande: [una, una, una, una, una] },
+      { domande: [{ ...una, opzioni: [una.opzioni[0]] }] },
+      { domande: [{ ...una, opzioni: [...una.opzioni, ...una.opzioni, ...una.opzioni] }] },
+      { domande: [{ ...una, domanda: "" }] },
+      { domande: [{ ...una, opzioni: [{ etichetta: "Solo l'etichetta" }, una.opzioni[1]] }] },
+    ]
+    for (const argomenti of casi) expect((await mcp.chiama("domanda", argomenti)).errore, JSON.stringify(argomenti)).toBe(true)
+    expect(richieste).toEqual([])
+  })
+
+  test("se il modello ritira la chiamata, la richiesta al server si chiude", async () => {
+    const chiusa = Promise.withResolvers<void>()
+    const { api, richieste } = fintoServerDomande(
+      (richiesta) =>
+        new Promise<Response>((fine) =>
+          richiesta.signal.addEventListener("abort", () => {
+            chiusa.resolve()
+            fine(new Response(null, { status: 499 }))
+          }),
+        ),
+    )
+    const mcp = await conFinto(api)
+    const ritiro = new AbortController()
+    const chiamata = mcp.chiama("domanda", { domande: DOMANDE }, ritiro.signal).then(
+      () => "risposta",
+      () => "ritirata",
+    )
+    while (richieste.length === 0) await Bun.sleep(10)
+    ritiro.abort()
+    expect(await chiamata).toBe("ritirata")
+    await chiusa.promise
+  })
+})
+
 describe("il processo su stdio", () => {
   test("parte con `bun run src/mcp/avvia.ts`, elenca gli strumenti e parla col server della porta data", async () => {
     const a = await conVideo()
@@ -972,5 +1225,21 @@ describe("il processo su stdio", () => {
     const r = await client.callTool({ name: "video_elenco", arguments: {} })
     const elenco = JSON.parse((r.content as { text: string }[])[0]!.text) as { slug: string }[]
     expect(elenco.map((v) => v.slug).sort()).toEqual(["v", "w", "x"])
+  })
+
+  test("con MANGO_ANIMATION_CONVERSAZIONE e MANGO_ANIMATION_DOMANDE nell'ambiente lo strumento domanda c'è", async () => {
+    const a = await conVideo()
+    const trasporto = new StdioClientTransport({
+      command: process.execPath,
+      args: ["run", join(import.meta.dir, "..", "src", "mcp", "avvia.ts")],
+      env: { MANGO_ANIMATION_LAVORO: a.radice, MANGO_ANIMATION_PORTA: String(a.server.porta), MANGO_ANIMATION_CONVERSAZIONE: "c1", MANGO_ANIMATION_DOMANDE: "1", PATH: process.env["PATH"] ?? "", SystemRoot: process.env["SystemRoot"] ?? "", MANGO_DATA: process.env["MANGO_DATA"] ?? "" },
+      stderr: "pipe",
+    })
+    const client = new Client({ name: "prova", version: "1" })
+    clienti.push(client)
+    await client.connect(trasporto)
+    const nomi = (await client.listTools()).tools.map((t) => t.name)
+    expect(nomi).toHaveLength(24)
+    expect(nomi).toContain("domanda")
   })
 })

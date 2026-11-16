@@ -1,7 +1,7 @@
 // Come la chat dice uno strumento di Claude Code: un verbo e l'oggetto, mai il nome interno.
 import { t } from "../lingua"
 
-export type IconaStrumento = "libro" | "matita" | "terminale" | "lente" | "globo" | "agente" | "bacchetta" | "elenco" | "domanda" | "video" | "foto" | "ingranaggio"
+export type IconaStrumento = "libro" | "matita" | "terminale" | "lente" | "globo" | "agente" | "bacchetta" | "elenco" | "domanda" | "video" | "foto" | "spina"
 
 export interface DescrizioneStrumento {
   etichetta: string
@@ -153,9 +153,9 @@ export function descriviStrumento(nome: string, ingressoGrezzo: unknown): Descri
   if (mcp) {
     const [, server = "", strumento = ""] = mcp
     if (server === "video") return descriviVideo(strumento, ingresso)
-    return { etichetta: `${server.replace(/_/g, " ")} · ${strumento.replace(/_/g, " ")}`, icona: "ingranaggio" }
+    return { etichetta: `${server.replace(/_/g, " ")} · ${strumento.replace(/_/g, " ")}`, icona: "spina" }
   }
-  return { etichetta: t("Usa lo strumento «{nome}»", "Uses the tool “{nome}”", { nome }), icona: "ingranaggio" }
+  return { etichetta: t("Usa lo strumento «{nome}»", "Uses the tool “{nome}”", { nome }), icona: "spina" }
 }
 
 /** Cosa sta facendo uno strumento, per chi non è tecnico: nessun nome di file, di comando o di strumento. */

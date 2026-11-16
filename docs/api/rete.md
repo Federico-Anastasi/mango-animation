@@ -11,7 +11,7 @@ Parte di `docs/API.md` (le regole comuni: la chiave, gli errori, la lingua). Un 
 
 **Gli arrivi.** `GET /api/arrivi` dà `{ acceso, in_ascolto, indirizzo, qr, errore, ultimi, firewall, pronto, motivo }`:
 
-- `acceso` è la scelta di chi usa il computer: **di base la ricezione dal telefono è spenta**, e finché non collega un telefono (Impostazioni › Telefono, «Collega un telefono», che fa `PUT /api/arrivi`) il computer non ascolta la rete
+- `acceso` è la scelta di chi usa il computer: **di base la ricezione dal telefono è spenta**, e finché non collega un telefono (Impostazioni › Telefono, l'interruttore «Arrivi dal telefono», che fa `PUT /api/arrivi`) il computer non ascolta la rete
   per gli arrivi. Spenta, `in_ascolto` è falso, `indirizzo`, `qr`, `guarda` e `carica` sono `null`, `pronto` è falso e `motivo` lo dice; le rotte del telefono rispondono `404`. La scelta sta in
   `archivio/arrivi/ricezione.json` e resta dopo un riavvio.
 - `indirizzo` è `ip:porta` del computer sulla rete di casa (`null` senza rete o se non è in ascolto), `qr` è un
@@ -58,6 +58,8 @@ guardare dal telefono i video montati, le prove e il copione da leggere:
   `finale.mp4`, con `Range` come `/media/`; `404` se il video non è montato.
 - `GET /guarda/prova/<slug>.mp4?chiave=…` (anche `HEAD`): la prova prima di registrare (`uscite/prova.mp4`), con `Range`; `404` se il video non ha una prova.
 - `GET /guarda/copione/<slug>.html?chiave=…`: la pagina `uscite/copione.html`, da leggere sul telefono mentre si registra; `404` se il video non ce l'ha.
+
+Le pagine che il ricevitore manda al telefono (la guida, `/carica`, `/guarda`, le frasi d'ingresso) hanno l'aspetto dello studio: colori e raggi dai nomi di `suite/tokens.css`, che il server legge una volta all'avvio e mette nella pagina, chiari o scuri come il telefono; i caratteri sono quelli del sistema. Il bottone che porta avanti («Carica video») è l'unico principale, un errore è rosso, il resto è neutro; ciò che si tocca è alto almeno 44 px.
 
 `GET /api/arrivi` dà anche `guarda` e `carica` (l'indirizzo delle due pagine, con la chiave) e `qr_guarda` e
 `qr_carica` (i loro codici QR, in SVG).

@@ -12,7 +12,7 @@ export type Parte =
   | { tipo: "allegato"; percorso: string; immagine: boolean }
   | { tipo: "fine"; costo?: number; durata_ms: number; lavoro_ms?: number; errore?: string }
 
-/** Quanto Claude ha lavorato in tutta la conversazione, senza le attese del creator: `ms` già fatti, `da` l'inizio del tratto in corso. */
+/** Quanto il motore ha lavorato in tutta la conversazione, senza le attese del creator: `ms` già fatti, `da` l'inizio del tratto in corso. */
 export interface TempoDiLavoro {
   ms: number
   da: string | null
@@ -43,7 +43,7 @@ export type Richiesta =
   | { id: string; tipo: "permesso"; strumento: string; ingresso: unknown; frase: string }
   | { id: string; tipo: "domanda"; domande: DomandaChat[] }
 
-/** Un lavoro che Claude Code ha in corso: `background: false` se Claude lo sta aspettando. */
+/** Un lavoro che il motore ha in corso: `background: false` se lo sta aspettando. */
 export interface TaskChat {
   id: string
   tipo: "comando" | "agente" | "altro"
@@ -62,24 +62,60 @@ export interface UsoTask {
 
 export type StatoConversazione = "pronta" | "lavora" | "aspetta" | "errore"
 
-export type LivelloEffort = "low" | "medium" | "high" | "xhigh" | "max"
+export type LivelloEffort = string
 
-/** Un modello dell'elenco di Claude Code (`GET /api/chat/modelli`). */
+/** Un livello di effort che un modello offre, col nome per il creator nelle due lingue. */
+export interface LivelloDelModello {
+  id: LivelloEffort
+  nome: { it: string; en: string }
+}
+
+/** Un modello dell'elenco della chat (`GET /api/chat/modelli`); `motore` è l'id del motore che lo offre. */
 export interface ModelloChat {
   id: string
   nome: string
   descrizione: string
-  effort: LivelloEffort[]
+  effort: LivelloDelModello[]
   reale: string
+  motore: string
 }
 
-/** Modello ed effort di una conversazione; `null`: nessuna scelta, vale il predefinito di Claude Code. */
+/** Ciò che un motore sa fare: lo studio non offre il resto. */
+export interface CapacitaMotore {
+  effort: boolean
+  comandi: boolean
+  ferma_lavoro: boolean
+  in_background: boolean
+  immagini_negli_esiti: boolean
+  controllo_remoto: boolean
+  sottoagenti: boolean
+  /** Sa usare il browser del creator. */
+  browser: boolean
+}
+
+/** Un motore della chat (`GET /api/chat/motori`). */
+export interface MotoreChat {
+  id: string
+  /** Come si chiama nel menu dei motori. */
+  nome: string
+  /** Come lo chiamano le frasi dello studio; `null` se non lo nominano. */
+  nelle_frasi: string | null
+  /** L'inizio dell'`id` dei suoi modelli; `null` se non hanno prefisso. */
+  prefisso: string | null
+  /** Risponde adesso. */
+  pronto: boolean
+  /** L'`id` del modello che indica per il primo giro; `null` se non ne indica uno. */
+  modello_grande: string | null
+  capacita: CapacitaMotore
+}
+
+/** Modello ed effort di una conversazione; `null`: nessuna scelta, vale il predefinito del motore. */
 export interface ImpostazioniChat {
   modello: string | null
   effort: LivelloEffort | null
 }
 
-/** Un comando con la barra di Claude Code (`GET /api/chat/comandi`); `argomenti` è il suggerimento, vuoto se non ne vuole. */
+/** Un comando con la barra di un motore (`GET /api/chat/comandi?motore=<id>`); `argomenti` è il suggerimento, vuoto se non ne vuole. */
 export interface ComandoChat {
   nome: string
   descrizione: string
@@ -92,14 +128,16 @@ export interface VoceConversazione {
   titolo: string
   aggiornata: string
   attiva: boolean
+  motore: string
 }
 
 export interface DettaglioConversazione extends ImpostazioniChat {
   id: string
+  motore: string
   titolo: string
   attiva: boolean
   stato: StatoConversazione
-  /** Da quando Claude lavora al giro in corso; `null` se non lavora. */
+  /** Da quando il motore lavora al giro in corso; `null` se non lavora. */
   lavora_da: string | null
   lavoro: TempoDiLavoro
   messaggi: Messaggio[]

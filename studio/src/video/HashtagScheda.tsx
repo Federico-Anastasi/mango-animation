@@ -56,7 +56,7 @@ export function HashtagScheda({ video, salvaScheda }: PropsScheda) {
       )}
       <div className={styles.aggiungi}>
         <input type="text" aria-label={t("Nuovo hashtag", "New hashtag")} placeholder={t("Un hashtag nuovo", "A new hashtag")} value={testo} onChange={(e) => setTesto(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungi()} />
-        <Bottone variante="vuoto" onClick={aggiungi} etichetta={t("Aggiungi hashtag", "Add hashtag")}>
+        <Bottone onClick={aggiungi} etichetta={t("Aggiungi hashtag", "Add hashtag")}>
           <Icona nome="piu" />
           {t("Aggiungi", "Add")}
         </Bottone>

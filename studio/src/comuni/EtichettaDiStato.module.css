@@ -1,0 +1,24 @@
+.etichetta {
+  display: inline-block;
+  padding: 4px 8px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-full);
+  color: var(--mango-text-muted);
+  font: 500 11px/1 var(--mango-font-text);
+  white-space: nowrap;
+}
+
+.etichetta[data-stato="pronto"] {
+  border-color: var(--mango-ready);
+  color: var(--mango-ready);
+}
+
+.etichetta[data-stato="in-corso"] {
+  border-color: var(--mango-action-text);
+  color: var(--mango-action-text);
+}
+
+.etichetta[data-stato="errore"] {
+  border-color: var(--mango-error);
+  color: var(--mango-error);
+}

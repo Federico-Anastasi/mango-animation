@@ -75,7 +75,7 @@ export function ScalettaScheda({ video, salvaScheda }: PropsScheda) {
       )}
       <div className={styles.aggiungi}>
         <input type="text" aria-label={t("Nuovo passo", "New step")} placeholder={t("Cosa aprire nel nuovo passo", "What to open in the new step")} value={nuovo} onChange={(e) => setNuovo(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungi()} />
-        <Bottone variante="vuoto" onClick={aggiungi} etichetta={t("Aggiungi il passo", "Add the step")}>
+        <Bottone onClick={aggiungi} etichetta={t("Aggiungi il passo", "Add the step")}>
           <Icona nome="piu" />
           {t("Aggiungi", "Add")}
         </Bottone>

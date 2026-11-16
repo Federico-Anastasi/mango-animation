@@ -346,7 +346,7 @@ describe("il montaggio", () => {
     expect(screen.queryByText("Per montare, rimontare o cambiare il video, chiedilo nella chat.")).toBeNull()
     expect(screen.queryByRole("button", { name: /chat|Claude|Monta (il|questo)/ })).toBeNull()
     expect(screen.queryByText(/Barra spaziatrice|testina/)).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Montato" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Montato" }))
     expect(screen.getByText("Non c'è ancora un video montato: chiedilo nella chat.")).toBeInTheDocument()
     expect(screen.queryByText(/Barra spaziatrice|testina/)).toBeNull()
   })
@@ -367,7 +367,7 @@ describe("il montaggio", () => {
   it("se il piano è cambiato dopo l'ultimo montaggio, «Montato» lo dice con la data, anche appena aperta la pagina", async () => {
     const uscite = conUscite([{ file: "video/prova/uscite/finale.mp4", byte: 10, cambiato: "2026-10-09T10:00:00Z" }])
     await apri({ ...dettaglioDiProva(), ...uscite, piano_cambiato: "2026-10-09T11:15:00Z", piano_dopo_montato: true })
-    fireEvent.click(screen.getByRole("button", { name: "Montato" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Montato" }))
     expect(await screen.findByText(`Il piano o lo stile sono cambiati dopo l'ultimo montaggio (${dataOra("2026-10-09T11:15:00Z")}): questo video non li segue ancora. Chiedi nella chat di rimontarlo.`)).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /chat|Claude|Rimonta/ })).toBeNull()
   })
@@ -375,14 +375,14 @@ describe("il montaggio", () => {
   it("se il piano non è cambiato dopo il montaggio, nessun avviso", async () => {
     const uscite = conUscite([{ file: "video/prova/uscite/finale.mp4", byte: 10, cambiato: "2026-10-09T10:00:00Z" }])
     await apri({ ...dettaglioDiProva(), ...uscite, piano_cambiato: "2026-10-09T09:00:00Z", piano_dopo_montato: false })
-    fireEvent.click(screen.getByRole("button", { name: "Montato" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Montato" }))
     expect(screen.queryByText(/Il piano o lo stile sono cambiati dopo l'ultimo montaggio/)).toBeNull()
   })
 
   it("con il montaggio nuovo in corso lo dice", async () => {
     const uscite = conUscite([{ file: "video/prova/uscite/finale.mp4", byte: 10, cambiato: "2026-10-09T10:00:00Z" }])
     await apri({ ...dettaglioDiProva(), ...uscite, piano_cambiato: "2026-10-09T11:15:00Z", piano_dopo_montato: true, lavoro: { id: 1, comando: "monta", stato: "in corso" } })
-    fireEvent.click(screen.getByRole("button", { name: "Montato" }))
+    fireEvent.click(screen.getByRole("radio", { name: "Montato" }))
     expect(await screen.findByText(`Il piano o lo stile sono cambiati dopo l'ultimo montaggio (${dataOra("2026-10-09T11:15:00Z")}): il montaggio nuovo è in corso.`)).toBeInTheDocument()
   })
 
@@ -395,7 +395,7 @@ describe("il montaggio", () => {
       ]),
     }
     const { container } = await apri(video)
-    expect(screen.getByRole("button", { name: "Montato" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("radio", { name: "Montato" })).toBeChecked()
     expect(container.querySelector("video")).toHaveAttribute("src", "/media/video/prova/uscite/con-copertina.mp4?v=2026-10-09T10%3A01%3A00Z")
   })
 

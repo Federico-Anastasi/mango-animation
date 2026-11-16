@@ -45,7 +45,7 @@ export function ElencoAggiunte({ voci, onChiudi }: { voci: readonly Voce[]; onCh
         ))}
       </ul>
       {finite && (
-        <Bottone variante="vuoto" onClick={onChiudi}>
+        <Bottone onClick={onChiudi}>
           {t("Chiudi l'elenco", "Close the list")}
         </Bottone>
       )}

@@ -2,12 +2,13 @@
 import { t } from "../lingua"
 import { RiquadroArrivi } from "./RiquadroArrivi"
 import { RiquadroStudioDalTelefono } from "./RiquadroStudioDalTelefono"
+import { Testata } from "./Testata"
 import styles from "./Impostazioni.module.css"
 
 export function Telefono() {
   return (
-    <div className={styles.contenuto}>
-      <h1>{t("Telefono", "Phone")}</h1>
+    <div className={styles.sezione}>
+      <Testata titolo={t("Telefono", "Phone")} sotto={t("Mandare i video al computer e usare lo studio intero dal telefono.", "Send videos to the computer and use the whole studio from your phone.")} />
       <RiquadroArrivi />
       <RiquadroStudioDalTelefono />
     </div>

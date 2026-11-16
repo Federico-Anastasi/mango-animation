@@ -7,7 +7,7 @@ import styles from "./Andamento.module.css"
 const LARGO = 560
 const ALTO = 160
 const MARGINE = { sopra: 12, destra: 14, sotto: 24, sinistra: 46 }
-const COLORI = ["var(--inchiostro)", "var(--blu)", "var(--rosso)", "var(--verde)"]
+const COLORI = ["var(--mango-text)", "var(--mango-action-text)", "var(--mango-text-muted)", "var(--mango-text-faint)"]
 
 export function Andamento({ numeri }: { numeri: Numeri[] }) {
   const punti = numeri.flatMap((n) => {

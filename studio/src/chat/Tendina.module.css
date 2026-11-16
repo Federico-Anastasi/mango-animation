@@ -1,16 +1,16 @@
 .tendina {
   position: absolute;
-  right: 0.8rem;
+  right: 12px;
   bottom: 100%;
-  left: 0.8rem;
+  left: 12px;
   z-index: 4;
   container-type: inline-size;
   display: flex;
   flex-direction: column;
   max-height: min(18rem, 50dvh);
-  border: 1px solid var(--inchiostro);
-  border-radius: 8px;
-  background: var(--carta);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
   overflow: hidden;
 }
 
@@ -18,27 +18,30 @@
   flex: 1 1 auto;
   min-height: 0;
   margin: 0;
-  padding: 0.25rem;
+  padding: 4px;
   list-style: none;
   overflow-y: auto;
+  scroll-padding: 4px;
 }
 
 .voce {
   display: flex;
   align-items: baseline;
-  gap: 0.2rem 0.75rem;
-  padding: 0.35rem 0.55rem;
-  border-radius: 5px;
+  gap: 4px 12px;
+  padding: 6px 8px;
+  border-left: 2px solid transparent;
+  line-height: 18px;
+  border-radius: var(--mango-radius-control);
   cursor: pointer;
 }
 
 .voce:hover,
 .voce[data-attiva="true"] {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .voce[data-attiva="true"] {
-  box-shadow: inset 2px 0 0 var(--inchiostro);
+  border-left-color: var(--mango-action-text);
 }
 
 .nome {
@@ -48,12 +51,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-family: var(--mango-font-code);
+  font-size: 12.5px;
+  font-variant-ligatures: none;
 }
 
 .argomenti {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .descrizione {
@@ -62,8 +66,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--grigio);
-  font-size: 0.8rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 /* Nello spazio stretto la descrizione va sotto il nome, sempre su una riga. */
@@ -71,7 +75,7 @@
   .voce {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.05rem;
+    gap: 2px;
   }
 
   .nome {
@@ -86,19 +90,9 @@
 .nota {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.35rem 0.8rem;
-  border-top: 1px solid var(--filo);
-  color: var(--grigio);
-  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-top: 1px solid var(--mango-line);
+  color: var(--mango-text-muted);
+  font-size: 12px;
   overflow-wrap: anywhere;
-}
-
-.riprova {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
 }

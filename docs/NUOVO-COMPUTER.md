@@ -6,7 +6,7 @@ Per chi lavora al codice. Chi usa solo l'app installa l'installatore e basta: al
 
 - **Git**, **Bun**, **Python 3.12** e **ffmpeg** (7.1, nel PATH).
 - **Rust** (`rustup`, con gli strumenti C++ di Visual Studio) e `cargo install tauri-cli --version "^2"`, per l'app.
-- **Claude Code**, installato e con l'accesso del proprio account (comandi e dove l'app lo cerca: `docs/app/claude-code.md`). Serve alla chat; il server lo riceve in `MANGO_ANIMATION_CLAUDE`.
+- **Un motore della chat**: Claude Code, Codex o Mango Code, ne basta uno, installato e con l'accesso del proprio account (comandi e dove l'app li cerca: `docs/app/motori.md`). Servono alla chat; il server riceve i programmi in `MANGO_ANIMATION_CLAUDE` e `MANGO_ANIMATION_CODEX`.
 - **yt-dlp** nel PATH (`pip install yt-dlp`), facoltativo e solo senza l'app, che lo installa da sola con i suoi pacchetti Python: scarica nel girato un video del web o un suo tratto (`docs/api/girato.md`, `POST /api/grezzo/scarica`). Senza, quella rotta e lo strumento `girato_scarica` rispondono che manca; il resto funziona. Il server lo cerca all'avvio: dopo averlo installato si riavvia.
 - **Pacchetti Python**: gli stessi che l'app installa da sola, con le versioni provate, sono elencati per funzione accesa in `app/src/computer/piano.rs`. `strumenti/leggi_tiktok.py` pilota il Chrome del creator con `playwright`, che non scarica un browser. Solo `yt-dlp` resta all'ultima versione, di proposito: i siti cambiano e una versione fissata smette di scaricare. L'app non installa `pytest` (le prove): si aggiunge a mano.
 - **Pacchetti dei tre progetti**: `bun install` in `animazioni/`, `server/` e `studio/`, poi `bunx playwright install chromium` in `animazioni/`.

@@ -65,7 +65,7 @@ hanno il numero).
 
 ## La crescita del canale
 
-`canali/tiktok/crescita.json`: dove portare il canale fra tre mesi, sei mesi e un anno, e come. Lo scrive Claude
+`canali/tiktok/crescita.json`: dove portare il canale fra tre mesi, sei mesi e un anno, e come. Lo scrive la chat
 quando il creator chiede il piano; si riscrive intero ogni mese, o prima se l'andamento si stacca dallo scenario scelto.
 
     { "quando": "2026-03-25",                          il giorno in cui è scritto il piano

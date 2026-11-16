@@ -7,21 +7,8 @@
 .sotto {
   margin: 0;
   max-width: 70ch;
-  color: var(--grigio);
-  font-size: 0.9rem;
-}
-
-.sezione {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  min-width: 0;
-  padding-top: 1rem;
-  border-top: 2px solid var(--inchiostro);
-}
-
-.sezione h2 {
-  margin: 0;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .paragrafo {
@@ -31,14 +18,14 @@
 
 .barra {
   height: 8px;
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .barra span {
   display: block;
   height: 100%;
   border-radius: 0 4px 4px 0;
-  background: var(--blu);
+  background: linear-gradient(to right, var(--mango-action), var(--mango-action-end));
 }
 
 .giorni {
@@ -54,21 +41,21 @@
   grid-template-columns: 7rem minmax(0, 1fr);
   gap: 0.25rem 1rem;
   padding: 0.55rem 0.6rem;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
 }
 
 .giorno {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--grigio);
+  font-family: var(--mango-font-code);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .controllo {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
 }
 
 .controllo .giorno {
-  color: var(--inchiostro);
+  color: var(--mango-text);
   font-weight: 600;
 }
 
@@ -84,33 +71,33 @@
 }
 
 .asse {
-  stroke: var(--grigio);
+  stroke: var(--mango-text-muted);
   stroke-width: 1;
 }
 
 .guida {
-  stroke: var(--filo);
+  stroke: var(--mango-line);
   stroke-width: 1;
 }
 
 .scritta {
-  fill: var(--grigio);
-  font-family: var(--font-mono);
+  fill: var(--mango-text-muted);
+  font-family: var(--mango-font-code);
   font-size: 11px;
 }
 
 .etichetta {
-  fill: var(--inchiostro);
-  font-family: var(--font-testo);
+  fill: var(--mango-text);
+  font-family: var(--mango-font-text);
   font-size: 12px;
   font-weight: 600;
   paint-order: stroke;
-  stroke: var(--carta);
+  stroke: var(--mango-ground);
   stroke-width: 3px;
 }
 
 .fascia {
-  fill: var(--carta-scura);
+  fill: var(--mango-raised);
 }
 
 .vera polyline,
@@ -120,32 +107,32 @@
 }
 
 .vera polyline {
-  stroke: var(--inchiostro);
+  stroke: var(--mango-text);
 }
 
 .vera circle {
-  fill: var(--inchiostro);
-  stroke: var(--carta);
+  fill: var(--mango-text);
+  stroke: var(--mango-ground);
   stroke-width: 2;
 }
 
 .obiettivo polyline {
-  stroke: var(--blu);
+  stroke: var(--mango-action-text);
 }
 
 .obiettivo circle {
-  fill: var(--blu);
+  fill: var(--mango-action-text);
 }
 
 .cursore line {
-  stroke: var(--grigio);
+  stroke: var(--mango-text-muted);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 
 .cursore circle {
   fill: none;
-  stroke: var(--inchiostro);
+  stroke: var(--mango-text);
   stroke-width: 2;
 }
 
@@ -155,35 +142,35 @@
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
-  color: var(--inchiostro);
-  font-family: var(--font-mono);
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-ground);
+  color: var(--mango-text);
+  font-family: var(--mango-font-code);
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
 }
 
 .suggerimento strong {
-  font-family: var(--font-testo);
+  font-family: var(--mango-font-text);
 }
 
 .fasciaSuggerimento {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .tabella,
 .tipi {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 13px;
 }
 
 .tabella caption {
   padding-bottom: 0.4rem;
-  color: var(--grigio);
-  font-size: 0.8rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
   text-align: left;
 }
 
@@ -192,7 +179,7 @@
 .tipi th,
 .tipi td {
   padding: 0.45rem 0.5rem;
-  border-bottom: 1px solid var(--filo);
+  border-bottom: 1px solid var(--mango-line);
   text-align: right;
   vertical-align: top;
 }
@@ -204,8 +191,8 @@
 
 .tabella thead th,
 .tipi thead th {
-  color: var(--grigio);
-  font-size: 0.72rem;
+  color: var(--mango-text-muted);
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -214,8 +201,8 @@
 .tabella small,
 .tipi small {
   display: block;
-  color: var(--grigio);
-  font-size: 0.75rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
@@ -227,7 +214,7 @@
 }
 
 .scelta {
-  background: var(--carta-scura);
+  background: var(--mango-raised);
   font-weight: 600;
 }
 
@@ -251,7 +238,7 @@
   display: block;
   height: 10px;
   border-radius: 0 4px 4px 0;
-  background: var(--blu);
+  background: var(--mango-text);
 }
 
 .tipi .soloStretto {
@@ -274,13 +261,13 @@
 
 .consigli p {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 14px;
 }
 
 .gruppo h3 {
   margin: 0.5rem 0 0.3rem;
-  color: var(--grigio);
-  font-size: 0.75rem;
+  color: var(--mango-text-muted);
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -296,37 +283,27 @@
   flex-direction: column;
   gap: 0.1rem;
   padding: 0.6rem 0;
-  border-bottom: 1px solid var(--filo);
-  font-size: 0.92rem;
+  border-bottom: 1px solid var(--mango-line);
+  font-size: 14px;
 }
 
 .nomeNovita {
-  font-family: var(--font-display);
+  font-family: var(--mango-font-title);
   font-weight: 700;
 }
 
 .cosa {
-  color: var(--grigio);
+  color: var(--mango-text-muted);
 }
 
 .novita a {
   align-self: flex-start;
-  font-size: 0.8rem;
+  font-size: 12px;
 }
 
 .come {
-  padding: 1rem 1.1rem;
-  background: var(--carta-scura);
-  color: var(--grigio);
-  font-size: 0.88rem;
-}
-
-.come h2 {
-  margin: 0 0 0.5rem;
-  color: var(--inchiostro);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--mango-text-muted);
+  font-size: 13px;
 }
 
 .come p {
@@ -348,7 +325,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.2rem 1rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid var(--filo);
+    border-bottom: 1px solid var(--mango-line);
   }
 
   .tipi tbody th,

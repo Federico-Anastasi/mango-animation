@@ -56,10 +56,10 @@ che server e motore trattano come il file. Un rimontaggio scrive il file nuovo a
               pubblicato.mp4                      il file com'è uscito, se non è più rimontabile uguale
       sticker/<nome>.png, <nome>.json             il creator ritagliato col bordo bianco, da riusare (caroselli, copertine); il json dice da quale ripresa e a che secondo
       arrivi/chiave.json, chiave-api.json, chiave-app.json, studio-remoto.json, ricezione.json, registro.jsonl, .in-corso/   le chiavi degli arrivi, delle API e dell'app, lo stato dello studio dalla rete e della ricezione, le richieste, i file in arrivo o in attesa di misura
-      .chat/                                       gli allegati e le conversazioni di Mango Code (`docs/CHAT.md`); fuori da git
+      .chat/                                       gli allegati, le conversazioni di Mango Code (`docs/CHAT.md`) e i token dei giri di Codex (`docs/api/consumi.md`); fuori da git
       arrivi/.scarichi/                            dove yt-dlp lavora mentre scarica dal web: si svuota da sola
       lavori.jsonl                                 gli ultimi lavori del motore finiti, con l'esito (lo tiene il server)
-      eliminati.jsonl                              ciò che è stato cancellato su richiesta del creator: percorso, peso, motivo (lo scrive Claude, skill `controlla`)
+      eliminati.jsonl                              ciò che è stato cancellato su richiesta del creator: percorso, peso, motivo (lo scrive la chat, skill `controlla`)
       canali/<canale>/letture/<AAAA-MM-GG-HHMM>/  una lettura del canale, con giorno e ora (`docs/CANALE.md`)
       canali/<canale>/ultima.json                 l'ultima lettura riuscita: { "lettura", "quando" }
       canali/tiktok/preferiti.json                i video che il creator ha salvato (`docs/CANALE.md`)

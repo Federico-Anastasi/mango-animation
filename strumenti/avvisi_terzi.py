@@ -249,7 +249,11 @@ def genera() -> str:
     r.append("## Caratteri\n")
     r.append("`font/Archivo-700.ttf`: Archivo, SIL Open Font License 1.1, <https://github.com/Omnibus-Type/Archivo>. `font/Metropolis-Medium.ttf`: Metropolis, Unlicense (pubblico dominio), <https://github.com/dw5/Metropolis>; il testo è in `font/Metropolis-UNLICENSE.txt`. "
         "Il carattere della sigla, `animazioni/src/scene/sigla/caratteri/space-grotesk.typeface.json`, è ricavato da Space Grotesk (SIL Open Font License 1.1, <https://github.com/floriankarsten/space-grotesk>); il testo della licenza è accanto, in `OFL-SpaceGrotesk.txt`. "
+        "I caratteri dell'interfaccia, in `suite/fonts/`: Archivo (<https://github.com/Omnibus-Type/Archivo>), Instrument Sans (<https://github.com/Instrument/instrument-sans>) e JetBrains Mono (<https://github.com/JetBrains/JetBrainsMono>), tutti SIL Open Font License 1.1; i testi delle licenze sono accanto, in `OFL-*.txt`. "
         "Gli altri caratteri arrivano dai pacchetti `@fontsource/*` qui sotto.\n")
+
+    r.append("## Icone\n")
+    r.append("Le icone dell'interfaccia (`studio/src/comuni/icone.tsx`, `studio/src/chat/icone.tsx`) sono tracciati di Lucide, licenza ISC, <https://github.com/lucide-icons/lucide>; il testo della licenza è in `studio/src/comuni/ISC-Lucide.txt`.\n")
 
     nomi_loghi = ", ".join(f.stem for f in sorted((RADICE / "animazioni" / "src" / "standard" / "loghi").glob("*.svg")))
     r.append("## Marchi\n")

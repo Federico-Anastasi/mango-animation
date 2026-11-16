@@ -21,6 +21,7 @@ function rete(canale: unknown, extra: Record<string, unknown> = {}) {
     "GET /api/registrazione": { disponibile: true, motivo: null, dispositivi: { microfoni: [], camere: [] }, in_corso: null, ultima: null },
     "GET /api/arrivi": { in_ascolto: false, indirizzo: null, qr: null, errore: null, ultimi: [], firewall: "bloccato", pronto: false, motivo: null },
     "GET /api/chat": [],
+    "GET /api/chat/motori": [],
     "GET /api/chat/modelli": [],
     "GET /api/chat/comandi": [],
     "GET /api/canale/tiktok": canale,
@@ -59,11 +60,11 @@ afterEach(() => {
 })
 
 describe("la voce «Canale» nella barra", () => {
-  it("senza un canale letto non c'è, e la barra ha Video, Girato, Produzione e Impostazioni", async () => {
+  it("senza un canale letto non c'è, e le pagine della barra sono Video, Girato e Produzione", async () => {
     await studio("#/video", NON_LETTO)
     await screen.findByRole("heading", { name: "Video" })
-    await waitFor(() => expect(within(menu()).getAllByRole("link").map((l) => l.textContent)).toEqual(["Video", "Girato", "Produzione", "Impostazioni"]))
-    // Le voci di prima non sono più in barra, e nemmeno la lingua, il tema e la cartella dei dati.
+    await waitFor(() => expect(within(menu()).getAllByRole("link").map((l) => l.textContent)).toEqual(["Video", "Girato", "Produzione"]))
+    // In barra ci sono solo le pagine: le schede del canale, la lingua, il tema e la cartella dei dati stanno altrove.
     expect(screen.queryByRole("link", { name: "Pubblico" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Stile" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Motori" })).toBeNull()
@@ -75,7 +76,7 @@ describe("la voce «Canale» nella barra", () => {
     await studio("#/video", LETTO)
     const voce = await within(menu()).findByRole("link", { name: "Canale" })
     expect(voce).toHaveAttribute("href", "#/canale")
-    expect(within(menu()).getAllByRole("link").map((l) => l.textContent)).toEqual(["Video", "Girato", "Canale", "Produzione", "Impostazioni"])
+    expect(within(menu()).getAllByRole("link").map((l) => l.textContent)).toEqual(["Video", "Girato", "Canale", "Produzione"])
   })
 
   it("compare quando arriva la prima lettura, senza ricaricare lo studio", async () => {

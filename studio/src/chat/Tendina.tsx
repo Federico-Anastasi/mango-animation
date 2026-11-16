@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { Bottone } from "../comuni/Bottone"
 import type { VoceComando } from "./comandi"
 import styles from "./Tendina.module.css"
 import { t } from "../lingua"
@@ -31,9 +32,9 @@ export function Tendina({ voci, attiva, id, nota, onScegli, onRiprova }: { voci:
       {nota && (
         <p className={styles.nota} role="status">
           {nota}{" "}
-          <button type="button" className={styles.riprova} onClick={onRiprova}>
+          <Bottone variante="minore" onClick={onRiprova}>
             {t("Riprova", "Try again")}
-          </button>
+          </Bottone>
         </p>
       )}
     </div>

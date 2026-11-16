@@ -1,6 +1,7 @@
 // Gli stati che ogni vista deve disegnare, non lasciare al caso.
 import { useState, type ReactNode } from "react"
 import { t } from "../lingua"
+import { Bottone } from "./Bottone"
 import { FormSegnalazione } from "../segnalazione/FormSegnalazione"
 import { ponteSegnalazione } from "../segnalazione/ponte"
 import styles from "./Stati.module.css"
@@ -35,19 +36,17 @@ export function Errore({ messaggio, dettaglio = [], onRiprova, etichettaRiprova 
           </ul>
         </details>
       )}
-      {onRiprova && (
-        <button type="button" onClick={onRiprova} className={styles.riprova}>
-          {etichettaRiprova}
-        </button>
+      {(onRiprova || ponteSegnalazione()) && (
+        <div className={styles.azioni}>
+          {onRiprova && <Bottone onClick={onRiprova}>{etichettaRiprova}</Bottone>}
+          {ponteSegnalazione() && (
+            <button type="button" onClick={() => setSegnala(!segnala)} aria-expanded={segnala} className={styles.segnala}>
+              {t("Segnala il problema", "Report the problem")}
+            </button>
+          )}
+        </div>
       )}
-      {ponteSegnalazione() && (
-        <>
-          <button type="button" onClick={() => setSegnala(!segnala)} aria-expanded={segnala} className={styles.riprova}>
-            {t("Segnala il problema", "Report the problem")}
-          </button>
-          {segnala && <FormSegnalazione errore={[messaggio, ...dettaglio].filter((r) => r !== "").join("\n")} />}
-        </>
-      )}
+      {ponteSegnalazione() && segnala && <FormSegnalazione errore={[messaggio, ...dettaglio].filter((r) => r !== "").join("\n")} />}
     </div>
   )
 }
@@ -58,9 +57,7 @@ export function DatiVecchi({ errore, dal, onRiprova }: { errore: string | null; 
   return (
     <p className={styles.vecchi} role="status">
       <span>{dal ? t("Dati del {quando}: l'ultima rilettura non è riuscita.", "Data from {quando}: the last refresh failed.", { quando: dal }) : t("L'ultima rilettura non è riuscita: questi dati possono essere vecchi.", "The last refresh failed: this data may be out of date.")}</span>
-      <button type="button" onClick={onRiprova} className={styles.riprova}>
-        {t("Riprova", "Try again")}
-      </button>
+      <Bottone onClick={onRiprova}>{t("Riprova", "Try again")}</Bottone>
     </p>
   )
 }

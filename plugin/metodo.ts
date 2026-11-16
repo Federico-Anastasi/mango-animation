@@ -1,5 +1,5 @@
-// Le regole sempre attive del metodo, come testo per Claude Code (`docs/ARCHITETTURA.md`, «Come il metodo arriva a Claude»).
-import { readdirSync, readFileSync } from "node:fs"
+// Le regole sempre attive del metodo, come testo per Claude Code e per Codex (`docs/METODO.md`).
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 /** Un hook non dà a Claude più di 10.000 caratteri: ciò che passa il limite non lo vede. */
@@ -7,10 +7,13 @@ export const LIMITE_DI_UN_HOOK = 10_000
 
 const leggi = (percorso: string): string => readFileSync(percorso, "utf8").replaceAll("\r\n", "\n").trimEnd()
 
-/** Il `CLAUDE.md` del metodo e le regole sempre caricate; quelle con `paths:` sono di chi sviluppa il codice, che le ha già. */
+/** Una regola senza `paths:` è sempre caricata; con `paths:` è di chi sviluppa il codice, che la ha già. */
+export const regolaSempreAttiva = (testo: string): boolean => !/^paths:/m.test(/^---\n([\s\S]*?)\n---/.exec(testo)?.[1] ?? "")
+
+/** Il `CLAUDE.md` del metodo e le regole sempre caricate. */
 export function fileDelMetodo(radice: string): string[] {
   const regole = readdirSync(join(radice, ".claude", "rules"))
-    .filter((f) => f.endsWith(".md") && !/^paths:/m.test(/^---\n([\s\S]*?)\n---/.exec(leggi(join(radice, ".claude", "rules", f)))?.[1] ?? ""))
+    .filter((f) => f.endsWith(".md") && regolaSempreAttiva(leggi(join(radice, ".claude", "rules", f))))
     .sort()
     .map((f) => `.claude/rules/${f}`)
   return ["CLAUDE.md", ...regole]
@@ -27,4 +30,16 @@ export function testoDelMetodo(radice: string, lavoro: string): string {
   if (testo.length >= LIMITE_DI_UN_HOOK)
     throw new Error(`Le regole sempre attive del metodo sono lunghe ${testo.length} caratteri e un hook ne porta meno di ${LIMITE_DI_UN_HOOK}: sposta una regola in .claude/metodo/ (la leggono le skill) o accorciala.`)
   return testo
+}
+
+/** Le regole sempre attive del creator (`.claude/rules/` della sua cartella di lavoro, che può non averne), per chi non le legge da sé. */
+export function regoleDelCreator(lavoro: string): string[] {
+  const cartella = join(lavoro, ".claude", "rules")
+  if (!existsSync(cartella)) return []
+  return readdirSync(cartella)
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => ({ f, testo: leggi(join(cartella, f)) }))
+    .filter((r) => r.testo !== "" && regolaSempreAttiva(r.testo))
+    .map((r) => `Contents of .claude/rules/${r.f} (the creator's rule):\n\n${r.testo}`)
 }

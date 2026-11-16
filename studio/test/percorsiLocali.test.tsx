@@ -60,7 +60,7 @@ describe("come si riconosce un percorso", () => {
   it.each([
     ["/archivio/video/orto", "video/orto"],
     ["file:///C:/Users/x/archivio/video/orto/", "video/orto"],
-    ["file:///C:/Users/Federico%20Rossi/archivio/video/orto", "video/orto"],
+    ["file:///C:/Users/Alice%20Rossi/archivio/video/orto", "video/orto"],
     ["C:\\Users\\x\\ARCHIVIO\\video\\orto", "video/orto"],
     ["\\\\server\\share\\archivio\\video\\orto", "video/orto"],
     ["/C:/Users/x", null],

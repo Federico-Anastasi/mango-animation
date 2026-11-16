@@ -231,8 +231,8 @@ describe("dividere", () => {
 
   it("troppo vicino a un bordo o fuori dai tratti si rifiuta", () => {
     const ctx = contestoDiProva()
-    expect(motivo(r.dividi(ctx, 2.02))).toBe("La linea rossa è troppo vicina al bordo del pezzo: spostala un po' e riprova.")
-    expect(motivo(r.dividi(ctx, 50))).toBe("La linea rossa non è su un pezzo del montaggio: portala su uno e riprova.")
+    expect(motivo(r.dividi(ctx, 2.02))).toBe("La linea verticale è troppo vicina al bordo del pezzo: spostala un po' e riprova.")
+    expect(motivo(r.dividi(ctx, 50))).toBe("La linea verticale non è su un pezzo del montaggio: portala su uno e riprova.")
   })
 
   it("un pezzo a parole non si divide se da una parte non resta niente", () => {

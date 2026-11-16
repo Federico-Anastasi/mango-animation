@@ -1,7 +1,7 @@
 .elenco {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -10,28 +10,29 @@
 .voce {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 2px;
   width: 100%;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--filo);
-  border-radius: 6px;
-  background: var(--carta);
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-control);
+  background: var(--mango-surface);
   text-align: left;
   cursor: pointer;
 }
 
 .voce:hover {
-  border-color: var(--grigio);
+  border-color: var(--mango-text-muted);
 }
 
 .voce[aria-current="true"] {
-  border-color: var(--inchiostro);
-  background: var(--carta-scura);
+  border-color: var(--mango-action-text);
+  background: var(--mango-raised);
 }
 
 .titolo {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 13px;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -42,20 +43,26 @@
 .quando {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  color: var(--grigio);
-  font-size: 0.78rem;
+  gap: 8px;
+  color: var(--mango-text-muted);
+  font-size: 12px;
 }
 
 .punto {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--rosso);
+  background: var(--mango-ready);
 }
 
 .vuoto {
   margin: 0;
-  color: var(--grigio);
-  font-size: 0.9rem;
+  color: var(--mango-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .voce {
+    min-height: 44px;
+  }
 }

@@ -1,6 +1,6 @@
 // Le rotte della chat (`docs/CHAT.md`): l'interfaccia parla solo col server.
 import { chiedi, ErroreApi, leggiRisposta } from "../api"
-import type { AllegatoInviato, ComandoChat, ContestoChat, DettaglioConversazione, ImpostazioniChat, ModelloChat, SceltaRisposta, VoceConversazione } from "./tipi"
+import type { AllegatoInviato, ComandoChat, ContestoChat, DettaglioConversazione, ImpostazioniChat, ModelloChat, MotoreChat, SceltaRisposta, VoceConversazione } from "./tipi"
 import { t } from "../lingua"
 
 const nonCaricato = (): string => t("Il file non è stato caricato: riprova.", "The file was not uploaded: try again.")
@@ -12,15 +12,16 @@ export interface NuovoMessaggio {
   testo?: string
   allegati?: AllegatoInviato[]
   contesto?: ContestoChat
-  /** Il primo giro (o rifarlo): la conversazione comincia da Claude, senza un messaggio del creator. Va da solo, senza testo né allegati. */
+  /** Il primo giro (o rifarlo): la conversazione comincia dal motore, senza un messaggio del creator. Va da solo, senza testo né allegati. */
   avvio?: "primo-giro" | "rifare-primo-giro"
 }
 
 export const apiChat = {
   elenco: () => chiedi<VoceConversazione[]>("GET", "/api/chat"),
   nuova: (messaggio: NuovoMessaggio, scelta: Partial<ImpostazioniChat> = {}) => chiedi<{ id: string }>("POST", "/api/chat", { ...messaggio, ...scelta }),
+  motori: () => chiedi<MotoreChat[]>("GET", "/api/chat/motori"),
   modelli: () => chiedi<ModelloChat[]>("GET", "/api/chat/modelli"),
-  comandi: () => chiedi<ComandoChat[]>("GET", "/api/chat/comandi"),
+  comandi: (motore: string) => chiedi<ComandoChat[]>("GET", `/api/chat/comandi?motore=${encodeURIComponent(motore)}`),
   impostazioni: (id: string, scelta: Partial<ImpostazioniChat>) => chiedi<ImpostazioniChat>("POST", `/api/chat/${idUrl(id)}/impostazioni`, scelta),
   conversazione: (id: string) => chiedi<DettaglioConversazione>("GET", `/api/chat/${idUrl(id)}`),
   manda: (id: string, messaggio: NuovoMessaggio) => chiedi<unknown>("POST", `/api/chat/${idUrl(id)}/messaggi`, messaggio),

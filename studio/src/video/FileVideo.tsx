@@ -44,7 +44,7 @@ export function FileVideo({ video }: PropsScheda) {
                     </span>
                   </div>
                   <div className={styles.azioni}>
-                    <Bottone variante="vuoto" onClick={() => api.apri(u.file).catch((e: Error) => setErrore(e.message))}>
+                    <Bottone onClick={() => api.apri(u.file).catch((e: Error) => setErrore(e.message))}>
                       {t("Mostra nella cartella", "Show in folder")}
                     </Bottone>
                     <BottoneCopia testo={percorsoDellUscita(video.cartella, u.file)} etichetta={t("Copia il percorso", "Copy the path")} />

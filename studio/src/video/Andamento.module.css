@@ -10,20 +10,20 @@
 }
 
 .asse {
-  stroke: var(--grigio);
+  stroke: var(--mango-text-muted);
   stroke-width: 1;
 }
 
 .guida {
-  stroke: var(--filo);
+  stroke: var(--mango-line);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 
 .testo {
-  fill: var(--grigio);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  fill: var(--mango-text-muted);
+  font-family: var(--mango-font-code);
+  font-size: 11px;
 }
 
 .legenda {
@@ -31,8 +31,8 @@
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
   margin-top: 0.3rem;
-  font-size: 0.82rem;
-  color: var(--grigio);
+  font-size: 13px;
+  color: var(--mango-text-muted);
 }
 
 .segno {

@@ -1,4 +1,5 @@
 // «Dove sono, dove devo arrivare, e come?»: la strategia del canale scritta in archivio, messa accanto alle letture vere.
+import { Gruppo } from "../comuni/Gruppo"
 import { api } from "../api"
 import { PaginaDiCanaleVuota } from "../comuni/PaginaVuota"
 import { Caricamento, DatiVecchi, Errore } from "../comuni/Stati"
@@ -30,8 +31,7 @@ function Settimana({ piano, punti }: { piano: DatiCrescita; punti: PuntoAndament
   const s = settimana(punti, piano, Date.now())
   const avanzamento = s.fatti !== null && s.obiettivo ? Math.min(Math.max(s.fatti / s.obiettivo, 0), 1) : null
   return (
-    <section className={styles.sezione} aria-labelledby="settimana">
-      <h2 id="settimana">{t("Questa settimana", "This week")}</h2>
+    <Gruppo id="settimana" titolo={t("Questa settimana", "This week")}>
       <p className={styles.sotto}>
         {t("Dal lunedì {inizio}. Ultima lettura del canale: {ultima}.", "Since Monday {inizio}. Last channel read: {ultima}.", {
           inizio: data(inSecondi(s.inizio)),
@@ -56,7 +56,7 @@ function Settimana({ piano, punti }: { piano: DatiCrescita; punti: PuntoAndament
           </li>
         ))}
       </ol>
-    </section>
+    </Gruppo>
   )
 }
 
@@ -77,10 +77,9 @@ function DoveAndare({ piano, vere }: { piano: DatiCrescita; vere: Punto[] }) {
   const date = scelta.punti.slice(1).map((p) => p.t)
 
   return (
-    <section className={styles.sezione} aria-labelledby="dove-andare">
-      <h2 id="dove-andare">{t("Dove andare", "Where to go")}</h2>
+    <Gruppo id="dove-andare" titolo={t("Dove andare", "Where to go")}>
       <p className={styles.sotto}>
-        {t("La linea blu è lo scenario {obiettivo}, quello su cui si misurano le settimane; la fascia va dal {basso} all'{alto}.", "The blue line is the {obiettivo} scenario, the one the weeks are measured against; the band runs from the {basso} to the {alto}.", {
+        {t("La linea ambra è lo scenario {obiettivo}, quello su cui si misurano le settimane; la fascia va dal {basso} all'{alto}.", "The amber line is the {obiettivo} scenario, the one the weeks are measured against; the band runs from the {basso} to the {alto}.", {
           obiettivo: piano.obiettivo,
           basso: piuBassa.nome,
           alto: piuAlta.nome,
@@ -122,7 +121,7 @@ function DoveAndare({ piano, vere }: { piano: DatiCrescita; vere: Punto[] }) {
           ))}
         </tbody>
       </table>
-    </section>
+    </Gruppo>
   )
 }
 
@@ -140,8 +139,7 @@ function DaDoveVieni({ piano, vere, punti, stato }: { piano: DatiCrescita; vere:
     .map((v) => ({ t: new Date(v.pubblicato!).getTime(), testo: titoli?.find((x) => x.slug === v.slug)?.scheda.titolo ?? t("video del {data}", "video of {data}", { data: data(v.pubblicato!) }) }))
 
   return (
-    <section className={styles.sezione} aria-labelledby="da-dove-vieni">
-      <h2 id="da-dove-vieni">{t("Da dove vieni", "Where you come from")}</h2>
+    <Gruppo id="da-dove-vieni" titolo={t("Da dove vieni", "Where you come from")}>
       <Tessere>
         <Tessera valore={numero(ultima.follower)} nome={t("follower", "followers")} nota={t("lettura del {quando}", "read on {quando}", { quando: dataOra(inSecondi(ultima.t)) })} />
         <Tessera valore={settimanaFa === null ? "—" : conSegno(Math.round(settimanaFa))} nome={t("negli ultimi 7 giorni", "in the last 7 days")} />
@@ -159,7 +157,7 @@ function DaDoveVieni({ piano, vere, punti, stato }: { piano: DatiCrescita; vere:
         note={piuVisti}
         etichette={[{ t: ultima.t, follower: ultima.follower, testo: t("oggi {n}", "today {n}", { n: numero(ultima.follower) }) }]}
       />
-    </section>
+    </Gruppo>
   )
 }
 
@@ -167,8 +165,7 @@ function CosaPortaFollower({ piano, stato }: { piano: DatiCrescita; stato: Stato
   const righe = perTipo(stato?.video ?? [], piano.tipi)
   const massimo = Math.max(...righe.map((r) => r.perMille ?? 0), 1)
   return (
-    <section className={styles.sezione} aria-labelledby="cosa-porta">
-      <h2 id="cosa-porta">{t("Cosa porta follower", "What brings followers")}</h2>
+    <Gruppo id="cosa-porta" titolo={t("Cosa porta follower", "What brings followers")}>
       <p className={styles.sotto}>{t("Per ogni tipo di video: quanti follower nuovi ogni mille visualizzazioni, e che parte di tutti i follower nuovi ha portato.", "For each kind of video: how many new followers per thousand views, and what share of all the new followers it brought.")}</p>
       <table className={styles.tipi}>
         <thead>
@@ -214,7 +211,7 @@ function CosaPortaFollower({ piano, stato }: { piano: DatiCrescita; stato: Stato
           ))}
         </tbody>
       </table>
-    </section>
+    </Gruppo>
   )
 }
 
@@ -248,17 +245,15 @@ export function Crescita() {
       <Settimana piano={dato} punti={punti} />
       <CosaPortaFollower piano={dato} stato={stato} />
 
-      <section className={styles.sezione} aria-labelledby="mix">
-        <h2 id="mix">{t("Il mix dei video", "The video mix")}</h2>
+      <Gruppo id="mix" titolo={t("Il mix dei video", "The video mix")}>
         {dato.mix.map((frase) => (
           <p key={frase} className={styles.paragrafo}>
             {frase}
           </p>
         ))}
-      </section>
+      </Gruppo>
 
-      <section className={styles.sezione} aria-labelledby="consigli">
-        <h2 id="consigli">{t("Come crescere", "How to grow")}</h2>
+      <Gruppo id="consigli" titolo={t("Come crescere", "How to grow")}>
         <div className={styles.consigli}>
           {dato.consigli.map((c) => (
             <article key={c.titolo}>
@@ -267,10 +262,9 @@ export function Crescita() {
             </article>
           ))}
         </div>
-      </section>
+      </Gruppo>
 
-      <section className={styles.sezione} aria-labelledby="novita">
-        <h2 id="novita">{t("Le novità di TikTok", "What's new on TikTok")}</h2>
+      <Gruppo id="novita" titolo={t("Le novità di TikTok", "What's new on TikTok")}>
         {giudizi().map(({ giudizio, titolo }) => {
           const cose = dato.novita.filter((n) => n.giudizio === giudizio)
           if (cose.length === 0) return null
@@ -294,15 +288,14 @@ export function Crescita() {
             </div>
           )
         })}
-      </section>
+      </Gruppo>
 
       {dato.come.length > 0 && (
-        <section className={styles.come}>
-          <h2>{t("Come è fatta", "How it is made")}</h2>
+        <Gruppo className={styles.come} titolo={t("Come è fatta", "How it is made")}>
           {dato.come.map((frase) => (
             <p key={frase}>{frase}</p>
           ))}
-        </section>
+        </Gruppo>
       )}
     </div>
   )

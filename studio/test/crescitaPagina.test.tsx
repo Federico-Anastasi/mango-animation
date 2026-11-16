@@ -40,6 +40,8 @@ const rete = (piano: unknown) =>
   })
 
 beforeEach(() => {
+  // «Questa settimana» conta da oggi: la prova si fa nel giorno dell'ultima lettura, una domenica.
+  vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-15T12:00:00") })
   installaEventi()
   vi.stubGlobal(
     "ResizeObserver",
@@ -50,6 +52,7 @@ beforeEach(() => {
   )
 })
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })

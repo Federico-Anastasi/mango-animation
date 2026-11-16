@@ -4,9 +4,13 @@ import { homedir, type NetworkInterfaceInfo } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { leggiConPowerShell, type LeggiFirewall } from "./arrivi/firewall"
 import type { OpzioniChat } from "./chat/tipi"
+import { ClaudeCode } from "./chat/claude/claude"
+import { conIlClaudeDelCreator } from "./chat/claude/metodo"
+import { cartellaDelleSessioni, sessioniDiClaudeCode } from "./chat/claude/sessioni"
+import { Codex } from "./chat/codex/codex"
+import { avviaCodex } from "./chat/codex/cliente"
+import { ambienteDelMetodo } from "./chat/metodo"
 import { MangoCode } from "./chat/mangocode"
-import { conIlClaudeDelCreator } from "./chat/metodo"
-import { cartellaDelleSessioni, sessioniDiClaudeCode } from "./chat/sessioni"
 import type { OpzioniConsumi } from "./consumi/consumi"
 import { VARIABILE_PID_APP } from "./riavvio"
 import { prestitoDaMangoCode, type PrestitoSchede } from "./schede"
@@ -18,6 +22,14 @@ const LIMITE_ARRIVI_BYTE = 20 * 1024 ** 3
 const RIMBALZO_MS = 150
 
 export const VARIABILE_LAVORO = "MANGO_ANIMATION_LAVORO"
+/** Il percorso del programma di Codex, che l'app trova: senza, Codex non è fra i motori della chat. */
+export const VARIABILE_CODEX = "MANGO_ANIMATION_CODEX"
+
+/** La prima versione di Codex con cui il protocollo della chat è stato provato. */
+const VERSIONE_MINIMA_DI_CODEX = "0.167.0"
+
+/** Quanto i conti del lavoro in chat aspettano che Codex risponda alla prima lettura prima di dirsi pronti senza di lui. */
+const ATTESA_DI_CODEX_MS = 20_000
 
 const CODIFICA_CON_SCHEDA = ["-c:v", "h264_nvenc"]
 const CODIFICA_SU_PROCESSORE = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"]
@@ -50,7 +62,7 @@ export interface Opzioni {
   comandoSceneFoto: string[]
   /** Claude Code per la chat: la funzione `query` dell'SDK e la lettura delle sue conversazioni; le prove ne mettono di finte. */
   chat: OpzioniChat
-  /** Le conversazioni di Claude Code da cui si ricava il lavoro di Claude per video (`consumi/`): la loro cartella e quanto devono restare ferme prima di rileggerle. */
+  /** Il lavoro in chat per video (`consumi/`): la cartella delle conversazioni di Claude Code e quanto devono restare ferme prima di rileggerle, e Codex se c'è. */
   consumi: OpzioniConsumi & { cartella: string }
   /** Le schede video in prestito dal modello di Mango Code, per i lavori che le vogliono (`schede.ts`). */
   schede: PrestitoSchede
@@ -167,6 +179,8 @@ export function opzioniDaAmbiente(ambiente: Record<string, string | undefined> =
   const cartellaAnimazioni = join(repo, "animazioni")
   const ffmpeg = Bun.which("ffmpeg")
   const ytdlp = Bun.which("yt-dlp")
+  const programmaCodex = ambiente[VARIABILE_CODEX]
+  const clienteCodex = programmaCodex ? avviaCodex({ programma: programmaCodex, ambiente: ambienteDelMetodo(repo, lavoro, ambiente), versioneMinima: VERSIONE_MINIMA_DI_CODEX }) : null
   const datiDiMangoCode = ambiente["MANGO_DATA"] || join(ambiente["LOCALAPPDATA"] || join(homedir(), "AppData", "Local"), "MangoCode")
   return {
     codice: repo,
@@ -194,11 +208,17 @@ export function opzioniDaAmbiente(ambiente: Record<string, string | undefined> =
     comandoSceneFoto: [process.execPath, "run", "--silent", "--cwd", cartellaAnimazioni, "foto", "--"],
     arrivi: { porta: portaDa(ambiente["MANGO_ANIMATION_PORTA_ARRIVI"], PORTA_ARRIVI_DI_DEFAULT), limiteByte: LIMITE_ARRIVI_BYTE, indirizzo: null },
     chat: {
-      query: conIlClaudeDelCreator(query, ambiente["MANGO_ANIMATION_CLAUDE"]),
-      sessioni: sessioniDiClaudeCode(lavoro, RIMBALZO_MS),
-      mangoCode: new MangoCode({ dati: datiDiMangoCode, archivio: join(lavoro, "archivio"), adesso: () => new Date() }),
+      motori: [
+        new ClaudeCode(conIlClaudeDelCreator(query, ambiente["MANGO_ANIMATION_CLAUDE"]), sessioniDiClaudeCode(lavoro, RIMBALZO_MS)),
+        new MangoCode({ dati: datiDiMangoCode, archivio: join(lavoro, "archivio"), adesso: () => new Date() }),
+        ...(clienteCodex ? [new Codex({ cliente: clienteCodex, archivio: join(lavoro, "archivio"), codice: repo, lavoro, adesso: () => new Date() })] : []),
+      ],
     },
-    consumi: { cartella: cartellaDelleSessioni(lavoro, ambiente["CLAUDE_CONFIG_DIR"] || undefined), quietoMs: 2000 },
+    consumi: {
+      cartella: cartellaDelleSessioni(lavoro, ambiente["CLAUDE_CONFIG_DIR"] || undefined),
+      quietoMs: 2000,
+      ...(clienteCodex ? { codex: { cliente: clienteCodex, lavoro, archivio: join(lavoro, "archivio"), attesaMs: ATTESA_DI_CODEX_MS } } : {}),
+    },
     schede: prestitoDaMangoCode(datiDiMangoCode),
     rimbalzoMs: RIMBALZO_MS,
     quietoUsciteMs: 1500,
