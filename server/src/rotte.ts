@@ -84,7 +84,7 @@ type Rotta = [metodo: string, modello: RegExp, gestore: Gestore]
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const COMANDI_DEL_VIDEO = ["prepara", "risolvi", "monta", "anteprima", "controlla", "copertina", "carosello", "prova"] as const
 /** I campi della richiesta oltre a `comando`, e il comando a cui servono. */
-const CAMPI_DEL_COMANDO: Record<string, string> = { scena: "anteprima", da: "anteprima", a: "anteprima", disegno: "copertina", istante: "copertina" }
+const CAMPI_DEL_COMANDO: Record<string, string> = { scena: "anteprima", da: "anteprima", a: "anteprima", secondo: "anteprima", disegno: "copertina", istante: "copertina" }
 const NOMI_LOCALI = new Set(["127.0.0.1", "localhost", "[::1]"])
 
 /** `Origin: null` (pagine in una cornice isolata, `file://`) o scritta male non è un nome locale. */
@@ -171,14 +171,21 @@ function argomentiDelLavoro(comando: string, corpo: Record<string, unknown>): st
       )
     }
   }
-  const { scena, da, a, disegno, istante } = corpo
+  const { scena, da, a, secondo, disegno, istante } = corpo
   if (comando === "anteprima") {
+    const scelte = [scena !== undefined, da !== undefined || a !== undefined, secondo !== undefined].filter(Boolean).length
+    if (scelte > 1) {
+      throw new ErroreApi(400, frase("Per l'anteprima dai la scena, oppure i secondi «da» e «a», oppure il «secondo» di un fotogramma: una cosa sola.", "For the preview give the scene, or the seconds «da» and «a», or the «secondo» of a frame: only one of them."))
+    }
     if (scena !== undefined) {
-      if (da !== undefined || a !== undefined) throw new ErroreApi(400, frase("Per l'anteprima dai o la scena o i secondi «da» e «a», non tutti e due.", "For the preview give either the scene or the seconds «da» and «a», not both."))
       if (!èTestoDaPassare(scena)) throw new ErroreApi(400, frase("La scena dev'essere il nome di una scena del piano: un testo che non cominci con «-».", "The scene must be the name of a scene in the plan: text that does not start with «-»."))
       return ["--scena", scena]
     }
-    if (da === undefined || a === undefined) throw new ErroreApi(400, frase("Per l'anteprima dai la scena oppure i secondi «da» e «a».", "For the preview give the scene or the seconds «da» and «a»."))
+    if (secondo !== undefined) {
+      if (!èSecondo(secondo)) throw new ErroreApi(400, frase("Il «secondo» è un secondo del video: un numero da 0 in su.", "The «secondo» is a second of the video: a number from 0 up."))
+      return ["--foto", String(secondo)]
+    }
+    if (da === undefined || a === undefined) throw new ErroreApi(400, frase("Per l'anteprima dai la scena, oppure i secondi «da» e «a», oppure il «secondo» di un fotogramma.", "For the preview give the scene, or the seconds «da» and «a», or the «secondo» of a frame."))
     if (!èSecondo(da) || !èSecondo(a)) throw new ErroreApi(400, frase("«da» e «a» sono secondi del video: numeri da 0 in su.", "«da» and «a» are seconds of the video: numbers from 0 up."))
     if (a <= da) throw new ErroreApi(400, frase("«a» deve venire dopo «da».", "«a» must come after «da»."))
     return ["--da", String(da), "--a", String(a)]

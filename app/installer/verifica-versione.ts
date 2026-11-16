@@ -2,7 +2,16 @@
 // Uso, dalla radice del repo: bun run app/installer/verifica-versione.ts [--tag v0.1.2]   (il workflow delle uscite lo lancia prima di costruire)
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { novita } from "./pubblica"
+
+/** Perché le note di un'uscita non vanno: devono avere, sotto «**Changed since …**», un elenco con almeno una voce (sono le novità che l'uscita su GitHub mostra). Niente se vanno. */
+export function problemaDelleNote(markdown: string): string | undefined {
+  const righe = markdown.replace(/\r\n/g, "\n").split("\n")
+  const inizio = righe.findIndex((r) => /^\*\*Changed since .+\*\*\s*$/.test(r))
+  if (inizio < 0) return "non hanno l'elenco «**Changed since …**»."
+  const dopo = righe.slice(inizio + 1)
+  const fine = dopo.findIndex((r) => r.startsWith("**"))
+  return (fine < 0 ? dopo : dopo.slice(0, fine)).some((r) => /^[-*] \S/.test(r)) ? undefined : "hanno l'elenco «**Changed since …**» vuoto."
+}
 
 export interface Versioni {
   tauri: string
@@ -33,15 +42,8 @@ if (import.meta.main) {
   const tag = i >= 0 ? process.argv[i + 1] : undefined
 
   const fileNote = join(repo, "app", "installer", "note", `v${tauri}.md`)
-  let note: string | undefined
-  if (!existsSync(fileNote)) note = `Mancano le note dell'uscita: app/installer/note/v${tauri}.md.`
-  else {
-    try {
-      novita(readFileSync(fileNote, "utf8"))
-    } catch (e) {
-      note = `app/installer/note/v${tauri}.md: ${(e as Error).message}`
-    }
-  }
+  const problema = existsSync(fileNote) ? problemaDelleNote(readFileSync(fileNote, "utf8")) : "mancano."
+  const note = problema && `Le note dell'uscita (app/installer/note/v${tauri}.md): ${problema}`
 
   const errori = erroriDiVersione({ tauri, cargo, motore, tag, note })
   for (const e of errori) console.error(e)

@@ -165,7 +165,7 @@ fn estrai(zip: &Path, a: &Archivio, dati: &Path) -> Result<(), String> {
         if voce.is_dir() {
             continue;
         }
-        let nome = voce.name().replace('\\', "/");
+        let nome = voce.name().map_err(|e| e.to_string())?.replace('\\', "/");
         let destinazione = if let Some(x) = a.estrai.iter().find(|x| x.da == nome) {
             percorso_sicuro(&x.a).map(|p| dati.join(p))
         } else {

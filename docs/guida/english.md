@@ -30,7 +30,7 @@ Versione italiana: [italiano.md](italiano.md).
 2. Open it. No administrator rights are needed: the app installs for your user only.
 3. **Windows shows "Windows protected your PC".** This happens because the installer has no code-signing certificate (it costs money every year, and this app does not have one). Click **"More info"** and then **"Run anyway"**. The app's code is public and its updates carry their own signature, which the app checks.
 4. Open Mango Animation.
-5. When a new version comes out, the app says so at start and shows what is new: **"Update now"** downloads and installs it (the app closes and reopens by itself), **"Later"** lets you carry on working. In **Settings › Help** you can look for a new version whenever you like with **"Check now"** (if there is one, **"Restart and update"**), or turn off **"Update by itself"**: off, the app does not look for updates at start.
+5. When a new version comes out, the app says so at start: **"Update now"** downloads and installs it (the app closes and reopens by itself), **"Later"** lets you carry on working. In **Settings › Help** you can look for a new version whenever you like with **"Check now"** (if there is one, **"Restart and update"**), or turn off **"Update by itself"**: off, the app does not look for updates at start.
 
 ---
 
@@ -92,6 +92,8 @@ As soon as the computer is ready, the app shows the studio. At the top, the bar:
 
 Between the pages and the gear are the states, each with its dot: **Phone ready** (shows up when the phone can send files; green), **Chat** (amber when it is working or waiting for your reply), **Record** (red while you record) and **Jobs** (shows up when something is running or waiting; amber if something is running). A grey dot means off. Under 640 pixels of width the wordmark shrinks to the mango alone.
 
+**Reporting a problem.** The flag in the bar (and **"Report a problem"** in Settings › Help and at the bottom of the start pages) opens a form: write what happened (optional), **add an image of the error** (we recommend it: with an image it is easier for us to understand the problem and fix it; a PNG, a JPEG or a WebP up to 10 MB, even a screenshot you took earlier) and, if you like, include a screenshot of the window (off by default: it may show your videos). Nothing is sent until you press **"Send"**.
+
 ---
 
 ## 3. Your profile
@@ -120,7 +122,7 @@ Tell the chat. For example:
 
 The chat asks who you are, who you speak to, where you publish, what you never say, and writes it into the data folder. You can correct it whenever you like: in words ("add YouTube to my channels", "my audience is not technical", "I never say…") or from **Settings › Profile**, where you see the fields and change them with **"Save"** (what the chat writes shows up there, and the other way round; if a field is not right, the page says which and why). **Do not edit the file by hand**: a writing mistake makes it unusable: the app still starts, but works with the last profile that was fine (or with no profile, if there was none) until you fix it. Ask the chat.
 
-Without a profile the app works with its default rules, but the chat knows nothing about you or your audience: it is best to start here.
+Without a profile the app works with its default rules, but the chat knows nothing about you or your audience: it is best to start here. The first time, the chat opens by itself with the notice **"The first round is about to start"**: it says which engine and model it starts with, and nothing starts until you press **"Start"**. With **"Not now"** you find it again in **Settings › Profile**.
 
 You can also set the computer (which functions are on, where they run) from **Settings › Computer**, without going through the chat.
 
@@ -144,7 +146,7 @@ You talk to the **chat** and look at the result in the studio. Every video follo
 
 ### Where your videos are
 
-The **Videos** page splits them by status: in progress, proposals, ready, published, discarded. Each video is a card with its image, and it says which step it is at ("Step 3 of 8 · Rehearsal"). For a new video there is the line "For a new video, ask in the chat." Opening a video you find these tabs: **Rehearsal** (when there is one), **Edit**, **Card**, **Check**, **Cover**, **Files**. The **Status** menu at the top changes the status (Proposal, In progress, Ready, Published, Discarded).
+The **Videos** page splits them by status: in progress, proposals, ready, published, discarded. Within each status they are in date order, newest first: published videos by the day they came out, the others by the day they were created. Each video is a card with its image, and it says which step it is at ("Step 3 of 8 · Rehearsal"). For a new video there is the line "For a new video, ask in the chat." Opening a video you find these tabs: **Rehearsal** (when there is one), **Edit**, **Card**, **Check**, **Cover**, **Files**. The **Status** menu at the top changes the status (Proposal, In progress, Ready, Published, Discarded).
 
 At the top of a video's page a line shows the eight steps below: the finished ones ticked, the current one highlighted (on a narrow page it shortens to "Step 3 of 8 · Rehearsal"), and next to it what to say in the chat to move on, for example "Tell me in the chat: 'make me the rehearsal'". **"Write it in the chat"** puts that sentence in the chat box without sending it: you read it, change it if you like and send it yourself. The step comes from the video's files, nothing to mark by hand.
 

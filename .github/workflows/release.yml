@@ -81,7 +81,7 @@ jobs:
 
       - name: latest.json
         working-directory: app
-        run: bun run installer/pubblica.ts --versione "$VERSIONE" --indirizzo "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME" --note-file "../$NOTE"
+        run: bun run installer/pubblica.ts --versione "$VERSIONE" --indirizzo "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
 
       - name: L'uscita
         env:

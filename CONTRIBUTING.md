@@ -31,6 +31,7 @@ bun run --cwd animazioni test; bun run --cwd animazioni typecheck   # the animat
 python -m pytest motore/prove -q                                    # the editing engine
 python -m pytest strumenti/prove -q                                 # the tools
 cargo test --manifest-path app/Cargo.toml                           # the desktop app
+Push-Location app; bun test prove installer; Pop-Location           # the app's own pages and the installer scripts
 ```
 
 The tests don't use the video card, a real archive or the server's ports. Run the Python ones with an empty

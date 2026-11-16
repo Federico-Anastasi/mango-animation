@@ -53,7 +53,7 @@ describe("gli schemi", () => {
     await arriva(ascolto, { tipo: "video", slug: "v", cosa: "scheda" })
     const rifiutata = (await dettaglio(a, "v")).corpo
     expect(rifiutata.scheda.titolo).toBe("Vecchio")
-    expect(rifiutata.problemi.scheda.join(" ")).toContain("«campo_nuovo» non è una chiave ammessa")
+    expect(rifiutata.problemi.scheda.join(" ")).toContain("Nella proposta c'è «campo_nuovo», che non conosco: toglila.")
 
     const prima = ascolto.messaggi.length
     await cambiaSchema(schemi, "scheda", campoNuovoNellaProposta)
@@ -70,7 +70,7 @@ describe("gli schemi", () => {
     const campi = { proposta: { campo_nuovo: ["uno"] } }
     const rifiutata = await chiama<{ errore: string }>(a, "PATCH", "/api/video/v/scheda", campi)
     expect(rifiutata.stato).toBe(400)
-    expect(rifiutata.corpo.errore).toContain("«campo_nuovo» non è una chiave ammessa")
+    expect(rifiutata.corpo.errore).toContain("Nella proposta c'è «campo_nuovo», che non conosco: toglila.")
 
     await cambiaSchema(schemi, "scheda", campoNuovoNellaProposta)
     const fatta = await chiama(a, "PATCH", "/api/video/v/scheda", campi)
@@ -100,7 +100,7 @@ describe("gli schemi", () => {
     const risposta = await chiama<{ errore: string; problemi: string[] }>(a, "GET", "/api/video/v")
     expect(risposta.stato).toBe(404)
     expect(risposta.corpo.errore).toBe("Non c'è un video «v» con una scheda valida: la sua scheda va sistemata.")
-    expect(risposta.corpo.problemi.join(" ")).toContain("manca «stato»")
+    expect(risposta.corpo.problemi.join(" ")).toContain("Manca lo stato del video.")
   })
 
   test("un piano che lo schema rifiuta porta i suoi problemi, e quando lo schema lo accetta diventa valido e si risolve", async () => {
@@ -112,7 +112,7 @@ describe("gli schemi", () => {
     const ascolto = await ascolta(a)
     await writeFile(join(a.archivio, "video", "v", "piano.json"), JSON.stringify({ ...piano(), novita: 1 }))
     await arriva(ascolto, { tipo: "video", slug: "v", cosa: "piano" })
-    expect((await dettaglio(a, "v")).corpo.problemi.piano.join(" ")).toContain("«novita» non è una chiave ammessa")
+    expect((await dettaglio(a, "v")).corpo.problemi.piano.join(" ")).toContain("Nel piano c'è «novita», che non conosco: toglila.")
     expect((await dettaglio(a, "v")).corpo.piano_risolto_da_base).toBeNull()
 
     const risolvi = (await righeDelFinto(a)).filter((r) => r === "inizio risolvi v").length
@@ -130,7 +130,7 @@ describe("gli schemi", () => {
     const a = await avviaAmbiente({ schemi }, async (c) => scriviGrezzo(c, "2026-10-06/a.mp4", "x", { tipo: "ripresa", origine: "telefono", durata: 2, soggetto: "orto" }))
     const file = async () => (await chiama<{ file: { nome: string; scheda: unknown; scheda_problemi: string[] }[] }[]>(a, "GET", "/api/grezzo")).corpo[0]!.file[0]!
     expect((await file()).scheda).toBeNull()
-    expect((await file()).scheda_problemi.join(" ")).toContain("«soggetto» non è una chiave ammessa")
+    expect((await file()).scheda_problemi.join(" ")).toContain("Nella scheda del file c'è «soggetto», che non conosco: toglila.")
 
     const ascolto = await ascolta(a)
     await cambiaSchema(schemi, "grezzo", (proprieta) => {
@@ -151,7 +151,7 @@ describe("gli schemi", () => {
     expect((await chiama(a, "PATCH", "/api/video/v/scheda", { stato: "pronto" })).stato).toBe(200)
     expect((await chiama(a, "PATCH", "/api/video/v/scheda", { stato: "inventato" })).stato).toBe(400)
 
-    await writeFile(join(schemi, "scheda.schema.json"), "{ \"type\": \"object\", \"properties\": { \"titolo\": { \"type\": \"number\" } } }")
+    await writeFile(join(schemi, "scheda.schema.json"), "{ \"type\": \"object\", \"properties\": { \"titolo\": { \"type\": \"number\" } }, \"x-nomi\": { \"\": { \"it\": \"la scheda\", \"en\": \"the card\" }, \"titolo\": { \"it\": \"il titolo\", \"en\": \"the title\" } } }")
     await aspetta(async () => (await chiama<{ errore: string }>(a, "PATCH", "/api/video/v/scheda", { titolo: "non è un numero" })).stato === 400)
     const originale = await readFile(join(REPO, "motore", "schemi", "scheda.schema.json"), "utf-8")
     await writeFile(join(schemi, "scheda.schema.json"), originale)

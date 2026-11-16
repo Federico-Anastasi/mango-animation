@@ -333,6 +333,20 @@ describe("chiudere presso Codex, l'elenco, il contesto e la revisione", () => {
     ascolto.chiudi()
   })
 
+  test("se Codex crea la cartella dei thread dopo l'avvio del server, una conversazione aperta dal terminale compare lo stesso nell'elenco", async () => {
+    const casa = await mkdtemp(join(tmpdir(), "mango-codex-casa-"))
+    cartelle.push(casa)
+    const b = await avvia({ FINTO_CODEX_HOME: casa })
+    expect((await chiama<{ id: string }[]>(b.a, "GET", "/api/chat")).corpo).toEqual([])
+    const ascolto = await ascolta(b.a)
+
+    const { threadId } = await b.cliente.chiedi<{ threadId: string }>("finto/terminale", { cwd: b.lavoro, testo: "Dal terminale" })
+    await aspetta(() => eventiElenco(ascolto, threadId).length > 0, 15_000)
+    const elenco = (await chiama<{ id: string; motore: string; titolo: string }[]>(b.a, "GET", "/api/chat")).corpo
+    expect(elenco.map((v) => [v.id, v.motore, v.titolo])).toEqual([[threadId, "codex", "Dal terminale"]])
+    ascolto.chiudi()
+  })
+
   test("le conversazioni accese dalla chat non fanno rileggere l'elenco con i loro file", async () => {
     const b = await avvia()
     await chiama(b.a, "GET", "/api/chat")

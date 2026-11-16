@@ -156,7 +156,7 @@ def test_senza_elenco_dice_come_scriverlo(tmp_path):
 
 def test_un_elenco_scritto_male_si_ferma_prima_del_browser(tmp_path):
     archivio, _ = _video(tmp_path / "archivio", {"giornale": {"indirizzo": "http://127.0.0.1:9/x"}})
-    with pytest.raises(Errore, match="manca «url»"):
+    with pytest.raises(Errore, match="Manca l'indirizzo della pagina «giornale»"):
         pagina(archivio, SLUG)
 
 

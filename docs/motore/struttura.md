@@ -2,19 +2,20 @@
 
 Si lancia dalla radice del codice. L'archivio è `archivio/` nella cartella di lavoro, quella di `MANGO_ANIMATION_LAVORO` (`docs/ARCHITETTURA.md`); senza la variabile ogni comando esce con 1 e lo dice. Ogni comando scrive
 l'avanzamento su stdout, una riga per passo, ed esce con 0 se è riuscito, 1 con una frase in italiano su
-stderr se no (cosa manca e come si rimedia). Ciò che è già fatto con gli stessi ingredienti non si rifà. Le barre di avanzamento e gli avvisi delle librerie dei modelli e dell'immagine non escono: `motore/__init__.py` li spegne alla fonte, con le loro variabili d'ambiente, prima che le librerie si importino. I modelli (trascrizione, allineamento, scontorno)
+stderr se no (cosa manca e come si rimedia; la frase comincia dopo la riga `@errore`: `docs/MOTORE.md`, «Gli errori»). Ciò che è già fatto con gli stessi ingredienti non si rifà. Le barre di avanzamento e gli avvisi delle librerie dei modelli e dell'immagine non escono: `motore/__init__.py` li spegne alla fonte, con le loro variabili d'ambiente, prima che le librerie si importino. I modelli (trascrizione, allineamento, scontorno)
 girano sulla scheda di `macchina.scheda_video` del profilo del creator (l'indice di `nvidia-smi`; `docs/ARCHITETTURA.md`, «Il profilo»);
 senza profilo, sulla scheda NVIDIA che c'è; senza scheda, o con `scheda_video: null`, sul processore, più lenti, e il motore lo dice su stderr.
 Una scheda indicata che non c'è è un errore, non un ripiego. Ogni funzione può avere il suo posto e il suo interruttore in `motori` del profilo
 (trascrizione, allineamento, sagoma, segui, voce pulita, dettatura: `docs/MOTORI.md`, §4): `dove` sceglie scheda o processore per quella funzione, `attiva: false` la spegne. Il motore numera le schede come `nvidia-smi` (`CUDA_DEVICE_ORDER=PCI_BUS_ID`, lo stesso ordine di `animazioni/`) e rende visibile al processo solo quella del profilo
 (`CUDA_VISIBLE_DEVICES`), che per i modelli è la 0; un `CUDA_VISIBLE_DEVICES` già presente nell'ambiente di chi lancia il motore non conta: la scheda la decide il profilo. Senza `scheda_video` nel profilo quell'elenco resta com'è. Una scheda senza il
-calcolo `float16` non regge la trascrizione: non va indicata.
+calcolo `float16` (le Pascal, GTX 10xx) trascrive con il successivo che sa fare (`preparati.calcolo_trascrizione`, `docs/MOTORI.md`, §4).
 
 ## I moduli
 
     motore/
       __main__.py     i comandi
       errori.py       l'errore che dice cosa fare
+      schema.py       i problemi di un documento davanti al suo schema, detti in parole con i nomi di `x-nomi`
       dispositivo.py  dove gira ogni funzione pesante: `motori.<funzione>.dove`, o la scheda del profilo, o il processore; `dispositivo_voce` per la dettatura
       archivio.py     dove stanno le cose; lettura di piano (con `base`), stile unito; validazione
       profilo.py      lettura e schema del profilo del creator (`macchina` e `motori`, letti una volta per processo)

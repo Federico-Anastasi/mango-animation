@@ -15,11 +15,11 @@ if (sigla === "rotta") {
 if (sigla === "lenta") while (!existsSync(join(import.meta.dir, "via-lenta"))) await Bun.sleep(30)
 for (const t of ["0", "2,5"]) console.log(join(import.meta.dir, sigla + "-" + t + "s.png"))
 if (sigla === "difetto") {
-  console.log("\\n2 segnalazioni:\\n- difetto a 2,5 s: testo sotto i 40 px (30 px): «ciao»\\n- difetto da 0 s a 3 s: lo sfondo resta fermo")
+  console.log("@controlli\\n- difetto at 2.5 s: text under 40 px (30 px): «ciao»\\n- difetto from 0 s to 3 s: the background stays still")
   process.exit(1)
 }
 if (sigla === "tante") {
-  console.log("\\n40 segnalazioni:\\n" + Array.from({ length: 40 }, (_, i) => "- tante a " + i + " s: testo sotto i 40 px").join("\\n"))
+  console.log("@controlli\\n" + Array.from({ length: 40 }, (_, i) => "- tante a " + i + " s: testo sotto i 40 px").join("\\n"))
   process.exit(1)
 }
 `
@@ -71,7 +71,7 @@ describe("POST /api/animazioni/foto", () => {
     const a = await avvia()
     const difetto = await finito(a, (await foto(a, { sigla: "difetto" })).corpo.id)
     expect(difetto).toMatchObject({ esito: "riuscito", errore: null })
-    expect(difetto.risultato?.segnalazioni).toEqual(["difetto a 2,5 s: testo sotto i 40 px (30 px): «ciao»", "difetto da 0 s a 3 s: lo sfondo resta fermo"])
+    expect(difetto.risultato?.segnalazioni).toEqual(["difetto at 2.5 s: text under 40 px (30 px): «ciao»", "difetto from 0 s to 3 s: the background stays still"])
     const tante = await finito(a, (await foto(a, { sigla: "tante" })).corpo.id)
     expect(tante.righe.length).toBeLessThan(40)
     expect(tante.risultato?.segnalazioni).toHaveLength(40)

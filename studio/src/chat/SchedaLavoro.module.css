@@ -51,6 +51,7 @@
   color: var(--mango-text-muted);
   font-size: 12px;
   overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 .barra {

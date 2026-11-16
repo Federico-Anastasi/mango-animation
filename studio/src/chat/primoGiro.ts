@@ -1,5 +1,6 @@
-// Il primo giro: quando il creator non ha ancora un profilo, la chat si apre da sola e il motore comincia (la skill `welcome`,
-// `docs/CHAT.md`). Si salta da un pulsante discreto e si rifà dalla chat vuota. La scelta si ricorda nel browser.
+// Il primo giro: quando il creator non ha ancora un profilo, la chat si apre da sola con un avviso e il motore comincia (la skill
+// `welcome`, `docs/CHAT.md`) solo dopo il suo sì. Si rimanda dall'avviso o da un pulsante discreto e si rifà dalla chat vuota.
+// La scelta si ricorda nel browser.
 import { useEffect, useSyncExternalStore } from "react"
 import { profilo, useCopia } from "../dati"
 import type { NuovoMessaggio } from "./api"
@@ -73,10 +74,23 @@ export function usePrimoGiroInCorso(): boolean {
   return iniziato && !presente
 }
 
-/** Nello studio: senza profilo e senza una scelta già fatta, il primo giro parte da solo. */
-export function useAvviaPrimoGiro(): void {
+/** Il creator non ha un profilo e non ha ancora detto sì né rimandato: la chat vuota mostra l'avviso invece di partire. */
+export function useAvvisoPrimoGiro(): boolean {
+  const senzaScelta = useSyncExternalStore(iscriviti, () => scelta === null)
+  const presente = useCopia(profilo).dato?.presente ?? true
+  return senzaScelta && !presente
+}
+
+let annunciato = false
+
+/** Nello studio: senza profilo e senza una scelta già fatta, la chat si apre una volta con l'avviso del primo giro. */
+export function useAnnunciaPrimoGiro(): void {
   const dato = useCopia(profilo).dato
   useEffect(() => {
-    if (dato && !dato.presente && scelta === null) avviaPrimoGiro(false)
+    if (annunciato || !dato || dato.presente || scelta !== null) return
+    annunciato = true
+    scegliLarghezzaChat(LARGHEZZA_PRIMO_GIRO, false)
+    apriChat()
+    negozio.apri(null)
   }, [dato])
 }

@@ -70,8 +70,16 @@ def _fotogrammi(video, secondi, da, fine, cartella, prefisso=""):
 
 
 def _foto(archivio, a):
-    """I fotogrammi del montato, o dell'anteprima, ai secondi del video montato; o della prova, ai suoi secondi."""
+    """I fotogrammi del montato, o dell'anteprima, ai secondi del video montato; o della prova, ai suoi secondi; o i fotogrammi composti già fatti da `anteprima --foto`."""
     uscite, cartella = archivio.uscite(a.slug), archivio.lavoro(a.slug) / "foto"
+    if a.composta:
+        for secondo in a.secondi:
+            if not (cartella / f"composta-{secondo:g}.jpg").exists():
+                rifalla = f"`python -m motore anteprima {a.slug} --foto {secondo:g}`"
+                raise Errore(f"non c'è il fotogramma composto del secondo {secondo:g}: lancia {rifalla}", f"there is no composed frame at second {secondo:g}: run {rifalla}")
+        for secondo in a.secondi:
+            print(cartella / f"composta-{secondo:g}.jpg")
+        return
     if a.prova:
         video = uscite / "prova.mp4"
         if not video.exists():
@@ -153,7 +161,7 @@ COMANDI = {
     "leggero": (lambda archivio, a: monta.leggero(archivio, a.slug), "la copia piccola del montato, quando il creator la chiede"),
     "controlla": (lambda archivio, a: controlla.controlla(archivio, a.slug), "riascolta il montato"),
     "parole": (_parole, "ogni tratto con le sue parole e i loro istanti"),
-    "foto": (_foto, "fotogrammi del montato (o dell'anteprima) a quei secondi del video, o della prova ai suoi"),
+    "foto": (_foto, "fotogrammi del montato (o dell'anteprima) a quei secondi del video, o della prova ai suoi, o quelli composti già fatti"),
     "foto-girato": (_foto_girato, "fotogrammi di un file del girato a quei suoi secondi"),
     "ascolta": (_ascolta, "il livello della voce, i tratti di voce e lo spettrogramma di un pezzo del girato o del montato"),
     "anteprima-proposta": (lambda archivio, a: proposta.anteprima_proposta(archivio, a.slug, a.riga), "l'anteprima di una proposta: il titolo e una riga su una carta, in materiali/anteprima.png"),
@@ -192,6 +200,7 @@ def costruisci():
                 quale = c.add_mutually_exclusive_group()
                 quale.add_argument("--anteprima", action="store_true", help="dall'anteprima (uscite/anteprima.mp4) invece che dal montato")
                 quale.add_argument("--prova", action="store_true", help="dalla prova (uscite/prova.mp4), coi suoi secondi")
+                quale.add_argument("--composta", action="store_true", help="i fotogrammi composti già fatti da `anteprima --foto` (lavoro/foto/composta-<secondo>.jpg)")
             elif nome == "anteprima":
                 c.add_argument("--scena", help="il nome di una scena del piano")
                 c.add_argument("--da", type=float, help="secondo del video da cui partire")
@@ -211,6 +220,10 @@ def costruisci():
     return p
 
 
+# La riga che apre l'errore finale su stderr: chi lancia il motore (il server) prende per errore tutte le righe che vengono dopo, non l'ultima (`docs/MOTORE.md`, «Gli errori»).
+MARCATORE_ERRORE = "@errore"
+
+
 def main(argv=None):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -218,7 +231,7 @@ def main(argv=None):
     try:
         COMANDI[a.comando][0](None if a.comando in SENZA_ARCHIVIO else Archivio(), a)
     except Errore as e:
-        print(str(e), file=sys.stderr)
+        print(f"{MARCATORE_ERRORE}\n{e}", file=sys.stderr)
         return 1
     return 0
 

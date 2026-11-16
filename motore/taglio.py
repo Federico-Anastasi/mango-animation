@@ -25,6 +25,9 @@ def a_tempo(sorgente, pezzo, stile):
     if ("da" not in pezzo or "a" not in pezzo) and not len(sonori):
         raise Errore(f"nella sorgente «{sorgente.nome}» non c'è voce: dai un `da` e un `a` al pezzo",
                      f"the source «{sorgente.nome}» has no voice: give the piece a `da` and an `a`")
+    if ("da" not in pezzo or "a" not in pezzo) and not sorgente.parole:
+        raise Errore(f"nella sorgente «{sorgente.nome}» non c'è nessuna parola trascritta: dai un `da` e un `a` al pezzo",
+                     f"no word was transcribed in the source «{sorgente.nome}»: give the piece a `da` and an `a`")
     # Prima della prima parola e dopo l'ultima c'è il rumore di chi avvia e ferma la ripresa: non è voce.
     if "da" in pezzo:
         da = pezzo["da"]

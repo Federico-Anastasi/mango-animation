@@ -14,14 +14,17 @@ export interface RisultatoSceneFoto {
   segnalazioni: string[]
 }
 
+/** La riga con cui lo script (`animazioni/script/foto.ts`) apre le segnalazioni: non è una frase, quindi non cambia con la lingua. Le righe dopo sono una segnalazione ciascuna, che comincia per «- ». */
+const RIGA_DEI_CONTROLLI = "@controlli"
+
 /** Rende i fotogrammi di `sigla` e ne legge lo stdout. Un controllo che non passa è un risultato (lo script esce con 1 e le elenca), non un errore. */
 export async function sceneFoto(comando: string[], sigla: string, io: IoLavoro): Promise<RisultatoSceneFoto> {
   const uscita: string[] = []
-  const { codice, ultimoErrore } = await io.lancia([...comando, sigla], uscita)
-  const inizio = uscita.findIndex((riga) => /^\d+ segnalazioni:$/.test(riga))
+  const { codice, errore } = await io.lancia([...comando, sigla], uscita)
+  const inizio = uscita.indexOf(RIGA_DEI_CONTROLLI)
   const segnalazioni = inizio < 0 ? [] : uscita.slice(inizio + 1).join("\n").trim().slice(2).split("\n- ")
   if (codice !== 0 && segnalazioni.length === 0) {
-    throw ultimoErrore !== null ? new Error(ultimoErrore) : new ErroreConFrase(frase(`La resa della scena «${sigla}» è uscita con codice ${codice} senza dire perché.`, `Rendering the scene «${sigla}» exited with code ${codice} without saying why.`))
+    throw errore !== null ? new Error(errore) : new ErroreConFrase(frase(`La resa della scena «${sigla}» è uscita con codice ${codice} senza dire perché.`, `Rendering the scene «${sigla}» exited with code ${codice} without saying why.`))
   }
   return { png: uscita.slice(0, inizio < 0 ? undefined : inizio).filter((riga) => riga.endsWith(".png")), segnalazioni }
 }

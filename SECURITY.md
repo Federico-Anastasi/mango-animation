@@ -27,9 +27,10 @@ run it in a virtual machine.
   you trust. A session in the studio can drive the chat, so it is worth as much as the computer.
 - "Report a problem" sends nothing until you press the button. The text is cleaned before it leaves the app: your
   account name in paths, the computer's name, emails, network addresses, keys and tokens are replaced with placeholders.
-  Log files, which are attached, may still contain the names of your videos and files. The window screenshot is a
-  picture and is not cleaned: it is on by default and you can turn it off in the dialog. Transcripts, chats and the
-  files of your working folder are never attached. A build without a reporting address saves the text to a file and
+  Log files, which are attached, may still contain the names of your videos and files. The window screenshot and an
+  image you choose to attach are pictures and are not cleaned: the screenshot is off until you turn it on in the
+  dialog, and an image is sent only if you pick one. Transcripts, chats and the files of your working folder are never
+  attached. A build without a reporting address saves the text to a file and
   opens a pre-filled GitHub issue page instead.
 - Every connection the app makes to the internet is checked against the certificates Windows trusts, and goes through
   the proxy Windows is set to use (or `HTTPS_PROXY` / `NO_PROXY`), never for the computer's own addresses. The app never

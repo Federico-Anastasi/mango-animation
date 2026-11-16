@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 // La pagina d'attesa senza finestra: un finto documento con gli elementi di index.html, e lo script vero.
-type Elemento = { tag: string; open: boolean; hidden: boolean; disabled: boolean; checked: boolean; className: string; placeholder: string; textContent: string; value: number | string; max: number; focus: () => void; replaceChildren: (...figli: Elemento[]) => void; append: (...figli: unknown[]) => void; figli: Elemento[]; type: string; title: string; click: () => void; addEventListener: (tipo: string, f: () => void) => void; setAttribute: () => void; removeAttribute: () => void; classList: { toggle: () => void }; style: { setProperty: () => void } }
+type Elemento = { files?: unknown[]; tag: string; open: boolean; hidden: boolean; disabled: boolean; checked: boolean; className: string; placeholder: string; textContent: string; value: number | string; max: number; focus: () => void; replaceChildren: (...figli: Elemento[]) => void; append: (...figli: unknown[]) => void; figli: Elemento[]; type: string; title: string; click: () => void; addEventListener: (tipo: string, f: () => void) => void; setAttribute: () => void; removeAttribute: () => void; classList: { toggle: () => void }; style: { setProperty: () => void } }
 
 const elementi = new Map<string, Elemento>()
 const chiamate: { comando: string; argomenti: unknown }[] = []
@@ -19,6 +19,18 @@ beforeAll(async () => {
   const html = readFileSync(join(import.meta.dir, "..", "ui", "index.html"), "utf8")
   for (const [, id] of html.matchAll(/id="([^"]+)"/g)) elementi.set(id, elemento())
   Object.assign(globalThis, {
+    FileReader: class {
+      result = ""
+      error = null
+      onload = () => {}
+      onerror = () => {}
+      readAsDataURL(file: File) {
+        void file.arrayBuffer().then((byte) => {
+          this.result = `data:${file.type};base64,${Buffer.from(byte).toString("base64")}`
+          this.onload()
+        })
+      }
+    },
     window: globalThis,
     document: { getElementById: (id: string) => elementi.get(id), createElement: (tag: string) => Object.assign(elemento(), { tag }), documentElement: {}, querySelector: () => elemento() },
     requestAnimationFrame: (f: () => void) => void queueMicrotask(f),
@@ -32,12 +44,23 @@ beforeAll(async () => {
 })
 
 const el = (id: string) => elementi.get(id) as Elemento
-const aggiornamento = (fase: string, lingua = "it", messaggio?: string) => ({ fase: "aggiornamento", lingua, aggiornamento: { fase, corrente: "0.1.0", nuova: "0.1.1", note: null, fatti: 0, totale: 0, messaggio } })
+const aggiornamento = (fase: string, lingua = "it", messaggio?: string) => ({ fase: "aggiornamento", lingua, aggiornamento: { fase, corrente: "0.1.0", nuova: "0.1.1", fatti: 0, totale: 0, messaggio } })
 
 describe("la pagina dell'aggiornamento", () => {
   test("la proposta chiede «Aggiorna ora» o «Più tardi»", () => {
     nuovoStato(aggiornamento("proposta"))
     expect([el("aggiorna").hidden, el("aggiorna").textContent, el("dopo").hidden, el("dopo").textContent]).toEqual([false, "Aggiorna ora", false, "Più tardi"])
+  })
+
+  test("la proposta dice solo che la versione è uscita e che si aggiorna adesso, nelle due lingue, senza note dell'uscita", () => {
+    nuovoStato({ ...aggiornamento("proposta"), aggiornamento: { ...aggiornamento("proposta").aggiornamento, note: "Una novità" } })
+    expect(el("titolo").textContent).toBe("C'è una versione nuova")
+    expect(el("dettaglio").textContent).toBe("È uscita la versione 0.1.1 (hai la 0.1.0). Si aggiorna adesso, prima di cominciare a lavorare.")
+    expect(el("dettaglio").className).toBe("")
+
+    nuovoStato(aggiornamento("proposta", "en"))
+    expect(el("dettaglio").textContent).toBe("Version 0.1.1 is out (you have 0.1.0). It updates now, before you start working.")
+    expect([el("aggiorna").textContent, el("dopo").textContent]).toEqual(["Update now", "Later"])
   })
 
   test("dopo un errore dice il motivo e offre di riprovare o di continuare con la versione installata, nelle due lingue", () => {
@@ -444,7 +467,7 @@ describe("la pagina dello spostamento della cartella dei dati", () => {
   })
 })
 
-type Invio = { errore: string | null; nota: string; schermata: boolean }
+type Invio = { errore: string | null; nota: string; schermata: boolean; immagine?: string }
 const inviate: { invio: Invio; riquadroVisibile: boolean }[] = []
 let esitoDellApp: () => Promise<unknown> = () => Promise.resolve({ inviata: true })
 let invioAttivo = true
@@ -466,9 +489,17 @@ const conIlPonte = () => {
   invioAttivo = true
   el("segnalazione").hidden = true
   el("segnala-schermata-riga").hidden = true
+  el("segnala-immagine-riga").hidden = true
   el("segnala-schermata").checked = false
+  el("segnala-immagine-togli").click()
 }
 
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+const file = (nome: string) => new File([new Uint8Array(PNG)], nome, { type: "image/png" })
+const scegliFile = (f: File) => {
+  el("segnala-immagine").files = [f]
+  el("segnala-immagine").click()
+}
 const scrivi = (nota: string) => {
   el("segnala-nota").value = nota
 }
@@ -493,6 +524,101 @@ describe("«Segnala un problema»", () => {
 
     nuovoStato({ fase: "attesa", lingua: "en", secondi: 3, messaggio: "Starting the server" })
     expect([el("segnala").textContent, el("segnala-nota-etichetta").textContent, el("segnala-schermata-nome").textContent]).toEqual(["Report a problem", "What happened?", "Include a screenshot of the window"])
+  })
+
+  test("l'immagine dell'errore è consigliata e si sceglie con un bottone, nelle due lingue", async () => {
+    conIlPonte()
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    el("segnala").click()
+    await aspetta()
+    expect(el("segnala-immagine-riga").hidden).toBe(false)
+    expect([el("segnala-immagine-nome").textContent, el("segnala-immagine-cosa").textContent, el("segnala-immagine-scegli").textContent]).toEqual([
+      "Aggiungi un'immagine dell'errore",
+      "Te lo consigliamo: con l'immagine ci è più semplice capire il problema e risolverlo.",
+      "Scegli un'immagine",
+    ])
+    expect([el("segnala-immagine").type, el("segnala-immagine-file").hidden, el("segnala-immagine-togli").hidden]).toEqual(["", true, true])
+    nuovoStato({ fase: "attesa", lingua: "en", secondi: 0, messaggio: "x" })
+    expect([el("segnala-immagine-nome").textContent, el("segnala-immagine-cosa").textContent, el("segnala-immagine-scegli").textContent, el("segnala-immagine-togli").textContent]).toEqual([
+      "Add an image of the error",
+      "We recommend it: with an image it is easier for us to understand the problem and fix it.",
+      "Choose an image",
+      "Remove",
+    ])
+  })
+
+  test("senza l'invio a Sentry il campo dell'immagine non si vede e l'immagine non parte", async () => {
+    conIlPonte()
+    invioAttivo = false
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    el("segnala").click()
+    await aspetta()
+    expect(el("segnala-immagine-riga").hidden).toBe(true)
+
+    scrivi("")
+    scegliFile(file("errore.png"))
+    await premiInvia()
+    expect(inviate[0]?.invio).toEqual({ errore: null, nota: "", schermata: false })
+  })
+
+  test("«Scegli un\'immagine» apre la scelta del file; scelta, ne mostra il nome e si toglie", async () => {
+    conIlPonte()
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    el("segnala").click()
+    await aspetta()
+    const aperture: string[] = []
+    const clic = el("segnala-immagine").click
+    el("segnala-immagine").click = () => void aperture.push("scelta")
+    el("segnala-immagine-scegli").click()
+    el("segnala-immagine").click = clic
+    expect(aperture).toEqual(["scelta"])
+
+    scegliFile(file("schermata.png"))
+    expect([el("segnala-immagine-file").hidden, el("segnala-immagine-file").textContent, el("segnala-immagine-scegli").hidden, el("segnala-immagine-togli").hidden]).toEqual([false, "schermata.png", true, false])
+    el("segnala-immagine-togli").click()
+    expect([el("segnala-immagine-file").hidden, el("segnala-immagine-scegli").hidden, el("segnala-immagine-togli").hidden]).toEqual([true, false, true])
+  })
+
+  test("«Invia» manda l'immagine in base64 con la nota, senza schermata se l'interruttore è spento, e poi il campo si svuota", async () => {
+    conIlPonte()
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    el("segnala").click()
+    await aspetta()
+    scrivi("si blocca")
+    scegliFile(file("errore.png"))
+    await premiInvia()
+    await aspetta()
+    expect(inviate).toEqual([{ invio: { errore: null, nota: "si blocca", schermata: false, immagine: Buffer.from(PNG).toString("base64") }, riquadroVisibile: true }])
+    expect([el("segnala-esito").textContent, el("segnala-immagine-file").hidden, el("segnala-immagine-scegli").hidden]).toEqual(["Inviato, grazie", true, false])
+  })
+
+  test("un'immagine sopra i 10 MB non si tiene e la pagina dice perché, nelle due lingue", async () => {
+    conIlPonte()
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    el("segnala").click()
+    await aspetta()
+    scegliFile(new File([new Uint8Array(10 * 1024 * 1024 + 1)], "enorme.png", { type: "image/png" }))
+    expect([el("segnala-immagine-problema").hidden, el("segnala-immagine-problema").textContent, el("segnala-immagine-file").hidden]).toEqual([false, "L'immagine pesa più di 10 MB: scegline una più piccola.", true])
+    scegliFile(file("piccola.png"))
+    expect([el("segnala-immagine-problema").hidden, el("segnala-immagine-file").textContent]).toEqual([true, "piccola.png"])
+    el("segnala-immagine-togli").click()
+    nuovoStato({ fase: "attesa", lingua: "en", secondi: 0, messaggio: "x" })
+    scegliFile(new File([new Uint8Array(10 * 1024 * 1024 + 1)], "enorme.png", { type: "image/png" }))
+    expect(el("segnala-immagine-problema").textContent).toBe("The image is larger than 10 MB: choose a smaller one.")
+    scegliFile(file("piccola.png"))
+    el("segnala-immagine-togli").click()
+  })
+
+  test("se l'app rifiuta l'immagine la pagina dice la frase e l'immagine resta per cambiarla", async () => {
+    conIlPonte()
+    esitoDellApp = () => Promise.reject("Il file scelto non è un'immagine PNG, JPEG o WebP.")
+    nuovoStato({ fase: "attesa", lingua: "it", secondi: 0, messaggio: "x" })
+    el("segnala").click()
+    await aspetta()
+    scegliFile(file("note.txt"))
+    await premiInvia()
+    await aspetta()
+    expect([el("segnala-esito").textContent, el("segnala-esito").className, el("segnala-immagine-file").textContent]).toEqual(["Il file scelto non è un'immagine PNG, JPEG o WebP.", "poco", "note.txt"])
   })
 
   test("avvisa che la schermata e i registri possono contenere i nomi dei video e dei file, e che trascrizioni, chat e cartella di lavoro non partono", () => {

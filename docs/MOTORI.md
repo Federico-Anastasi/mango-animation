@@ -33,7 +33,7 @@ Peso, fonte e licenza di ogni modello, e cosa non si distribuisce con l'app: `do
 - **`dove: "scheda"`** usa la scheda NVIDIA indicata da `macchina.scheda_video` del profilo (senza indicazione, la prima che c'è). Senza una scheda che il motore possa usare, o con `macchina.scheda_video: null`, è un errore che dice cosa correggere: mai un ripiego silenzioso sul processore.
 - **Senza `dove`**: la scheda di `macchina.scheda_video`; se non c'è la scheda NVIDIA che c'è; se non c'è nessuna scheda, o il profilo la esclude con `null`, il processore, e lo dice su stderr.
 
-La scheda deve essere NVIDIA con capacità di calcolo 5.0 o più (i pacchetti di PyTorch non coprono le più vecchie). Un `calcolo` che la scheda non sa fare, o un modello che non si scarica, è un errore che nomina la funzione e la chiave del profilo da cambiare.
+La scheda deve essere NVIDIA con capacità di calcolo 5.0 o più (i pacchetti di PyTorch non coprono le più vecchie). Un `calcolo` scritto nel profilo che la scheda non sa fare, o un modello che non si scarica, è un errore che dice per quale funzione e dove cambiarlo.
 Il motore legge `motori` una volta per processo (`motore/profilo.py`), e una funzione spenta non importa i suoi pacchetti.
 
 La sezione Computer dice, per ogni scelta, se questo computer la regge (`studio/src/motori/computer.ts`). Sulla scheda:
@@ -65,12 +65,12 @@ Sta in `profilo.json`, nella cartella di lavoro, accanto a `macchina` (che dice 
 
 | funzione | chiavi |
 |---|---|
-| `trascrizione` | `attiva`, `dove`, `modello` (`large-v3`, `large-v3-turbo`, `small`), `calcolo` (`float16`, `int8_float16`, `int8`, `float32`): prendono il posto di `preparati.modello_trascrizione` e `preparati.calcolo_trascrizione` dello stile |
+| `trascrizione` | `attiva`, `dove`, `modello` (`large-v3`, `large-v3-turbo`, `small`), `calcolo` (`float16`, `int8_float16`, `int8`, `float32`): prendono il posto di `preparati.modello_trascrizione` dello stile e dell'elenco `preparati.calcolo_trascrizione.cuda|cpu` (sotto la tabella) |
 | `allineamento`, `sagoma`, `dettatura` | `attiva`, `dove` |
 | `segui` | `attiva` (`dove` si può scrivere, ma il motore non lo legge: gira sempre sul processore) |
 | `pulizia_voce` | `attiva` |
 
-`attiva` senza indicazione è vero; `dove` senza indicazione segue la regola di §2. La sezione Computer scrive `attiva` e `dove`; `modello` e `calcolo` si scrivono a mano nel profilo. Il calcolo `float16` non lo sanno fare le schede NVIDIA più vecchie (famiglia Pascal, GTX 10xx): per quelle `calcolo` va messo a `int8`.
+`attiva` senza indicazione è vero; `dove` senza indicazione segue la regola di §2. La sezione Computer scrive `attiva` e `dove`; `modello` e `calcolo` si scrivono a mano nel profilo. **Il calcolo della trascrizione.** Senza `calcolo` nel profilo, `prepara` sceglie da sé: `preparati.calcolo_trascrizione.cuda` e `.cpu` di `stile.json` sono elenchi in ordine di preferenza (uno stile del creator che ne scrive uno solo, come testo, vale come un elenco di uno), e vale il primo che il dispositivo sa fare (quello che `ctranslate2` dice per quel dispositivo, come per la dettatura); una scheda senza `float16`, come le Pascal (GTX 10xx), passa a `int8`. Il lavoro dice su stderr modello, dispositivo e calcolo scelti. Un `calcolo` scritto nel profilo non si sostituisce mai: se il computer non lo sa fare è un errore che dice cosa sa fare e dove cambiarlo. Se nessun calcolo dell'elenco di serie va bene, l'errore dice di cambiare l'elenco in `stile.json`.
 
 Il profilo dice **quale motore** e dove; **come lavora** (soglie, parametri dei modelli) resta in `stile.json` (`preparati`, `dettatura`, `sagoma.scontorno`).
 Il server legge e scrive la sezione per intero (`GET` e `PUT /api/motori`, `server/src/motori.ts`) dopo averla fatta passare dallo schema; il motore e gli strumenti rileggono il file a ogni comando.

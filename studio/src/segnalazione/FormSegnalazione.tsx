@@ -1,8 +1,8 @@
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Bottone } from "../comuni/Bottone"
 import { Interruttore } from "../comuni/Interruttore"
 import { t } from "../lingua"
-import { dopoIlDisegno, fraseDelRifiuto, ponteSegnalazione, type EsitoSegnalazione } from "./ponte"
+import { base64Di, dopoIlDisegno, fraseDelRifiuto, LIMITE_IMMAGINE, ponteSegnalazione, type EsitoSegnalazione } from "./ponte"
 import styles from "./FormSegnalazione.module.css"
 
 type Invio = { fase: "scrivo" } | { fase: "invio" } | { fase: "fatto"; esito: EsitoSegnalazione } | { fase: "errore"; frase: string }
@@ -13,17 +13,20 @@ const fraseDelFatto = (esito: EsitoSegnalazione): string =>
     : t("Salvato in {file}. Si è aperta la pagina di GitHub per mandarlo.", "Saved to {file}. The GitHub page is open so you can send it.", { file: esito.file ?? "" })
 
 /**
-* Il modulo di «Segnala un problema»: un campo facoltativo, l'interruttore della schermata e «Invia». Non parte niente senza il clic.
+ * Il modulo di «Segnala un problema»: un campo facoltativo, un'immagine da caricare (consigliata), l'interruttore della schermata (spento di base) e «Invia». Non parte niente senza il clic.
  * Con la schermata la finestra va ripresa senza il modulo, che coprirebbe la pagina di cui si parla: mentre l'app la riprende il modulo si nasconde
  * (`onNascosto` lo dice anche a chi lo contiene).
  */
 export function FormSegnalazione({ errore, onNascosto }: { errore?: string; onNascosto?: (nascosto: boolean) => void }) {
   const idNota = useId()
   const [nota, setNota] = useState("")
-  const [schermata, setSchermata] = useState(true)
+  const [schermata, setSchermata] = useState(false)
+  const [immagine, setImmagine] = useState<File | null>(null)
+  const [immagineRifiutata, setImmagineRifiutata] = useState(false)
+  const sceltaDelFile = useRef<HTMLInputElement>(null)
   const [invio, setInvio] = useState<Invio>({ fase: "scrivo" })
   const [nascosto, setNascosto] = useState(false)
-  // L'interruttore si vede solo se la schermata verrà presa: senza l'invio a Sentry non si prende.
+  // Interruttore e immagine si vedono solo se partiranno: senza l'invio a Sentry non parte né l'una né l'altra.
   const [schermataPossibile, setSchermataPossibile] = useState(false)
 
   useEffect(() => {
@@ -32,19 +35,36 @@ export function FormSegnalazione({ errore, onNascosto }: { errore?: string; onNa
       .then(setSchermataPossibile, () => setSchermataPossibile(false))
   }, [])
 
+  const scegliImmagine = (file: File | undefined) => {
+    setImmagineRifiutata(false)
+    if (!file) return
+    const troppoGrande = file.size > LIMITE_IMMAGINE
+    setImmagineRifiutata(troppoGrande)
+    setImmagine(troppoGrande ? null : file)
+  }
+
   const invia = async () => {
     const ponte = ponteSegnalazione()
     if (!ponte) return
     const conSchermata = schermataPossibile && schermata
+    const conImmagine = schermataPossibile ? immagine : null
     setInvio({ fase: "invio" })
+    let immagine64: string | undefined
+    try {
+      immagine64 = conImmagine ? await base64Di(conImmagine) : undefined
+    } catch (e) {
+      setInvio({ fase: "errore", frase: fraseDelRifiuto(e) })
+      return
+    }
     if (conSchermata) {
       setNascosto(true)
       onNascosto?.(true)
       await dopoIlDisegno()
     }
     try {
-      const esito = await ponte.invia({ errore, nota, schermata: conSchermata })
+      const esito = await ponte.invia({ errore, nota, schermata: conSchermata, ...(immagine64 && { immagine: immagine64 }) })
       setNota("")
+      setImmagine(null)
       setInvio({ fase: "fatto", esito })
     } catch (e) {
       setInvio({ fase: "errore", frase: fraseDelRifiuto(e) })
@@ -60,6 +80,37 @@ export function FormSegnalazione({ errore, onNascosto }: { errore?: string; onNa
         {t("Cosa è successo?", "What happened?")}
       </label>
       <textarea id={idNota} className={styles.nota} rows={3} value={nota} placeholder={t("Facoltativo", "Optional")} onChange={(e) => setNota(e.target.value)} />
+      {schermataPossibile && (
+        <div className={styles.immagine}>
+          <span className={styles.testo}>
+            <span className={styles.nome}>{t("Aggiungi un'immagine dell'errore", "Add an image of the error")}</span>
+            <span className={styles.piccolo}>{t("Te lo consigliamo: con l'immagine ci è più semplice capire il problema e risolverlo.", "We recommend it: with an image it is easier for us to understand the problem and fix it.")}</span>
+            {immagineRifiutata && (
+              <span className={styles.errore} role="alert">
+                {t("L'immagine pesa più di 10 MB: scegline una più piccola.", "The image is larger than 10 MB: choose a smaller one.")}
+              </span>
+            )}
+          </span>
+          <input
+            ref={sceltaDelFile}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+            aria-label={t("Scegli un'immagine da allegare", "Choose an image to attach")}
+            onChange={(e) => (scegliImmagine(e.target.files?.[0]), (e.target.value = ""))}
+          />
+          {immagine ? (
+            <span className={styles.scelta}>
+              <span className={styles.file}>{immagine.name}</span>
+              <Bottone variante="distrugge" onClick={() => setImmagine(null)}>
+                {t("Togli", "Remove")}
+              </Bottone>
+            </span>
+          ) : (
+            <Bottone onClick={() => sceltaDelFile.current?.click()}>{t("Scegli un'immagine", "Choose an image")}</Bottone>
+          )}
+        </div>
+      )}
       {schermataPossibile && (
         <div className={styles.interruttore}>
           <span className={styles.testo}>

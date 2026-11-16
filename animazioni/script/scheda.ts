@@ -1,6 +1,10 @@
 import { chromium } from "playwright";
+import schemaDelProfilo from "../../motore/schemi/profilo.schema.json";
 import { leggiProfilo } from "../../strumenti/profilo.mjs";
 import { dice } from "./lingua";
+
+/** Dove si cambia la scheda video, per chi legge la frase: `posto` di `macchina/scheda_video` in `x-nomi` dello schema del profilo. */
+const POSTO_DELLA_SCHEDA = (schemaDelProfilo["x-nomi"] as unknown as Record<string, { posto: { it: string; en: string } }>)["macchina/scheda_video"]!.posto;
 
 // La scheda video su cui il browser disegna le scene: quella di `macchina.scheda_video` del profilo del creator (l'indice di `nvidia-smi`; `null` per il
 // processore); senza profilo, la prima scheda NVIDIA che c'è, e senza schede il processore (lo dice). `ANIMAZIONI_SCHEDA` ne indica un'altra per una
@@ -48,14 +52,14 @@ export function scegliScheda({ profilo, nome }: Richiesta, elenco: Scheda[]): { 
     if (!scheda) throw new Error(dice(`La scheda video «${nome}» non c'è: ANIMAZIONI_SCHEDA dice un pezzo del nome di una scheda NVIDIA (nvidia-smi), o «processore»`, `The video card «${nome}» does not exist: ANIMAZIONI_SCHEDA gives a piece of the name of an NVIDIA card (nvidia-smi), or «processore»`));
     return { scheda };
   }
-  if (profilo === null) return { processore: dice("il profilo lo chiede (macchina.scheda_video)", "the profile asks for it (macchina.scheda_video)") };
+  if (profilo === null) return { processore: dice(`il profilo esclude la scheda video (${POSTO_DELLA_SCHEDA.it})`, `the profile rules out the video card (${POSTO_DELLA_SCHEDA.en})`) };
   if (profilo !== undefined) {
     const scheda = elenco.find((s) => s.indice === profilo);
-    if (!scheda) throw new Error(dice(`Il profilo vuole la scheda video ${profilo} (macchina.scheda_video), ma nvidia-smi non la elenca: correggi il numero, oppure metti null per disegnare sul processore`, `The profile wants video card ${profilo} (macchina.scheda_video), but nvidia-smi does not list it: fix the number, or put null to draw on the processor`));
+    if (!scheda) throw new Error(dice(`Il tuo profilo vuole la scheda video numero ${profilo} (${POSTO_DELLA_SCHEDA.it}), ma nvidia-smi non la elenca: correggi il numero, oppure escludi la scheda per disegnare sul processore`, `Your profile wants video card number ${profilo} (${POSTO_DELLA_SCHEDA.en}), but nvidia-smi does not list it: fix the number, or rule the card out to draw on the processor`));
     return { scheda };
   }
   const prima = elenco[0];
-  return prima ? { scheda: prima } : { processore: dice("nessuna scheda NVIDIA (si indica in profilo.json, macchina.scheda_video)", "no NVIDIA card (set one in profilo.json, macchina.scheda_video)") };
+  return prima ? { scheda: prima } : { processore: dice(`nessuna scheda NVIDIA (una scheda si indica ${POSTO_DELLA_SCHEDA.it})`, `no NVIDIA card (a card is set ${POSTO_DELLA_SCHEDA.en})`) };
 }
 
 function indiceDelProfilo(): number | null | undefined {

@@ -922,8 +922,8 @@
     "trascrizione_oltre": 600,
     "modello_trascrizione": "large-v3",
     "calcolo_trascrizione": {
-      "cuda": "float16",
-      "cpu": "int8"
+      "cuda": ["float16", "int8", "float32"],
+      "cpu": ["int8", "float32"]
     },
     "lingua": "it",
     "fasci_trascrizione": 5,

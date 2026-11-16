@@ -1,5 +1,6 @@
 // I processi che gli strumenti lanciano (il motore, le foto delle scene, ffmpeg) con un tempo massimo.
 import { resolve } from "node:path"
+import { erroreDopoIlMarcatore } from "../erroreDelMotore"
 import { ErroreStrumento } from "./api"
 
 /** Le foto che tornano al modello hanno il lato lungo di questa misura: leggibili (i sottotitoli restano nitidi) senza riempire il contesto. */
@@ -32,9 +33,10 @@ export async function lancia(comando: string[], opzioni: { cwd: string; env: Rec
   return { codice, stdout: stdout.replace(/\r\n/g, "\n"), stderr: stderr.replace(/\r\n/g, "\n") }
 }
 
-/** L'errore da dare al modello per un comando uscito con un codice diverso da 0: la frase che ha scritto, o il suo codice. */
+/** L'errore da dare al modello per un comando uscito con un codice diverso da 0: la frase che il motore ha scritto dopo la sua riga `@errore`, o tutto ciò che il comando ha scritto su stderr, o il suo codice. */
 export function erroreDi(comando: string, { codice, stderr }: Esito): ErroreStrumento {
-  return new ErroreStrumento(stderr.trim() || `«${comando}» è uscito con codice ${codice} senza dire perché.`)
+  const scritto = stderr.trim()
+  return new ErroreStrumento(erroreDopoIlMarcatore(scritto.split("\n")) ?? (scritto || `«${comando}» è uscito con codice ${codice} senza dire perché.`))
 }
 
 /** Un'immagine rimpicciolita (JPEG, in base64), pronta per il contenuto MCP. */

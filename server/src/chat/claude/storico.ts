@@ -45,6 +45,16 @@ export function contestoDaSessione(righe: MessaggioSessione[]): number | null {
   return null
 }
 
+/** Il modello della risposta più recente scritta nel file (`claude-opus-5-5`); `null` se nessuna lo dice. Le risposte che Claude Code scrive da sé hanno un modello fra parentesi angolari. */
+export function modelloDaSessione(righe: MessaggioSessione[]): string | null {
+  for (const riga of [...righe].reverse()) {
+    if (riga.type !== "assistant" || !eOggetto(riga.message)) continue
+    const modello = riga.message["model"]
+    if (typeof modello === "string" && modello !== "" && !modello.startsWith("<")) return modello
+  }
+  return null
+}
+
 function rigaLetta(riga: MessaggioSessione, archivio: string): RigaLetta[] {
   if (riga.type === "system" && riga.subtype === "compact_boundary") return [{ tipo: "riassunto" }]
   const tempo = riga.timestamp === undefined ? {} : { quando: riga.timestamp }

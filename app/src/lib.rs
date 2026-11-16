@@ -447,7 +447,6 @@ fn prepara(app: &tauri::App) -> Result<()> {
                 segnalazione::segnala_problema,
                 segnalazione::scrivi_ui_log,
                 segnalazione::segnalazione_invio_attivo,
-                zoom::ricorda_zoom,
                 zoom::zoom_leggi,
                 zoom::zoom_imposta,
                 aiuto::aiuto_leggi,
@@ -466,6 +465,7 @@ fn prepara(app: &tauri::App) -> Result<()> {
     let lavoro = trova_lavoro(std::env::var(lavoro::VARIABILE).ok().as_deref(), &impostazioni, documenti.as_deref());
     voce::installa(app, radice.as_deref().ok(), if let Esito::Pronta(cartella) = &lavoro { Some(cartella.as_path()) } else { None })?;
     let radice_ok = radice.is_ok();
+    app.manage(zoom::Zoom::carica(&app.path().app_local_data_dir()?));
     app.manage(Interno {
         radice,
         impostazioni,
@@ -492,10 +492,9 @@ fn prepara(app: &tauri::App) -> Result<()> {
         .inner_size(1500.0, 950.0)
         .min_inner_size(900.0, 560.0)
         .center()
-        // Ctrl+ / Ctrl- / Ctrl+0 e Ctrl con la rotellina: lo zoom del browser, che `zoom.rs` ricorda.
+        // Ctrl+ / Ctrl- / Ctrl+0 e Ctrl con la rotellina: lo zoom del browser, che `zoom.rs` ascolta e ricorda.
         .zoom_hotkeys_enabled(true)
         .initialization_script(titolo::SINCRONIA)
-        .initialization_script(zoom::SINCRONIA)
         .initialization_script(zoom::PONTE)
         .initialization_script(aiuto::PONTE)
         .initialization_script(voce::PONTE)
@@ -516,6 +515,7 @@ fn prepara(app: &tauri::App) -> Result<()> {
             ricorda_pagina(&per_i_link_nav, url);
             let porta = porta_in_uso(&per_i_link_nav);
             if e_pagina_dell_app(url, porta) {
+                per_i_link_nav.state::<zoom::Zoom>().inizia_navigazione();
                 return true;
             }
             apri_fuori(&per_i_link_nav, url, porta);
@@ -524,6 +524,7 @@ fn prepara(app: &tauri::App) -> Result<()> {
         .build()?;
     trascinamento::installa(&finestra);
     zoom::ripristina(&finestra);
+    zoom::segui(&finestra);
     if let Ok(url) = finestra.url() {
         ricorda_pagina(app.handle(), &url);
     }

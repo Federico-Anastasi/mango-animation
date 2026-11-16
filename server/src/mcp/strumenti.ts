@@ -232,18 +232,18 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
   server.registerTool(
     "foto",
     {
-      description: `Frames of the video at the given seconds, as shrunk but readable images. Use it to look at the result: subtitles, title, scenes. By default from the rendered video (uscite/finale.mp4: it must already be rendered, job «monta»); with video «anteprima» from the latest preview (job «anteprima»), to check a correction without rendering everything: seconds are those of the rendered video, and a second outside the part the preview covers is an error that says which part it covers. With video «prova» from the rehearsal (uscite/prova.mp4, job «prova»), with its own seconds. At most ${FOTO_MASSIME} seconds at a time. For a footage file use girato_foto. Always look at frames with these tools, never by extracting them with ffmpeg from the shell.`,
+      description: `Frames of the video at the given seconds, as shrunk but readable images. Use it to look at the result: subtitles, title, scenes. By default from the rendered video (uscite/finale.mp4: it must already be rendered, job «monta»); with video «anteprima» from the latest preview (job «anteprima»), to check a correction without rendering everything: seconds are those of the rendered video, and a second outside the part the preview covers is an error that says which part it covers. With video «prova» from the rehearsal (uscite/prova.mp4, job «prova»), with its own seconds. With video «composta» the composed frames that the job «anteprima» with \`secondo\` made, at the seconds it was given: a second it was not given is an error that says how to make it. At most ${FOTO_MASSIME} seconds at a time. For a footage file use girato_foto. Always look at frames with these tools, never by extracting them with ffmpeg from the shell.`,
       inputSchema: {
         slug,
         secondi: z.array(z.number().min(0)).min(1).max(FOTO_MASSIME).describe("The seconds to look at, from the first (0) on."),
-        video: z.enum(["montato", "anteprima", "prova"]).default("montato").describe("Which file: the rendered video (the default), the latest preview or the rehearsal."),
+        video: z.enum(["montato", "anteprima", "prova", "composta"]).default("montato").describe("Which file: the rendered video (the default), the latest preview, the rehearsal or the composed frames already made by the job «anteprima» with `secondo`."),
       },
     },
     ({ slug, secondi, video }) =>
       comeStrumento(async () => {
         const scelta = video === "montato" ? [] : [`--${video}`]
         const file = (await motore(["foto", slug, ...secondi.map(String), ...scelta])).split("\n").filter((r) => r.length > 0)
-        return { content: await etichettate(file, (i) => `Secondo ${secondi[i]}${video === "prova" ? " della prova" : ""}`) }
+        return { content: await etichettate(file, (i) => `Secondo ${secondi[i]}${video === "prova" ? " della prova" : video === "composta" ? " composto" : ""}`) }
       }),
   )
 
@@ -397,13 +397,14 @@ export function creaServerMcp(o: OpzioniMcp): McpServer {
     "lavoro",
     {
       description:
-        "Queues an engine job on a video and answers right away like lavoro_stato: the id, whether it is queued or already running, and the estimate in seconds (`stima`, from similar jobs already finished; `null` means there are not enough: say so, do not invent a duration). The queue runs one job at a time (there is one graphics card). On a video that was a proposal, the card moves to «in lavorazione». If the plan written in the file is not valid, the job is refused and the answer says what to fix (piano_ritocca). Then wait for the end with lavoro_aspetta. Commands: `prepara` (transcribes and prepares the footage the plan uses; long), `risolvi` (the real timings of the plan; already done by itself whenever a plan is written), `monta` (the final video; minutes), `anteprima` (only a part, quickly, to check a correction: give `scena` or `da` and `a`), `controlla` (listens to the rendered video again), `copertina` (the cover image with the cutout, give `disegno` and if needed `istante`), `carosello` (the slides of materiali/carosello.html into uscite/, with the checks on margins and caption; then look at them with «slide»), `prova` (the rehearsal to record against, uscite/prova.mp4, from the script in the card's `proposta`: skill «prova»; it needs no plan and the card stays «proposta»). The video must have a plan, except for `prova`; a carousel has none and accepts only `carosello`.",
+        "Queues an engine job on a video and answers right away like lavoro_stato: the id, whether it is queued or already running, and the estimate in seconds (`stima`, from similar jobs already finished; `null` means there are not enough: say so, do not invent a duration). The queue runs one job at a time (there is one graphics card). On a video that was a proposal, the card moves to «in lavorazione». If the plan written in the file is not valid, the job is refused and the answer says what to fix (piano_ritocca). Then wait for the end with lavoro_aspetta. Commands: `prepara` (transcribes and prepares the footage the plan uses; long), `risolvi` (the real timings of the plan; already done by itself whenever a plan is written), `monta` (the final video; minutes), `anteprima` (only a part, quickly, to check a correction: give `scena` or `da` and `a`; or a single composed frame, to check a place, a color or a position without rendering a piece: give `secondo`, then look at it with «foto» and video «composta». The cutout must already exist, from a `monta` or an `anteprima`), `controlla` (listens to the rendered video again), `copertina` (the cover image with the cutout, give `disegno` and if needed `istante`), `carosello` (the slides of materiali/carosello.html into uscite/, with the checks on margins and caption; then look at them with «slide»), `prova` (the rehearsal to record against, uscite/prova.mp4, from the script in the card's `proposta`: skill «prova»; it needs no plan and the card stays «proposta»). The video must have a plan, except for `prova`; a carousel has none and accepts only `carosello`.",
       inputSchema: {
         slug,
         comando: z.enum(COMANDI_DEL_VIDEO),
         scena: z.string().optional().describe("Only for anteprima: the name of a scene of the plan."),
         da: z.number().optional().describe("Only for anteprima: the second of the video to start from (with `a`, instead of `scena`)."),
         a: z.number().optional().describe("Only for anteprima: the second of the video to end at, after `da`."),
+        secondo: z.number().optional().describe("Only for anteprima: the second of the video of a single composed frame, instead of `scena` or `da` and `a`."),
         disegno: z.string().optional().describe("Only for copertina: the image as large as the frame, looked up in the video materials or given as a full path."),
         istante: z.number().optional().describe("Only for copertina: the second of the video to take the cutout from, if the first frame is not good."),
       },

@@ -11,6 +11,9 @@ import type { Registro } from "../src/registro";
 import { nellaScena } from "./tempo";
 import { dice } from "./lingua";
 
+/** Una scena trasparente si disegna senza sfondo, per averne i colori e la maschera di ciò che disegna. */
+const SFONDO_TRASPARENTE = "html, body, #radice, .pagina, .area, .cornice, .palco { background: transparent !important; }";
+
 /** L'ultima riga di ciò che un programma ha scritto: è quella che dice perché si è fermato. */
 const ultimaRiga = (testo: string): string => testo.trim().split("\n").pop()?.trim() ?? "";
 
@@ -51,10 +54,8 @@ function vociDalMontaggio(file: string): Record<string, VoceTempi> {
   return dati as Record<string, VoceTempi>;
 }
 
-/** Un solo fotogramma di ogni scena, `secondo` dopo il suo inizio nel video: `<sigla>.foto.png`. Niente scena intera, niente impronta: serve a vedere il fotogramma composto. */
+/** Un solo fotogramma di ogni scena, `secondo` dopo il suo inizio nel video: `<sigla>.foto.png`. Niente scena intera, niente impronta: serve a vedere il fotogramma composto. Una scena trasparente dà un PNG con l'alfa: colori e maschera insieme, che nella scena intera sono due file. */
 async function fotogrammi(registro: Registro, sigle: readonly string[], dalMontaggio: Record<string, VoceTempi> | null, uscita: string, secondo: number) {
-  const trasparenti = sigle.filter((s) => registro.scene[s]?.scena.trasparente === true);
-  if (trasparenti.length) throw new Error(dice(`La scena «${trasparenti.join("», «")}» è trasparente: il suo fotogramma ha bisogno della maschera, e un fotogramma solo non la dà. Per guardarla c'è l'anteprima della scena.`, `Scene «${trasparenti.join("», «")}» is transparent: its frame needs the mask, and a single frame does not give it. To look at it, use the scene preview.`));
   await assicuraCostruita();
   const { scena: apriScena, errori, chiudi } = await apri(registro);
   try {
@@ -62,9 +63,11 @@ async function fotogrammi(registro: Registro, sigle: readonly string[], dalMonta
       const { scena } = registro.scene[sigla]!;
       const voce: VoceTempi = dalMontaggio?.[sigla] ?? { durata: scena.durata, ancore: [], tempi: scena.tempi };
       const pagina = await apriScena(sigla);
+      const trasparente = scena.trasparente === true;
+      if (trasparente) await pagina.addStyleTag({ content: SFONDO_TRASPARENTE });
       await pagina.evaluate((d) => window.animazione?.imposta(d), { tempi: voce.tempi ?? {}, durata: voce.durata, lingua: voce.lingua, fascia: voce.fascia });
       await pagina.evaluate((s) => window.animazione?.vai(s), nellaScena(voce.ancore, secondo));
-      writeFileSync(join(uscita, `${sigla}.foto.png`), await pagina.screenshot());
+      writeFileSync(join(uscita, `${sigla}.foto.png`), await pagina.screenshot({ omitBackground: trasparente }));
       await pagina.close();
       console.log(dice(`${sigla}: fotogramma a ${secondo} s → ${sigla}.foto.png`, `${sigla}: frame at ${secondo} s → ${sigla}.foto.png`));
     }
@@ -126,7 +129,7 @@ async function main() {
 
         const pagina = await apriScena(sigla);
         // Una scena trasparente esce in due file: i colori e, accanto, la maschera di ciò che disegna (bianco pieno, nero vuoto).
-        if (trasparente) await pagina.addStyleTag({ content: "html, body, #radice, .pagina, .area, .cornice, .palco { background: transparent !important; }" });
+        if (trasparente) await pagina.addStyleTag({ content: SFONDO_TRASPARENTE });
         await pagina.evaluate((d) => window.animazione?.imposta(d), { tempi: voce.tempi ?? {}, durata: voce.durata, lingua: voce.lingua, fascia: voce.fascia });
         const totale = Math.round(voce.durata * FPS) + 1;
         const ffmpeg = Bun.spawn(

@@ -3,11 +3,13 @@
 //! - `scrivi_ui_log`: le pagine (le proprie dell'app e lo studio) scrivono qui, dallo script `ponte.js`, gli errori non gestiti, i `console.error` e le chiamate all'app lente o senza
 //!   risposta. Finiscono in `ui.log`, accanto agli altri registri dell'app, con un tetto di righe al minuto.
 //! - `segnala_problema` («Segnala un problema»): un clic. Con l'indirizzo di Sentry (`SENTRY_DSN`) la segnalazione parte: un evento con ciò che il creator ha
-//!   scritto, l'errore e il computer in campi separati, e due allegati, `report.txt` (riepilogo e fine dei registri) e `screenshot.png` (solo se il creator lascia acceso l'interruttore).
+//!   scritto, l'errore e il computer in campi separati, e gli allegati: `report.txt` (riepilogo e fine dei registri), `screenshot.png` (solo se il creator accende l'interruttore) e l'immagine
+//!   che il creator ha scelto di caricare (solo se ne ha scelta una; PNG, JPEG o WebP, controllata dai primi byte).
 //!   Senza (una costruzione propria) lo stesso testo resta in un file nei registri e si apre la pagina «nuova issue» di GitHub, già scritta e senza dati personali. In entrambi i casi il testo
-//!   passa prima da `anonimizza`. Dei dati del creator non si allega mai altro che la fine dei registri dell'app: né trascrizioni, né chat, né file della cartella di lavoro.
+//!   passa prima da `anonimizza`. Oltre a ciò che il creator sceglie lui (la schermata, l'immagine), dei suoi dati si allega solo la fine dei registri dell'app: né trascrizioni, né chat, né file della cartella di lavoro.
 
 mod anonimizza;
+mod immagine;
 mod rapporto;
 mod registro;
 mod schermata;
@@ -20,6 +22,7 @@ use crate::server::chiave_del_server;
 use crate::Interno;
 use anonimizza::Chi;
 use chrono::Local;
+use immagine::Immagine;
 use rapporto::{Dsn, Ingresso, Schermata, Segnalazione};
 use registro::{registra, Riga, TETTO};
 use serde::Serialize;
@@ -79,9 +82,9 @@ fn leggi_dsn(dsn: &str) -> Result<Dsn, String> {
     Ok(Dsn { endpoint: format!("{}://{host}{porta}/api/{progetto}/envelope/", url.scheme()), chiave: url.username().to_string(), intero: dsn.to_string() })
 }
 
-fn invia(segnalazione: &Segnalazione, dsn: &str, png: Option<&[u8]>) -> Result<(), String> {
+fn invia(segnalazione: &Segnalazione, dsn: &str, png: Option<&[u8]>, immagine: Option<&Immagine>) -> Result<(), String> {
     let dsn = leggi_dsn(dsn)?;
-    segnalazione.spedisci(&dsn, png).map_err(|e| t(format!("L'invio della segnalazione non è riuscito: {e}"), format!("The report could not be sent: {e}")))
+    segnalazione.spedisci(&dsn, png, immagine).map_err(|e| t(format!("L'invio della segnalazione non è riuscito: {e}"), format!("The report could not be sent: {e}")))
 }
 
 /// Senza Sentry: la pagina «nuova issue» di GitHub, con titolo e testo già scritti. Dentro c'è la macchina e basta: il resto sta nel file, che chi segnala allega dopo averlo letto.
@@ -110,7 +113,7 @@ fn versione_di_windows() -> String {
         .unwrap_or_default()
 }
 
-/// L'invio a Sentry è attivo in questa costruzione? Solo allora la schermata della finestra si prende: l'interfaccia nasconde l'interruttore quando è no.
+/// L'invio a Sentry è attivo in questa costruzione? Solo allora la schermata della finestra si prende e un'immagine caricata parte: l'interfaccia nasconde interruttore e campo quando è no.
 fn invio_attivo() -> bool {
     SENTRY_DSN.is_some()
 }
@@ -138,7 +141,8 @@ fn identita(stato: &Interno) -> (bool, Vec<String>) {
     (installata, chiavi)
 }
 
-/// «Segnala un problema». `errore`: ciò che la pagina sa del problema (le pagine d'errore passano il loro); `nota`: ciò che ha scritto il creator; `schermata`: se allegare la finestra.
+/// «Segnala un problema». `errore`: ciò che la pagina sa del problema (le pagine d'errore passano il loro); `nota`: ciò che ha scritto il creator; `schermata`: se allegare la finestra;
+/// `immagine`: un'immagine scelta dal creator, in base64 (si controlla qui, dai primi byte: un file che non è PNG, JPEG o WebP, o più grande di 10 MB, si rifiuta prima di inviare qualunque cosa).
 #[tauri::command]
 pub(crate) async fn segnala_problema(
     app: AppHandle,
@@ -147,7 +151,9 @@ pub(crate) async fn segnala_problema(
     nota: Option<String>,
     pagina: Option<String>,
     schermata: Option<bool>,
+    immagine: Option<String>,
 ) -> Result<Esito, String> {
+    let scelta = immagine.as_deref().map(immagine::leggi).transpose()?;
     let registri = app.path().app_log_dir().map_err(|e| e.to_string())?;
     let (installata, segreti) = identita(&stato);
     let ingresso = Ingresso { versione: app.package_info().version.to_string(), installata, lingua: lingua::corrente().codice(), errore, nota, pagina };
@@ -168,7 +174,7 @@ pub(crate) async fn segnala_problema(
         let computer = hw::leggi(&registri);
         let s = Segnalazione::raccogli(ingresso, versione_di_windows(), computer, &com_e_andata, &registri, &chi);
         match SENTRY_DSN {
-            Some(dsn) => invia(&s, dsn, png.as_deref()).map(|_| (Esito { inviata: true, file: None }, s.riassunto())),
+            Some(dsn) => invia(&s, dsn, png.as_deref(), scelta.as_ref()).map(|_| (Esito { inviata: true, file: None }, s.riassunto())),
             None => {
                 let file = s.salva(&registri, Local::now().naive_local()).map_err(|e| e.to_string())?;
                 Ok((Esito { inviata: false, file: Some(file.display().to_string()) }, s.riassunto()))
@@ -245,19 +251,22 @@ mod prove {
             (&flusso).write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}").unwrap();
             (righe, corpo)
         });
-        invia(&s, &format!("http://chiavepubblica@127.0.0.1:{porta}/77"), None).unwrap();
+        let scelta = immagine::leggi(&immagine::aiuti::in_base64(&immagine::aiuti::PNG)).unwrap();
+        invia(&s, &format!("http://chiavepubblica@127.0.0.1:{porta}/77"), None, Some(&scelta)).unwrap();
         let (righe, corpo) = server.join().unwrap();
         let testa = righe.join("");
         assert!(testa.starts_with("POST /api/77/envelope/ "), "{testa}");
         assert!(testa.contains("sentry_key=chiavepubblica") && testa.to_ascii_lowercase().contains("content-type: application/x-sentry-envelope"), "{testa}");
-        assert_eq!(leggi_busta(&corpo).len(), 2);
+        let voci = leggi_busta(&corpo);
+        assert_eq!(voci.len(), 3);
+        assert_eq!((voci[2].0["filename"].as_str(), voci[2].1.as_slice()), (Some("uploaded-image.png"), immagine::aiuti::PNG.as_slice()));
     }
 
     #[test]
     fn un_invio_che_non_riesce_lo_dice_con_una_frase() {
         let (s, _c) = segnalazione(None, None);
         let porta = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let errore = invia(&s, &format!("http://k@127.0.0.1:{porta}/1"), None).unwrap_err();
+        let errore = invia(&s, &format!("http://k@127.0.0.1:{porta}/1"), None, None).unwrap_err();
         assert!(errore.starts_with("L'invio della segnalazione non è riuscito"), "{errore}");
     }
 
@@ -266,7 +275,7 @@ mod prove {
         use crate::rete::{con_proxy_di_sistema, proxy_finto::{Modo, ProxyFinto}};
         let proxy = ProxyFinto::avvia(Modo::Ispeziona);
         let (s, _c) = segnalazione(None, None);
-        let errore = con_proxy_di_sistema(&proxy.indirizzo, || invia(&s, "https://chiave@o1.ingest.de.sentry.io/42", None)).unwrap_err();
+        let errore = con_proxy_di_sistema(&proxy.indirizzo, || invia(&s, "https://chiave@o1.ingest.de.sentry.io/42", None, None)).unwrap_err();
         assert!(errore.starts_with("L'invio della segnalazione non è riuscito: La rete di questo computer passa da un filtro aziendale"), "{errore}");
         assert_eq!(proxy.visti(), ["CONNECT o1.ingest.de.sentry.io:443 HTTP/1.1"]);
     }

@@ -142,14 +142,20 @@ describe("«Segnala un problema»", () => {
     expect(inviata).toEqual({ inviata: true })
     expect(chiamate.at(-1)).toEqual({
       comando: "plugin:mango-animation|segnala_problema",
-      argomenti: { errore: "Il server non parte", nota: "non parte", schermata: true, pagina: "/#/motori" },
+      argomenti: { errore: "Il server non parte", nota: "non parte", schermata: true, immagine: null, pagina: "/#/motori" },
     })
   })
 
-  test("senza niente da dire parte comunque, senza schermata", async () => {
+  test("senza niente da dire parte comunque, senza schermata e senza immagine", async () => {
     esegui()
     await ponte().segnalazione!.invia!()
-    expect(chiamate.at(-1)?.argomenti).toEqual({ errore: null, nota: null, schermata: false, pagina: "/#/motori" })
+    expect(chiamate.at(-1)?.argomenti).toEqual({ errore: null, nota: null, schermata: false, immagine: null, pagina: "/#/motori" })
+  })
+
+  test("l'immagine scelta (in base64) passa all'app com'è, insieme al resto", async () => {
+    esegui()
+    await ponte().segnalazione!.invia!({ nota: "non parte", schermata: false, immagine: "iVBORw0KGgo=" })
+    expect(chiamate.at(-1)?.argomenti).toEqual({ errore: null, nota: "non parte", schermata: false, immagine: "iVBORw0KGgo=", pagina: "/#/motori" })
   })
 
   test("chiede all'app se l'invio è attivo, per mostrare l'interruttore della schermata solo allora", async () => {

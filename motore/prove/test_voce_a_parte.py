@@ -116,7 +116,7 @@ def test_un_pezzo_senza_voce_vuole_un_quadro_di_sola_animazione(archivio, scrivi
 
 def test_un_pezzo_con_sorgente_e_durata_insieme_si_dice_in_italiano(archivio, scrivi_piano):
     scrivi_piano("g", {"quadro": "solo-animazione", "sorgenti": {}, "scene": [{"nome": "a", "animazione": "a1", "pezzi": [{"sorgente": "x", "durata": 1.5}]}]})
-    with pytest.raises(Errore, match=r"scene\[0\]\.pezzi\[0\]: va scritto in una sola delle sue forme \(docs/PIANO\.md\), e ha durata, sorgente"):
+    with pytest.raises(Errore, match="Il pezzo 1 della scena 1 deve essere scritto o con una sorgente"):
         risolvi(archivio, "g")
 
 
@@ -175,10 +175,10 @@ def test_un_pezzo_senza_voce_col_girato_si_scrive_solo_nelle_sue_forme(archivio,
     assert piano("girato-pieno", {"durata": 2, "girato": girato, "evidenzia": [0, 0, 100, 100]}) == []
     # Zoom, vista ed evidenzia vanno su ciò che si vede: senza `girato` un pezzo senza voce non li ha.
     errori = piano("solo-animazione", {"durata": 2, "zoom": {"scala": 1.2}}, animazione="a1")
-    assert len(errori) == 1 and errori[0].endswith("scene[0].pezzi[0]: va scritto in una sola delle sue forme (docs/PIANO.md), e ha durata, zoom"), errori
+    assert len(errori) == 1 and "Il pezzo 1 della scena 1 deve essere scritto o con una sorgente" in errori[0], errori
     for di_troppo in ({"dice": "ciao"}, {"da": 1.0}, {"sagoma": {"sorgente": "voce", "scarto": 0}}, {"sorgente": "voce"}):
         errori = piano("girato-pieno", {"durata": 2, "girato": girato, **di_troppo})
-        assert len(errori) == 1 and "una sola delle sue forme" in errori[0], (di_troppo, errori)
+        assert len(errori) == 1 and "Il pezzo 1 della scena 1 deve essere scritto o con una sorgente" in errori[0], (di_troppo, errori)
     # Senza voce non c'è la sagoma di chi parla, e un girato che il quadro non mostra non si vedrebbe.
     errori = piano("girato-e-sagoma", {"durata": 2, "girato": girato})
     assert errori == ["la scena «s», pezzo 1: un pezzo senza voce (`durata`) non ha la ripresa di chi parla, e il quadro «girato-e-sagoma» mostra la sagoma: "

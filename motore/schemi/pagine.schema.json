@@ -52,5 +52,19 @@
         }
       }
     }
+  },
+  "x-nomi": {
+    "": {"it": "l'elenco delle pagine del video", "en": "the list of the video's pages"},
+    "*": {"it": "la pagina «{1}»", "en": "page “{1}”", "f": true, "dentro": {"it": "nella pagina «{1}»", "en": "in page “{1}”"}},
+    "*/url": {"it": "l'indirizzo della pagina «{1}»", "en": "the address of page “{1}”", "forma": {"it": "un indirizzo che comincia per http:// o https://", "en": "an address starting with http:// or https://"}},
+    "*/intera": {"it": "l'indicazione se la pagina «{1}» va presa intera", "en": "the setting for whether page “{1}” is taken whole", "f": true},
+    "*/filmato": {"it": "il filmato della pagina «{1}»", "en": "the clip of page “{1}”"},
+    "*/filmato/*": {"it": "il numero {2} del filmato della pagina «{1}»", "en": "number {2} of the clip of page “{1}”"},
+    "*/frasi": {"it": "l'elenco delle frasi della pagina «{1}»", "en": "the list of sentences of page “{1}”"},
+    "*/frasi/*": {"it": "la frase «{2}» della pagina «{1}»", "en": "sentence “{2}” of page “{1}”", "f": true, "forma": {"it": "un testo, o una coppia di testo e numero", "en": "text, or a pair of text and number"}},
+    "*/frasi/*/*": {"it": "il valore {3} della frase «{2}» della pagina «{1}»", "en": "value {3} of sentence “{2}” of page “{1}”"},
+    "*/ritagli": {"it": "l'elenco dei ritagli della pagina «{1}»", "en": "the list of crops of page “{1}”"},
+    "*/ritagli/*": {"it": "il ritaglio «{2}» della pagina «{1}»", "en": "crop “{2}” of page “{1}”", "forma": {"it": "«tutta», oppure quattro numeri (sinistra, alto, larghezza, altezza)", "en": "«tutta», or four numbers (left, top, width, height)"}},
+    "*/ritagli/*/*": {"it": "il numero {3} del ritaglio «{2}» della pagina «{1}»", "en": "number {3} of crop “{2}” of page “{1}”"}
   }
 }

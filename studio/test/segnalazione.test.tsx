@@ -7,7 +7,7 @@ import { scegliLingua } from "../src/lingua"
 import type { EsitoSegnalazione } from "../src/segnalazione/ponte"
 import { installaEventi, installaRete } from "./rete"
 
-type Invio = { errore?: string; nota?: string; schermata: boolean }
+type Invio = { errore?: string; nota?: string; schermata: boolean; immagine?: string }
 
 function ponteFinto(esito: () => Promise<EsitoSegnalazione> = async () => ({ inviata: true }), invioAttivo = true) {
   const viste: { invio: Invio; riquadroVisibile: boolean }[] = []
@@ -50,11 +50,11 @@ describe("il bottone nella barra", () => {
     expect(screen.queryByRole("button", { name: "Segnala un problema" })).toBeNull()
   })
 
-  it("nell'app c'è in ogni vista e apre il dialogo con il campo facoltativo e l'interruttore della schermata acceso", async () => {
+  it("nell'app c'è in ogni vista e apre il dialogo con il campo facoltativo e l'interruttore della schermata spento", async () => {
     ponteFinto()
     const dialogo = await apri()
     expect(nota()).toHaveValue("")
-    expect(await schermata()).toBeChecked()
+    expect(await schermata()).not.toBeChecked()
     expect(dialogo).toHaveTextContent("può mostrare contenuti tuoi")
   })
 
@@ -86,6 +86,89 @@ describe("l'interruttore della schermata", () => {
   })
 })
 
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+const immagine = (nome = "errore.png", byte: number[] = PNG, tipo = "image/png") => new File([new Uint8Array(byte)], nome, { type: tipo })
+const campoImmagine = () => screen.getByLabelText("Scegli un'immagine da allegare") as HTMLInputElement
+const scegli = (file: File) => fireEvent.change(campoImmagine(), { target: { files: [file] } })
+
+describe("l'immagine caricata", () => {
+  it("il dialogo consiglia di aggiungerla e il campo accetta PNG, JPEG e WebP, uno solo", async () => {
+    ponteFinto()
+    const dialogo = await apri()
+    expect(dialogo).toHaveTextContent("Aggiungi un'immagine dell'errore")
+    expect(dialogo).toHaveTextContent("Te lo consigliamo: con l'immagine ci è più semplice capire il problema e risolverlo.")
+    expect(screen.getByRole("button", { name: "Scegli un'immagine" })).toBeEnabled()
+    expect(campoImmagine()).toHaveAttribute("accept", "image/png,image/jpeg,image/webp")
+    expect(campoImmagine().multiple).toBe(false)
+  })
+
+  it("senza l'invio a Sentry il campo non c'è, come l'interruttore: l'immagine non parte", async () => {
+    ponteFinto(undefined, false)
+    const dialogo = await apri(false)
+    expect(screen.queryByRole("button", { name: "Scegli un'immagine" })).toBeNull()
+    expect(dialogo).not.toHaveTextContent("Aggiungi un'immagine")
+  })
+
+  it("scelta, ne mostra il nome e si toglie; parte solo l'immagine che c'è al momento dell'invio", async () => {
+    const { viste } = ponteFinto()
+    await apri()
+    scegli(immagine("schermata.png"))
+    expect(await screen.findByText("schermata.png")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Scegli un'immagine" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Togli" }))
+    expect(screen.queryByText("schermata.png")).toBeNull()
+    expect(screen.getByRole("button", { name: "Scegli un'immagine" })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }))
+    await screen.findByText("Inviato, grazie")
+    expect(viste[0]?.invio).toEqual({ errore: undefined, nota: "", schermata: false })
+    expect(viste[0]?.invio).not.toHaveProperty("immagine")
+  })
+
+  it("«Invia» la manda all'app in base64, accanto alla nota, senza la schermata se l'interruttore è spento, e poi il campo si svuota", async () => {
+    const { viste } = ponteFinto()
+    await apri()
+    fireEvent.change(nota(), { target: { value: "si blocca" } })
+    scegli(immagine())
+    await screen.findByText("errore.png")
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }))
+    expect(await screen.findByText("Inviato, grazie")).toBeInTheDocument()
+    expect(viste).toEqual([{ invio: { errore: undefined, nota: "si blocca", schermata: false, immagine: btoa(String.fromCharCode(...PNG)) }, riquadroVisibile: true }])
+    expect(screen.queryByText("errore.png")).toBeNull()
+  })
+
+  it("con la schermata accesa partono tutte e due", async () => {
+    const { viste } = ponteFinto()
+    await apri()
+    fireEvent.click(await schermata())
+    scegli(immagine())
+    await screen.findByText("errore.png")
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }))
+    await screen.findByText("Inviato, grazie")
+    expect(viste[0]?.invio).toMatchObject({ schermata: true, immagine: expect.any(String) })
+  })
+
+  it("un'immagine sopra i 10 MB non si tiene e se ne dice il motivo", async () => {
+    const { invia } = ponteFinto()
+    await apri()
+    scegli(new File([new Uint8Array(10 * 1024 * 1024 + 1)], "enorme.png", { type: "image/png" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("L'immagine pesa più di 10 MB: scegline una più piccola.")
+    expect(screen.queryByText("enorme.png")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }))
+    await screen.findByText("Inviato, grazie")
+    expect(invia.mock.calls[0]?.[0]).not.toHaveProperty("immagine")
+  })
+
+  it("se l'app rifiuta l'immagine ne dice il motivo e l'immagine resta per cambiarla", async () => {
+    ponteFinto(async () => Promise.reject("Il file scelto non è un'immagine PNG, JPEG o WebP."))
+    await apri()
+    scegli(immagine("note.txt", [104, 105], "image/png"))
+    await screen.findByText("note.txt")
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Il file scelto non è un'immagine PNG, JPEG o WebP.")
+    expect(screen.getByText("note.txt")).toBeInTheDocument()
+  })
+})
+
 describe("l'invio", () => {
   it("non parte niente finché non si preme «Invia»", async () => {
     const { invia } = ponteFinto()
@@ -97,6 +180,7 @@ describe("l'invio", () => {
   it("manda ciò che si è scritto e la schermata, tiene nascosto il dialogo mentre la finestra si riprende, e dice «Inviato, grazie»", async () => {
     const { viste } = ponteFinto()
     const dialogo = await apri()
+    fireEvent.click(await schermata())
     fireEvent.change(nota(), { target: { value: "si blocca nel montaggio" } })
     fireEvent.click(screen.getByRole("button", { name: "Invia" }))
     expect(await screen.findByText("Inviato, grazie")).toBeInTheDocument()
@@ -105,10 +189,9 @@ describe("l'invio", () => {
     expect(nota()).toHaveValue("")
   })
 
-  it("con l'interruttore spento non chiede la schermata e il dialogo resta com'è", async () => {
+  it("con l'interruttore spento, com'è di base, non chiede la schermata e il dialogo resta com'è", async () => {
     const { viste } = ponteFinto()
     await apri()
-    fireEvent.click(await schermata())
     fireEvent.click(screen.getByRole("button", { name: "Invia" }))
     await screen.findByText("Inviato, grazie")
     expect(viste).toEqual([{ invio: { errore: undefined, nota: "", schermata: false }, riquadroVisibile: true }])
@@ -140,7 +223,6 @@ describe("l'invio", () => {
     let finisci: (e: EsitoSegnalazione) => void = () => {}
     ponteFinto(() => new Promise((risolvi) => (finisci = risolvi)))
     await apri()
-    fireEvent.click(await schermata())
     fireEvent.click(screen.getByRole("button", { name: "Invia" }))
     await waitFor(() => expect(screen.getByRole("button", { name: "Invio…" })).toBeDisabled())
     finisci({ inviata: true })
@@ -156,7 +238,10 @@ describe("in inglese", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Report a problem" }))
     const dialogo = await screen.findByRole("dialog", { name: "Report a problem" })
     expect(screen.getByRole("textbox", { name: "What happened?" })).toBeInTheDocument()
-    expect(screen.getByRole("switch", { name: /Include a screenshot of the window/ })).toBeChecked()
+    expect(screen.getByRole("switch", { name: /Include a screenshot of the window/ })).not.toBeChecked()
+    expect(dialogo).toHaveTextContent("Add an image of the error")
+    expect(dialogo).toHaveTextContent("We recommend it: with an image it is easier for us to understand the problem and fix it.")
+    expect(screen.getByRole("button", { name: "Choose an image" })).toBeInTheDocument()
     expect(dialogo).toHaveTextContent("names of your videos and files")
     fireEvent.click(screen.getByRole("button", { name: "Send" }))
     expect(await screen.findByText("Sent, thank you")).toBeInTheDocument()
@@ -173,7 +258,7 @@ describe("la vista d'errore comune", () => {
     const { invia } = ponteFinto()
     render(<Errore messaggio={"Non riesco a leggere i video.\nGET /api/video: 500"} dettaglio={["server.log: riga 12"]} />)
     fireEvent.click(screen.getByRole("button", { name: "Segnala il problema" }))
-    await schermata()
+    fireEvent.click(await schermata())
     fireEvent.change(nota(), { target: { value: "dopo l'aggiornamento" } })
     fireEvent.click(screen.getByRole("button", { name: "Invia" }))
     await screen.findByText("Inviato, grazie")

@@ -89,6 +89,8 @@ const VISTE = [
   { nome: "canale-pubblico-senza-commenti", indirizzo: "#/pubblico?video=ricetta-in-diretta" },
   { nome: "canale-classifica-vuota", indirizzo: "#/classifica" },
   { nome: "canale-crescita-vuota", indirizzo: "#/crescita" },
+  { nome: "canale-classifica-piena", indirizzo: "#/classifica", dopo: (p) => schedeDelCanale(p, true), poi: (p) => schedeDelCanale(p, false) },
+  { nome: "canale-crescita-piena", indirizzo: "#/crescita", dopo: (p) => schedeDelCanale(p, true), poi: (p) => schedeDelCanale(p, false) },
   { nome: "canale-senza-lettura", indirizzo: "#/canale", dopo: (p) => canaleLetto(p, false), poi: (p) => canaleLetto(p, true) },
   { nome: "barra-senza-canale", indirizzo: "#/video", dopo: (p) => canaleLetto(p, false), poi: (p) => canaleLetto(p, true) },
   // Le impostazioni: ogni sezione. `#/stile` e `#/motori` portano anche loro a due di esse.
@@ -119,6 +121,7 @@ const VISTE = [
   // «Segnala un problema» c'è solo nell'app, che mette nella pagina il ponte `segnalazione`: qui lo mette lo scenario scelto.
   { nome: "segnalazione-bottone", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), poi: (p) => scenarioSegnalazione(p, false) },
   { nome: "segnalazione-dialogo", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), dopo: apriLaSegnalazione, poi: (p) => scenarioSegnalazione(p, false) },
+  { nome: "segnalazione-immagine", indirizzo: "#/video", prima: (p) => scenarioSegnalazione(p, true), dopo: scegliUnImmagineNellaSegnalazione, poi: (p) => scenarioSegnalazione(p, false) },
   { nome: "impostazioni-computer-app-senza-scheda", indirizzo: "#/motori", prima: (p) => scenarioComputer(p, "senza"), pronta: "text=Core i5", poi: (p) => scenarioComputer(p, null) },
   // La chat: le scene si fotografano con la chat aperta e poi la chiudono (a meno che non sia accesa con --chat).
   { nome: "chat-conversazione", indirizzo: "#/video/carosello-dispensa/slide", pronta: "img[alt^='Slide 1 ']", dopo: (p) => chatEsempio(p, "alto"), poi: chiudiChat },
@@ -139,6 +142,8 @@ const VISTE = [
   { nome: "chat-comandi-filtro", indirizzo: "#/girato", dopo: (p) => chatComandi(p, "/mo", "ArrowDown"), poi: chiudiChat },
   // Una conversazione chiusa (è nell'elenco ma non ha il processo acceso), e il bottone «Chiudi la conversazione» premuto.
   // Il primo giro: la conversazione comincia da Claude (nessuna bolla del creator), i passi sono una riga sola e la domanda a scelta resta in vista; poi a metà lavoro, con un passo in corso.
+  // Senza profilo la chat si apre da sola con l'avviso, e il primo giro non parte finché non si preme «Comincia».
+  { nome: "chat-avviso-primo-giro", indirizzo: "#/girato", dopo: avvisoPrimoGiro, poi: async (p) => (await profiloDelCreator(p, false), await chiudiChatTempi(p)) },
   { nome: "chat-primo-giro", indirizzo: "#/girato", dopo: chatPrimoGiro, poi: chiudiChatTempi },
   { nome: "chat-primo-giro-lavora", indirizzo: "#/girato", dopo: chatPrimoGiroAMeta, poi: chiudiChatTempi },
   { nome: "chat-chiusa", indirizzo: "#/girato", dopo: chatChiusa, poi: chiudiChatTempi },
@@ -200,6 +205,13 @@ async function scenarioSegnalazione(pagina, acceso) {
 async function apriLaSegnalazione(pagina) {
   await pagina.getByRole("button", { name: T("Segnala un problema", "Report a problem") }).click()
   await pagina.getByRole("dialog", { name: T("Segnala un problema", "Report a problem") }).waitFor({ timeout: 5000 }).catch(() => problemi.push("segnalazione-dialogo: il dialogo non si apre"))
+}
+
+async function scegliUnImmagineNellaSegnalazione(pagina) {
+  await apriLaSegnalazione(pagina)
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64")
+  await pagina.locator("input[type=file]").setInputFiles({ name: "schermata-dell-errore-durante-il-montaggio-del-video.png", mimeType: "image/png", buffer: png })
+  await pagina.getByRole("button", { name: T("Togli", "Remove") }).waitFor({ timeout: 3000 }).catch(() => problemi.push("segnalazione-immagine: l'immagine scelta non compare"))
 }
 
 // Un video già montato si apre su «Montato»: il palco c'è solo nel modo «Piano».
@@ -302,6 +314,12 @@ async function codexNellaChat(pagina, acceso) {
 async function tokenDiCodex(pagina, noti) {
   await pagina.evaluate((n) => fetch("/finto/consumi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: n }) }), noti)
   await pagina.getByText(T("Per Codex i token non si conoscono", "Tokens are not known for Codex")).first().waitFor({ state: noti ? "detached" : "visible", timeout: 5000 }).catch(() => problemi.push(`la pagina non ${noti ? "toglie" : "dice"} che i token di Codex non si conoscono`))
+}
+
+// Classifica e piano di crescita hanno o non hanno i loro dati: la pagina si rilegge da sola.
+async function schedeDelCanale(pagina, piene) {
+  await pagina.evaluate((v) => fetch("/finto/canale", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedePiene: v }) }), piene)
+  await pagina.waitForTimeout(800)
 }
 
 // Il canale ha o non ha una lettura: la voce «Canale» compare o sparisce dalla barra da sola.
@@ -548,6 +566,15 @@ async function chatPrimoGiro(pagina) {
   if ((await pagina.getByRole("article", { name: T("Tu", "You") }).count()) > 0) problemi.push("chat-primo-giro: c'è un messaggio come se l'avesse scritto il creator")
   if ((await pagina.getByText(T(/^Legge /, /^Reads /)).count()) > 0) problemi.push("chat-primo-giro: una scheda di strumento è in vista")
   await pagina.getByRole("button", { name: /TikTok/ }).first().click()
+  await pagina.waitForTimeout(300)
+}
+
+async function avvisoPrimoGiro(pagina) {
+  await pagina.evaluate(() => fetch("/finto/profilo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vuoto: true }) }))
+  await pagina.evaluate(() => localStorage.removeItem("mango-animation.primo-giro"))
+  await pagina.reload()
+  await pagina.getByRole("heading", { name: T("Il primo giro sta per cominciare", "The first round is about to start") }).waitFor({ timeout: 8000 }).catch(() => problemi.push("chat-avviso-primo-giro: l'avviso non compare"))
+  if ((await pagina.getByRole("button", { name: T("Salta il primo giro", "Skip the first round") }).count()) > 0) problemi.push("chat-avviso-primo-giro: il giro è già partito")
   await pagina.waitForTimeout(300)
 }
 

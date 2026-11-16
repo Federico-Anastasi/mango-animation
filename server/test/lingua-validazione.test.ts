@@ -20,19 +20,19 @@ const schemi = await Schemi.carica(join(import.meta.dir, "..", "..", "motore", "
 
 describe("lo schema, tradotto dalle frasi di ajv", () => {
   const casi: [string, () => Testo[], string, string][] = [
-    ["un campo che manca", () => schemi.scheda({}), "manca «titolo»", "«titolo» is missing"],
-    ["un valore fuori dall'elenco", () => schemi.scheda({ ...SCHEDA_BUONA, stato: "boh" }), "stato: deve essere uno fra: proposta, in lavorazione, pronto, pubblicato, scartato", "stato: must be one of: proposta, in lavorazione, pronto, pubblicato, scartato"],
-    ["un campo non ammesso", () => schemi.scheda({ ...SCHEDA_BUONA, extra: 1 }), "«extra» non è una chiave ammessa", "«extra» is not an allowed key"],
-    ["un tipo sbagliato", () => schemi.scheda({ ...SCHEDA_BUONA, titolo: 5 }), "titolo: deve essere un testo", "titolo: must be text"],
-    ["la radice di un altro tipo", () => schemi.scheda(5), "il documento: deve essere un oggetto", "the document: must be an object"],
-    ["un testo vuoto", () => schemi.scheda({ ...SCHEDA_BUONA, titolo: "" }), "titolo: non può essere vuoto", "titolo: cannot be empty"],
-    ["meno del minimo", () => schemi.scheda({ ...SCHEDA_BUONA, priorita: 0 }), "priorita: non può essere meno di 1", "priorita: cannot be less than 1"],
-    ["un formato sbagliato", () => schemi.scheda({ ...SCHEDA_BUONA, creato: "ieri" }), "creato: non ha il formato giusto", "creato: is not in the right format"],
-    ["un elenco troppo corto", () => schemi.scheda({ ...SCHEDA_BUONA, canali: [] }), "canali: deve avere almeno 1 elementi", "canali: must have at least 1 items"],
-    ["elementi ripetuti", () => schemi.scheda({ ...SCHEDA_BUONA, canali: ["x", "x"] }), "canali: non può avere elementi ripetuti", "canali: cannot have repeated items"],
-    ["nessuna delle forme", () => schemi.piano({ ...piano(), scene: [{ nome: "s", pezzi: [{}] }] }), "non ha nessuna delle forme ammesse", "does not match any of the allowed forms"],
+    ["un campo che manca", () => schemi.scheda({}), "Manca il titolo del video.", "The title of the video is missing."],
+    ["un valore fuori dall'elenco", () => schemi.scheda({ ...SCHEDA_BUONA, stato: "boh" }), "Lo stato del video non va bene: puoi scegliere «proposta», «in lavorazione», «pronto», «pubblicato» o «scartato».", "The state of the video is not valid: you can choose «proposta», «in lavorazione», «pronto», «pubblicato» or «scartato»."],
+    ["un campo non ammesso", () => schemi.scheda({ ...SCHEDA_BUONA, extra: 1 }), "Nella scheda del video c'è «extra», che non conosco: toglila.", "In the video's card there is «extra», which I do not know: remove it."],
+    ["un tipo sbagliato", () => schemi.scheda({ ...SCHEDA_BUONA, titolo: 5 }), "Il titolo del video deve essere un testo.", "The title of the video must be text."],
+    ["la radice di un altro tipo", () => schemi.scheda(5), "La scheda del video deve essere un gruppo di voci.", "The video's card must be a group of entries."],
+    ["un testo vuoto", () => schemi.scheda({ ...SCHEDA_BUONA, titolo: "" }), "Il titolo del video non può essere vuoto.", "The title of the video cannot be empty."],
+    ["meno del minimo", () => schemi.scheda({ ...SCHEDA_BUONA, priorita: 0 }), "La priorità del video non può essere meno di 1.", "The priority of the video cannot be less than 1."],
+    ["un formato sbagliato", () => schemi.scheda({ ...SCHEDA_BUONA, creato: "ieri" }), "La data di creazione del video deve essere una data scritta «AAAA-MM-GG».", "The creation date of the video must be a date written «YYYY-MM-DD»."],
+    ["un elenco troppo corto", () => schemi.scheda({ ...SCHEDA_BUONA, canali: [] }), "L'elenco dei canali del video non può essere vuoto.", "The list of channels of the video cannot be empty."],
+    ["elementi ripetuti", () => schemi.scheda({ ...SCHEDA_BUONA, canali: ["x", "x"] }), "L'elenco dei canali del video non può avere elementi ripetuti.", "The list of channels of the video cannot have repeated items."],
+    ["nessuna delle forme", () => schemi.piano({ ...piano(), scene: [{ nome: "s", pezzi: [{}] }] }), "Il pezzo 1 della scena 1 deve essere scritto o con una sorgente", "Piece 1 of scene 1 must be written either with a source"],
     ["un valore che deve essere un altro", () => schemi.profilo({ versione: 2 }), "La versione del profilo deve essere 1.", "The profile version must be 1."],
-    ["un valore sopra lo zero", () => schemi.piano({ ...piano(), scene: [{ nome: "s", pezzi: [{ durata: 0 }] }] }), "durata: deve essere più di 0", "durata: must be more than 0"],
+    ["un valore sopra lo zero", () => schemi.piano({ ...piano(), scene: [{ nome: "s", pezzi: [{ durata: 0 }] }] }), "La durata del pezzo 1 della scena 1 deve essere più di zero.", "The duration of piece 1 of scene 1 must be more than zero."],
   ]
 
   for (const [nome, chiamata, it, en] of casi) {
@@ -51,7 +51,7 @@ describe("lo schema, tradotto dalle frasi di ajv", () => {
     expect(come("it", problemi)).toHaveLength(7)
     expect(come("it", problemi)[6]).toBe("e altri 3 problemi")
     expect(come("en", problemi)[6]).toBe("and 3 more problems")
-    expect(come("en", problemi)[0]).toBe("the document: «extra0» is not an allowed key")
+    expect(come("en", problemi)[0]).toBe("In the video's card there is «extra0», which I do not know: remove it.")
   })
 
   test("senza problemi la lista è vuota", () => {
@@ -120,7 +120,7 @@ describe("i riferimenti del piano", () => {
     expect(en.corpo.errore).toStartWith("The plan is not valid: ")
 
     const dellaForma = await chiama<{ problemi: string[] }>(a, "PUT", "/api/video/v/piano", { ...piano(), inventato: 1 }, "en")
-    expect(dellaForma.corpo.problemi).toEqual(["the document: «inventato» is not an allowed key"])
+    expect(dellaForma.corpo.problemi).toEqual(["In the plan there is «inventato», which I do not know: remove it."])
   })
 })
 
@@ -182,8 +182,8 @@ describe("i problemi mostrati dallo studio", () => {
     })
     type Dettaglio = { errore: string; problemi: string[] }
     const senza = (lingua?: Lingua) => chiama<Dettaglio>(a, "GET", "/api/video/senza-stato", undefined, lingua)
-    expect((await senza()).corpo.problemi).toEqual(["manca «stato»", "manca «creato»"].map((m) => `il documento: ${m}`))
-    expect((await senza("en")).corpo.problemi).toEqual(["the document: «stato» is missing", "the document: «creato» is missing"])
+    expect((await senza()).corpo.problemi).toEqual(["Manca lo stato del video.", "Manca la data di creazione del video."])
+    expect((await senza("en")).corpo.problemi).toEqual(["The state of the video is missing.", "The creation date of the video is missing."])
     const rotto = (lingua?: Lingua) => chiama<Dettaglio>(a, "GET", "/api/video/rotto", undefined, lingua)
     expect((await rotto()).corpo.problemi).toEqual(["il file è scritto male e non si legge"])
     expect((await rotto("en")).corpo.problemi).toEqual(["the file is badly written and cannot be read"])
@@ -192,15 +192,15 @@ describe("i problemi mostrati dallo studio", () => {
   test("la scheda di un file del girato", async () => {
     const a = await avviaAmbiente({}, async (c) => scriviGrezzo(c, "2026-10-06/a.mp4", "x", { tipo: "ripresa", origine: "telefono", durata: 2, soggetto: "orto" }))
     const problemi = async (lingua?: Lingua) => (await chiama<{ file: { scheda_problemi: string[] }[] }[]>(a, "GET", "/api/grezzo", undefined, lingua)).corpo[0]!.file[0]!.scheda_problemi
-    expect(await problemi()).toEqual(["il documento: «soggetto» non è una chiave ammessa"])
-    expect(await problemi("en")).toEqual(["the document: «soggetto» is not an allowed key"])
+    expect(await problemi()).toEqual(["Nella scheda del file c'è «soggetto», che non conosco: toglila."])
+    expect(await problemi("en")).toEqual(["In the file's card there is «soggetto», which I do not know: remove it."])
   })
 
   test("una scheda salvata che non passa lo schema", async () => {
     const a = await avviaAmbiente({}, async (c) => scriviVideo(c, "v"))
     const chiamata = (lingua?: Lingua) => chiama<{ errore: string; problemi: string[] }>(a, "PATCH", "/api/video/v/scheda", { stato: "inventato" }, lingua)
-    expect((await chiamata()).corpo.problemi).toEqual(["stato: deve essere uno fra: proposta, in lavorazione, pronto, pubblicato, scartato"])
-    expect((await chiamata("en")).corpo.problemi).toEqual(["stato: must be one of: proposta, in lavorazione, pronto, pubblicato, scartato"])
+    expect((await chiamata()).corpo.problemi).toEqual(["Lo stato del video non va bene: puoi scegliere «proposta», «in lavorazione», «pronto», «pubblicato» o «scartato»."])
+    expect((await chiamata("en")).corpo.problemi).toEqual(["The state of the video is not valid: you can choose «proposta», «in lavorazione», «pronto», «pubblicato» or «scartato»."])
   })
 })
 

@@ -26,9 +26,10 @@ def test_un_piano_sbagliato_dice_dove_e_cosa(archivio, scrivi_piano):
     with pytest.raises(Errore) as e:
         archivio.piano("rotto")
     testo = str(e.value)
-    assert "sorgenti.a: manca «file»" in testo
-    assert "«coso» non è una chiave" in testo
-    assert "scene[0].pezzi[0]" in testo
+    assert "Manca il file della sorgente «a»." in testo
+    assert "Nel piano c'è «coso», che non conosco: toglila." in testo
+    assert "Con il minuto del pezzo 1 della scena 1 serve anche il testo da cercare del pezzo 1 della scena 1." in testo
+    assert "sorgenti.a" not in testo and "scene[0]" not in testo
 
 
 def test_la_base_porta_cio_che_il_piano_non_dichiara(archivio, scrivi_piano):

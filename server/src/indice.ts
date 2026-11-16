@@ -252,7 +252,7 @@ export class Indice {
 
   /**
    * I secondi di video su cui lavora un lavoro della coda, o `null` se non si sanno: per la preparazione il girato ancora
-   * da trascrivere, per l'anteprima la scena o il pezzo, per gli altri comandi di un video la durata del risolto.
+   * da trascrivere, per l'anteprima la scena o il pezzo (un fotogramma non ha lunghezza: `null`), per gli altri comandi di un video la durata del risolto.
    */
   secondiDaLavorare({ comando, argomenti, slug, file }: RichiestaLavoro): number | null {
     const daPreparare = (files: string[], rifai = false): number | null => {
@@ -273,6 +273,7 @@ export class Indice {
       const i = argomenti.indexOf(opzione)
       return i < 0 ? null : (argomenti[i + 1] ?? null)
     }
+    if (argomenti.includes("--foto")) return null
     const scena = dopo("--scena")
     if (scena !== null) return voce.durataScene[scena] ?? null
     return Number(dopo("--a")) - Number(dopo("--da"))

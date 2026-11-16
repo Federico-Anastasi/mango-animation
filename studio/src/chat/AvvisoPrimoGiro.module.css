@@ -1,0 +1,38 @@
+.avviso {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--mango-line);
+  border-radius: var(--mango-radius-card);
+  background: var(--mango-surface);
+}
+
+.avviso h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.avviso p {
+  margin: 0;
+  color: var(--mango-text-muted);
+  font-size: 13px;
+}
+
+.bottoni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avviso .nota {
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .bottoni > button {
+    min-height: 44px;
+  }
+}

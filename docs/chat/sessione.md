@@ -10,7 +10,7 @@ ciascuno attraverso il contratto di `motore.ts`. Un `Motore` è l'oggetto intero
 - chi è: `id` (`claude-code`, `mango-code`, `codex`: è quello che le rotte e lo studio usano), `nomi` (come lo chiamano le frasi: il programma, il servizio che risponde, il nome nel menu, il comando da terminale, il nome con cui la chat lo chiama mentre lavora) e `prefisso`, l'inizio dell'`id` dei suoi modelli (`mango-code/`, `codex/`; `null` per i modelli di Claude Code: uno solo dei motori ha `null`, ed è quello delle conversazioni che nessun altro dice sue);
 - cosa sa fare, le **capacità**: livelli di effort, comandi con la barra, fermare un lavoro, mandarlo in background, immagini negli esiti degli strumenti, controllo remoto, sottoagenti, browser del creator, e se ha uno strumento suo per fare domande al creator (se manca lo dà il server MCP «video», «Le domande di un motore senza uno strumento suo»). Ciò che un motore non ha lo studio non lo offre e le rotte lo rifiutano (409, con una frase nelle due lingue che nomina il motore);
 - `pronto` (risponde adesso), `modelli()` e `comandi()` (letti dal motore), `modelloGrande` (il modello che indica per il primo giro, fra i suoi) e, se può accendersi e spegnersi per conto suo, `osservaAccensione` (il server annuncia l'evento `{ tipo: "modelli" }` e lo studio rilegge motori e modelli);
-- le sue conversazioni: `elenca`, `leggi` (messaggi, contesto, primo giro), `osservaConversazioni` se i suoi file cambiano anche fuori dalla chat e, per il motore che dà lui l'identificativo alle sue conversazioni, `eSua` e `modelloDi` (il modello che una conversazione ricorda, anche chiusa);
+- le sue conversazioni: `elenca`, `leggi` (messaggi, contesto, primo giro e il modello con cui la conversazione girava, nell'`id` dell'elenco dei modelli), `osservaConversazioni` se i suoi file cambiano anche fuori dalla chat e, per il motore che dà lui l'identificativo alle sue conversazioni, `eSua`;
 - `apri`: la sessione di una conversazione accesa. Una sessione dà gli eventi del suo lavoro (`EventoMotore`: avvio, testo e pensiero a pezzi, strumenti e loro esiti, contesto, lavori, comandi,
   titolo, fine del giro), riceve i messaggi del creator e chiede al creator un permesso o una domanda (`chiedi`). Un giro finito male porta un codice del prodotto (`ErroreDelGiro`), e la frase per il creator è scritta in un posto solo (`fraseDellErrore`, in
   `trascrizione.ts`) coi nomi del motore.
@@ -110,8 +110,10 @@ predefinito del modello. `modello` ed `effort` valgono per una conversazione, e 
 - Un effort che nessun modello ha è rifiutato (400, coi livelli che ci sono); uno che il modello scelto non ha, anche (400, coi livelli che il modello ha); a un motore che non ha l'effort, 409 (la capacità `effort`). Cambiando solo il modello, l'effort che il nuovo non ha torna al
   predefinito; la risposta e l'evento `impostazioni` dicono com'è rimasto. Se il motore non accetta il cambio, la scelta resta com'era (502).
 - `modello` ed `effort` di `GET /api/chat/:id` sono la scelta del creator; se non ne ha fatta, ciò che il motore dice di aver acceso all'avvio
-  (per Claude Code il modello vero, per esempio `claude-sonnet-5-5`, che il client riconosce da `reale`); `null` finché non è partito niente. Una conversazione
-  ripresa senza scelta riparte con ciò che il motore accende da sé; il modello vero si vede dopo il primo messaggio.
+  (per Claude Code il modello vero, per esempio `claude-sonnet-5-5`, che il client riconosce da `reale`); `null` finché non è partito niente.
+- **Una conversazione riletta dal suo file continua col modello con cui girava.** Il motore lo dice leggendola, anche chiusa: per Claude Code è il modello dell'ultima risposta scritta nel file (quelle che Claude Code scrive da sé, senza un modello vero, non contano), tradotto
+  nell'`id` del modello offerto che gira con quel nome (non il «Predefinito», che ripete un altro modello; fra due varianti, quella senza contesto lungo); per Codex e Mango Code è il modello che il loro registro ricorda. `modello` di `GET /api/chat/:id` lo mostra e il messaggio dopo ci riparte. Se il modello non è più offerto, o la conversazione non lo dice,
+  `modello` è `null` e riparte con ciò che il motore accende da sé.
 - La scelta del creator come predefinito delle conversazioni nuove la ricorda lo studio nel browser, non il server.
 
 ## I permessi

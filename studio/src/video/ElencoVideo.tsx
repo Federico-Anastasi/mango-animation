@@ -19,6 +19,16 @@ const gruppi = (): Array<{ stato: StatoVideo; nome: string }> => [
   { stato: "scartato", nome: t("Scartati", "Discarded") },
 ]
 
+/** La prima uscita di un video, su qualunque canale. */
+const primaUscita = (scheda: Scheda) => [...(scheda.pubblicazioni ?? [])].sort((a, b) => (istante(a.data) ?? 0) - (istante(b.data) ?? 0)).at(0)
+
+/** Il giorno che mette in fila un video: la prima uscita di un pubblicato, il giorno in cui è nato per gli altri. */
+const giornoDi = ({ scheda }: VoceElenco): number => istante((scheda.stato === "pubblicato" && primaUscita(scheda)?.data) || scheda.creato) ?? 0
+
+/** Dentro uno stato: i video da fare per la priorità scelta dal creator, poi dal più recente; nello stesso giorno, prima quello cambiato per ultimo. */
+const inFila = (a: VoceElenco, b: VoceElenco): number =>
+  (a.scheda.stato === "pubblicato" ? 0 : (a.scheda.priorita ?? Infinity) - (b.scheda.priorita ?? Infinity)) || giornoDi(b) - giornoDi(a) || (istante(b.ultimo_cambio) ?? 0) - (istante(a.ultimo_cambio) ?? 0)
+
 /** Per ogni canale, le visualizzazioni dell'ultima lettura. */
 function ultimiNumeri(scheda: Scheda): Array<{ visualizzazioni: number; canale: string }> {
   const perCanale = new Map<string, { visualizzazioni: number; t: number }>()
@@ -34,7 +44,7 @@ function CartaVideo({ voce }: { voce: VoceElenco }) {
   const { scheda } = voce
   const numeri = ultimiNumeri(scheda)
   const senzaAnteprima = scheda.stato === "proposta" && voce.anteprima === null
-  const pubblicata = [...(scheda.pubblicazioni ?? [])].sort((a, b) => (istante(a.data) ?? 0) - (istante(b.data) ?? 0)).at(0)
+  const pubblicata = primaUscita(scheda)
   return (
     <a className={styles.carta} href={scriviIndirizzo({ vista: "video", slug: voce.slug })}>
       <span className={styles.miniatura}>{voce.miniatura ? <img src={urlVersionato(voce.miniatura, voce.ultimo_cambio)} alt="" loading="lazy" /> : <span className={styles.senza}>{senzaAnteprima ? "" : t("senza immagine", "no image")}</span>}</span>
@@ -74,9 +84,7 @@ export function ElencoVideo() {
   const serieDisponibili = useMemo(() => [...new Set((voci ?? []).flatMap((v) => (v.scheda.serie ? [v.scheda.serie] : [])))].sort(), [voci])
   const filtrate = useMemo(() => {
     const ago = cerca.trim().toLowerCase()
-    return (voci ?? [])
-      .filter((v) => (ago === "" || v.scheda.titolo.toLowerCase().includes(ago)) && (serie === "" || v.scheda.serie === serie))
-      .sort((a, b) => (a.scheda.priorita ?? Infinity) - (b.scheda.priorita ?? Infinity) || (istante(b.ultimo_cambio) ?? 0) - (istante(a.ultimo_cambio) ?? 0))
+    return (voci ?? []).filter((v) => (ago === "" || v.scheda.titolo.toLowerCase().includes(ago)) && (serie === "" || v.scheda.serie === serie))
   }, [voci, cerca, serie])
 
   if (voci === null) return copia.errore ? <Errore messaggio={copia.errore} onRiprova={() => void elencoVideo.rileggi()} /> : <Caricamento />
@@ -114,7 +122,7 @@ export function ElencoVideo() {
       {voci.length > 0 && filtrate.length === 0 && <Vuoto>{t("Nessun video corrisponde alla ricerca. Cambia le parole o togli il filtro sulla serie.", "No video matches the search. Change the words or remove the series filter.")}</Vuoto>}
       {filtrate.length > 0 &&
         gruppi().map((g) => {
-          const delGruppo = filtrate.filter((v) => v.scheda.stato === g.stato)
+          const delGruppo = filtrate.filter((v) => v.scheda.stato === g.stato).sort(inFila)
           if (delGruppo.length === 0 && g.stato !== "in lavorazione") return null
           const corpo =
             delGruppo.length === 0 ? (

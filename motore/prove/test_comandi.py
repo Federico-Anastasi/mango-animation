@@ -236,6 +236,15 @@ def test_un_errore_di_prepara_arriva_in_italiano_su_stderr(cli, scrivi_piano):
     assert codice == 1 and "nulla.mp4" in errori and "metti il file lì" in errori
 
 
+def test_l_errore_finale_su_stderr_comincia_dopo_la_riga_che_lo_marca_e_non_ha_altro_dopo(cli, scrivi_piano):
+    """Il server dà all'errore di un lavoro tutte le righe dopo `@errore` (`docs/MOTORE.md`, «Gli errori»): il piano con più problemi li ha tutti, uno per riga."""
+    scrivi_piano("x", {"quadro": "girato-pieno", "sorgenti": {"a": {}, "b": {}}, "scene": [{"nome": "s", "pezzi": [{"sorgente": "a"}]}]})
+    codice, _, errori = cli("risolvi", "x")
+    righe = errori.splitlines()
+    assert codice == 1 and righe[0] == "@errore" and righe.count("@errore") == 1
+    assert "non è valido" in righe[1] and len(righe) == 4 and all(r.startswith("  Manca il file della sorgente") for r in righe[2:])
+
+
 def test_foto_scrive_un_fotogramma_per_secondo_chiesto(cli, archivio, scrivi_piano, prepara_sintetico, tmp_path):
     file = prepara_sintetico("tempo", PAROLE_TEMPO)
     scrivi_piano("f", {"quadro": "girato-pieno", "sorgenti": {"t": {"file": file}}, "scene": [{"nome": "s", "pezzi": [{"sorgente": "t", "da": 0.6, "a": 2.4}]}], "sottotitoli": {"modo": "nessuno"}})

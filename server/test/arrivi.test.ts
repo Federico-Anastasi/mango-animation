@@ -535,7 +535,7 @@ describe("durata, misure e giorno con ffprobe", () => {
     await ffmpeg(["-f", "lavfi", "-i", "testsrc=size=320x240:rate=1", "-frames:v", "1", foto])
     expect((await fetch(await indirizzo(a), { method: "POST", body: Bun.file(foto), headers: { "x-nome-file": "IMG_1.heic" } })).status).toBe(201)
     await arrivati(a)
-    expect(await schedaDi(join(giorno(a), "20261009-140509-IMG_1.heic"))).toEqual({ tipo: "ripresa", origine: "telefono", arrivato: "2026-10-09T14:05:09", note: "" })
+    expect(await schedaDi(join(giorno(a), "20261009-140509-IMG_1.heic"))).toEqual({ tipo: "foto", origine: "telefono", arrivato: "2026-10-09T14:05:09", note: "" })
   })
 
   test("se ffprobe non legge il file all'arrivo, il terminale dice quale file e perché; il file entra lo stesso", async () => {

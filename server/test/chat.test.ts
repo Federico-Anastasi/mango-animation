@@ -821,6 +821,40 @@ describe("le conversazioni vecchie", () => {
     expect((await dettaglio(c, id)).corpo.messaggi.map((m) => m.ruolo)).toEqual(["utente", "claude", "utente", "claude"])
   })
 
+  describe("il modello con cui girava", () => {
+    const conModello = (c: Avvio, modelli: (string | null)[]): string => {
+      const id = "44444444-4444-4444-8444-444444444444"
+      c.sessioni.voci = [{ id, titolo: "Prova", aggiornata: Date.parse("2026-10-30T10:05:00Z") }]
+      c.sessioni.file.set(id, [
+        riga("user", "u1", { role: "user", content: "Ciao" }, { origin: { kind: "human" } }),
+        ...modelli.map((m, i) => riga("assistant", `a${i}`, { ...(m === null ? {} : { model: m }), content: [{ type: "text", text: `Risposta ${i}.` }] })),
+      ])
+      return id
+    }
+
+    test("una conversazione riletta dice il modello dell'ultima risposta, con l'id dell'elenco, e il messaggio dopo ci riparte", async () => {
+      const c = await avvia()
+      const id = conModello(c, ["claude-sonnet-5-5", "claude-opus-5-5"])
+      expect((await dettaglio(c, id)).corpo.modello).toBe("opus")
+      await chiama(c.a, "POST", `/api/chat/${id}/messaggi`, { testo: "E poi?" })
+      const q = await aspetta(() => c.finto.queries.at(-1))
+      expect(q.opzioni.model).toBe("opus")
+      expect((await dettaglio(c, id)).corpo.modello).toBe("opus")
+    })
+
+    test("le risposte che il file scrive per conto di Claude Code, senza modello vero, non contano", async () => {
+      const c = await avvia()
+      const id = conModello(c, ["claude-opus-5-5", "<synthetic>", null])
+      expect((await dettaglio(c, id)).corpo.modello).toBe("opus")
+    })
+
+    test("un modello che l'elenco non offre più resta senza scelta; uno che il predefinito condivide con un altro prende l'altro", async () => {
+      const c = await avvia()
+      expect((await dettaglio(c, conModello(c, ["claude-opus-3-0"]))).corpo.modello).toBeNull()
+      expect((await dettaglio(c, conModello(c, ["claude-sonnet-5-5"]))).corpo.modello).toBe("sonnet")
+    })
+  })
+
   test("due messaggi insieme a una conversazione chiusa la riaprono una volta sola", async () => {
     const c = await avvia()
     const id = vecchia(c, c.a.archivio)

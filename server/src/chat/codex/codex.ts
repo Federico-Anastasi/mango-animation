@@ -1,6 +1,6 @@
 // Codex come motore della chat: `codex app-server` (JSON-RPC, un programma solo per tutte le conversazioni) tradotto negli eventi del prodotto.
 import { isAbsolute, join, relative, resolve } from "node:path"
-import { eOggetto } from "../../disco"
+import { elencaFile, eOggetto, statistica } from "../../disco"
 import { frase, type Frase } from "../../lingua"
 import { osserva } from "../../osservatore"
 import type { ComandoChat } from "../comandi"
@@ -608,12 +608,6 @@ export class Codex implements Motore {
 
   eSua = async (id: string): Promise<boolean> => (await this.registro.eSua(id)) || this.delTerminale.has(id)
 
-  modelloDi = async (id: string): Promise<string | null> => {
-    const ricordo = await this.registro.di(id)
-    const modello = ricordo?.modello ?? this.delTerminale.get(id) ?? null
-    return modello === null || modello === "" ? null : `${PREFISSO}${modello}`
-  }
-
   /** Le conversazioni del registro, più quelle che Codex ha per la cartella di lavoro e che il registro non ha: le ha aperte il terminale. */
   async elenca(): Promise<VoceSessione[]> {
     try {
@@ -645,17 +639,39 @@ export class Codex implements Motore {
         console.error("chat di Codex: Codex non ha detto dove tiene le sue conversazioni: l'elenco si rilegge solo quando la chat lo rilegge.")
         return nessuno
       }
-      return osserva(join(casa, CARTELLA_DEI_THREAD), {
-        ricorsivo: true,
-        rimbalzoMs: RIMBALZO_MS,
-        ignora: (relativo) => !FILE_DEL_THREAD.test(relativo),
-        alCambio: async (relativi) => {
-          const fuori = [...new Set(relativi.flatMap((r) => FILE_DEL_THREAD.exec(r)?.[1] ?? []))].filter((t) => !this.sessioni.has(t))
-          if (fuori.length === 0) return
-          const ricordi = Object.entries(await this.registro.tutti())
-          for (const t of fuori) alCambio(ricordi.find(([, r]) => r.sessione === t)?.[0] ?? t)
-        },
+      const cartella = join(casa, CARTELLA_DEI_THREAD)
+      const dei = async (relativi: string[]) => {
+        const fuori = [...new Set(relativi.flatMap((r) => FILE_DEL_THREAD.exec(r)?.[1] ?? []))].filter((t) => !this.sessioni.has(t))
+        if (fuori.length === 0) return
+        const ricordi = Object.entries(await this.registro.tutti())
+        for (const t of fuori) alCambio(ricordi.find(([, r]) => r.sessione === t)?.[0] ?? t)
+      }
+      const dentro = () => osserva(cartella, { ricorsivo: true, rimbalzoMs: RIMBALZO_MS, ignora: (relativo) => !FILE_DEL_THREAD.test(relativo), alCambio: dei })
+      if ((await statistica(cartella)) !== null) return dentro()
+
+      // Codex crea `sessions` col primo thread: se non c'è ancora si guarda la sua nascita nella cartella che la contiene, e poi si guarda dentro.
+      let seguendo: { chiudi: () => void } | null = null
+      let chiuso = false
+      const nata = async () => {
+        if (seguendo || chiuso || (await statistica(cartella)) === null) return
+        seguendo = dentro()
+        nascita.chiudi()
+        // I file nati prima che si cominciasse a guardare dentro.
+        await dei((await elencaFile(cartella)).map((f) => f.relativo))
+      }
+      const nascita = osserva(casa, { ricorsivo: false, rimbalzoMs: RIMBALZO_MS, ignora: (relativo) => relativo !== CARTELLA_DEI_THREAD, alCambio: nata })
+      // Nata fra il controllo e l'inizio dell'osservazione.
+      await nata().catch((errore: unknown) => {
+        nascita.chiudi()
+        throw errore
       })
+      return {
+        chiudi: () => {
+          chiuso = true
+          nascita.chiudi()
+          seguendo?.chiudi()
+        },
+      }
     } catch (errore) {
       console.error(`chat di Codex: non riesco a seguire le sue conversazioni: ${fraseDi(errore)}. L'elenco si rilegge solo quando la chat lo rilegge.`)
       return nessuno
@@ -668,6 +684,7 @@ export class Codex implements Motore {
     if (thread === null) return null
     const letto = await this.chiedi("thread/read", { threadId: thread, includeTurns: true })
     const { righe, testiDelCreator } = righeDelThread(oggetto(letto["thread"]), dove.archivio)
-    return { messaggi: messaggiDalleRighe(righe, dove.lingua), contestoUsato: ricordo?.contesto ?? null, primoGiro: testiDelCreator.some(eAvvio) }
+    const modello = ricordo?.modello ?? this.delTerminale.get(id) ?? null
+    return { messaggi: messaggiDalleRighe(righe, dove.lingua), contestoUsato: ricordo?.contesto ?? null, primoGiro: testiDelCreator.some(eAvvio), modello: modello === null || modello === "" ? null : `${PREFISSO}${modello}` }
   }
 }

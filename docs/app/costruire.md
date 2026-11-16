@@ -63,7 +63,7 @@ Le prove `cargo test` non aprono finestre. La finestra vera non si guida con tas
 | `app/src/computer/` | il computer pronto: cosa c'è (`hw.rs`), il manifesto di ciò che si scarica, il piano (`piano.rs`), lo scarico con verifica (`scarica.rs`), gli installatori (`installa.rs`), il profilo (`profilo.rs`), il ponte per lo studio (`ponte.rs`) |
 | `app/src/segnalazione/` | «Segnala un problema» e `ui.log`: l'evento per Sentry, l'anonimizzazione, la schermata, il ponte per le pagine (comandi del ponte) |
 | `app/src/aggiornamento.rs` | cercare, scaricare e installare una versione nuova, e l'errore dopo il sì |
-| `app/installer/`, `app/tests/aggiornamento.rs` | costruire e pubblicare l'installatore (`costruisci.ts`, `prepara.ts`, `pubblica.ts`) e provare gli aggiornamenti con l'updater vero e un server finto |
+| `app/installer/`, `app/tests/aggiornamento.rs` | costruire e pubblicare l'installatore (`costruisci.ts`, `prepara.ts`, `pubblica.ts`, e `ganci.nsh`, che alla disinstallazione toglie `codice`) e provare gli aggiornamenti con l'updater vero e un server finto |
 | `app/src/aiuto.rs` | la sezione «Aiuto» delle impostazioni dello studio: la versione, «Controlla ora», «Aggiorna da solo», i registri (comandi del ponte) |
 | `app/src/zoom.rs` | lo zoom della finestra (Ctrl+ / Ctrl- / Ctrl+0 e la riga «Grandezza» delle impostazioni), ricordato fra un avvio e l'altro |
 | `app/src/appunti.rs` | i file copiati in Esplora risorse, per la chat (un comando del ponte, come la dettatura) |

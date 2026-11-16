@@ -17,7 +17,7 @@ import { ElencoAggiunte, ZonaDiRilascio } from "./Aggiunte"
 import { ArriviDalTelefono } from "./ArriviDalTelefono"
 import { CampoCerca, RisultatiDelParlato, staCercando } from "./CercaNelParlato"
 import { DettaglioFile } from "./DettaglioFile"
-import { eFoto, nomeOrigine, nomeTipo, TIPI } from "./nomi"
+import { nomeOrigine, nomeTipo, TIPI } from "./nomi"
 import styles from "./Girato.module.css"
 
 /** Un file senza scheda non si sa ancora cos'è: si tratta come «altro». */
@@ -113,7 +113,7 @@ export function Girato({ file: scelto }: { file: string | undefined }) {
                   <span className={styles.testo}>
                     <span className={styles.nome}>{f.nome}</span>
                     <span className={styles.meta}>
-                      {f.scheda ? (eFoto(f.nome) ? t("Foto", "Photo") : nomeTipo(f.scheda.tipo)) : f.scheda_problemi.length > 0 ? t("Scheda da correggere", "Card to fix") : t("Scheda in arrivo", "Card on its way")}
+                      {f.scheda ? nomeTipo(f.scheda.tipo) : f.scheda_problemi.length > 0 ? t("Scheda da correggere", "Card to fix") : t("Scheda in arrivo", "Card on its way")}
                       {f.scheda?.durata !== undefined && <> · {durata(f.scheda.durata)}</>}
                       <> · {peso(f.byte)}</>
                       {f.scheda && f.scheda.origine !== "altro" && <> · {t("da {origine}", "from {origine}", { origine: nomeOrigine(f.scheda.origine).toLowerCase() })}</>}

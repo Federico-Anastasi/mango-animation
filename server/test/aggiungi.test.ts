@@ -44,6 +44,14 @@ describe("POST /api/grezzo/aggiungi: il file nel corpo", () => {
     expect(registro.map((r) => r.esito)).toEqual(["aggiunto"])
   })
 
+  test("una foto aggiunta dal computer ha il tipo «foto», un video «ripresa»", async () => {
+    const a = await avvia()
+    const r = await carica(a, "orto.jpg", new Uint8Array(1000).fill(3), { "Content-Type": "image/jpeg" })
+    expect(r.stato).toBe(201)
+    const scheda = JSON.parse(await readFile(join(a.archivio, "grezzo", "2026-10-09", "20261009-140509-orto.jpg.scheda.json"), "utf-8")) as Record<string, unknown>
+    expect(scheda).toMatchObject({ tipo: "foto", origine: "altro" })
+  })
+
   test("un video vero ha già la durata e le misure nella scheda quando la risposta arriva", async () => {
     const a = await avviaAmbiente({ arrivi: OPZIONI_ARRIVI })
     const video = join(a.radice, "prova.mp4")

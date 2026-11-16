@@ -1,4 +1,4 @@
-// Il primo giro: la chat si apre da sola senza profilo, si salta, e le pagine dei canali senza dati portano il creator da Claude.
+// Il primo giro: la chat si apre da sola senza profilo e avverte prima di partire, si rimanda, e le pagine dei canali senza dati portano il creator da Claude.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CLAUDE, CODEX, MANGO, MODELLI_CODEX, MODELLO_MANGO, MOTORI, MOTORI_CON_CODEX, modello } from "./motoriChat"
@@ -48,18 +48,24 @@ async function nuovoStudio() {
   return render(<App />)
 }
 
+const comincia = async () => fireEvent.click(await screen.findByRole("button", { name: "Comincia" }))
+
 beforeEach(() => {
   installaEventi()
 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe("il primo giro", () => {
-  it("senza profilo la chat si apre da sola e Claude riceve il saluto, una volta sola", async () => {
+  it("senza profilo la chat si apre da sola con l'avviso e a Claude non arriva niente finché il creator non dice sì; poi riceve il saluto, una volta sola", async () => {
     const chiamate = rete(PROFILO_VUOTO)
     const { unmount } = await nuovoStudio()
+    expect(await screen.findByRole("complementary", { name: "Chat" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Il primo giro sta per cominciare" })).toBeInTheDocument()
+    expect(window.localStorage.getItem(CHIAVE)).toBeNull()
+    expect(messaggiAClaude(chiamate)).toHaveLength(0)
+    await comincia()
     await waitFor(() => expect(messaggiAClaude(chiamate)).toHaveLength(1))
     expect(avviiAClaude(chiamate)).toEqual(["primo-giro"])
-    expect(await screen.findByRole("complementary", { name: "Chat" })).toBeInTheDocument()
     expect(window.localStorage.getItem(CHIAVE)).toBe("iniziato")
     unmount()
 
@@ -67,12 +73,46 @@ describe("il primo giro", () => {
     const { App } = await import("../src/App")
     render(<App />)
     await screen.findByRole("navigation", { name: "Sezioni" })
+    expect(screen.queryByRole("heading", { name: "Il primo giro sta per cominciare" })).toBeNull()
     expect(messaggiAClaude(chiamate)).toHaveLength(1)
+  })
+
+  it("l'avviso dice con quale motore e modello parte la chat al clic, con Claude e con un motore che non indica un modello grande", async () => {
+    rete(PROFILO_VUOTO, { "GET /api/chat/modelli": [modello(CLAUDE, "default", "Predefinito (Sonnet 4.6)", [], "claude-sonnet-4-6"), modello(CLAUDE, "opus", "Opus 5.5", [], "claude-opus-5-5")] })
+    const { unmount } = await nuovoStudio()
+    expect(await screen.findByText("Quando premi «Comincia» la chat parte con Claude e il modello Opus 5.5.")).toBeInTheDocument()
+    unmount()
+
+    rete(PROFILO_VUOTO, { "GET /api/chat/modelli": [MODELLO_MANGO] })
+    vi.resetModules()
+    window.localStorage.clear()
+    window.localStorage.setItem("mango-animation.chat.impostazioni", JSON.stringify({ modello: "mango-code/toq", effort: null }))
+    ;(await import("../src/lingua")).scegliLingua("it")
+    const { App } = await import("../src/App")
+    render(<App />)
+    expect(await screen.findByText("Quando premi «Comincia» la chat parte con Mango Code e il modello Mango Code · TOQ.")).toBeInTheDocument()
+  })
+
+  it("«Rimanda» non manda niente a Claude e il giro non riparte", async () => {
+    const chiamate = rete(PROFILO_VUOTO)
+    const { unmount } = await nuovoStudio()
+    fireEvent.click(await screen.findByRole("button", { name: "Rimanda" }))
+    await waitFor(() => expect(window.localStorage.getItem(CHIAVE)).toBe("saltato"))
+    expect(screen.queryByRole("heading", { name: "Il primo giro sta per cominciare" })).toBeNull()
+    expect(await screen.findByRole("button", { name: "Rifai il primo giro" })).toBeInTheDocument()
+    unmount()
+
+    const { App } = await import("../src/App")
+    render(<App />)
+    await screen.findByRole("navigation", { name: "Sezioni" })
+    expect(screen.queryByRole("heading", { name: "Il primo giro sta per cominciare" })).toBeNull()
+    expect(messaggiAClaude(chiamate)).toHaveLength(0)
   })
 
   it("il creator non vede nessun messaggio come suo: la conversazione comincia con Claude", async () => {
     const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/c1": { ...DETTAGLIO, messaggi: [{ id: "a1", ruolo: "claude", quando: "2026-11-02T10:00:00", parti: [{ tipo: "testo", testo: "Ciao, sono qui per farti conoscere Mango Animation." }] }] } })
     await nuovoStudio()
+    await comincia()
     expect(await screen.findByText("Ciao, sono qui per farti conoscere Mango Animation.")).toBeInTheDocument()
     expect(avviiAClaude(chiamate)).toEqual(["primo-giro"])
     expect(screen.queryByRole("article", { name: "Tu" })).toBeNull()
@@ -82,6 +122,7 @@ describe("il primo giro", () => {
   it("se l'avvio non parte lo dice, con «Riprova», senza un messaggio finto del creator", async () => {
     rete(PROFILO_VUOTO, { "POST /api/chat": () => new Response(JSON.stringify({ errore: "Claude Code non risponde." }), { status: 502 }) })
     await nuovoStudio()
+    await comincia()
     expect(await screen.findByRole("alert")).toHaveTextContent("Non è partito: Claude Code non risponde.")
     expect(screen.getByRole("button", { name: "Riprova" })).toBeInTheDocument()
     expect(screen.queryByRole("article", { name: "Tu" })).toBeNull()
@@ -98,6 +139,7 @@ describe("il primo giro", () => {
   it("«Salta» ferma il giro e non riparte", async () => {
     const chiamate = rete(PROFILO_VUOTO, { "POST /api/chat/c1/chiudi": {} })
     await nuovoStudio()
+    await comincia()
     fireEvent.click(await screen.findByRole("button", { name: "Salta il primo giro" }))
     await waitFor(() => expect(window.localStorage.getItem(CHIAVE)).toBe("saltato"))
     await waitFor(() => expect(screen.queryByRole("button", { name: "Salta il primo giro" })).toBeNull())
@@ -127,6 +169,7 @@ describe("i passi di Claude nel primo giro", () => {
       ),
     })
     await nuovoStudio()
+    await comincia()
     const riga = await screen.findByRole("button", { name: /Sta lavorando · 3 passi/ })
     expect(screen.queryByText(/Usa la guida/)).toBeNull()
     expect(screen.queryByText(/non riuscito/)).toBeNull()
@@ -138,6 +181,7 @@ describe("i passi di Claude nel primo giro", () => {
   it("una domanda a scelta resta in vista, fuori dalla riga dei passi", async () => {
     rete(PROFILO_VUOTO, { "GET /api/chat/c1": { ...giro(passo("t1", "Skill", { skill: "welcome" }, { esito: "ok" }), passo("t2", "AskUserQuestion", { questions: [] }, { esito: "ok" })), stato: "pronta" } })
     await nuovoStudio()
+    await comincia()
     expect(await screen.findByRole("button", { name: /Ha lavorato · 1 passo/ })).toBeInTheDocument()
     expect(screen.getByText("Ti fa una domanda")).toBeInTheDocument()
   })
@@ -163,6 +207,7 @@ describe("il primo giro parte con un modello grande", () => {
     ;(await import("../src/lingua")).scegliLingua("it")
     const { App } = await import("../src/App")
     render(<App />)
+    await comincia()
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
     expect(corpoDellaNuova(chiamate)).toEqual({ avvio: "primo-giro", modello: "opus" })
     expect(JSON.parse(window.localStorage.getItem("mango-animation.chat.impostazioni") ?? "null")).toEqual({ modello: "claude-haiku-4-5", effort: null })
@@ -171,6 +216,7 @@ describe("il primo giro parte con un modello grande", () => {
   it("senza Opus fra i modelli ripiega su «Predefinito», senza errore", async () => {
     const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": MODELLI.filter((m) => !/opus/.test(m.id)) })
     await nuovoStudio()
+    await comincia()
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
     expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "default" })
     expect(screen.queryByRole("alert")).toBeNull()
@@ -179,6 +225,7 @@ describe("il primo giro parte con un modello grande", () => {
   it("se i modelli non si leggono, il primo giro parte lo stesso con «Predefinito»", async () => {
     const chiamate = rete(PROFILO_VUOTO, { "GET /api/chat/modelli": () => new Response(JSON.stringify({ errore: "No." }), { status: 502 }) })
     await nuovoStudio()
+    await comincia()
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
     expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "default" })
   })
@@ -200,6 +247,7 @@ describe("il primo giro parte con un modello grande", () => {
     ;(await import("../src/lingua")).scegliLingua("it")
     const { App } = await import("../src/App")
     render(<App />)
+    await comincia()
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
     expect(corpoDellaNuova(chiamate)).toMatchObject({ modello: "mango-code/toq" })
   })
@@ -217,6 +265,7 @@ describe("il primo giro con più motori", () => {
     ;(await import("../src/lingua")).scegliLingua("it")
     const { App } = await import("../src/App")
     render(<App />)
+    await comincia()
     await waitFor(() => expect(corpoDellaNuova(chiamate)).toBeDefined())
     return chiamate
   }

@@ -1,9 +1,10 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, useRef } from "react"
 import { useScorciatoiaChat } from "./chat/BottoneChat"
 import { usePannelloChat } from "./chat/pannello"
 import { PannelloChat } from "./chat/PannelloChat"
-import { useAvviaPrimoGiro } from "./chat/primoGiro"
+import { useAnnunciaPrimoGiro } from "./chat/primoGiro"
 import { Cornice } from "./cornice/Cornice"
+import { useLarghezzaPagina } from "./cornice/larghezzaPagina"
 import { ConfineErrore } from "./comuni/ConfineErrore"
 import { Caricamento } from "./comuni/Stati"
 import { useIndirizzo } from "./indirizzo"
@@ -21,13 +22,16 @@ export function App() {
   const indirizzo = useIndirizzo()
   const chat = usePannelloChat()
   useScorciatoiaChat()
-  useAvviaPrimoGiro()
+  useAnnunciaPrimoGiro()
   useVaiDelServer()
+  const radice = useRef<HTMLDivElement>(null)
+  const corpo = useRef<HTMLElement>(null)
+  useLarghezzaPagina(radice, corpo)
   return (
-    <div className={styles.app}>
+    <div ref={radice} className={styles.app}>
       <Cornice vista={indirizzo.vista} />
       <div className={styles.area}>
-        <main className={styles.corpo}>
+        <main ref={corpo} className={styles.corpo}>
           <ConfineErrore key={`${indirizzo.vista}/${indirizzo.slug ?? indirizzo.parte ?? ""}`}>
             <Suspense fallback={<Caricamento />}>
               {indirizzo.vista === "girato" && <Girato file={indirizzo.parametri.get("file") ?? undefined} />}

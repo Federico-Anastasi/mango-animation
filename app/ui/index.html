@@ -94,6 +94,19 @@
         <h2 id="segnalazione-titolo" class="sezione"></h2>
         <label for="segnala-nota" id="segnala-nota-etichetta"></label>
         <textarea id="segnala-nota" rows="3"></textarea>
+        <div id="segnala-immagine-riga" class="riga" hidden>
+          <span class="testo">
+            <span id="segnala-immagine-nome" class="nome"></span>
+            <span id="segnala-immagine-cosa" class="cosa"></span>
+            <span id="segnala-immagine-problema" class="cosa poco" role="alert" hidden></span>
+          </span>
+          <input id="segnala-immagine" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+          <span class="lato">
+            <span id="segnala-immagine-file" hidden></span>
+            <button id="segnala-immagine-scegli" type="button"></button>
+            <button id="segnala-immagine-togli" type="button" class="distrugge" hidden></button>
+          </span>
+        </div>
         <label id="segnala-schermata-riga" class="riga interruttore" hidden>
           <span class="testo">
             <span id="segnala-schermata-nome" class="nome"></span>

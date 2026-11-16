@@ -19,7 +19,7 @@ const FINTO_MOTORE_LEGGERO = `import os, shutil, sys, time
 comando, args = sys.argv[1], sys.argv[2:]
 slug = args[0]
 if slug == "rotto":
-    print("il piano non va:\\n  la sorgente «a» non c'è", file=sys.stderr)
+    print("controllo il piano\\n@errore\\nil piano non va:\\n  la sorgente «a» non c'è", file=sys.stderr)
     sys.exit(1)
 if slug == "muto":
     sys.exit(1)
@@ -45,7 +45,11 @@ elif comando == "foto":
     os.makedirs(cartella, exist_ok=True)
     anteprima = "--anteprima" in args
     prova = "--prova" in args
-    for secondo in [s for s in args[1:] if s not in ("--anteprima", "--prova")]:
+    composta = "--composta" in args
+    for secondo in [s for s in args[1:] if s not in ("--anteprima", "--prova", "--composta")]:
+        if composta and float(secondo) != 2.5:
+            print("non c'è il fotogramma composto del secondo " + secondo + ": lancia python -m motore anteprima " + slug + " --foto " + secondo, file=sys.stderr)
+            sys.exit(1)
         if anteprima and not 50 <= float(secondo) < 60:
             print("l'anteprima copre il video da 50.0 a 60.0 s: il secondo " + secondo + " è fuori", file=sys.stderr)
             sys.exit(1)
@@ -88,7 +92,7 @@ for (const t of ["0", "2,5"]) {
   console.log(file)
 }
 if (sigla === "difetto") {
-  console.log("\\n2 segnalazioni:\\n- difetto a 2,5 s: testo sotto i 40 px (30 px): «ciao»\\n- difetto da 0 s a 3 s: lo sfondo resta fermo")
+  console.log("@controlli\\n- difetto at 2.5 s: text under 40 px (30 px): «ciao»\\n- difetto from 0 s to 3 s: the background stays still")
   process.exit(1)
 }
 `
@@ -221,7 +225,7 @@ describe("gli strumenti", () => {
       expect(t).not.toMatch(/\bFA\b/)
       expect(t).not.toMatch(italiano)
     }
-    expect(Object.keys(strumenti.find((s) => s.name === "lavoro")!.inputSchema.properties ?? {})).toEqual(["slug", "comando", "scena", "da", "a", "disegno", "istante"])
+    expect(Object.keys(strumenti.find((s) => s.name === "lavoro")!.inputSchema.properties ?? {})).toEqual(["slug", "comando", "scena", "da", "a", "secondo", "disegno", "istante"])
   })
 
   test("apri porta nel browser la pagina o il file attraverso /entra, e la chiave non compare mai nella risposta allo strumento", async () => {
@@ -396,7 +400,7 @@ describe("video_elenco e video_leggi", () => {
     const r = await mcp.chiama("video_leggi", { slug: "v" })
     expect(r.errore).toBe(true)
     expect(r.testo).toContain("Non c'è un video «v» con una scheda valida")
-    expect(r.testo).toContain("manca «stato»")
+    expect(r.testo).toContain("Manca lo stato del video.")
   })
 
   test("un video senza risolto ha risolto nullo; uno che non c'è dà l'errore del server", async () => {
@@ -655,6 +659,17 @@ describe("foto", () => {
     expect((await mcp.chiama("foto", { slug: "v", secondi: [3], video: "montato" })).errore).toBe(false)
   })
 
+  test("composta: i fotogrammi composti già fatti dal lavoro anteprima con secondo; se manca dice come farlo", async () => {
+    const mcp = await collega(await conVideo())
+    const composta = await mcp.chiama("foto", { slug: "v", secondi: [2.5], video: "composta" })
+    expect(composta.errore).toBe(false)
+    expect(composta.contenuto.filter((c) => c.type === "text").map((c) => c.text)).toEqual(["Secondo 2.5 composto"])
+    expect(composta.contenuto.filter((c) => c.type === "image")).toHaveLength(1)
+    const manca = await mcp.chiama("foto", { slug: "v", secondi: [7], video: "composta" })
+    expect(manca.errore).toBe(true)
+    expect(manca.testo).toContain("anteprima v --foto 7")
+  })
+
   test("dalla prova, coi suoi secondi", async () => {
     const mcp = await collega(await conVideo())
     const prova = await mcp.chiama("foto", { slug: "v", secondi: [3], video: "prova" })
@@ -736,7 +751,7 @@ describe("scene_foto", () => {
     expect(r.dati()).toEqual({
       sigla: "difetto",
       controlli: "falliti",
-      segnalazioni: ["difetto a 2,5 s: testo sotto i 40 px (30 px): «ciao»", "difetto da 0 s a 3 s: lo sfondo resta fermo"],
+      segnalazioni: ["difetto at 2.5 s: text under 40 px (30 px): «ciao»", "difetto from 0 s to 3 s: the background stays still"],
     })
     expect(r.contenuto.filter((c) => c.type === "image")).toHaveLength(2)
   })
@@ -768,6 +783,7 @@ describe("lavoro, lavoro_stato e lavoro_aspetta", () => {
       [{ comando: "risolvi" }, "inizio risolvi v"],
       [{ comando: "anteprima", scena: "s" }, "inizio anteprima v --scena s"],
       [{ comando: "anteprima", da: 1, a: 3 }, "inizio anteprima v --da 1 --a 3"],
+      [{ comando: "anteprima", secondo: 2.5 }, "inizio anteprima v --foto 2.5"],
       [{ comando: "copertina", disegno: "materiali/c.png", istante: 2 }, "inizio copertina v materiali/c.png --istante 2"],
     ]
     for (const [argomenti, riga] of casi) {

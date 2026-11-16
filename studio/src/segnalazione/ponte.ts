@@ -12,8 +12,8 @@ export interface EsitoSegnalazione {
 export interface PonteSegnalazione {
   /** Vero se questa costruzione manda le segnalazioni a chi le sistema: solo allora la schermata della finestra si prende. */
   invioAttivo: () => Promise<boolean>
-  /** Manda la segnalazione, anonimizzata dall'app; rifiuta con la frase di cosa non è andato. */
-  invia: (segnalazione: { errore?: string; nota?: string; schermata: boolean }) => Promise<EsitoSegnalazione>
+  /** Manda la segnalazione, anonimizzata dall'app; rifiuta con la frase di cosa non è andato. `immagine` è l'immagine scelta da chi segnala, in base64: l'app la controlla e la allega com'è. */
+  invia: (segnalazione: { errore?: string; nota?: string; schermata: boolean; immagine?: string }) => Promise<EsitoSegnalazione>
 }
 
 export const ponteSegnalazione = (): PonteSegnalazione | null => window.__MANGO_ANIMATION__?.segnalazione ?? null
@@ -23,3 +23,14 @@ export const fraseDelRifiuto = (e: unknown): string => fraseDi(e, t("La segnalaz
 
 /** Dopo che la pagina si è ridisegnata: la schermata della finestra si riprende da qui. */
 export const dopoIlDisegno = (): Promise<void> => new Promise((fatto) => requestAnimationFrame(() => requestAnimationFrame(() => fatto())))
+
+/** Quanto può pesare l'immagine che chi segnala carica; l'app ripete il controllo. */
+export const LIMITE_IMMAGINE = 10 * 1024 * 1024
+
+export const base64Di = (file: Blob): Promise<string> =>
+  new Promise((fatto, errore) => {
+    const lettore = new FileReader()
+    lettore.onload = () => fatto(String(lettore.result).slice(String(lettore.result).indexOf(",") + 1))
+    lettore.onerror = () => errore(lettore.error)
+    lettore.readAsDataURL(file)
+  })

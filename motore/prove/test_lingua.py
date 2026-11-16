@@ -112,8 +112,8 @@ def test_un_piano_che_non_va_ha_il_suo_inglese(archivio):
     (cartella / "piano.json").write_text(json.dumps({"quadro": "girato-pieno", "voce": 3}), encoding="utf-8")
     with pytest.raises(Errore) as dentro:
         archivio.piano("v")
-    assert dentro.value.it.startswith("il piano di «v» non è valido:\n") and "«voce» non è una chiave che il piano conosce" in dentro.value.it
-    assert dentro.value.en.startswith("the plan of «v» is not valid:\n") and "«voce» is not a key the plan knows" in dentro.value.en
+    assert dentro.value.it.startswith("il piano di «v» non è valido:\n") and "Nel piano c'è «voce», che non conosco: toglila." in dentro.value.it
+    assert dentro.value.en.startswith("the plan of «v» is not valid:\n") and "In the plan there is «voce», which I do not know: remove it." in dentro.value.en
 
 
 STRUMENTI = MOTORE.parent / "strumenti"

@@ -9,7 +9,7 @@ import numpy as np
 
 from . import allinea, prepara
 from .allinea import suoni
-from .profilo import attiva
+from .profilo import attiva, posto
 from .archivio import leggi_json, scrivi_json
 from .errori import Errore, dice
 from .media import FREQUENZA, info, pcm_16k
@@ -307,8 +307,9 @@ def controlla(archivio, slug, avanza=print, allineatore=None, trascrittore=None)
     cerca = allineatore is not None or attiva("allineamento")
     spente = [f for f, accesa in (("allineamento", cerca), ("trascrizione", riascolta)) if not accesa]
     if spente:
-        voci = ", ".join("motori." + f + ".attiva" for f in spente)
-        avanza(dice(f"spente nel profilo ({voci}): ne salto i controlli (`spente` in controllo.json)", f"turned off in the profile ({voci}): skipping their checks (`spente` in controllo.json)"))
+        posti = [posto(f"motori/{f}/attiva") for f in spente]
+        avanza(dice(f"funzioni spente ({', '.join(it for it, _ in posti)}): ne salto i controlli (`spente` in controllo.json)",
+                    f"features switched off ({', '.join(en for _, en in posti)}): skipping their checks (`spente` in controllo.json)"))
     if misurate and cerca:
         avanza(dice("cerco le parole", "looking for the words"))
         # A pezzi: l'allineamento di un montato intero di qualche minuto non sta nella scheda video.

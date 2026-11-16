@@ -43,6 +43,7 @@
   margin: 0;
   color: var(--mango-error);
   font-size: 13px;
+  white-space: pre-line;
 }
 
 .avvisi h3 {

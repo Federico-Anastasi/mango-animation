@@ -451,9 +451,9 @@ class Compositore:
                 passo = f"fps={fps}:start_time=0,tpad=stop_mode=clone:stop_duration={CODA_ANIMAZIONE_S},setsar=1"
                 filtri.append(f"[{i}:v]{passo}{scala}[a{n}]")
                 animazione = f"a{n}"
-                # Una scena trasparente ha accanto la sua maschera: fuori da ciò che disegna resta visibile lo strato sotto.
+                # Una scena trasparente ha accanto la sua maschera: fuori da ciò che disegna resta visibile lo strato sotto. Il fotogramma di una scena trasparente porta l'alfa in sé.
                 alfa = file.with_name(f"{scena['animazione']}.alfa.mkv")
-                if alfa.exists():
+                if alfa.exists() and not self._foto_animazione:
                     m = ingresso("-ss", inizio, "-t", f"{durata:.4f}", "-i", alfa, file=alfa)
                     filtri += [f"[{m}:v]{passo},format=gray{scala}[ma{n}]", f"[a{n}]format=yuva420p[ac{n}]", f"[ac{n}][ma{n}]alphamerge[at{n}]"]
                     animazione = f"at{n}"

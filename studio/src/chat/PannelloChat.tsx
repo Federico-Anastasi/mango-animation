@@ -12,7 +12,8 @@ import { Impostazioni } from "./Impostazioni"
 import { IconaChat } from "./icone"
 import { useMotoreDellaChat } from "./motore"
 import { negozio, useChat, type StatoNegozio } from "./negozio"
-import { avviaPrimoGiro, saltaPrimoGiro, usePrimoGiroInCorso } from "./primoGiro"
+import { AvvisoPrimoGiro } from "./AvvisoPrimoGiro"
+import { avviaPrimoGiro, saltaPrimoGiro, useAvvisoPrimoGiro, usePrimoGiroInCorso } from "./primoGiro"
 import { chiudiChat, LARGHEZZA_MINIMA, ripristinaLarghezzaChat, scegliLarghezzaChat, SOGLIA_STRETTA, usePannelloChat } from "./pannello"
 import { ponteTrascinamento } from "./trascinamento"
 import type { MotoreChat } from "./tipi"
@@ -197,6 +198,7 @@ export function PannelloChat() {
   }
 
   const primoGiro = usePrimoGiroInCorso()
+  const avviso = useAvvisoPrimoGiro()
   const motore = useMotoreDellaChat(chat)
   const vuota = chat.id === null && chat.messaggi.length === 0 && chat.inviati.length === 0
   const nonAperta = chat.id !== null && chat.messaggi.length === 0 && chat.inviati.length === 0 && (!chat.caricato || chat.errore !== null)
@@ -277,7 +279,7 @@ export function PannelloChat() {
           </div>
         ) : vuota ? (
           <div className={styles.scorri}>
-            <Vuota motore={motore} onScelta={() => setLista(false)} />
+            {avviso ? <AvvisoPrimoGiro motore={motore} scelto={chat.modello} /> : <Vuota motore={motore} onScelta={() => setLista(false)} />}
           </div>
         ) : nonAperta ? (
           <div className={styles.scorri}>{chat.errore ? <Errore messaggio={chat.errore} onRiprova={() => void negozio.carica()} /> : <Caricamento etichetta={t("Apro la conversazione…", "Opening the conversation…")} />}</div>

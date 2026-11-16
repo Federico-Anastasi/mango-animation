@@ -4,14 +4,16 @@
 import { randomUUID } from "node:crypto"
 import type { Opzioni, Percorsi } from "./configurazione"
 import { aggiungiRiga, jsonDaTesto, leggiTesto, scrivi } from "./disco"
+import { erroreDopoIlMarcatore, MARCATORE_ERRORE } from "./erroreDelMotore"
 import type { Eventi } from "./eventi"
 import { ErroreConFrase, frase, linguaDellaRichiesta, nellaLinguaDi, type Lingua } from "./lingua"
 import { COMANDI_SULLA_SCHEDA } from "./schede"
 
 /** Ciò che un lavoro che non è un comando del motore può fare mentre gira. */
 export interface IoLavoro {
-  /** Lancia un processo: le sue righe vanno nel lavoro e il suo PID è quello che «ferma» chiude. Un lavoro già fermato non lancia più niente. Con `uscita`, le righe di stdout si raccolgono anche lì, tutte (le righe del lavoro sono le ultime 200). */
-  lancia: (comando: string[], uscita?: string[]) => Promise<{ codice: number; ultimoErrore: string | null }>
+  /** Lancia un processo: le sue righe vanno nel lavoro e il suo PID è quello che «ferma» chiude. Un lavoro già fermato non lancia più niente. Con `uscita`, le righe di stdout si raccolgono anche lì, tutte (le righe del lavoro sono le ultime 200).
+   * L'`errore` è ciò che il motore ha scritto su stderr dopo la sua riga `@errore` (anche su più righe); per un processo che non la scrive, l'ultima riga di stderr. */
+  lancia: (comando: string[], uscita?: string[]) => Promise<{ codice: number; errore: string | null }>
   riga: (riga: string) => void
   fermato: () => boolean
   /** La lingua di chi ha chiesto il lavoro: le righe che scrive il lavoro sono in questa. */
@@ -299,7 +301,7 @@ export class Coda {
         )
       }
       lavoro.pid = processo.pid
-      const ultimoErrore: { riga: string | null } = { riga: null }
+      const scritto: string[] = []
       try {
         const [codice] = await Promise.all([
           processo.exited,
@@ -314,13 +316,13 @@ export class Coda {
           leggiRighe(
             processo.stderr,
             (riga) => {
-              tieni(riga)
-              ultimoErrore.riga = riga
+              if (riga !== MARCATORE_ERRORE) tieni(riga)
+              scritto.push(riga)
             },
             annuncia,
           ),
         ])
-        return { codice, ultimoErrore: ultimoErrore.riga }
+        return { codice, errore: erroreDopoIlMarcatore(scritto) ?? scritto.at(-1) ?? null }
       } finally {
         lavoro.pid = null
       }
@@ -332,10 +334,10 @@ export class Coda {
         return lavoro.fermato ? { esito: "fermato", errore: null } : { esito: "riuscito", errore: null, ...(risultato === undefined ? {} : { risultato }) }
       }
       const { eseguibile, modulo } = this.opzioni.motore
-      const { codice, ultimoErrore } = await lancia([eseguibile, "-m", modulo, lavoro.comando, ...lavoro.argomenti])
+      const { codice, errore } = await lancia([eseguibile, "-m", modulo, lavoro.comando, ...lavoro.argomenti])
       if (lavoro.fermato) return { esito: "fermato", errore: null }
       if (codice === 0) return { esito: "riuscito", errore: null }
-      if (ultimoErrore !== null) return { esito: "fallito", errore: ultimoErrore }
+      if (errore !== null) return { esito: "fallito", errore }
       tieni(nellaLinguaDi(frase(`Uscito con codice ${codice}.`, `Exited with code ${codice}.`), lavoro.lingua))
       return { esito: "fallito", errore: nellaLinguaDi(frase("Il lavoro si è fermato senza spiegare perché: guarda le ultime righe.", "The job stopped without saying why: look at the last lines."), lavoro.lingua) }
     } catch (causa) {

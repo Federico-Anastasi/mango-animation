@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { erroriDiVersione } from "./verifica-versione"
+import { erroriDiVersione, problemaDelleNote } from "./verifica-versione"
 
 const uguali = { tauri: "0.1.2", cargo: "0.1.2", motore: "0.1.2", tag: "v0.1.2" }
 
@@ -18,6 +18,13 @@ test("ogni differenza è un errore che dice quali file non combaciano", () => {
   expect(erroriDiVersione({ ...uguali, tag: "0.1.2" })).toHaveLength(1)
   expect(erroriDiVersione({ ...uguali, note: "Mancano le note." })).toEqual(["Mancano le note."])
   expect(erroriDiVersione({ tauri: "0.1", cargo: "0.1", motore: "0.1" })[0]).toContain("X.Y.Z")
+})
+
+test("le note di un'uscita vanno se sotto «Changed since» hanno un elenco con almeno una voce", () => {
+  const note = ["Windows 10 or 11, 64-bit only.", "", "**Install:** scarica l'installatore.", "", "**Changed since 0.1.1**", "- Lo **zoom** della finestra.", "- Una voce lunga che", "  va a capo.", "", "**What to expect**", "- Non è una novità."].join("\r\n")
+  expect(problemaDelleNote(note)).toBeUndefined()
+  expect(problemaDelleNote("Windows 10 or 11, 64-bit only.\n\n**What to expect**\n- Qualcosa.\n")).toContain("non hanno l'elenco")
+  expect(problemaDelleNote("**Changed since 0.1.1**\n\n**What to expect**\n- Qualcosa.\n")).toContain("vuoto")
 })
 
 test("il repo com'è passa il controllo, e un tag che non è la sua versione no", () => {

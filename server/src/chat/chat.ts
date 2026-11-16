@@ -195,15 +195,15 @@ export class Chat {
 
   // --- Le conversazioni -----------------------------------------------------------------------
 
-  private async leggiDalFile(id: string): Promise<{ motore: Motore; messaggi: MessaggioChat[]; titolo: string; aggiornata: number; contestoUsato: ContestoUsato | null; primoGiro: boolean }> {
+  private async leggiDalFile(id: string): Promise<{ motore: Motore; messaggi: MessaggioChat[]; titolo: string; aggiornata: number; contestoUsato: ContestoUsato | null; primoGiro: boolean; modello: string | null }> {
     const motore = await this.motoreDellaConversazione(id)
     const letta = await motore.leggi(id, { lavoro: this.d.lavoro, archivio: this.d.archivio, lingua: this.d.lingua() })
     if (letta === null) throw new ErroreChat(404, NON_TROVATA)
-    const { messaggi, contestoUsato, primoGiro } = letta
+    const { messaggi, contestoUsato, primoGiro, modello } = letta
     const primo = messaggi.find((m) => m.ruolo === "utente")?.parti.find((p) => p.tipo === "testo")
     const ultimo = Date.parse(messaggi.at(-1)?.quando ?? "")
     const titolo = primoGiro ? TITOLO_PRIMO_GIRO.in(this.d.lingua()) : primo?.tipo === "testo" ? abbrevia(primo.testo) : ""
-    return { motore, messaggi, titolo, aggiornata: Number.isNaN(ultimo) ? this.d.adesso().getTime() : ultimo, contestoUsato, primoGiro }
+    return { motore, messaggi, titolo, aggiornata: Number.isNaN(ultimo) ? this.d.adesso().getTime() : ultimo, contestoUsato, primoGiro, modello }
   }
 
   /** La conversazione aperta con questo id; se è chiusa si legge dal suo file e si prepara a riprendere. Una chiusura in corso si aspetta. */
@@ -224,10 +224,9 @@ export class Chat {
 
   private iniziaApertura(id: string): Promise<Conversazione> {
     const apertura = (async () => {
-      const { motore, messaggi, titolo, aggiornata, contestoUsato, primoGiro } = await this.leggiDalFile(id)
+      const { motore, messaggi, titolo, aggiornata, contestoUsato, primoGiro, modello } = await this.leggiDalFile(id)
       const conversazione = this.nuova(id, motore, messaggi, true, titolo, aggiornata, contestoUsato, primoGiro)
-      const ricordato = motore.modelloDi ? await motore.modelloDi(id) : null
-      if (ricordato) conversazione.preimposta({ modello: ricordato })
+      if (modello) conversazione.preimposta({ modello })
       this.attive.set(id, conversazione)
       return conversazione
     })().finally(() => this.aperture.delete(id))
@@ -322,7 +321,7 @@ export class Chat {
     await this.chiusure.get(id)
     const aperta = this.attive.get(id)
     if (aperta) return { id, motore: aperta.motore.id, titolo: aperta.rinominata ? aperta.titolo : titoloDi(aperta.titolo), attiva: aperta.attiva, stato: aperta.stato, lavora_da: aperta.lavoraDa, lavoro: aperta.lavoro, ...aperta.impostazioni, messaggi: aperta.messaggi, in_attesa: aperta.inAttesa, task: aperta.task.elenco, contesto_usato: aperta.contestoUsato, primo_giro: aperta.primoGiro }
-    const { motore, messaggi, titolo, contestoUsato, primoGiro } = await this.leggiDalFile(id)
+    const { motore, messaggi, titolo, contestoUsato, primoGiro, modello } = await this.leggiDalFile(id)
     return {
       id,
       motore: motore.id,
@@ -331,7 +330,7 @@ export class Chat {
       stato: "pronta",
       lavora_da: null,
       lavoro: { ms: lavoroDeiGiri(messaggi, false), da: null },
-      modello: motore.modelloDi ? await motore.modelloDi(id) : null,
+      modello,
       effort: null,
       messaggi,
       in_attesa: [],

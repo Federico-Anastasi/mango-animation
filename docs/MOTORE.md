@@ -59,6 +59,10 @@ La cattura delle pagine web e i ritagli per le scene. → `docs/motore/pagine-e-
 
 Le slide a mano, la base di partenza, la resa e i suoi avvisi. → `docs/motore/pagine-e-carosello.md`
 
+## Gli errori
+
+Un comando che non riesce scrive su stderr la riga `@errore` e, dopo, la frase dell'errore, anche su più righe (i problemi di un piano, uno per riga), ed esce con 1: dopo quella frase non scrive altro. Chi lancia il motore prende per errore tutte le righe che seguono l'ultima `@errore`, senza la riga stessa; se non c'è (il motore è caduto per un guasto suo, un programma lanciato dal motore) vale l'ultima riga di stderr. Le righe di avanzamento e gli avvisi stanno sullo stesso flusso, prima, e non fanno parte dell'errore. Il server lo fa in `server/src/coda.ts` (l'`errore` di un lavoro, `docs/api/lavori.md`) e in `server/src/mcp/processi.ts` (l'errore di uno strumento); il motore lo scrive in `main` di `motore/__main__.py`. Provato dai due lati: `motore/prove/test_comandi.py`, `server/test/coda.test.ts`, `server/test/mcp.test.ts`.
+
 ## La lingua delle frasi
 
 Le frasi del motore nelle due lingue. → `docs/motore/struttura.md`

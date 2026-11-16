@@ -7,6 +7,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from .errori import Errore, FormatiMescolati, Frase
+from .schema import problemi
 
 REPO = Path(__file__).resolve().parent.parent
 VARIABILE_LAVORO = "MANGO_ANIMATION_LAVORO"
@@ -60,30 +61,6 @@ def scrivi_con(destinazione, scrivi):
 
 def scrivi_json(percorso, dati, **opzioni):
     scrivi_con(percorso, lambda dest: dest.write_text(json.dumps(dati, ensure_ascii=False, **opzioni), encoding="utf-8"))
-
-
-def descrivi(errore):
-    """Un errore di schema come lo leggerebbe chi scrive il piano."""
-    percorso = "".join(f"[{p}]" if isinstance(p, int) else f".{p}" for p in errore.absolute_path).lstrip(".")
-    dove, where = percorso or "il piano", percorso or "the plan"
-    if errore.validator == "required":
-        chiave = errore.message.split("'")[1]
-        return Frase(f"{dove}: manca «{chiave}»", f"{where}: «{chiave}» is missing")
-    if errore.validator == "additionalProperties":
-        chiave = errore.message.split("'")[1]
-        return Frase(f"{dove}: «{chiave}» non è una chiave che il piano conosce", f"{where}: «{chiave}» is not a key the plan knows")
-    if errore.validator == "enum":
-        valori = ", ".join(map(str, errore.validator_value))
-        return Frase(f"{dove}: il valore dev'essere uno fra {valori}", f"{where}: the value must be one of {valori}")
-    if errore.validator == "type":
-        return Frase(f"{dove}: il tipo dev'essere {errore.validator_value}", f"{where}: the type must be {errore.validator_value}")
-    if errore.validator == "pattern":
-        return Frase(f"{dove}: «{errore.instance}» non ha la forma giusta", f"{where}: «{errore.instance}» does not have the right form")
-    if errore.validator == "oneOf" and isinstance(errore.instance, dict):
-        chiavi = ", ".join(sorted(errore.instance))
-        return Frase(f"{dove}: va scritto in una sola delle sue forme (docs/PIANO.md), e ha {chiavi or 'nessuna chiave'}",
-                     f"{where}: it must be written in exactly one of its forms (docs/PIANO.md), and it has {chiavi or 'no keys'}")
-    return Frase(f"{dove}: {errore.message}", f"{where}: {errore.message}")
 
 
 def unisci_stile(serie, creator):
@@ -214,10 +191,12 @@ class Archivio:
         return self.radice / "preparati" / giorno / nome
 
     def controlla_schema(self, dati, nome, cosa, cosa_en):
-        errori = sorted(Draft202012Validator(self.schema(nome)).iter_errors(dati), key=lambda e: list(map(str, e.absolute_path)))
+        schema = self.schema(nome)
+        errori = sorted(Draft202012Validator(schema).iter_errors(dati), key=lambda e: list(map(str, e.absolute_path)))
         if errori:
-            raise Errore(f"{cosa} non è valido:\n" + "\n".join(f"  {descrivi(e)}" for e in errori),
-                         f"{cosa_en} is not valid:\n" + "\n".join(f"  {descrivi(e).en}" for e in errori))
+            frasi = problemi(errori, schema["x-nomi"])
+            raise Errore(f"{cosa} non è valido:\n" + "\n".join(f"  {f}" for f in frasi),
+                         f"{cosa_en} is not valid:\n" + "\n".join(f"  {f.en}" for f in frasi))
 
     def scheda(self, slug):
         dati = leggi_json(self.video(slug) / "scheda.json", f"la scheda di «{slug}»", f"the card of «{slug}»")

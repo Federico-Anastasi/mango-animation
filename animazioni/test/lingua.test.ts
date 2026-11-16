@@ -69,8 +69,8 @@ describe("le frasi degli script", () => {
     try {
       process.env["MANGO_ANIMATION_LINGUA"] = "en";
       expect(scegliScheda({}, [])).toMatchObject({ processore: expect.stringContaining("no NVIDIA card") });
-      expect(scegliScheda({ profilo: null }, [])).toMatchObject({ processore: expect.stringContaining("the profile asks for it") });
-      expect(() => scegliScheda({ profilo: 5 }, [])).toThrow("video card 5");
+      expect(scegliScheda({ profilo: null }, [])).toMatchObject({ processore: expect.stringContaining("the profile rules out the video card") });
+      expect(() => scegliScheda({ profilo: 5 }, [])).toThrow("video card number 5");
     } finally {
       if (prima === undefined) delete process.env["MANGO_ANIMATION_LINGUA"];
       else process.env["MANGO_ANIMATION_LINGUA"] = prima;

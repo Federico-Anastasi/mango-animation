@@ -28,11 +28,29 @@
   border-color: var(--mango-action-text);
 }
 
-.interruttore {
+.interruttore,
+.immagine {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
+}
+
+.scelta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  max-width: 50%;
+  min-width: 0;
+}
+
+.file {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .testo {
@@ -68,4 +86,19 @@
   margin: 0;
   font-size: 13px;
   color: var(--mango-error);
+}
+
+@media (max-width: 640px) {
+  .immagine {
+    flex-wrap: wrap;
+  }
+
+  .scelta {
+    max-width: 100%;
+  }
+
+  .immagine button,
+  .azioni button {
+    min-height: 44px;
+  }
 }

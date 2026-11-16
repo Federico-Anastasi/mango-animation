@@ -12,9 +12,9 @@ import { rifiutaIlComandoDelloStudio, traduciComandi } from "./comandi"
 import { IngressoDiMessaggi } from "./ingresso"
 import { LetturaDiClaudeCode } from "./lettura"
 import { aperturaDelMetodo } from "./metodo"
-import { modelloGrande, traduciModelli } from "./modelli"
+import { idDelModello, modelloGrande, traduciModelli } from "./modelli"
 import type { FunzioneQuery, QueryChat, Sessioni } from "./query"
-import { contestoDaSessione, eDelPrimoGiro, messaggiDaSessione } from "./storico"
+import { contestoDaSessione, eDelPrimoGiro, messaggiDaSessione, modelloDaSessione } from "./storico"
 
 const DOMANDA = "AskUserQuestion"
 const DOMANDA_STORTA = frase("La domanda non è scritta bene: servono da 1 a 4 domande, ciascuna con le sue opzioni.", "The question is not well formed: it needs 1 to 4 questions, each with its options.")
@@ -379,7 +379,15 @@ export class ClaudeCode implements Motore {
     const righe = await this.sessioni.leggi(id)
     if (righe === null) return null
     const usati = contestoDaSessione(righe)
+    const girava = modelloDaSessione(righe)
+    // Se l'elenco dei modelli non si legge, la conversazione si rilegge lo stesso: riparte col predefinito.
+    const modelli = girava === null ? [] : await this.modelli(dove.lavoro).catch(() => [])
     // La finestra la dà solo Claude Code acceso, a fine giro.
-    return { messaggi: messaggiDaSessione(righe, dove.archivio, dove.lingua), contestoUsato: usati === null ? null : { usati, totale: null }, primoGiro: eDelPrimoGiro(righe) }
+    return {
+      messaggi: messaggiDaSessione(righe, dove.archivio, dove.lingua),
+      contestoUsato: usati === null ? null : { usati, totale: null },
+      primoGiro: eDelPrimoGiro(righe),
+      modello: girava === null ? null : idDelModello(modelli, girava),
+    }
   }
 }

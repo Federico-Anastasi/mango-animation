@@ -106,9 +106,10 @@ describe("gli errori delle rotte, in italiano e in inglese", () => {
       "/api/video/v/lavori",
       { comando: "anteprima", scena: "uno", da: 1 },
       400,
-      "Per l'anteprima dai o la scena o i secondi «da» e «a», non tutti e due.",
-      "For the preview give either the scene or the seconds «da» and «a», not both.",
+      "Per l'anteprima dai la scena, oppure i secondi «da» e «a», oppure il «secondo» di un fotogramma: una cosa sola.",
+      "For the preview give the scene, or the seconds «da» and «a», or the «secondo» of a frame: only one of them.",
     )
+    await nelleDueLingue(a, "POST", "/api/video/v/lavori", { comando: "anteprima", secondo: -1 }, 400, "Il «secondo» è un secondo del video: un numero da 0 in su.", "The «secondo» is a second of the video: a number from 0 up.")
     await nelleDueLingue(a, "POST", "/api/video/v/lavori", { comando: "anteprima", da: 5, a: 2 }, 400, "«a» deve venire dopo «da».", "«a» must come after «da».")
     await nelleDueLingue(
       a,

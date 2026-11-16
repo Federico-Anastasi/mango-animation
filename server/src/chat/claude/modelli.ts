@@ -20,6 +20,12 @@ export function traduciModelli(info: ModelInfo[], motore: string): ModelloChat[]
   })
 }
 
+/** L'`id` del modello offerto che gira come `reale` (il nome che Claude Code scrive nelle risposte); il «Predefinito» non conta, perché ripete un altro modello. `null` se l'elenco non lo offre più. */
+export function idDelModello(modelli: ModelloChat[], reale: string): string | null {
+  const stessi = modelli.filter((m) => m.id !== MODELLO_PREDEFINITO && (m.reale === reale || m.id === reale))
+  return (stessi.find((m) => !m.id.includes("[")) ?? stessi[0])?.id ?? null
+}
+
 /** La versione di un modello come [maggiore, minore], dal nome («Opus 5.5») o dal nome vero («claude-opus-5-5»); [0, 0] se non c'è. */
 function versioneDi(m: ModelloChat): [number, number] {
   const dalNome = /(\d+)\.(\d+)/.exec(nellaLinguaDi(m.nome, "en"))

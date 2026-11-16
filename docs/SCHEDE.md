@@ -5,7 +5,7 @@ Le schede dicono cosa si sa di un file del girato e di un video. Dove stanno nel
 ## La scheda di un file grezzo
 
     {
-      "tipo": "ripresa" | "diretta" | "schermo" | "altro",
+      "tipo": "ripresa" | "foto" | "diretta" | "schermo" | "altro",   «foto» per un'immagine (le estensioni di `server/src/arrivi/nomi.ts`)
       "origine": "telefono" | "registrazione" | "scaricato" | "altro",
       "arrivato": "2026-03-06T22:28:01",
       "durata": 12.4, "largo": 2160, "alto": 3840, "fps": 30,
@@ -64,8 +64,9 @@ fotogramma della prova: ciò che è uscito vince sull'anteprima, perché è il v
 perché è scelta apposta e dice di cosa parla il video, mentre un fotogramma preso a caso del girato o della prova no. Una
 proposta senza anteprima lo dice nell'elenco («senza anteprima»).
 
-`priorita` mette in fila i video da fare: nell'elenco, dentro ogni stato, vengono prima i numeri più bassi, poi gli
-altri dal più recente. La decide il creator.
+`priorita` mette in fila i video da fare: nell'elenco, dentro ogni stato che non sia «pubblicato», vengono prima i numeri
+più bassi, poi gli altri dal più recente per giorno di nascita (`creato`). I pubblicati sono in ordine di uscita, dal più
+recente (la prima data di `pubblicazioni`), e la priorità lì non conta. La decide il creator.
 
 `canali` dice dove il video deve uscire, uno o più; `pubblicazioni` dice dove è uscito davvero. Manca finché il creator
 non l'ha deciso. Un video intero per YouTube e le sue parti per TikTok hanno ognuno i propri canali.

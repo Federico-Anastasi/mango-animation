@@ -13,7 +13,7 @@ const foto = (nome: string, preparato: Partial<PreparatoGrezzo> = {}): FileGrezz
   file: `2026-10-06/${nome}`,
   nome,
   byte: 2_500_000,
-  scheda: { tipo: "ripresa", origine: "telefono", arrivato: "2026-10-06T22:28:01", note: "" },
+  scheda: { tipo: "foto", origine: "telefono", arrivato: "2026-10-06T22:28:01", note: "" },
   scheda_problemi: [],
   preparato: { ...VUOTO, ...preparato },
   usato_in: [],
@@ -107,6 +107,12 @@ describe("il dettaglio di un video senza traccia audio", () => {
 })
 
 describe("l'elenco del girato", () => {
+  it("il tipo è quello della scheda: una foto arrivata dopo che c'è il tipo «Foto» è «Foto», una scheda scritta prima con «Ripresa» resta «Ripresa»", async () => {
+    installaRete({ "GET /api/grezzo": [{ giorno: "2026-10-06", file: [{ ...foto("IMG_0002.HEIC"), scheda: { tipo: "ripresa", origine: "telefono", note: "" } }] }], "GET /api/video": [] })
+    render(<Girato file={undefined} />)
+    expect(await screen.findByRole("button", { name: /IMG_0002/ })).toHaveTextContent(/Ripresa/)
+  })
+
   it("una foto è «Foto», non «Ripresa»", async () => {
     installaRete({ "GET /api/grezzo": [{ giorno: "2026-10-06", file: [foto("IMG_0001.HEIC", { miniatura: "preparati/x/miniatura.jpg" }), { ...foto("a.mp4"), scheda: { tipo: "ripresa", origine: "telefono", durata: 12, note: "" } }] }], "GET /api/video": [] })
     render(<Girato file={undefined} />)

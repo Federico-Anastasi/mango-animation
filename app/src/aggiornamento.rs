@@ -21,7 +21,6 @@ pub struct StatoAggiornamento {
     pub fase: String,
     pub corrente: String,
     pub nuova: String,
-    pub note: Option<String>,
     pub fatti: u64,
     pub totale: u64,
     pub messaggio: Option<String>,
@@ -76,7 +75,7 @@ pub fn cerca_su<R: Runtime>(app: &AppHandle<R>, valore_di_prova: Option<&str>) -
     let updater = costruttore.build().map_err(|e| e.to_string())?;
     let trovato = tauri::async_runtime::block_on(updater.check()).map_err(|e| descrivi(&e))?;
     Ok(trovato.map(|update| Proposta {
-        stato: StatoAggiornamento { fase: "proposta".into(), corrente: update.current_version.clone(), nuova: update.version.clone(), note: update.body.clone().filter(|n| !n.trim().is_empty()), ..Default::default() },
+        stato: StatoAggiornamento { fase: "proposta".into(), corrente: update.current_version.clone(), nuova: update.version.clone(), ..Default::default() },
         update,
     }))
 }
@@ -191,7 +190,7 @@ pub fn frase_del_controllo(dettaglio: &str) -> String {
 
 /// La pagina «L'aggiornamento non è andato»: la versione di cui si parlava, e il motivo.
 pub fn stato_d_errore(base: &StatoAggiornamento, fallito: &Fallito) -> StatoAggiornamento {
-    StatoAggiornamento { fase: "errore".into(), note: None, fatti: 0, totale: 0, messaggio: Some(fallito.frase()), ..base.clone() }
+    StatoAggiornamento { fase: "errore".into(), fatti: 0, totale: 0, messaggio: Some(fallito.frase()), ..base.clone() }
 }
 
 /// Dopo il sì del creator: `installa` scarica e installa la versione `prima`; se non riesce `registra` lo scrive, `chiedi_errore` lo dice al creator e torna `true` se vuole riprovare
@@ -336,7 +335,7 @@ mod prove {
 
     #[test]
     fn la_pagina_d_errore_porta_il_motivo_e_la_versione_che_si_stava_installando() {
-        let base = StatoAggiornamento { fase: "proposta".into(), corrente: "0.1.0".into(), nuova: "0.1.1".into(), note: Some("n".into()), ..Default::default() };
+        let base = StatoAggiornamento { fase: "proposta".into(), corrente: "0.1.0".into(), nuova: "0.1.1".into(), ..Default::default() };
         let s = stato_d_errore(&base, &scarico_fallito());
         assert_eq!((s.fase.as_str(), s.corrente.as_str(), s.nuova.as_str()), ("errore", "0.1.0", "0.1.1"));
         assert_eq!(s.messaggio, Some(scarico_fallito().frase()));

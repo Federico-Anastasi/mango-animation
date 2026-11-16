@@ -62,6 +62,8 @@ const PROFILO_DI_PROVA: ProfiloDelCreator = {
 let profiloDelCreator: ProfiloDelCreator = structuredClone(PROFILO_DI_PROVA)
 // Se il canale ha già una lettura: `POST /finto/canale` con `{ letto: false }` fa vedere lo studio di un creator nuovo, senza la voce «Canale».
 let canaleLetto = true
+// `POST /finto/canale` con `{ schedePiene: true }` dà dati a Classifica, Crescita e all'andamento del canale; di base sono vuoti, come per un creator che non li ha chiesti.
+let schedeDelCanalePiene = false
 
 // Lo studio dal telefono: spento di base; `POST /finto/tailscale` dice com'è Tailscale sul computer finto.
 let studioAcceso = false
@@ -553,6 +555,10 @@ const consumi = () => ({
   },
   senza_video: (({ dal, al, ...resto }) => resto)(conto(22, 3_431_805, 700, 0, 4, 120_000)),
 })
+const GIORNI_MS = 86_400_000
+const giornoFa = (giorni: number): Date => new Date(Date.now() - giorni * GIORNI_MS)
+const ISO_GIORNO = (d: Date): string => d.toISOString().slice(0, 10)
+
 const NUMERI_DEL_CANALE: Array<[slug: string, visualizzazioni: number, miPiace: number, nuoviFollower: number]> = [
   ["pentole-nel-cassetto", 18_400, 1200, 41],
   ["tre-forni-in-casa", 40_200, 3100, 200],
@@ -565,7 +571,87 @@ const CANALE = {
   ultima: { lettura: "2026-11-03-1000", quando: "2026-11-03T10:00:00" },
   letture: [{ lettura: "2026-11-03-1000", quando: "2026-11-03T10:00:00", completa: true, mancano: [] }],
   profilo: { nome: "esempio", follower: 640, mi_piace: 5200, video: 6 },
-  video: NUMERI_DEL_CANALE.map(([slug, visualizzazioni, miPiace, nuoviFollower]) => ({ id: slug, slug, visualizzazioni, mi_piace: miPiace, nuovi_follower: nuoviFollower, commenti_letti: 0, variazione: null })),
+  video: NUMERI_DEL_CANALE.map(([slug, visualizzazioni, miPiace, nuoviFollower], i) => ({ id: slug, slug, pubblicato: ISO_GIORNO(giornoFa(8 + i * 11)), visualizzazioni, mi_piace: miPiace, nuovi_follower: nuoviFollower, commenti_letti: 0, variazione: null })),
+}
+
+// Classifica e piano di crescita d'esempio, con profili e numeri inventati; le date sono rispetto a oggi, così la pagina ha sempre una settimana in corso.
+const PROFILI_DELLA_CLASSIFICA: Array<[nome: string, cosaFa: string, follower: number, miPiace: number, visualizzazioni: number]> = [
+  ["forno.e.farina", "Pane e lievitati fatti in casa, con i tempi veri", 182_000, 2_900_000, 61_000],
+  ["la.cucina.di.nora", "Ricette di tutti i giorni in meno di un minuto", 96_400, 1_750_000, 48_500],
+  ["pentole.in.fila", "Prove di pentole e attrezzi da cucina", 54_300, 640_000, 21_200],
+  ["dolce.metodo", "Torte e creme spiegate passo per passo", 71_800, 930_000, 27_900],
+  ["il.cuoco.distratto", "Errori in cucina e come rimediare, in tono leggero", 38_900, 412_000, 17_600],
+  ["sale.e.pepe.in.due", "Cene per due con pochi ingredienti", 24_700, 255_000, 9_800],
+  ["tavola.piccola", "Cucina per chi vive in un monolocale", 19_200, 188_000, 7_400],
+  ["lievito.madre.club", "Tutto sul lievito madre, dal rinfresco al forno", 15_800, 141_000, 6_900],
+  ["una.pasta.al.giorno", "Un formato di pasta e un sugo, ogni giorno", 12_100, 97_000, 5_200],
+  ["cucinare.in.ufficio", "Pranzi da portare via, pronti in dieci minuti", 8_700, 64_000, 3_100],
+  ["esempio", "Cucina di casa, con una ricetta a video intero", 640, 5_200, 9_300],
+]
+
+const classificaPiena = () => {
+  const posizione = (valore: (p: (typeof PROFILI_DELLA_CLASSIFICA)[number]) => number, p: (typeof PROFILI_DELLA_CLASSIFICA)[number]) => PROFILI_DELLA_CLASSIFICA.filter((a) => valore(a) > valore(p)).length + 1
+  const righe = PROFILI_DELLA_CLASSIFICA.map((p) => ({
+    nome: p[0],
+    cosa_fa: p[1],
+    follower: p[2],
+    mi_piace: p[3],
+    visualizzazioni: p[4],
+    punteggio: posizione((a) => a[2], p) + posizione((a) => a[3], p) + posizione((a) => a[4], p),
+  }))
+  const ordinate = righe.sort((a, b) => a.punteggio - b.punteggio || b.follower - a.follower).map((r, i) => ({ posto: i + 1, ...r }))
+  return {
+    quando: ISO_GIORNO(giornoFa(9)),
+    io: "esempio",
+    quando_io: "2026-11-03T10:00:00",
+    come: [
+      "I profili sono quelli che compaiono più spesso accanto al tuo nei suggerimenti di TikTok, letti in un solo giorno.",
+      "Le visualizzazioni sono la mediana degli ultimi video di ogni profilo; i numeri del tuo profilo sono quelli dell'ultima lettura del canale.",
+    ],
+    righe: ordinate,
+  }
+}
+
+const GIORNI_DELLE_LETTURE = [70, 63, 56, 49, 42, 35, 28, 21, 14, 7, 1]
+const FOLLOWER_LETTI = [410, 418, 431, 440, 452, 470, 488, 520, 560, 601, 640]
+const andamentoPieno = () => GIORNI_DELLE_LETTURE.map((giorni, i) => ({ quando: giornoFa(giorni).toISOString().slice(0, 19), follower: FOLLOWER_LETTI[i]!, mi_piace: 3900 + i * 130, video: Math.min(3 + Math.floor(i / 2), 6) }))
+
+const crescitaPiena = () => {
+  const partenza = giornoFa(70)
+  const dopo = (giorni: number) => ISO_GIORNO(new Date(partenza.getTime() + giorni * GIORNI_MS))
+  const scenario = (nome: string, [tre, sei, uno]: [number, number, number]) => ({ nome, tappe: [{ data: dopo(91), follower: tre }, { data: dopo(182), follower: sei }, { data: dopo(365), follower: uno }] })
+  return {
+    quando: ISO_GIORNO(giornoFa(3)),
+    partenza: { data: ISO_GIORNO(partenza), follower: 410 },
+    obiettivo: "atteso",
+    scenari: [scenario("prudente", [900, 1500, 2800]), scenario("atteso", [1300, 2600, 6000]), scenario("ambizioso", [2000, 4500, 12_000])],
+    settimana: [
+      { giorno: "lunedì", cosa: "Un video lungo con una ricetta intera" },
+      { giorno: "martedì", cosa: "Rispondi ai commenti del lunedì" },
+      { giorno: "mercoledì", cosa: "Un video corto con un trucco" },
+      { giorno: "giovedì", cosa: "Guarda i numeri: se sei sotto, un video in più", controllo: true },
+      { giorno: "venerdì", cosa: "Un dietro le quinte della settimana" },
+      { giorno: "sabato", cosa: "Riposo" },
+      { giorno: "domenica", cosa: "Prepara le riprese della settimana dopo" },
+    ],
+    tipi: [
+      { nome: "Ricette intere", spiega: "una ricetta dall'inizio alla fine", video: ["tre-forni-in-casa", "cucina-di-casa", "torta-contro-tiramisu"] },
+      { nome: "Dietro le quinte", spiega: "come è fatto un piatto o un video", video: ["dentro-una-torta", "primo-video-pubblicato"] },
+      { nome: "Trucchi veloci", spiega: "una cosa sola in meno di un minuto", video: ["pentole-nel-cassetto"] },
+    ],
+    mix: ["Tre video su cinque sono ricette intere: sono quelli che portano più follower ogni mille visualizzazioni.", "Un dietro le quinte a settimana tiene vivo il rapporto con chi ti segue già."],
+    consigli: [
+      { titolo: "Apri con il piatto finito", testo: "I video che mostrano subito il risultato tengono gli spettatori fino in fondo più degli altri." },
+      { titolo: "Rispondi ai commenti con un video", testo: "Una domanda ricorrente è già una idea di video: chi l'ha fatta lo guarda di sicuro." },
+      { titolo: "Pubblica negli stessi giorni", testo: "Chi ti segue impara quando arrivi, e i primi minuti dopo la pubblicazione pesano di più." },
+    ],
+    novita: [
+      { nome: "Raccolte di video", cosa: "Si possono raggruppare i video in una serie con un titolo.", per_te: "Utile per le ricette che vanno guardate in ordine.", giudizio: "sì", fonte: "https://example.com/novita/raccolte" },
+      { nome: "Video fino a dieci minuti", cosa: "La durata massima sale a dieci minuti per tutti.", per_te: "Per ora le tue ricette intere stanno nei tre minuti: non serve.", giudizio: "più avanti" },
+      { nome: "Sticker di domanda", cosa: "Chi guarda può lasciare una domanda sopra il video.", per_te: "I tuoi video hanno già i commenti, e rispondere lì basta.", giudizio: "no" },
+    ],
+    come: ["I numeri veri vengono dalle letture del canale; il piano si riscrive ogni mese, o prima se l'andamento si stacca dallo scenario scelto."],
+  }
 }
 
 const chatFinta = creaChatFinta({ archivio: ARCHIVIO, emetti, mettiInCoda, codexAcceso: () => codexAcceso })
@@ -625,7 +711,9 @@ async function porta(richiesta: Request): Promise<Response> {
     return json({})
   }
   if (percorso === "/finto/canale" && metodo === "POST") {
-    canaleLetto = (await corpo<{ letto: boolean }>()).letto
+    const { letto, schedePiene } = await corpo<{ letto?: boolean; schedePiene?: boolean }>()
+    canaleLetto = letto ?? canaleLetto
+    schedeDelCanalePiene = schedePiene ?? schedeDelCanalePiene
     emetti({ tipo: "canale", canale: "tiktok" })
     return json({})
   }
@@ -859,10 +947,10 @@ async function porta(richiesta: Request): Promise<Response> {
   }
   if (percorso === "/api/consumi" && metodo === "GET") return json(consumi())
   if (percorso === "/api/canale/tiktok" && metodo === "GET") return json(canaleLetto ? CANALE : { ultima: null, letture: [], profilo: null, video: [] })
-  // Classifica, strategia e commenti non ancora letti: le viste mostrano cosa chiedere nella chat.
-  if (percorso === "/api/canale/tiktok/classifica" && metodo === "GET") return json({ quando: null, io: null, quando_io: null, come: [], righe: [] })
-  if (percorso === "/api/canale/tiktok/crescita" && metodo === "GET") return json({ quando: null })
-  if (percorso === "/api/canale/tiktok/andamento" && metodo === "GET") return json([])
+  // Senza `schedePiene` classifica e piano non sono ancora stati fatti: le viste mostrano cosa chiedere nella chat.
+  if (percorso === "/api/canale/tiktok/classifica" && metodo === "GET") return json(schedeDelCanalePiene ? classificaPiena() : { quando: null, io: null, quando_io: null, come: [], righe: [] })
+  if (percorso === "/api/canale/tiktok/crescita" && metodo === "GET") return json(schedeDelCanalePiene ? crescitaPiena() : { quando: null })
+  if (percorso === "/api/canale/tiktok/andamento" && metodo === "GET") return json(schedeDelCanalePiene ? andamentoPieno() : [])
   if (percorso === "/api/canale/tiktok/messaggi" && metodo === "GET") return json({ quando: "2026-11-03T10:00:00", conversazioni: [] })
   if (percorso === "/api/canale/tiktok/commenti" && metodo === "GET") return json({ quando: "2026-11-03T10:00:00", video: url.searchParams.get("video") ?? "", commenti: [], nuovi: [] })
   if (percorso === "/api/apri" && metodo === "POST") {

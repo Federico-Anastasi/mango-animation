@@ -162,11 +162,61 @@ def test_il_fotogramma_composto_e_quello_del_montato_senza_rendere_la_scena_inte
     assert main(["anteprima", "fc", "--foto", "2.4"]) == 0 and (archivio.lavoro("fc") / "foto" / "composta-2.4.jpg").exists()
 
 
-def test_la_scena_trasparente_non_ha_un_fotogramma_solo_e_lo_dice(archivio, scrivi_piano, prepara_sintetico, monkeypatch):
+def test_foto_composta_da_i_fotogrammi_composti_gia_fatti_e_dice_come_farli_se_mancano(archivio, scrivi_piano, prepara_sintetico, monkeypatch, capsys):
+    monkeypatch.setenv("MANGO_ANIMATION_LAVORO", str(archivio.radice.parent))
+    scrivi_piano("fc", _piano_con_scena(prepara_sintetico("tempo", PAROLE_TEMPO)))
+    cartella = archivio.lavoro("fc") / "foto"
+    cartella.mkdir(parents=True)
+    (cartella / "composta-2.4.jpg").write_bytes(b"x")
+    (cartella / "composta-5.jpg").write_bytes(b"x")
+    assert main(["foto", "fc", "2.4", "5", "--composta"]) == 0
+    assert capsys.readouterr().out.splitlines() == [str(cartella / "composta-2.4.jpg"), str(cartella / "composta-5.jpg")]
+    assert main(["foto", "fc", "2.4", "7", "--composta"]) == 1
+    errore = capsys.readouterr().err
+    assert "secondo 7" in errore and "python -m motore anteprima fc --foto 7" in errore
+
+
+def test_la_scena_trasparente_lascia_vedere_lo_strato_sotto_dove_non_disegna_anche_con_una_maschera_vecchia(archivio, scrivi_piano, prepara_sintetico, monkeypatch):
+    """Il fotogramma di una scena trasparente porta la sua alfa: dove non disegna si vede lo strato sotto, e una maschera lasciata da una resa intera non lo cambia."""
+    import subprocess
+
     from .aiuti import finge_bun
 
     file = prepara_sintetico("tempo", PAROLE_TEMPO)
     scrivi_piano("ft", _piano_con_scena(file))
-    finge_bun(monkeypatch, lambda comando, **k: type("R", (), {"returncode": 1, "stdout": "", "stderr": "La scena «uno» è trasparente: il suo fotogramma ha bisogno della maschera"})())
-    with pytest.raises(Errore, match="è trasparente"):
+    larghezza, altezza = 1080, 1920
+
+    def finto(trasparente):
+        def resa(comando, **k):
+            tempi = json.loads(Path(comando[comando.index("--tempi") + 1]).read_text(encoding="utf-8"))
+            for sigla in tempi:
+                immagine = Image.new("RGBA", (larghezza, altezza), (255, 140, 0, 255))
+                if trasparente:
+                    immagine.paste((0, 0, 0, 0), (0, 0, larghezza // 2, altezza))
+                immagine.save(Path(comando[comando.index("--uscita") + 1]) / f"{sigla}.foto.png")
+            return type("R", (), {"returncode": 0, "stdout": "animazioni: fotogrammi 1" + chr(10), "stderr": ""})()
+
+        return resa
+
+    def composto(trasparente):
+        finge_bun(monkeypatch, finto(trasparente))
+        return np.asarray(Image.open(anteprima_foto(archivio, "ft", 0.8, avanza=lambda *_: None)).convert("RGB"), dtype=int)
+
+    piena = composto(False)
+    maschera = archivio.lavoro("ft") / "scene" / "uno.alfa.mkv"
+    maschera.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=white:s=270x480:r=30:d=5", "-c:v", "ffv1", str(maschera)], check=True)
+    mezza = composto(True)
+    differenza = np.abs(piena - mezza)
+    assert differenza[:, : larghezza // 2 - 8].mean() > 20, "a sinistra, dove la scena non disegna, si vede lo strato sotto"
+    assert differenza[:, larghezza // 2 + 8 :].mean() < 4, "a destra la scena resta com'era"
+
+
+def test_un_fotogramma_che_l_animazione_non_rende_e_un_errore_con_la_sua_frase(archivio, scrivi_piano, prepara_sintetico, monkeypatch):
+    from .aiuti import finge_bun
+
+    file = prepara_sintetico("tempo", PAROLE_TEMPO)
+    scrivi_piano("ft", _piano_con_scena(file))
+    finge_bun(monkeypatch, lambda comando, **k: type("R", (), {"returncode": 1, "stdout": "", "stderr": "La pagina ha dato errore: scena rotta"})())
+    with pytest.raises(Errore, match="scena rotta"):
         anteprima_foto(archivio, "ft", 0.8, avanza=lambda *_: None)

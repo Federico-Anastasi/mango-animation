@@ -21,7 +21,6 @@ fn server(versione: &str, firma: &str, pacchetto: Vec<u8>, piattaforma: &str) ->
     let porta = ascolto.local_addr().unwrap().port();
     let manifesto = json!({
         "version": versione,
-        "notes": "Una nota di prova",
         "pub_date": "2026-11-05T20:00:00Z",
         "platforms": { piattaforma: { "signature": firma.trim(), "url": format!("http://127.0.0.1:{porta}/pacchetto") } },
     })
@@ -57,10 +56,9 @@ fn cerca_da(versione_dell_app: &str, versione_nel_manifesto: &str, firma: &str, 
 const SISTEMA: &str = "windows-x86_64";
 
 #[test]
-fn una_versione_piu_nuova_si_propone_con_le_sue_note() {
+fn una_versione_piu_nuova_si_propone_anche_se_il_manifesto_non_ha_note() {
     let p = cerca_da("0.1.0", "0.1.1", FIRMA, CARICO, CHIAVE_DELLA_PROVA).unwrap().expect("la 0.1.1 è più nuova della 0.1.0");
     assert_eq!((p.stato.fase.as_str(), p.stato.corrente.as_str(), p.stato.nuova.as_str()), ("proposta", "0.1.0", "0.1.1"));
-    assert_eq!(p.stato.note.as_deref(), Some("Una nota di prova"));
 }
 
 #[test]

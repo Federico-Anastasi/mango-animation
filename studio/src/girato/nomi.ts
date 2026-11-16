@@ -1,12 +1,13 @@
 import { t } from "../lingua"
 import type { OrigineGrezzo, TipoGrezzo } from "../tipi"
 
-export const TIPI: readonly TipoGrezzo[] = ["ripresa", "diretta", "schermo", "altro"]
+export const TIPI: readonly TipoGrezzo[] = ["ripresa", "foto", "diretta", "schermo", "altro"]
 export const ORIGINI: readonly OrigineGrezzo[] = ["telefono", "registrazione", "scaricato", "altro"]
 
 export function nomeTipo(tipo: TipoGrezzo): string {
   const nomi: Record<TipoGrezzo, string> = {
     ripresa: t("Ripresa", "Shot"),
+    foto: t("Foto", "Photo"),
     diretta: t("Diretta", "Live"),
     schermo: t("Schermo", "Screen"),
     altro: t("Altro", "Other"),

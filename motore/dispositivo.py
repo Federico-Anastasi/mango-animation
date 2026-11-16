@@ -9,11 +9,13 @@ from pathlib import Path
 import numpy as np
 
 from .errori import Errore, dice
-from .profilo import macchina_di_lavoro, motore
+from .profilo import macchina_di_lavoro, motore, posto
 
 CUBLAS = "cublas64_12.dll"
 # Dove sta la cublas di CUDA 12 fra i pacchetti Python: dentro torch (che l'ha portata con sé) o nel pacchetto nvidia-cublas-cu12 (che l'app installa dove torch non c'è).
 POSTI_DELLA_CUBLAS = (("torch", "lib"), ("nvidia", "cublas", "bin"))
+# Come, nell'interfaccia, si fa lavorare le funzioni sul processore invece che sulla scheda.
+CON_IL_PROCESSORE = ("scegli «Processore» alla voce di ogni funzione in Impostazioni › Computer", "choose “Processor” on the line of each feature in Settings › Computer")
 
 
 def _ctranslate2_vede_una_scheda():
@@ -43,6 +45,24 @@ def librerie_cuda():
                 return
 
 
+def calcoli_possibili(dove):
+    """I tipi di calcolo che ctranslate2 sa fare su `dove` ("cuda" o "cpu") su questo computer."""
+    import ctranslate2
+
+    return set(ctranslate2.get_supported_compute_types(dove))
+
+
+def scelta_del_calcolo(preferiti, ammessi, per, per_en, dove_cambiarli):
+    """Il primo dei `preferiti` che sta fra gli `ammessi` (i calcoli che il dispositivo sa fare). Se nessuno ci sta è un errore che dice per cosa, cosa il computer sa fare e dove cambiarli
+    (`dove_cambiarli` è la coppia italiano e inglese, già con la preposizione: «in stile.json, …», «nel profilo, …»): nessun calcolo fuori dall'elenco si sostituisce di nascosto."""
+    scelto = next((c for c in preferiti if c in ammessi), None)
+    if scelto is None:
+        elenco, sa_fare = ", ".join(preferiti), ", ".join(sorted(ammessi))
+        raise Errore(f"i calcoli richiesti per {per} ({elenco}) non sono fra quelli che questo computer sa fare ({sa_fare}): cambiali {dove_cambiarli[0]}",
+                     f"the computations requested for {per_en} ({elenco}) are not among those this computer can do ({sa_fare}): change them {dove_cambiarli[1]}")
+    return scelto
+
+
 def prova_della_scheda(modello, lingua):
     """Trascrive mezzo secondo (8000 campioni a 16 kHz) di silenzio: i guai della scheda (una libreria che manca, la memoria che non basta per il primo calcolo) vengono fuori adesso e non alla prima frase di chi parla."""
     segmenti, _ = modello.transcribe(np.zeros(8000, np.float32), language=lingua, beam_size=1, vad_filter=False, without_timestamps=True)
@@ -55,16 +75,16 @@ def errore_di_libreria_cuda(guasto):
     if not trovata:
         return None
     libreria = trovata.group(1)
-    return Errore(f"alla scheda video manca la libreria di calcolo {libreria} (CUDA 12): metti null in macchina.scheda_video del profilo per lavorare col processore",
-                  f"the video card is missing the computing library {libreria} (CUDA 12): set null in macchina.scheda_video of the profile to work with the processor")
+    return Errore(f"alla scheda video manca la libreria di calcolo {libreria} (CUDA 12): per lavorare col processore {CON_IL_PROCESSORE[0]}",
+                  f"the video card is missing the computing library {libreria} (CUDA 12): to work with the processor {CON_IL_PROCESSORE[1]}")
 
 
 def errore_di_memoria(guasto, cosa, cosa_en):
     """L'`Errore` da dire se `guasto` (un RuntimeError di CUDA o di torch) è la memoria della scheda che non basta per `cosa`; `None` per ogni altro guasto."""
     if "out of memory" not in str(guasto).lower():
         return None
-    return Errore(f"la scheda video non ha memoria libera per {cosa}: chiudi il lavoro che la usa, oppure metti null in macchina.scheda_video del profilo per lavorare col processore",
-                  f"the video card has no free memory for {cosa_en}: close the job that uses it, or set null in macchina.scheda_video of the profile to work with the processor")
+    return Errore(f"la scheda video non ha memoria libera per {cosa}: chiudi il lavoro che la usa, oppure per lavorare col processore {CON_IL_PROCESSORE[0]}",
+                  f"the video card has no free memory for {cosa_en}: close the job that uses it, or to work with the processor {CON_IL_PROCESSORE[1]}")
 
 
 def _vincola_la_scheda(macchina):
@@ -80,17 +100,20 @@ def _vincola_la_scheda(macchina):
 def _della_macchina():
     macchina = macchina_di_lavoro()
     if "scheda_video" in macchina and macchina["scheda_video"] is None:
-        print(dice("motore: il profilo esclude la scheda video (macchina.scheda_video): i modelli lavorano sul processore, più lento",
-                   "engine: the profile excludes the video card (macchina.scheda_video): the models run on the processor, slower"), file=sys.stderr)
+        it, en = posto("macchina/scheda_video")
+        print(dice(f"motore: la scheda video è esclusa ({it}): i modelli lavorano sul processore, più lento",
+                   f"engine: the video card is ruled out ({en}): the models run on the processor, slower"), file=sys.stderr)
         return "cpu"
     _vincola_la_scheda(macchina)
     if cuda_disponibile():
         return "cuda"
     if "scheda_video" in macchina:
-        raise Errore(f"il profilo vuole la scheda video {macchina['scheda_video']} (macchina.scheda_video), ma non c'è una scheda NVIDIA con quel numero (i numeri sono quelli di nvidia-smi): correggi il numero, oppure metti null per lavorare sul processore",
-                     f"the profile wants the video card {macchina['scheda_video']} (macchina.scheda_video), but there is no NVIDIA card with that number (the numbers are those of nvidia-smi): fix the number, or set null to work on the processor")
-    print(dice("motore: nessuna scheda NVIDIA: i modelli lavorano sul processore, più lento (una scheda si indica in profilo.json, macchina.scheda_video)",
-               "engine: no NVIDIA card: the models run on the processor, slower (a card is set in profilo.json, macchina.scheda_video)"), file=sys.stderr)
+        it, en = posto("macchina/scheda_video")
+        raise Errore(f"il tuo profilo vuole la scheda video numero {macchina['scheda_video']} ({it}), ma non c'è una scheda NVIDIA con quel numero (i numeri sono quelli di nvidia-smi): correggi il numero, oppure escludi la scheda per lavorare sul processore",
+                     f"your profile wants video card number {macchina['scheda_video']} ({en}), but there is no NVIDIA card with that number (the numbers are those of nvidia-smi): fix the number, or rule the card out to work on the processor")
+    it, en = posto("macchina/scheda_video")
+    print(dice(f"motore: nessuna scheda NVIDIA: i modelli lavorano sul processore, più lento (una scheda si indica {it})",
+               f"engine: no NVIDIA card: the models run on the processor, slower (a card is set {en})"), file=sys.stderr)
     return "cpu"
 
 
@@ -102,12 +125,15 @@ def _scelta(funzione, scheda_c_e):
     if dove == "scheda":
         macchina = macchina_di_lavoro()
         if "scheda_video" in macchina and macchina["scheda_video"] is None:
-            raise Errore(f"«{funzione}» vuole la scheda video (motori.{funzione}.dove), ma il profilo la esclude (macchina.scheda_video è null): togli uno dei due",
-                         f"«{funzione}» wants the video card (motori.{funzione}.dove), but the profile rules it out (macchina.scheda_video is null): remove one of the two")
+            it, en = posto(f"motori/{funzione}/dove")
+            scheda_it, scheda_en = posto("macchina/scheda_video")
+            raise Errore(f"hai scelto la scheda video per questa funzione ({it}), ma il tuo profilo la esclude ({scheda_it}): scegli «Processore», oppure rimetti la scheda nel profilo",
+                         f"you chose the video card for this feature ({en}), but your profile rules it out ({scheda_en}): choose “Processor”, or put the card back in the profile")
         _vincola_la_scheda(macchina)
         if not scheda_c_e():
-            raise Errore(f"«{funzione}» vuole la scheda video (motori.{funzione}.dove), ma non c'è una scheda NVIDIA che il motore possa usare: libera quella che c'è, oppure metti \"processore\"",
-                         f"«{funzione}» wants the video card (motori.{funzione}.dove), but there is no NVIDIA card the engine can use: free the one there is, or set \"processore\"")
+            it, en = posto(f"motori/{funzione}/dove")
+            raise Errore(f"hai scelto la scheda video per questa funzione ({it}), ma non c'è una scheda NVIDIA che il motore possa usare: libera quella che c'è, oppure scegli «Processore»",
+                         f"you chose the video card for this feature ({en}), but there is no NVIDIA card the engine can use: free the one there is, or choose “Processor”")
         return "cuda"
     return None
 

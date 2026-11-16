@@ -53,7 +53,6 @@ fn main() {
             "segnala_problema",
             "scrivi_ui_log",
             "segnalazione_invio_attivo",
-            "ricorda_zoom",
             "zoom_leggi",
             "zoom_imposta",
             "aiuto_leggi",

@@ -30,7 +30,7 @@ English version: [english.md](english.md).
 2. Aprilo. Non servono i diritti di amministratore: l'app si installa solo per il tuo utente.
 3. **Windows mostra «Windows ha protetto il PC».** Succede perché l'installatore non ha un certificato di firma del codice (costa ogni anno, e questa app non ce l'ha). Premi **«Ulteriori informazioni»** e poi **«Esegui comunque»**. Il codice dell'app è pubblico e gli aggiornamenti hanno una firma propria, che l'app controlla.
 4. Apri Mango Animation.
-5. Quando esce una versione nuova, all'avvio l'app lo dice e ne mostra le novità: **«Aggiorna ora»** scarica e installa (l'app si chiude e si riapre da sola), **«Più tardi»** ti lascia lavorare. In **Impostazioni › Aiuto** puoi cercare una versione nuova quando vuoi con **«Controlla ora»** (se c'è, **«Riavvia e aggiorna»**), o spegnere **«Aggiorna da solo»**: spento, all'avvio l'app non cerca aggiornamenti.
+5. Quando esce una versione nuova, all'avvio l'app lo dice: **«Aggiorna ora»** scarica e installa (l'app si chiude e si riapre da sola), **«Più tardi»** ti lascia lavorare. In **Impostazioni › Aiuto** puoi cercare una versione nuova quando vuoi con **«Controlla ora»** (se c'è, **«Riavvia e aggiorna»**), o spegnere **«Aggiorna da solo»**: spento, all'avvio l'app non cerca aggiornamenti.
 
 ---
 
@@ -92,6 +92,8 @@ Appena il computer è pronto, l'app mostra lo studio. In alto la barra: a sinist
 
 Fra le pagine e l'ingranaggio ci sono gli stati, ognuno col suo puntino: **Telefono pronto** (compare quando il telefono può mandare file; verde), **Chat** (ambra quando lavora o aspetta una tua risposta), **Registra** (rosso mentre registri) e **Lavori** (compare quando c'è qualcosa in corso o in coda; ambra se qualcosa gira). Un puntino grigio vuol dire spento. Sotto i 640 pixel di larghezza la scritta si riduce al solo mango.
 
+**Segnalare un problema.** La bandierina nella barra (e **«Segnala un problema»** in Impostazioni › Aiuto e in fondo alle pagine d'avvio) apre un modulo: scrivi cosa è successo (facoltativo), **aggiungi un'immagine dell'errore** (te lo consigliamo: con l'immagine ci è più semplice capire il problema e risolverlo; un PNG, un JPEG o un WebP fino a 10 MB, anche una schermata fatta prima) e, se vuoi, includi una schermata della finestra (spenta di base: può mostrare i tuoi video). Non parte niente finché non premi **«Invia»**.
+
 ---
 
 ## 3. Il tuo profilo
@@ -120,7 +122,7 @@ Dillo alla chat. Per esempio:
 
 La chat ti chiede chi sei, a chi parli, dove pubblichi, cosa non dici, e lo scrive nella cartella dei dati. Puoi correggerlo quando vuoi: a parole («aggiungi YouTube fra i miei canali», «il mio pubblico non è tecnico», «non dico mai…») oppure da **Impostazioni › Profilo**, dove vedi i campi e li cambi con **«Salva»** (ciò che scrive la chat compare lì, e viceversa; se un campo non va, la pagina dice quale e perché). **Non modificare il file a mano**: un errore di scrittura lo rende inutilizzabile: l'app parte lo stesso, ma lavora con l'ultimo profilo che andava (o senza profilo, se non ce n'era uno) finché non lo sistemi. Chiedilo alla chat.
 
-Senza profilo l'app funziona con le regole di serie, ma la chat non sa niente di te né del tuo pubblico: conviene cominciare da qui.
+Senza profilo l'app funziona con le regole di serie, ma la chat non sa niente di te né del tuo pubblico: conviene cominciare da qui. La prima volta la chat si apre da sola con l'avviso **«Il primo giro sta per cominciare»**: dice con quale motore e modello parte, e non parte niente finché non premi **«Comincia»**. Con **«Rimanda»** lo ritrovi in **Impostazioni › Profilo**.
 
 Il computer (quali funzioni sono accese, dove girano) lo regoli anche da **Impostazioni › Computer**, senza passare dalla chat.
 
@@ -144,7 +146,7 @@ Parli con la **chat** e guardi il risultato nello studio. Ogni video segue gli s
 
 ### Dove stanno i tuoi video
 
-La pagina **Video** li divide per stato: in lavorazione, proposte, pronti, pubblicati, scartati. Ogni video è una carta con la sua immagine e dice a che passo è («Passo 3 di 8 · Prova»). Per un video nuovo c'è la riga «Per un video nuovo, chiedilo nella chat». Aprendo un video trovi queste schede: **Prova** (quando c'è), **Montaggio**, **Scheda**, **Controllo**, **Copertina**, **File**. Il menu **Stato** in alto cambia lo stato (Proposta, In lavorazione, Pronto, Pubblicato, Scartato).
+La pagina **Video** li divide per stato: in lavorazione, proposte, pronti, pubblicati, scartati. Dentro ogni stato sono in ordine di data, dal più recente: i pubblicati per giorno di uscita, gli altri per il giorno in cui sono nati. Ogni video è una carta con la sua immagine e dice a che passo è («Passo 3 di 8 · Prova»). Per un video nuovo c'è la riga «Per un video nuovo, chiedilo nella chat». Aprendo un video trovi queste schede: **Prova** (quando c'è), **Montaggio**, **Scheda**, **Controllo**, **Copertina**, **File**. Il menu **Stato** in alto cambia lo stato (Proposta, In lavorazione, Pronto, Pubblicato, Scartato).
 
 In testa alla pagina di un video una riga mostra gli otto passi qui sotto: quelli fatti segnati, quello di adesso in rilievo (a pagina stretta si accorcia in «Passo 3 di 8 · Prova»), e accanto cosa dire nella chat per andare avanti, per esempio «Dimmi in chat: “fammi la prova”». **«Scrivila nella chat»** mette quella frase nel campo della chat senza mandarla: la rileggi, la cambi se vuoi e la mandi tu. Il passo si ricava dai file del video, non va segnato a mano.
 

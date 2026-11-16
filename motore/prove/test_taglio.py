@@ -76,6 +76,14 @@ def test_a_tempo_senza_voce_dice_cosa_fare(archivio, fonti, prepara_sintetico):
         taglio.a_tempo(s, {}, archivio.stile)
 
 
+def test_a_tempo_con_la_voce_ma_senza_parole_trascritte_dice_cosa_fare(archivio, prepara_sintetico):
+    file = prepara_sintetico("tempo", [])
+    s = Sorgente(archivio, "v", "t", {"file": file}, {})
+    with pytest.raises(Errore, match="nessuna parola.*`da`.*`a`"):
+        taglio.a_tempo(s, {}, archivio.stile)
+    assert taglio.a_tempo(s, {"da": 0.5, "a": 1.5}, archivio.stile)
+
+
 def trova(sorgente, dice, archivio, minuto="00:00", **resto):
     pezzo = {"minuto": minuto, "dice": dice, **resto}
     ij = sorgente.scegli(minuto, dice)

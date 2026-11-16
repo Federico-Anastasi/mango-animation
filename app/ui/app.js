@@ -51,6 +51,14 @@ function testiDellaSegnalazione() {
     "La schermata può mostrare contenuti tuoi, come i titoli dei video o i nomi dei file.",
     "The screenshot may show your own content, such as video titles or file names.",
   );
+  $("segnala-immagine-nome").textContent = t("Aggiungi un'immagine dell'errore", "Add an image of the error");
+  $("segnala-immagine-cosa").textContent = t(
+    "Te lo consigliamo: con l'immagine ci è più semplice capire il problema e risolverlo.",
+    "We recommend it: with an image it is easier for us to understand the problem and fix it.",
+  );
+  $("segnala-immagine").setAttribute("aria-label", t("Scegli un'immagine da allegare", "Choose an image to attach"));
+  $("segnala-immagine-scegli").textContent = t("Scegli un'immagine", "Choose an image");
+  $("segnala-immagine-togli").textContent = t("Togli", "Remove");
   $("segnala-registri").textContent = t(
     "Con la segnalazione partono le ultime righe dei registri dell'app, che possono contenere i nomi dei tuoi video e dei tuoi file. Il tuo nome utente, il nome del computer, gli indirizzi email e di rete e le chiavi vengono tolti dal testo. Le trascrizioni, la chat e i file della cartella di lavoro non partono mai.",
     "The last lines of the app's logs are sent with the report, and they may contain the names of your videos and files. Your user name, the computer name, email and network addresses and keys are removed from the text. Transcripts, the chat and the files of your work folder are never sent.",
@@ -124,12 +132,10 @@ function dettaglioDiAggiornamento(a) {
   if (a.fase === "scarico") {
     return t(`Scarico la versione ${a.nuova}. Finito, l'app si chiude e si riapre da sola.`, `Downloading version ${a.nuova}. When it is done, the app closes and reopens by itself.`);
   }
-  const note = a.note ? `\n\n${a.note}` : "";
-  const uscita = t(
+  return t(
     `È uscita la versione ${a.nuova} (hai la ${a.corrente}). Si aggiorna adesso, prima di cominciare a lavorare.`,
     `Version ${a.nuova} is out (you have ${a.corrente}). It updates now, before you start working.`,
   );
-  return uscita + note;
 }
 
 // Ogni motore che non è pronto, in una riga: com'è messo, cosa dice di sé, cosa si può fare.
@@ -576,8 +582,8 @@ listen("mango://stato", ({ payload }) => {
 });
 invoke("stato_app").then(mostra).catch(() => {});
 
-// «Segnala un problema»: un campo facoltativo, l'interruttore della schermata, e nessun invio senza il clic su «Invia».
-// L'interruttore della schermata si vede solo se la schermata verrà presa, cioè se questa costruzione manda le segnalazioni a Sentry.
+// «Segnala un problema»: un campo facoltativo, un'immagine da caricare, l'interruttore della schermata, e nessun invio senza il clic su «Invia».
+// Interruttore e immagine si vedono solo se partiranno, cioè se questa costruzione manda le segnalazioni a Sentry.
 let schermataPossibile = Promise.resolve(false);
 const chiediSeLaSchermataSiPrende = () => {
   schermataPossibile = window.__MANGO_ANIMATION__.segnalazione.invioAttivo().then(
@@ -586,8 +592,40 @@ const chiediSeLaSchermataSiPrende = () => {
   );
   schermataPossibile.then((possibile) => {
     $("segnala-schermata-riga").hidden = !possibile;
+    $("segnala-immagine-riga").hidden = !possibile;
   });
 };
+
+const LIMITE_IMMAGINE = 10 * 1024 * 1024;
+let immagineScelta = null;
+const mostraLImmagine = () => {
+  $("segnala-immagine-file").hidden = !immagineScelta;
+  $("segnala-immagine-file").textContent = immagineScelta ? immagineScelta.name : "";
+  $("segnala-immagine-scegli").hidden = !!immagineScelta;
+  $("segnala-immagine-togli").hidden = !immagineScelta;
+};
+const base64Di = (file) =>
+  new Promise((fatto, errore) => {
+    const lettore = new FileReader();
+    lettore.onload = () => fatto(String(lettore.result).slice(String(lettore.result).indexOf(",") + 1));
+    lettore.onerror = () => errore(lettore.error);
+    lettore.readAsDataURL(file);
+  });
+$("segnala-immagine-scegli").addEventListener("click", () => $("segnala-immagine").click());
+$("segnala-immagine-togli").addEventListener("click", () => {
+  immagineScelta = null;
+  mostraLImmagine();
+});
+$("segnala-immagine").addEventListener("change", () => {
+  const file = $("segnala-immagine").files?.[0];
+  $("segnala-immagine").value = "";
+  if (!file) return;
+  const troppoGrande = file.size > LIMITE_IMMAGINE;
+  $("segnala-immagine-problema").hidden = !troppoGrande;
+  $("segnala-immagine-problema").textContent = troppoGrande ? t("L'immagine pesa più di 10 MB: scegline una più piccola.", "The image is larger than 10 MB: choose a smaller one.") : "";
+  immagineScelta = troppoGrande ? null : file;
+  mostraLImmagine();
+});
 const apriLaSegnalazione = (aperta) => {
   $("segnalazione").hidden = !aperta;
   if (aperta) {
@@ -611,17 +649,29 @@ $("segnala-invia").addEventListener("click", async () => {
   $("segnala-invia").disabled = true;
   esito.className = "";
   esito.textContent = t("Invio…", "Sending…");
-  const schermata = (await schermataPossibile) && $("segnala-schermata").checked;
+  const possibile = await schermataPossibile;
+  const schermata = possibile && $("segnala-schermata").checked;
+  let immagine;
+  try {
+    immagine = possibile && immagineScelta ? await base64Di(immagineScelta) : null;
+  } catch (e) {
+    esito.className = "poco";
+    esito.textContent = fraseDelRifiuto(e);
+    $("segnala-invia").disabled = false;
+    return;
+  }
   if (schermata) {
     $("segnalazione").hidden = true;
     await dopoIlDisegno();
   }
   try {
-    const fatto = await window.__MANGO_ANIMATION__.segnalazione.invia({ errore: ultimoStato ? erroreDi(ultimoStato) : null, nota: $("segnala-nota").value, schermata });
+    const fatto = await window.__MANGO_ANIMATION__.segnalazione.invia({ errore: ultimoStato ? erroreDi(ultimoStato) : null, nota: $("segnala-nota").value, schermata, ...(immagine && { immagine }) });
     esito.textContent = fatto.inviata
       ? t("Inviato, grazie", "Sent, thank you")
       : t(`Salvato in ${fatto.file}. Si è aperta la pagina di GitHub per mandarlo.`, `Saved to ${fatto.file}. The GitHub page is open so you can send it.`);
     $("segnala-nota").value = "";
+    immagineScelta = null;
+    mostraLImmagine();
   } catch (e) {
     esito.className = "poco";
     esito.textContent = fraseDelRifiuto(e);

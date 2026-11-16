@@ -41,7 +41,9 @@ both queue `risolvi` by themselves and keep the previous version (`piano_annulla
 4. For every touched piece: `lavoro` with `comando: "anteprima"` and `scena: "<name>"` (or `da` and `a`, seconds of the video),
    `lavoro_aspetta`, then `foto` with `video: "anteprima"` at the seconds of the piece. The preview renders only the scenes and
    stretches of the piece, the same files the edit then uses. Show it to the creator saying it is a preview
-   (`uscite/anteprima.mp4`). It is repeated until the creator has nothing else to say.
+   (`uscite/anteprima.mp4`). It is repeated until the creator has nothing else to say. For a change that is only a place, a color or a
+   position (nothing moving), a single composed frame is enough: `lavoro` with `comando: "anteprima"` and `secondo`, `lavoro_aspetta`,
+   then `foto` with `video: "composta"` at the same second (the cutout must already exist, from a `monta` or an `anteprima`).
 5. Only then `lavoro` `monta` (redoes only what changed, the cover included) and skill `controlla`.
 
 A video already published is re-edited only as a test: before the edit read the last step of the skill `controlla`.

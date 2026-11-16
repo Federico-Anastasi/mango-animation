@@ -1,6 +1,7 @@
 //! La segnalazione: l'evento di Sentry, i suoi allegati e il testo con la fine dei registri, tutto già anonimizzato. Testi per chi sistema il problema, non per il creator: restano in inglese.
 
 use super::anonimizza::{anonimizza, Chi};
+use super::immagine::Immagine;
 use crate::computer::hw;
 use crate::rete;
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -189,8 +190,8 @@ impl Segnalazione {
         })
     }
 
-    /// La busta di Sentry: l'evento e i suoi allegati.
-    pub(super) fn busta(&self, dsn: &Dsn, id: &str, ora: DateTime<Utc>, png: Option<&[u8]>) -> Vec<u8> {
+    /// La busta di Sentry: l'evento e i suoi allegati. `png` è la schermata della finestra; `immagine` quella che chi segnala ha scelto, com'è, senza anonimizzarla.
+    pub(super) fn busta(&self, dsn: &Dsn, id: &str, ora: DateTime<Utc>, png: Option<&[u8]>, immagine: Option<&Immagine>) -> Vec<u8> {
         let mut corpo = Vec::new();
         corpo.extend_from_slice(json!({ "event_id": id, "dsn": dsn.intero, "sent_at": ora.to_rfc3339() }).to_string().as_bytes());
         corpo.push(b'\n');
@@ -201,11 +202,14 @@ impl Segnalazione {
         if let Some(png) = png {
             voce(&mut corpo, json!({ "type": "attachment", "length": png.len(), "filename": "screenshot.png", "content_type": "image/png" }), png);
         }
+        if let Some(i) = immagine {
+            voce(&mut corpo, json!({ "type": "attachment", "length": i.byte.len(), "filename": i.nome, "content_type": i.tipo }), &i.byte);
+        }
         corpo
     }
 
-    pub(super) fn spedisci(&self, dsn: &Dsn, png: Option<&[u8]>) -> Result<(), String> {
-        let corpo = self.busta(dsn, &uuid::Uuid::new_v4().simple().to_string(), Utc::now(), png);
+    pub(super) fn spedisci(&self, dsn: &Dsn, png: Option<&[u8]>, immagine: Option<&Immagine>) -> Result<(), String> {
+        let corpo = self.busta(dsn, &uuid::Uuid::new_v4().simple().to_string(), Utc::now(), png, immagine);
         rete::agente(&dsn.endpoint, Duration::from_secs(30))
             .post(&dsn.endpoint)
             .header("Content-Type", "application/x-sentry-envelope")
@@ -362,12 +366,12 @@ mod prove {
     }
 
     #[test]
-    fn la_busta_porta_l_evento_il_riepilogo_e_la_schermata_solo_se_c_e() {
+    fn la_busta_porta_l_evento_il_riepilogo_la_schermata_e_l_immagine_scelta_solo_se_ci_sono() {
         let (s, _c) = segnalazione(None, Some("non parte"));
         let dsn = Dsn { endpoint: String::new(), chiave: "chiavepubblica".into(), intero: "https://chiavepubblica@o4510.ingest.de.sentry.io/4512".into() };
         let png = [137u8, 80, 78, 71, 0, 10, 255];
 
-        let con = leggi_busta(&s.busta(&dsn, "0123", ora(), Some(&png)));
+        let con = leggi_busta(&s.busta(&dsn, "0123", ora(), Some(&png), None));
         assert_eq!(con.len(), 3);
         assert_eq!(con[0].0["type"], "event");
         assert_eq!(serde_json::from_slice::<Value>(&con[0].1).unwrap()["release"], "mango-animation@0.1.0");
@@ -376,7 +380,17 @@ mod prove {
         assert_eq!((con[2].0["filename"].as_str(), con[2].0["content_type"].as_str()), (Some("screenshot.png"), Some("image/png")));
         assert_eq!(con[2].1, png);
 
-        assert_eq!(leggi_busta(&s.busta(&dsn, "0123", ora(), None)).len(), 2);
+        assert_eq!(leggi_busta(&s.busta(&dsn, "0123", ora(), None, None)).len(), 2);
+
+        let scelta = Immagine { nome: "uploaded-image.jpg", tipo: "image/jpeg", byte: vec![0xFF, 0xD8, 0xFF, 1, 2, 3] };
+        let tutte = leggi_busta(&s.busta(&dsn, "0123", ora(), Some(&png), Some(&scelta)));
+        assert_eq!(tutte.len(), 4);
+        assert_eq!(tutte[2].0["filename"], "screenshot.png");
+        assert_eq!((tutte[3].0["type"].as_str(), tutte[3].0["filename"].as_str(), tutte[3].0["content_type"].as_str()), (Some("attachment"), Some("uploaded-image.jpg"), Some("image/jpeg")));
+        assert_eq!(tutte[3].1, scelta.byte);
+
+        let sola = leggi_busta(&s.busta(&dsn, "0123", ora(), None, Some(&scelta)));
+        assert_eq!(sola.iter().map(|v| v.0["filename"].as_str()).collect::<Vec<_>>(), [None, Some("report.txt"), Some("uploaded-image.jpg")]);
     }
 
     #[test]

@@ -39,7 +39,7 @@ guardare dal telefono i video montati, le prove e il copione da leggere:
   `{ ok, messaggio, file, byte }` (`file` è `<AAAAMMGG-HHMMSS di arrivo>-<nome ripulito>`) senza aspettare
   il resto. Poi, in un lavoro di sfondo, `ffprobe` lo misura: il file va in
   `archivio/grezzo/<giorno di arrivo>/` con quel nome, byte per byte uguale, preceduto dalla sua scheda
-  (`tipo: "ripresa"`, `origine: "telefono"`, `arrivato`, durata e misure). Finché non è misurato il file resta in `.in-corso/` col suffisso
+  (`tipo: "foto"` per un'immagine e `"ripresa"` per ogni altro file, `origine: "telefono"`, `arrivato`, durata e misure). Finché non è misurato il file resta in `.in-corso/` col suffisso
   `.attesa`; se il server si ferma prima, lo colloca al riavvio. Se la cartella del giorno in `grezzo/` sta su un altro disco (è un collegamento),
   il file vi si copia accanto e poi si toglie l'originale. Accetta video, audio e foto fino a 20 GB.
   Se `ffprobe` non legge il file il terminale dice quale file e perché (e all'avvio dice se `ffprobe` non c'è nel PATH): il file entra lo stesso, senza durata, e

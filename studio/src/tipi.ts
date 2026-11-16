@@ -342,7 +342,7 @@ export interface VoceElenco {
   ultimo_cambio: string
 }
 
-export type TipoGrezzo = "ripresa" | "diretta" | "schermo" | "altro"
+export type TipoGrezzo = "ripresa" | "foto" | "diretta" | "schermo" | "altro"
 export type OrigineGrezzo = "telefono" | "registrazione" | "scaricato" | "altro"
 
 export interface SchedaGrezzo {

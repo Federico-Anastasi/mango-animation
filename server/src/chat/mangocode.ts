@@ -555,12 +555,6 @@ export class MangoCode implements Motore {
     return this.registro.eSua(id)
   }
 
-  /** Il modello di una sua conversazione (`mango-code/<chiave>`), anche chiusa; `null` se non è sua. */
-  async modelloDi(id: string): Promise<string | null> {
-    const ricordo = await this.registro.di(id)
-    return ricordo ? `${PREFISSO}${ricordo.modello}` : null
-  }
-
   /** Le conversazioni di Mango Code, dal registro (si vedono anche a Mango Code spento). */
   elenca(): Promise<VoceSessione[]> {
     return this.registro.voci()
@@ -589,6 +583,7 @@ export class MangoCode implements Motore {
       ),
       contestoUsato: usati === null ? null : { usati, totale: await this.contestoDi(id, dove.lavoro) },
       primoGiro: messaggi.some((m) => eAvvio(testoDelCreator(m) ?? "")),
+      modello: `${PREFISSO}${ricordo.modello}`,
     }
   }
 }

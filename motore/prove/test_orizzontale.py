@@ -226,7 +226,7 @@ def test_le_librerie_di_cuda_si_trovano_prima_del_modello_con_torch_e_senza(arch
 
 def test_una_libreria_di_cuda_che_non_si_carica_nella_trascrizione_dice_cosa_fare(archivio, monkeypatch):
     modello = ModelloVuoto(RuntimeError("Library cublas64_12.dll is not found or cannot be loaded"))
-    with pytest.raises(Errore, match=r"cublas64_12\.dll.*macchina.scheda_video"):
+    with pytest.raises(Errore, match=r"cublas64_12\.dll.*Processore"):
         trascrizione_sulla_scheda(archivio, monkeypatch, modello, con_torch=False)
 
 
@@ -260,4 +260,4 @@ def test_i_modelli_vanno_sul_processore_se_il_profilo_lo_chiede(archivio, monkey
     monkeypatch.setitem(sys.modules, "faster_whisper", Finto)
     monkeypatch.setattr(prepara, "_voci", {})
     prepara.modello_voce(archivio.stile)
-    assert dispositivo("trascrizione") == atteso and chiesti[0]["device"] == atteso and chiesti[0]["compute_type"] == archivio.stile["preparati"]["calcolo_trascrizione"][atteso]
+    assert dispositivo("trascrizione") == atteso and chiesti[0]["device"] == atteso and chiesti[0]["compute_type"] == archivio.stile["preparati"]["calcolo_trascrizione"][atteso][0]

@@ -27,13 +27,14 @@
   visibility: hidden;
 }
 
-/* Con la chat di fianco la pagina si stringe e la barra la scavalca: torna da bordo a bordo, col bottone della chat sopra il suo pannello. */
+/* Con la chat di fianco la pagina si stringe e la barra la scavalca: torna da bordo a bordo, col bottone della chat sopra il suo pannello, e comincia dove comincia la pagina centrata. */
 .cornice[data-chat="aperta"] {
   padding-right: 1.5rem;
 }
 
 .cornice[data-chat="aperta"] .dentro {
   flex: 1 1 auto;
+  margin-left: max(0px, calc((var(--larghezza-pagina, 0px) - var(--cornice)) / 2));
 }
 
 .cornice[data-chat="aperta"] .rientro {

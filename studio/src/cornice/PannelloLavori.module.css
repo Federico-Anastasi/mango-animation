@@ -69,6 +69,7 @@
 .fallito {
   font-size: 13px;
   color: var(--mango-error);
+  white-space: pre-line;
 }
 
 .errore {

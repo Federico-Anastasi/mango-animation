@@ -53,13 +53,14 @@
   );
 
   // segnalazione.invioAttivo(): vero se questa costruzione manda le segnalazioni a Sentry; solo allora la schermata della finestra si prende, e l'interruttore ha senso.
-  // segnalazione.invia({ errore?, nota?, schermata }): manda la segnalazione (anonimizzata) e risponde { inviata, file? }; senza l'indirizzo di Sentry nella costruzione
+  // segnalazione.invia({ errore?, nota?, schermata, immagine? }): manda la segnalazione (anonimizzata; l'immagine, in base64, è quella che chi segnala ha scelto e l'app la allega com'è)
+  // e risponde { inviata, file? }; senza l'indirizzo di Sentry nella costruzione
   // il testo resta in un file nei registri e si apre la pagina «nuova issue» di GitHub: { inviata: false, file }. Rifiuta con la frase di cosa non è andato.
   window.__MANGO_ANIMATION__ = Object.freeze({
     ...ponti,
     segnalazione: Object.freeze({
       invioAttivo: () => invoca("segnalazione_invio_attivo"),
-      invia: (o) => invoca("segnala_problema", { errore: o?.errore ?? null, nota: o?.nota ?? null, schermata: !!o?.schermata, pagina: location.pathname + location.hash }),
+      invia: (o) => invoca("segnala_problema", { errore: o?.errore ?? null, nota: o?.nota ?? null, schermata: !!o?.schermata, immagine: o?.immagine ?? null, pagina: location.pathname + location.hash }),
     }),
   });
 })();

@@ -1,5 +1,6 @@
 import builtins
 import json
+import re
 import sys
 import types
 
@@ -52,13 +53,13 @@ def test_ogni_funzione_sceglie_il_suo_posto(tmp_path, monkeypatch):
 def test_dove_scheda_senza_scheda_e_un_errore_e_non_un_ripiego(tmp_path, monkeypatch):
     scrivi_profilo(tmp_path, monkeypatch, {"sagoma": {"dove": "scheda"}})
     scheda(monkeypatch, False)
-    with pytest.raises(Errore, match="«sagoma».*motori.sagoma.dove.*non c'è una scheda NVIDIA.*processore"):
+    with pytest.raises(Errore, match="La mia sagoma sopra le animazioni.*non c'è una scheda NVIDIA.*Processore"):
         modulo.dispositivo("sagoma")
 
 
 def test_dove_scheda_con_la_scheda_esclusa_dalla_macchina_e_un_errore(tmp_path, monkeypatch):
     scrivi_profilo(tmp_path, monkeypatch, {"sagoma": {"dove": "scheda"}}, {"scheda_video": None})
-    with pytest.raises(Errore, match=r"motori.sagoma.dove.*macchina.scheda_video è null"):
+    with pytest.raises(Errore, match=r"La mia sagoma sopra le animazioni.*il tuo profilo la esclude.*Il tuo computer"):
         modulo.dispositivo("sagoma")
 
 
@@ -69,7 +70,7 @@ def test_la_dettatura_segue_il_suo_dove(tmp_path, monkeypatch):
         assert modulo.dispositivo_voce() == atteso
     scrivi_profilo(tmp_path, monkeypatch, {"dettatura": {"dove": "scheda"}})
     monkeypatch.setitem(sys.modules, "ctranslate2", types.SimpleNamespace(get_cuda_device_count=lambda: 0))
-    with pytest.raises(Errore, match="«dettatura».*motori.dettatura.dove"):
+    with pytest.raises(Errore, match="Dove gira la dettatura.*non c'è una scheda NVIDIA"):
         modulo.dispositivo_voce()
 
 
@@ -79,7 +80,7 @@ def test_la_dettatura_spenta_non_parte(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         detta.detta()
     evento = json.loads(capsys.readouterr().out.splitlines()[0])
-    assert evento["fatale"] and "motori.dettatura.attiva" in evento["messaggio"]
+    assert evento["fatale"] and "«Dettatura» in Impostazioni › Generale" in evento["messaggio"]
 
 
 class FasterWhisperFinto:
@@ -103,12 +104,53 @@ def test_modello_e_calcolo_del_profilo_prendono_il_posto_di_quelli_dello_stile(a
     assert finto.chiesti == [("small", {"device": "cpu", "device_index": 0, "compute_type": "float32"})]
 
 
-def test_un_calcolo_che_la_scheda_non_sa_fare_dice_quale_chiave_cambiare(archivio, tmp_path, monkeypatch):
+def test_il_calcolo_scritto_nel_profilo_che_la_scheda_non_sa_fare_e_un_errore_e_non_si_sostituisce(archivio, tmp_path, monkeypatch, calcoli_del_computer, capsys):
     scrivi_profilo(tmp_path, monkeypatch, {"trascrizione": {"dove": "scheda", "calcolo": "float16"}})
     scheda(monkeypatch, True)
-    monkeypatch.setitem(sys.modules, "faster_whisper", FasterWhisperFinto(ValueError("Requested float16 compute type")))
+    calcoli_del_computer["cuda"] = {"int8", "float32"}
+    finto = FasterWhisperFinto()
+    monkeypatch.setitem(sys.modules, "faster_whisper", finto)
     monkeypatch.setattr(prepara, "_voci", {})
-    with pytest.raises(Errore, match="calcolo float16.*questa scheda.*motori.trascrizione.calcolo"):
+    with pytest.raises(Errore, match=r"float16.*float32, int8.*tipo di calcolo della trascrizione"):
+        prepara.modello_voce(archivio.stile)
+    assert finto.chiesti == []
+
+
+def test_senza_un_calcolo_nel_profilo_la_trascrizione_prende_il_primo_che_il_computer_sa_fare_e_lo_dice(archivio, tmp_path, monkeypatch, calcoli_del_computer, capsys):
+    scrivi_profilo(tmp_path, monkeypatch, {"trascrizione": {"dove": "processore"}})
+    calcoli_del_computer["cpu"] = {"float32"}
+    finto = FasterWhisperFinto()
+    monkeypatch.setitem(sys.modules, "faster_whisper", finto)
+    monkeypatch.setattr(prepara, "_voci", {})
+    prepara.modello_voce(archivio.stile)
+    assert finto.chiesti[0][1]["compute_type"] == "float32"
+    assert re.search(r"calcolo float32", capsys.readouterr().err)
+
+
+def test_uno_stile_del_creator_con_un_calcolo_solo_per_dispositivo_vale_come_un_elenco_di_uno(archivio, tmp_path, monkeypatch, calcoli_del_computer):
+    scrivi_profilo(tmp_path, monkeypatch, {"trascrizione": {"dove": "processore"}})
+    calcoli_del_computer["cpu"] = {"int8", "float32"}
+    finto = FasterWhisperFinto()
+    monkeypatch.setitem(sys.modules, "faster_whisper", finto)
+    monkeypatch.setattr(prepara, "_voci", {})
+    stile = {**archivio.stile, "preparati": {**archivio.stile["preparati"], "calcolo_trascrizione": {"cuda": "float16", "cpu": "int8"}}}
+    prepara.modello_voce(stile)
+    assert finto.chiesti[0][1]["compute_type"] == "int8"
+
+
+def test_la_serie_di_stile_sulla_scheda_sceglie_int8_dove_float16_non_va(archivio):
+    preferiti = archivio.stile["preparati"]["calcolo_trascrizione"]["cuda"]
+    pascal, recente = {"int8", "float32"}, {"float16", "int8_float16", "int8", "float32"}
+    assert modulo.scelta_del_calcolo(preferiti, pascal, "x", "x", "x") == "int8"
+    assert modulo.scelta_del_calcolo(preferiti, recente, "x", "x", "x") == "float16"
+
+
+def test_senza_un_calcolo_nel_profilo_e_senza_nessuno_che_il_computer_sappia_fare_l_errore_dice_dove_cambiarli(archivio, tmp_path, monkeypatch, calcoli_del_computer):
+    scrivi_profilo(tmp_path, monkeypatch, {"trascrizione": {"dove": "processore"}})
+    calcoli_del_computer["cpu"] = {"float16"}
+    monkeypatch.setitem(sys.modules, "faster_whisper", FasterWhisperFinto())
+    monkeypatch.setattr(prepara, "_voci", {})
+    with pytest.raises(Errore, match=r"int8, float32.*float16.*stile.json.*calcolo_trascrizione"):
         prepara.modello_voce(archivio.stile)
 
 
@@ -150,8 +192,8 @@ def test_la_trascrizione_spenta_non_scrive_le_parole_e_il_video_che_le_vuole_lo_
     monkeypatch.setattr(prepara, "trascrivi", lambda *a, **k: pytest.fail("la trascrizione è spenta"))
     detto = []
     cartella = prepara.prepara_file(archivio, grezzo, avanza=detto.append)
-    assert not (cartella / "parole.json").exists() and any("trascrizione spenta" in r and "motori.trascrizione.attiva" in r for r in detto)
-    with pytest.raises(Errore, match=r"non ha le parole.*«trascrizione» è spenta nel profilo.*motori.trascrizione.attiva"):
+    assert not (cartella / "parole.json").exists() and any("trascrizione spenta" in r and "«Capire cosa dico» in Impostazioni › Computer" in r for r in detto)
+    with pytest.raises(Errore, match=r"non ha le parole.*la funzione è spenta.*«Capire cosa dico» in Impostazioni › Computer"):
         _ = sorgenti.Sorgente(archivio, "v", "t", {"file": grezzo}, {}).parole
 
 
@@ -180,7 +222,7 @@ def test_la_sagoma_spenta_ferma_il_montaggio_che_ne_vuole_una_nuova(archivio, sc
     file = prepara_sintetico("tempo", PAROLE_TEMPO, sagoma=False)
     scrivi_piano("s", {"quadro": "sagoma-su-animazione", "sorgenti": {"t": {"file": file}}, "sottotitoli": {"modo": "nessuno"},
                        "scene": [{"nome": "s", "animazione": "uno", "pezzi": [{"sorgente": "t", "da": 0.6, "a": 2.4}]}]})
-    with pytest.raises(Errore, match=r"che non l'hanno, ma «sagoma» è spenta nel profilo \(motori.sagoma.attiva\)"):
+    with pytest.raises(Errore, match=r"che non l'hanno, ma la funzione è spenta: accendila con l'interruttore «La mia sagoma sopra le animazioni» in Impostazioni › Computer"):
         monta_con_animazioni(archivio, "s", tmp_path)
 
 
@@ -191,7 +233,7 @@ def test_la_vista_che_segue_spenta_ferma_il_montaggio_che_deve_misurare(archivio
     larga = prepara_sintetico("larga", PAROLE_TEMPO)
     scrivi_piano("s", {"quadro": "girato-pieno", "sorgenti": {"d": {"file": larga, "viste": {"palco": {"taglio": [656, 0, 608, 1080], "segui": True}}}},
                        "scene": [{"nome": "s", "vista": "palco", "pezzi": [{"sorgente": "d", "da": 0.6, "a": 2.4}]}], "sottotitoli": {"modo": "nessuno"}})
-    with pytest.raises(Errore, match=r"segue la persona.*«segui» è spenta nel profilo \(motori.segui.attiva\)"):
+    with pytest.raises(Errore, match=r"segue la persona.*la funzione è spenta.*«Seguire la persona nelle riprese larghe»"):
         monta_con_animazioni(archivio, "s", tmp_path)
 
 
@@ -211,7 +253,7 @@ def test_controlla_con_trascrizione_e_allineamento_spenti_non_li_carica_e_lo_dic
     detto = []
     esito = controlla(archivio, "k", avanza=detto.append)
     assert esito["spente"] == ["allineamento", "trascrizione"] and esito["sentito"] == "" and esito["differenze"] == [] and esito["parole_fuori_posto"] == []
-    assert any("motori.allineamento.attiva" in r and "motori.trascrizione.attiva" in r for r in detto)
+    assert any("«Tagli precisi sulle parole»" in r and "«Capire cosa dico»" in r for r in detto)
 
 
 def test_la_testa_si_misura_solo_negli_intervalli_chiesti_e_le_misure_si_sommano(archivio, fonti, tmp_path, monkeypatch):
@@ -249,7 +291,7 @@ def test_la_trascrizione_senza_memoria_sulla_scheda_dice_cosa_fare_e_non_da_un_t
     scrivi_profilo(tmp_path, monkeypatch, {"trascrizione": {"dove": "processore"}})
     monkeypatch.setitem(sys.modules, "faster_whisper", FasterWhisperFinto(RuntimeError("CUDA failed with error out of memory")))
     monkeypatch.setattr(prepara, "_voci", {})
-    with pytest.raises(Errore, match=r"non ha memoria libera.*trascrizione.*macchina.scheda_video"):
+    with pytest.raises(Errore, match=r"non ha memoria libera.*trascrizione.*Processore"):
         prepara.modello_voce(archivio.stile)
 
 
@@ -258,7 +300,7 @@ def test_lo_scontorno_senza_memoria_sulla_scheda_dice_cosa_fare(archivio, tmp_pa
         raise RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
 
     monkeypatch.setattr(prepara, "scontornatore", apri)
-    with pytest.raises(Errore, match=r"non ha memoria libera.*scontorno.*macchina.scheda_video"):
+    with pytest.raises(Errore, match=r"non ha memoria libera.*scontorno.*Processore"):
         prepara.scontorna_intervalli(tmp_path / "x.mp4", tmp_path / "sagoma", [(0.0, 1.0)], archivio.stile, lambda pezzo: None)
 
 

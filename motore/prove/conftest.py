@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from motore import allinea, dispositivo, profilo, pulizia
+from motore import allinea, dispositivo, prepara, profilo, pulizia
 from motore.archivio import Archivio
 from motore.voce import livello, scrivi_onda, serie
 
@@ -76,6 +76,14 @@ def impostazioni_di_ogni_prova():
 def voce_senza_programma(monkeypatch):
     """Le prove non usano il programma che pulisce la voce: la voce «pulita» è quella vera."""
     monkeypatch.setattr(pulizia, "filtra", lambda grezza, pulita, stile: shutil.copy(grezza, pulita))
+
+
+@pytest.fixture(autouse=True)
+def calcoli_del_computer(monkeypatch):
+    """Le prove non interrogano la scheda: i calcoli che il computer sa fare sono questi, e una prova li cambia nel dizionario che la fixture dà."""
+    sa_fare = {"cuda": {"float16", "int8_float16", "int8", "float32"}, "cpu": {"int8", "float32"}}
+    monkeypatch.setattr(prepara, "calcoli_possibili", lambda dove: sa_fare[dove])
+    return sa_fare
 
 
 @pytest.fixture

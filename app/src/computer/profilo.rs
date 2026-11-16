@@ -1,6 +1,7 @@
 //! Il profilo del creator (`profilo.json` nella cartella dei dati), per la sola sezione `motori` (`docs/MOTORI.md`): quali funzioni pesanti sono accese.
 //! Lo legge l'app per sapere cosa scaricare, e lo scrive quando il creator cambia le funzioni nella pagina d'avvio, prima che il server (che ha `PUT /api/motori`) sia acceso.
 
+use super::manifesto::FUNZIONI;
 use crate::lingua::t;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -36,9 +37,10 @@ pub fn scrivi_funzioni(lavoro: &Path, cambi: &BTreeMap<String, bool>) -> Result<
     if radice.is_empty() {
         radice.insert("versione".into(), json!(1));
     }
-    let motori = radice.entry("motori").or_insert_with(|| Value::Object(Map::new())).as_object_mut().ok_or_else(|| t("«motori» del profilo non è scritto come dovrebbe", "“motori” in the profile is not written the way it should be"))?;
+    let motori = radice.entry("motori").or_insert_with(|| Value::Object(Map::new())).as_object_mut().ok_or_else(|| t("la parte del profilo sui motori del computer non è scritta come dovrebbe", "the part of the profile about the computer engines is not written the way it should be"))?;
     for (funzione, attiva) in cambi {
-        let voce = motori.entry(funzione.as_str()).or_insert_with(|| Value::Object(Map::new())).as_object_mut().ok_or_else(|| t(format!("«motori.{funzione}» del profilo non è scritto come dovrebbe"), format!("“motori.{funzione}” in the profile is not written the way it should be")))?;
+        let nome = FUNZIONI.iter().find(|(f, _, _)| *f == funzione.as_str()).map_or_else(|| funzione.clone(), |(_, it, en)| t(*it, *en));
+        let voce = motori.entry(funzione.as_str()).or_insert_with(|| Value::Object(Map::new())).as_object_mut().ok_or_else(|| t(format!("la parte del profilo su «{nome}» non è scritta come dovrebbe"), format!("the part of the profile about “{nome}” is not written the way it should be")))?;
         voce.insert("attiva".into(), json!(attiva));
     }
     let testo = serde_json::to_string_pretty(&profilo).map_err(|e| e.to_string())? + "\n";
@@ -129,7 +131,12 @@ mod prove {
         std::fs::write(t.path().join("profilo.json"), r#"{ "motori": 3 }"#).unwrap();
         let cambi = BTreeMap::from([("sagoma".to_owned(), false)]);
         let en = crate::lingua::con(crate::lingua::Lingua::En, || scrivi_funzioni(t.path(), &cambi).unwrap_err());
-        assert_eq!(en, "“motori” in the profile is not written the way it should be");
-        assert_eq!(scrivi_funzioni(t.path(), &cambi).unwrap_err(), "«motori» del profilo non è scritto come dovrebbe");
+        assert_eq!(en, "the part of the profile about the computer engines is not written the way it should be");
+        assert_eq!(scrivi_funzioni(t.path(), &cambi).unwrap_err(), "la parte del profilo sui motori del computer non è scritta come dovrebbe");
+
+        std::fs::write(t.path().join("profilo.json"), r#"{ "motori": { "sagoma": 3 } }"#).unwrap();
+        let en = crate::lingua::con(crate::lingua::Lingua::En, || scrivi_funzioni(t.path(), &cambi).unwrap_err());
+        assert_eq!(en, "the part of the profile about “My silhouette over the animations” is not written the way it should be");
+        assert_eq!(scrivi_funzioni(t.path(), &cambi).unwrap_err(), "la parte del profilo su «La mia sagoma sopra le animazioni» non è scritta come dovrebbe");
     }
 }

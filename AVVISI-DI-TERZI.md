@@ -78,7 +78,7 @@ Da `bun.lock`, con la licenza che ogni pacchetto dichiara. Compresi gli strument
 | @anthropic-ai/claude-agent-sdk-win32-x64 | 0.3.316 | SEE LICENSE IN LICENSE.md |
 | @anthropic-ai/sdk | 1.3.0 | Apache-2.0 |
 | @babel/runtime | 7.29.10 | MIT |
-| @hono/node-server | 2.1.5 | MIT |
+| @hono/node-server | 2.1.6 | MIT |
 | @modelcontextprotocol/sdk | 1.32.2 | MIT |
 | @opentelemetry/api | 1.10.0 | Apache-2.0 |
 | @stablelib/base64 | 1.0.1 | MIT |
@@ -117,7 +117,7 @@ Da `bun.lock`, con la licenza che ogni pacchetto dichiara. Compresi gli strument
 | content-type | 2.1.0 | MIT |
 | fast-deep-equal | 3.1.3 | MIT |
 | fast-sha256 | 1.3.0 | Unlicense |
-| fast-uri | 3.1.8 | BSD-3-Clause |
+| fast-uri | 3.1.9 | BSD-3-Clause |
 | finalhandler | 2.1.1 | MIT |
 | forwarded | 0.2.0 | MIT |
 | fresh | 2.0.0 | MIT |
@@ -843,7 +843,6 @@ Da `app/Cargo.lock` (`cargo metadata` per `x86_64-pc-windows-msvc`), con la lice
 | zerotrie | 0.2.5 | Unicode-3.0 |
 | zerovec | 0.11.9 | Unicode-3.0 |
 | zerovec-derive | 0.11.7 | Unicode-3.0 |
-| zip | 2.6.1 | MIT |
 | zip | 9.4.0 | MIT |
 | zlib-rs | 0.6.8 | Zlib |
 | zmij | 1.0.23 | MIT |

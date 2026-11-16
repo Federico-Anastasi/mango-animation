@@ -120,6 +120,8 @@ export interface ConversazioneLetta {
   contestoUsato: ContestoUsato | null
   /** È cominciata con l'avvio del primo giro. */
   primoGiro: boolean
+  /** Il modello con cui girava, nell'`id` dell'elenco dei modelli; `null` se non lo si sa o se non è più offerto. */
+  modello: string | null
 }
 
 /** Come il motore si chiama nelle frasi per il creator. */
@@ -199,8 +201,6 @@ export interface Motore {
   osservaConversazioni?: (alCambio: (id: string) => void) => Promise<{ chiudi: () => void }>
   /** La conversazione è sua. Solo i motori che danno loro l'identificativo alle conversazioni (e le tengono in un registro). */
   eSua?: (id: string) => Promise<boolean>
-  /** Il modello che una sua conversazione ricorda, anche chiusa; `null` se non è sua. Solo con `eSua`. */
-  modelloDi?: (id: string) => Promise<string | null>
 }
 
 /** Ciò che cambia nell'app rispetto al terminale, in testa alle istruzioni di ogni motore. */

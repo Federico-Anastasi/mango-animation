@@ -73,7 +73,7 @@ def test_senza_profilo_chrome_si_cerca_dove_windows_lo_mette(tmp_path, monkeypat
 
 
 def test_chrome_non_in_ascolto_dice_come_aprirlo_e_dove_cambiare_il_profilo(tmp_path):
-    with pytest.raises(Errore, match=r"--remote-debugging-port.*macchina\.profilo_chrome"):
+    with pytest.raises(Errore, match=r"--remote-debugging-port.*Il tuo computer"):
         t.connetti(tmp_path)
     (tmp_path / "DevToolsActivePort").write_text("9222\n/devtools/browser/abc", encoding="utf-8")
     assert t.connetti(tmp_path) == "ws://127.0.0.1:9222/devtools/browser/abc"

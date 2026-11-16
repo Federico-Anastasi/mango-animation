@@ -27,8 +27,13 @@ def scrivi(riga):
         f.write(riga + "\\n")
 scrivi("inizio " + comando + " " + " ".join(args))
 print(comando + " " + " ".join(args), flush=True)
+if comando == "risolvi" and os.path.exists(os.path.join(radice, "risolvi-multiriga")):
+    print("3 tratti da risolvere", file=sys.stderr, flush=True)
+    print("@errore\\nIl piano non va:\\n  la sorgente «a» non c'è\\n  la scena «s» non ha pezzi", file=sys.stderr, flush=True)
+    sys.exit(1)
 if comando == "risolvi" and os.path.exists(os.path.join(radice, "risolvi-rotto")):
     inglese = os.environ.get("MANGO_ANIMATION_LINGUA") == "en"
+    print("@errore", file=sys.stderr, flush=True)
     print("The plan does not resolve: fix it and try again." if inglese else "Il piano non si risolve: correggilo e riprova.", file=sys.stderr, flush=True)
     sys.exit(1)
 if comando == "risolvi":
@@ -53,6 +58,7 @@ elif comando == "prepara-file":
         json.dump([], f)
 elif comando == "prepara":
     inglese = os.environ.get("MANGO_ANIMATION_LINGUA") == "en"
+    print("@errore", file=sys.stderr, flush=True)
     print("The file prova.mp4 is missing: copy it into archivio/grezzo/ and try again." if inglese else "Manca il file prova.mp4: copialo in archivio/grezzo/ e riprova.", file=sys.stderr, flush=True)
     scrivi("fine prepara " + nome)
     sys.exit(1)

@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "required": ["tipo", "origine"],
   "properties": {
-    "tipo": { "enum": ["ripresa", "diretta", "schermo", "altro"] },
+    "tipo": { "enum": ["ripresa", "foto", "diretta", "schermo", "altro"] },
     "origine": { "enum": ["telefono", "registrazione", "scaricato", "altro"] },
     "arrivato": { "type": "string" },
     "durata": { "type": "number", "minimum": 0 },
@@ -26,5 +26,23 @@
     },
     "titolo": { "type": "string" },
     "canale": { "type": "string" }
+  },
+  "x-nomi": {
+    "": {"it": "la scheda del file", "en": "the file's card", "f": true, "dentro": {"it": "nella scheda del file", "en": "in the file's card"}},
+    "tipo": {"it": "il tipo del file", "en": "the type of the file"},
+    "origine": {"it": "l'origine del file", "en": "the origin of the file", "f": true},
+    "arrivato": {"it": "il momento d'arrivo del file", "en": "the arrival time of the file"},
+    "durata": {"it": "la durata del file", "en": "the duration of the file", "f": true},
+    "largo": {"it": "la larghezza del file", "en": "the width of the file", "f": true},
+    "alto": {"it": "l'altezza del file", "en": "the height of the file", "f": true},
+    "fps": {"it": "il numero di fotogrammi al secondo del file", "en": "the frames per second of the file"},
+    "lingua": {"it": "la lingua parlata del file", "en": "the spoken language of the file", "f": true, "forma": {"it": "un codice di due lettere minuscole, per esempio «it» o «en»", "en": "a two-letter code in lowercase, for example «it» or «en»"}},
+    "note": {"it": "il testo delle note del file", "en": "the text of the notes of the file"},
+    "url": {"it": "l'indirizzo da cui viene del file", "en": "the address it comes from of the file"},
+    "tratto": {"it": "il tratto scaricato del file", "en": "the downloaded stretch of the file", "dentro": {"it": "nel tratto scaricato del file", "en": "in the downloaded stretch of the file"}},
+    "tratto/da": {"it": "l'inizio del tratto scaricato", "en": "the start of the downloaded stretch"},
+    "tratto/a": {"it": "la fine del tratto scaricato", "en": "the end of the downloaded stretch", "f": true},
+    "titolo": {"it": "il titolo del video scaricato", "en": "the title of the downloaded video"},
+    "canale": {"it": "il canale del video scaricato", "en": "the channel of the downloaded video"}
   }
 }

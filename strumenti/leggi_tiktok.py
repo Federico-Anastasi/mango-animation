@@ -36,7 +36,7 @@ from motore.archivio import archivio_di_lavoro
 from motore.archivio import scrivi_json as scrivi_json_del_motore
 from motore.errori import Errore
 from motore.profilo import leggi_profilo as profilo_del_creator
-from motore.profilo import macchina_di_lavoro
+from motore.profilo import macchina_di_lavoro, posto
 
 MESI = {"gen": 1, "feb": 2, "mar": 3, "apr": 4, "mag": 5, "giu": 6, "lug": 7, "ago": 8, "set": 9, "ott": 10, "nov": 11, "dic": 12}
 MEDAGLIE = {"K": 1000, "M": 1000000, "B": 1000000000}
@@ -69,8 +69,9 @@ def account_tiktok(lavoro):
     for canale in profilo_del_creator(lavoro).get("canali", []):
         if canale["piattaforma"] == "tiktok" and canale.get("nome"):
             return canale["nome"].lstrip("@")
-    raise Errore('il profilo del creator non dice il suo canale TikTok: aggiungi in profilo.json, in `canali`, {"piattaforma": "tiktok", "nome": "@…"}',
-                 'the profile does not name their TikTok channel: add to profilo.json, in `canali`, {"piattaforma": "tiktok", "nome": "@…"}')
+    it, en = posto("canali")
+    raise Errore(f"il tuo profilo non dice il tuo canale TikTok: aggiungilo ({it}), con la piattaforma TikTok e il nome (@…)",
+                 f"your profile does not name your TikTok channel: add it ({en}), with the platform TikTok and the name (@…)")
 
 
 def indirizzo_profilo(account):
@@ -85,8 +86,9 @@ def riposo(pagina, minimo=1.5, massimo=4.0):
 def connetti(profilo):
     porta_di_debug = Path(profilo) / "DevToolsActivePort"
     if not porta_di_debug.is_file():
-        raise Errore(f"Chrome non è in ascolto nel profilo {profilo}: aprilo con --remote-debugging-port, oppure indica il profilo giusto in profilo.json (macchina.profilo_chrome)",
-                     f"Chrome is not listening in profile {profilo}: open it with --remote-debugging-port, or set the right profile in profilo.json (macchina.profilo_chrome)")
+        it, en = posto("macchina/profilo_chrome")
+        raise Errore(f"Chrome non è in ascolto nella cartella {profilo}: aprilo con --remote-debugging-port, oppure indica la cartella giusta del profilo di Chrome ({it})",
+                     f"Chrome is not listening in the folder {profilo}: open it with --remote-debugging-port, or give the right Chrome profile folder ({en})")
     porta, percorso = porta_di_debug.read_text().split()
     return f"ws://127.0.0.1:{porta}{percorso}"
 

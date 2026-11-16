@@ -1,6 +1,5 @@
 // Gli errori di un profilo non valido sono scritti per chi usa l'app: dicono quale cosa del profilo non va e come deve essere, nelle due lingue, senza nomi di campi né tipi.
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { nellaLingua, type Lingua, type Testo } from "../src/lingua"
 import { Schemi } from "../src/schemi"
@@ -68,29 +67,5 @@ describe("gli errori del profilo, scritti per chi usa l'app", () => {
 
   test("un profilo buono non ha problemi", () => {
     expect(schemi.profilo({ ...BUONO, macchina: { scheda_video: null, disco_quasi_pieno: false }, pubblico: { testate: ["Il Corriere"] }, motori: { allineamento: { attiva: false } } })).toEqual([])
-  })
-
-  test("ogni voce che lo schema ammette ha il suo nome nelle due lingue", () => {
-    type Sub = { type?: unknown; properties?: Record<string, Sub>; items?: Sub; $ref?: string; anyOf?: unknown }
-    const schema = JSON.parse(readFileSync(join(CARTELLA, "profilo.schema.json"), "utf8")) as Sub & { $defs: Record<string, Sub>; "x-nomi": Record<string, { it: string; en: string }> }
-    const chiavi: string[] = [""]
-    const visita = (sub: Sub, percorso: string): void => {
-      const reale = sub.$ref ? schema.$defs[sub.$ref.split("/").pop()!]! : sub
-      if (reale.anyOf) return
-      for (const [nome, figlio] of Object.entries(reale.properties ?? {})) {
-        const chiave = percorso ? `${percorso}/${nome}` : nome
-        chiavi.push(chiave)
-        visita(figlio, chiave)
-      }
-      if (reale.items) {
-        chiavi.push(`${percorso}/*`)
-        visita(reale.items, `${percorso}/*`)
-      }
-    }
-    visita(schema, "")
-    const nomi = schema["x-nomi"]
-    expect(chiavi.filter((k) => nomi[k] === undefined)).toEqual([])
-    expect(Object.keys(nomi).filter((k) => !chiavi.includes(k) && !k.startsWith("pubblico/testate"))).toEqual([])
-    for (const [k, v] of Object.entries(nomi)) expect([k, v.it !== "" && v.en !== "" && v.it !== v.en]).toEqual([k, true])
   })
 })

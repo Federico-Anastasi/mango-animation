@@ -292,7 +292,7 @@ def test_un_calcolo_che_il_computer_non_sa_fare_e_un_errore_che_dice_cosa_cambia
 def test_scheda_piena_modello_non_trovato_e_pacchetto_mancante_hanno_la_loro_frase(monkeypatch, modello_finto):
     finto_ctranslate2(monkeypatch, schede=1)
     modello_finto.errore = RuntimeError("CUDA failed with error out of memory")
-    with pytest.raises(Errore, match=r"non ha memoria libera.*macchina.scheda_video"):
+    with pytest.raises(Errore, match=r"non ha memoria libera.*Processore"):
         modulo.carica(CFG)
     modello_finto.errore = OSError("rete assente")
     with pytest.raises(Errore, match=r"non si trova e non si riesce a scaricarlo.*rete"):
@@ -377,18 +377,18 @@ def test_le_librerie_di_cuda_si_rendono_trovabili_prima_di_caricare_il_modello(m
 def test_una_libreria_di_cuda_che_non_si_carica_e_un_errore_che_dice_cosa_fare_non_un_traceback(monkeypatch, modello_finto):
     finto_ctranslate2(monkeypatch, schede=1)
     modello_finto.errore_alla_prova = RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
-    with pytest.raises(Errore, match=r"scheda video.*cublas64_12\.dll.*macchina.scheda_video") as e:
+    with pytest.raises(Errore, match=r"scheda video.*cublas64_12\.dll.*Processore") as e:
         modulo.carica(CFG)
     assert "Traceback" not in str(e.value) and "RuntimeError" not in str(e.value)
     monkeypatch.setenv("MANGO_ANIMATION_LINGUA", "en")
-    with pytest.raises(Errore, match=r"video card.*cublas64_12\.dll.*macchina.scheda_video"):
+    with pytest.raises(Errore, match=r"video card.*cublas64_12\.dll.*Processor"):
         modulo.carica(CFG)
 
 
 def test_la_scheda_che_non_ha_memoria_per_la_prima_trascrizione_dice_la_frase_della_memoria(monkeypatch, modello_finto):
     finto_ctranslate2(monkeypatch, schede=1)
     modello_finto.errore_alla_prova = RuntimeError("CUDA failed with error out of memory")
-    with pytest.raises(Errore, match=r"non ha memoria libera.*macchina.scheda_video"):
+    with pytest.raises(Errore, match=r"non ha memoria libera.*Processore"):
         modulo.carica(CFG)
 
 

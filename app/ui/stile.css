@@ -150,6 +150,9 @@ button.principale {
 button.principale:hover { filter: brightness(1.06); }
 button.minore { color: var(--mango-text-muted); background: transparent; border-color: transparent; }
 button.minore:hover { color: var(--mango-text); }
+button.distrugge { color: var(--mango-error); background: transparent; border-color: transparent; }
+.cosa.poco { color: var(--mango-error); }
+#segnala-immagine-file { max-width: 14ch; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 button:disabled { opacity: 0.45; cursor: default; }
 button:disabled:hover { border-color: var(--mango-line); filter: none; }
 

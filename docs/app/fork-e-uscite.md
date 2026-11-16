@@ -9,7 +9,7 @@ Per chi pubblica una versione o mantiene un fork. Come si costruisce l'installat
   3. la costruzione, `costruisci.ts --senza-firma`, senza segreti;
   4. la firma, `costruisci.ts --solo-firma`: è il solo passo che riceve i segreti, e se mancano il workflow si ferma qui, perché un'uscita senza firma non si pubblica;
   5. la verifica della firma con la chiave pubblica di `tauri.conf.json` (`installer/verifica-firma-tauri.mjs`);
-  6. `latest.json` (`installer/pubblica.ts --versione <v> --indirizzo <dove sarà scaricabile l'installatore> --note-file <note>`: versione, firma, indirizzo, e come note l'elenco «Changed since …» in testo semplice; nell'indirizzo il nome del file è quello che GitHub gli dà, coi punti al posto degli spazi);
+  6. `latest.json` (`installer/pubblica.ts --versione <v> --indirizzo <dove sarà scaricabile l'installatore>`: versione, firma e indirizzo, senza note; nell'indirizzo il nome del file è quello che GitHub gli dà, coi punti al posto degli spazi);
   7. l'uscita **in bozza** con installatore, `.sig` e `latest.json`; solo se i tre file risultano caricati, della dimensione che hanno in locale, la bozza si pubblica (una `-rc.N` come pre-release, senza diventare «l'ultima»). Chi ha l'app non vede mai un'uscita a metà; se il controllo non torna la bozza resta in GitHub e il passo fallisce.
 
   `https://github.com/Federico-Anastasi/mango-animation/releases/latest/download/latest.json` è l'indirizzo che l'app interroga: `plugins.updater.endpoints` in `tauri.conf.json`. Il commit pubblico che porta il tag si prepara con `installer/albero-pubblico.mjs`

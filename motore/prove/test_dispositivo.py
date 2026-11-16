@@ -97,13 +97,13 @@ def test_il_profilo_puo_chiedere_il_processore(tmp_path, monkeypatch, capsys):
     profilo(tmp_path, monkeypatch, {"scheda_video": None})
     monkeypatch.setattr(modulo, "cuda_disponibile", lambda: pytest.fail("non serve chiedere se c'è una scheda"))
     assert modulo.dispositivo("trascrizione") == "cpu"
-    assert "macchina.scheda_video" in capsys.readouterr().err
+    assert "Il tuo computer" in capsys.readouterr().err
 
 
 def test_una_scheda_del_profilo_che_non_c_e_e_un_errore_non_un_ripiego(tmp_path, monkeypatch):
     profilo(tmp_path, monkeypatch, {"scheda_video": 3})
     con_scheda(monkeypatch, False)
-    with pytest.raises(Errore, match="scheda video 3.*macchina.scheda_video"):
+    with pytest.raises(Errore, match="scheda video numero 3.*Il tuo computer"):
         modulo.dispositivo("trascrizione")
 
 

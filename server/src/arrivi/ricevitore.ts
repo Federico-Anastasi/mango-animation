@@ -134,7 +134,7 @@ const SUFFISSO_ATTESA = /\.[0-9a-f]{8}\.attesa$/
 export interface ContestoColloca {
   percorsi: Percorsi
   ffprobe: string | null
-  /** Cosa dice la scheda di un file che arriva: di base una ripresa dal telefono. */
+  /** Cosa dice la scheda di un file che arriva: di base una ripresa dal telefono. Un'immagine è sempre una foto. */
   scheda?: { tipo: string; origine: string }
   registra: (riga: Record<string, unknown>) => Promise<void>
   collocato: (arrivo: Arrivo) => Promise<void>
@@ -149,7 +149,7 @@ export async function collocaArrivo(c: ContestoColloca, atteso: Atteso): Promise
   await mkdir(cartella, { recursive: true })
   const nome = await nomeLibero(cartella, atteso.nome)
   // La scheda prima del file: chi guarda la cartella non vede mai un file del telefono senza la sua scheda.
-  await scrivi(join(cartella, `${nome}.scheda.json`), testoJson({ ...(c.scheda ?? { tipo: "ripresa", origine: "telefono" }), arrivato: isoLocale(atteso.quando), note: "", ...lettura?.misure }))
+  await scrivi(join(cartella, `${nome}.scheda.json`), testoJson({ ...(c.scheda ?? { tipo: "ripresa", origine: "telefono" }), ...(tipoDi(atteso.nome) === "immagine" && { tipo: "foto" }), arrivato: isoLocale(atteso.quando), note: "", ...lettura?.misure }))
   await rinomina(percorso, join(cartella, nome))
   const arrivo = { file: `${giorno}/${nome}`, quando: atteso.quando.toISOString(), byte: atteso.byte }
   await c.registra({ esito: "collocato", ...arrivo })

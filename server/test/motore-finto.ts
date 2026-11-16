@@ -123,14 +123,9 @@ export class MotoreFinto implements Motore {
 
   eSua = (id: string): Promise<boolean> => this.registro.eSua(id)
 
-  modelloDi = async (id: string): Promise<string | null> => {
-    const ricordo = await this.registro.di(id)
-    return ricordo ? `${PREFISSO}${ricordo.modello}` : null
-  }
-
   leggi: Motore["leggi"] = async (id): Promise<ConversazioneLetta | null> => {
     const ricordo = await this.registro.di(id)
     if (!ricordo) return null
-    return { messaggi: [{ id: "m1", ruolo: "utente", quando: new Date(ricordo.aggiornata).toISOString(), parti: [{ tipo: "testo", testo: ricordo.titolo }] }], contestoUsato: null, primoGiro: false }
+    return { messaggi: [{ id: "m1", ruolo: "utente", quando: new Date(ricordo.aggiornata).toISOString(), parti: [{ tipo: "testo", testo: ricordo.titolo }] }], contestoUsato: null, primoGiro: false, modello: `${PREFISSO}${ricordo.modello}` }
   }
 }

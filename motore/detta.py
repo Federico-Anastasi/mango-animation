@@ -8,7 +8,7 @@ import threading
 import numpy as np
 
 from .archivio import REPO, VARIABILE_LAVORO, leggi_stile
-from .dispositivo import dispositivo_voce, errore_di_libreria_cuda, errore_di_memoria, librerie_cuda, prova_della_scheda
+from .dispositivo import calcoli_possibili, dispositivo_voce, errore_di_libreria_cuda, errore_di_memoria, librerie_cuda, prova_della_scheda, scelta_del_calcolo
 from .errori import Errore, dice
 from .media import FREQUENZA
 from .profilo import richiedi
@@ -148,22 +148,11 @@ def servi(ingresso, frasi):
             return
 
 
-def scelta_del_calcolo(preferiti, dove):
-    import ctranslate2
-
-    ammessi = ctranslate2.get_supported_compute_types(dove)
-    scelto = next((c for c in preferiti if c in ammessi), None)
-    if scelto is None:
-        raise Errore(f"questo computer non sa fare i calcoli {', '.join(preferiti)} per la dettatura (sa fare: {', '.join(sorted(ammessi))}): cambiali in stile.json, dettatura.dispositivi.{dove}.calcolo",
-                     f"this computer cannot do the {', '.join(preferiti)} computations for dictation (it can do: {', '.join(sorted(ammessi))}): change them in stile.json, dettatura.dispositivi.{dove}.calcolo")
-    return scelto
-
-
 def carica(cfg):
     """Il modello della dettatura sulla scheda NVIDIA (quella del profilo, `dispositivo_voce`), o sul processore se non c'è: dice cosa ha scelto."""
     dove = dispositivo_voce()
     d = cfg["dispositivi"][dove]
-    calcolo = scelta_del_calcolo(d["calcolo"], dove)
+    calcolo = scelta_del_calcolo(d["calcolo"], calcoli_possibili(dove), "la dettatura", "dictation", (f"in stile.json, dettatura.dispositivi.{dove}.calcolo",) * 2)
     if dove == "cuda":
         librerie_cuda()
     try:

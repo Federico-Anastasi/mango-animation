@@ -10,12 +10,12 @@ from contextlib import suppress
 import numpy as np
 
 from .archivio import leggi_json, scrivi_con, scrivi_json
-from .dispositivo import dispositivo, errore_di_libreria_cuda, errore_di_memoria, librerie_cuda, prova_della_scheda
+from .dispositivo import calcoli_possibili, dispositivo, errore_di_libreria_cuda, errore_di_memoria, librerie_cuda, prova_della_scheda, scelta_del_calcolo
 from .errori import Errore, dice
 from .foto import e_foto, prepara_foto
 from .media import FREQUENZA, ffmpeg, info, pcm_16k
 from .persona import Visi
-from .profilo import attiva, motore, richiedi
+from .profilo import attiva, motore, posto, richiedi
 from .sagoma import copre, formato_della_sagoma, pezzi_della_sagoma
 from .voce import leggi_onda, scrivi_onda
 
@@ -28,8 +28,9 @@ def _lato_lungo(lato):
 
 
 def modello_voce(stile):
-    """Il modello che sente le parole, caricato una volta sola per processo, sulla scheda 0 o sul processore. Modello e calcolo sono quelli di `motori.trascrizione`
-    del profilo, se li dice, altrimenti quelli dello stile."""
+    """Il modello che sente le parole, caricato una volta sola per processo, sulla scheda 0 o sul processore, e dice su stderr quale calcolo ha scelto. Modello e calcolo sono
+    quelli di `motori.trascrizione` del profilo, se li dice (un calcolo scritto nel profilo che il computer non sa fare è un errore), altrimenti il modello dello stile e il
+    primo calcolo dei suoi preferiti che il computer sa fare."""
     dove = dispositivo("trascrizione")
     if dove not in _voci:
         if dove == "cuda":
@@ -40,7 +41,12 @@ def modello_voce(stile):
         from faster_whisper import WhisperModel
 
         p, m = stile["preparati"], motore("trascrizione")
-        nome, calcolo = m.get("modello", p["modello_trascrizione"]), m.get("calcolo", p["calcolo_trascrizione"][dove])
+        nome = m.get("modello", p["modello_trascrizione"])
+        dello_stile = p["calcolo_trascrizione"][dove]
+        preferiti, dove_cambiarli = ([m["calcolo"]], posto("motori/trascrizione/calcolo")) if "calcolo" in m else ([dello_stile] if isinstance(dello_stile, str) else dello_stile, (f"in stile.json, preparati.calcolo_trascrizione.{dove}",) * 2)
+        calcolo = scelta_del_calcolo(preferiti, calcoli_possibili(dove), "la trascrizione", "transcription", dove_cambiarli)
+        print(dice(f"trascrizione: modello {nome} {'sulla scheda' if dove == 'cuda' else 'sul processore'}, calcolo {calcolo}",
+                   f"transcription: model {nome} {'on the card' if dove == 'cuda' else 'on the processor'}, computation {calcolo}"), file=sys.stderr)
         try:
             modello = WhisperModel(nome, device=dove, device_index=0, compute_type=calcolo)
             if dove == "cuda":
@@ -50,9 +56,6 @@ def modello_voce(stile):
             if errore := errore_di_memoria(e, f"il modello di trascrizione «{nome}»", f"the transcription model «{nome}»") or errore_di_libreria_cuda(e):
                 raise errore from e
             raise
-        except ValueError as e:
-            raise Errore(f"la trascrizione non può usare il calcolo {calcolo} su {'questa scheda' if dove == 'cuda' else 'questo processore'} ({e}): cambia motori.trascrizione.calcolo nel profilo",
-                         f"the transcription cannot use the computation {calcolo} on {'this card' if dove == 'cuda' else 'this processor'} ({e}): change motori.trascrizione.calcolo in the profile") from e
         except OSError as e:
             raise Errore(f"il modello di trascrizione «{nome}» non si trova e non si riesce a scaricarlo (la prima volta serve la rete): {e}",
                          f"the transcription model «{nome}» cannot be found and cannot be downloaded (the first time the network is needed): {e}") from e
@@ -307,7 +310,8 @@ def prepara_file(archivio, file, avanza=print, nomi=(), ritrascrivi=False):
         scrivi_con(cartella / "leggero.mp4", lambda dest: ffmpeg("-i", sorgente, "-vf", _lato_lungo(p["lato_leggero"]), "-c:v", "libx264", "-preset", "veryfast", "-crf", p["crf_leggero"],
                                                                  "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", "-f", "mp4", "-y", dest))
     if formato["ha_audio"] and not attiva("trascrizione") and not (cartella / "parole.json").exists():
-        avanza(dice(f"{file}: trascrizione spenta nel profilo (motori.trascrizione.attiva): niente parole", f"{file}: transcription turned off in the profile (motori.trascrizione.attiva): no words"))
+        it, en = posto("motori/trascrizione/attiva")
+        avanza(dice(f"{file}: trascrizione spenta ({it}): niente parole", f"{file}: transcription switched off ({en}): no words"))
     elif formato["ha_audio"] and not (cartella / "parole.json").exists():
         avanza(dice(f"{file}: trascrizione", f"{file}: transcription"))
         parole, righe = trascrivi(sorgente, stile, nomi, lingua=lingua_del_file(sorgente))

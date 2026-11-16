@@ -131,14 +131,14 @@ export async function scarica(c: ContestoScarico, richiesta: RichiestaScarico, i
   const cartella = join(c.cartellaScarichi, randomUUID().slice(0, 8))
   await mkdir(cartella, { recursive: true })
   try {
-    const { codice, ultimoErrore } = await io.lancia([...c.ytdlp, ...argomentiYtdlp(richiesta, c.misure, join(cartella, `${NOME_D_APPOGGIO}.%(ext)s`))])
+    const { codice, errore } = await io.lancia([...c.ytdlp, ...argomentiYtdlp(richiesta, c.misure, join(cartella, `${NOME_D_APPOGGIO}.%(ext)s`))])
     if (io.fermato()) return
     if (codice !== 0) {
-      if (ultimoErrore === null) io.riga(nellaLinguaDi(frase(`yt-dlp è uscito con codice ${codice}.`, `yt-dlp exited with code ${codice}.`), io.lingua))
+      if (errore === null) io.riga(nellaLinguaDi(frase(`yt-dlp è uscito con codice ${codice}.`, `yt-dlp exited with code ${codice}.`), io.lingua))
       throw new ErroreConFrase(
-        ultimoErrore === null
+        errore === null
           ? frase("Lo scarico non è riuscito: guarda le ultime righe del lavoro.", "The download did not work: look at the last lines of the job.")
-          : frase(`Lo scarico non è riuscito: ${ultimoErrore}`, `The download did not work: ${ultimoErrore}`),
+          : frase(`Lo scarico non è riuscito: ${errore}`, `The download did not work: ${errore}`),
       )
     }
     const video = join(cartella, `${NOME_D_APPOGGIO}.mp4`)

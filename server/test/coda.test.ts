@@ -93,6 +93,16 @@ describe("la coda dei lavori", () => {
     expect(new Date(riuscito!.finito).getTime()).toBeGreaterThanOrEqual(new Date(riuscito!.iniziato).getTime())
   })
 
+  test("l'errore di un lavoro del motore è tutto ciò che scrive dopo la riga @errore: i problemi di un piano restano tutti, l'avanzamento no", async () => {
+    const a = await conDueVideo()
+    await writeFile(join(a.radice, "risolvi-multiriga"), "")
+    await metti(a, "v", "risolvi")
+    await aspetta(async () => (await lavori(a)).finiti.length === 1)
+    const [fallito] = (await lavori(a)).finiti
+    expect(fallito).toMatchObject({ comando: "risolvi", esito: "fallito", errore: "Il piano non va:\n  la sorgente «a» non c'è\n  la scena «s» non ha pezzi" })
+    expect(fallito!.righe).toEqual(["risolvi v", "3 tratti da risolvere", "Il piano non va:", "  la sorgente «a» non c'è", "  la scena «s» non ha pezzi"])
+  })
+
   test("un comando che esce con errore senza dire perché: la frase non ha numeri, il codice d'uscita sta nelle righe del lavoro", async () => {
     const a = await conDueVideo()
     await chiama(a, "POST", "/api/video/v/lavori", { comando: "copertina", disegno: "disegno.png" })
@@ -655,7 +665,15 @@ describe("la coda dei lavori", () => {
         expect(await chiamate(a)).toEqual(["inizio anteprima v --da 3.5 --a 9"])
       })
 
-      test("l'anteprima vuole la scena oppure i due istanti, mai altro", async () => {
+      test("l'anteprima di un fotogramma passa --foto al motore", async () => {
+        const a = await conDueVideo()
+        expect((await lancia(a, { comando: "anteprima", secondo: 2.5 })).stato).toBe(202)
+        await aspetta(async () => (await lavori(a)).finiti.length === 1)
+        expect(await chiamate(a)).toEqual(["inizio anteprima v --foto 2.5"])
+        expect((await lavori(a)).finiti[0]).toMatchObject({ comando: "anteprima", secondi_video: null })
+      })
+
+      test("l'anteprima vuole la scena, o i due istanti, o il secondo di un fotogramma: una cosa sola", async () => {
         const a = await conDueVideo()
         const casi: [object, string][] = [
           [{ comando: "anteprima" }, "scena"],
@@ -664,7 +682,11 @@ describe("la coda dei lavori", () => {
           [{ comando: "anteprima", da: 5, a: 5 }, "dopo"],
           [{ comando: "anteprima", da: -1, a: 5 }, "da"],
           [{ comando: "anteprima", da: "3", a: 5 }, "numeri"],
-          [{ comando: "anteprima", scena: "x", da: 1, a: 2 }, "o la scena o"],
+          [{ comando: "anteprima", scena: "x", da: 1, a: 2 }, "una cosa sola"],
+          [{ comando: "anteprima", scena: "x", secondo: 1 }, "una cosa sola"],
+          [{ comando: "anteprima", da: 1, a: 2, secondo: 1 }, "una cosa sola"],
+          [{ comando: "anteprima", secondo: -1 }, "secondo"],
+          [{ comando: "anteprima", secondo: "3" }, "numero"],
           [{ comando: "anteprima", scena: "" }, "scena"],
           [{ comando: "anteprima", scena: "--da" }, "scena"],
         ]
@@ -700,6 +722,7 @@ describe("la coda dei lavori", () => {
         expect(r.errore).toContain("scena")
         expect(r.errore).toContain("anteprima")
         expect((await lancia(a, { comando: "anteprima", scena: "x", disegno: "d.png" })).stato).toBe(400)
+        expect((await lancia(a, { comando: "monta", secondo: 3 })).errore).toContain("anteprima")
         expect(await chiamate(a)).toEqual([])
       })
     })

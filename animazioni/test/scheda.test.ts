@@ -17,12 +17,12 @@ describe("la scheda su cui il browser disegna", () => {
 
   test("senza schede o con null nel profilo, il processore, e dice perché", () => {
     expect(scegliScheda({}, [])).toMatchObject({ processore: expect.stringContaining("nessuna scheda NVIDIA") });
-    expect(scegliScheda({ profilo: null }, schede)).toMatchObject({ processore: expect.stringContaining("macchina.scheda_video") });
+    expect(scegliScheda({ profilo: null }, schede)).toMatchObject({ processore: expect.stringContaining("Il tuo computer") });
   });
 
   test("una scheda del profilo che non c'è ferma la resa: nessun ripiego", () => {
-    expect(() => scegliScheda({ profilo: 5 }, schede)).toThrow("scheda video 5");
-    expect(() => scegliScheda({ profilo: 0 }, [])).toThrow("scheda video 0");
+    expect(() => scegliScheda({ profilo: 5 }, schede)).toThrow("scheda video numero 5");
+    expect(() => scegliScheda({ profilo: 0 }, [])).toThrow("scheda video numero 0");
   });
 
   test("ANIMAZIONI_SCHEDA, un pezzo del nome, vince sul profilo; «processore» anche", () => {

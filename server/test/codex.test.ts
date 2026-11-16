@@ -871,6 +871,28 @@ describe("l'elenco che si aggiorna da sé", () => {
     ascolto.chiudi()
   })
 
+  test("se la cartella dei thread nasce dopo l'avvio, l'elenco si aggiorna da sé dal momento in cui nasce", async () => {
+    const b = await avvia()
+    const casa = join(b.radice, "casa-di-codex")
+    await mkdir(casa, { recursive: true })
+    b.cliente.casa = casa
+    expect((await chiama<{ id: string }[]>(b.a, "GET", "/api/chat")).corpo).toEqual([])
+    const ascolto = await ascolta(b.a)
+
+    // Il file arriva subito dopo la cartella: l'elenco lo vede anche se è nato prima che si cominciasse a guardare dentro.
+    b.cliente.risposte.set("thread/list", () => ({ data: [delTerminale], nextCursor: null }))
+    await mkdir(join(casa, "sessions", "2026", "11", "13"), { recursive: true })
+    await writeFile(file(casa, TERMINALE), "{}\n")
+    await aspetta(() => eventiElenco(ascolto, TERMINALE).length > 0)
+    expect((await chiama<{ id: string }[]>(b.a, "GET", "/api/chat")).corpo.map((v) => v.id)).toEqual([TERMINALE])
+
+    // Da lì si guarda dentro la cartella come se ci fosse sempre stata.
+    const prima = eventiElenco(ascolto, TERMINALE).length
+    await writeFile(file(casa, TERMINALE), "{}\n{}\n")
+    await aspetta(() => eventiElenco(ascolto, TERMINALE).length > prima)
+    ascolto.chiudi()
+  })
+
   test("se la cartella dei thread non c'è, o Codex non dice dov'è, l'elenco resta com'era e una riga va nel registro del server", async () => {
     const senzaCartella = await avvia()
     senzaCartella.cliente.casa = join(senzaCartella.radice, "casa-che-non-c-e")

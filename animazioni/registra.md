@@ -10,6 +10,7 @@ Da `animazioni/` (o con `bun run --cwd animazioni …` dalla radice del repo).
 | `bun run dev` | sfoglia le scene nel browser, per video: `?animazione=<sigla>`, spazio avvia e ferma, ← → di mezzo secondo, Inizio e Fine |
 | `bun run build` | typecheck e pagina costruita in `dist/` |
 | `bun run registra -- --tempi <tempi.json> --uscita <cartella>` | una `<sigla>.mp4` per ogni scena del file di tempi, nella cartella |
+| `bun run registra -- --tempi <tempi.json> --uscita <cartella> --foto <secondo>` | un solo fotogramma per scena, al secondo del video che cade nella scena: `<sigla>.foto.png` (con l'alfa, se la scena è trasparente) |
 | `bun run registra -- [--uscita <cartella>] [sigla …]` | le scene date (senza sigle: tutte) coi loro tempi propri; senza `--uscita`, in `video/` |
 | `bun run foto -- [sigla …]` | i fotogrammi chiave in `foto/<sigla>-<t>s.png`, più `<sigla>-riquadri.png` con dove entrano testa e sottotitoli |
 | `bun run mappa -- <slug> […]` | `mappe/mappa-<slug>.png`: la mappa da tenere davanti mentre si registra |
@@ -31,5 +32,7 @@ loro: per rifarsi da sola ha il suo file `<sigla>.tsx`.
 
 **`foto` esce con 1** se, in un fotogramma chiave, un testo è sotto i 40 px, un testo o un disegno esce dalla
 fascia della scena, un testo esce dal suo riquadro html (su un testo svg la misura non vale), o **lo sfondo resta fermo**: due fotogrammi a un secondo di
-distanza identici, prima dell'ultimo secondo (la segnalazione dice sigla e istanti; non per una scena trasparente). In un video orizzontale la fascia
+distanza identici, prima dell'ultimo secondo (la segnalazione dice sigla e istanti; non per una scena trasparente). Il rapporto va su stdout: il percorso di ogni
+fotogramma e, se c'è qualcosa che non va, la riga `@controlli` seguita da una riga `- …` per segnalazione, nella lingua del lavoro (`MANGO_ANIMATION_LINGUA`); chi lo legge
+riconosce le segnalazioni da quella riga, non dalle frasi. In un video orizzontale la fascia
 è tutto il fotogramma e la foto coi riquadri non si fa.
